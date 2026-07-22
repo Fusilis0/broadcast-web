@@ -4,9 +4,10 @@
 **Session role:** BW
 
 ## Current phase
-Phase 0 — **scaffold green**.  
-Done: 0.1 docs, 0.3 Vite/Three, 0.4 folders, 0.7 config stubs.  
-Remaining Phase 0: 0.5 stub HUD (SCN), 0.6 EGM96 (GEO), 0.2 GitHub remote (optional).
+Phase 0 — **scaffold green** + **GitHub remote live**.  
+Done: 0.1 docs, 0.2 private repo push, 0.3 Vite/Three, 0.4 folders, 0.7 config stubs.  
+Remaining Phase 0: 0.5 stub HUD (SCN), 0.6 EGM96 (GEO worker in flight).  
+Remote: https://github.com/Fusilis0/broadcast-web (private) — account **Fusilis0**
 
 ## Locked decisions
 - Project name: `broadcast-web`

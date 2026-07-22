@@ -12,7 +12,7 @@
 | # | Work | Owner | Gate |
 | --- | --- | --- | --- |
 | 0.1 | Agentic docs + rules (this pack) | BW | **Done** |
-| 0.2 | Local git; later private `fusilis/broadcast-web` | PLT / human | Remote optional |
+| 0.2 | Local git; private GitHub `Fusilis0/broadcast-web` | PLT / human / BW | **Done** (2026-07-22) |
 | 0.3 | Vite + TS + Three scaffold | PLT → worker | **Done** (`npm run dev` OK) |
 | 0.4 | Folder layout per architecture | PLT | **Done** |
 | 0.5 | Stub HUD (mock/live toggle placeholder, status text) | SCN+PLT light | Visible DOM stub |
