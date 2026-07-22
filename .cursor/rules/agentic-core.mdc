@@ -1,0 +1,16 @@
+---
+description: Core agentic rules for broadcast-web (all sessions)
+alwaysApply: true
+---
+
+# broadcast-web agentic core
+
+- Read `docs/agentic/RULES.md` and `docs/agentic/ORCHESTRATORS.md` when acting as any orchestrator or unsure of role.
+- **Orchestrator chats do not implement** application code under `src/`. They plan, write dispatches, handoffs, and memos only.
+- **Workers** implement exactly one dispatch in a separate chat.
+- Wrong domain → refuse, name correct orchestrator ID, do not silently implement.
+- Update the relevant `docs/agentic/memos/<ID>_MEMO.md` after decisions / dispatches / handoffs.
+- English for all agentic docs and dispatches.
+- No in-browser NDI; no Electron SPA. Output priority: chroma → WebRTC underlay → egress → native NDI helper last.
+- Console repo: do not clone/pull unless BW memo explicitly opens that phase.
+- Unity `../broadcast` is read-only reference unless a dispatch says otherwise.

@@ -1,0 +1,10 @@
+{
+  "telemetryMode": "mock",
+  "wsUrl": "",
+  "origin": {
+    "lat": 0,
+    "lon": 0,
+    "altMsl": 0
+  },
+  "outputMode": "preview"
+}

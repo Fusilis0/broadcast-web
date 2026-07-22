@@ -1,0 +1,121 @@
+# Phases Roadmap — broadcast-web
+
+**Owner:** BW  
+**Update memos when a phase gate passes.**
+
+---
+
+## Phase 0 — Foundations (docs + scaffold)
+
+**Goal:** Repo structure, agentic system, runnable empty Three canvas.
+
+| # | Work | Owner | Gate |
+| --- | --- | --- | --- |
+| 0.1 | Agentic docs + rules (this pack) | BW | **Done** |
+| 0.2 | Local git; later private `fusilis/broadcast-web` | PLT / human | Remote optional |
+| 0.3 | Vite + TS + Three scaffold | PLT → worker | **Done** (`npm run dev` OK) |
+| 0.4 | Folder layout per architecture | PLT | **Done** |
+| 0.5 | Stub HUD (mock/live toggle placeholder, status text) | SCN+PLT light | Visible DOM stub |
+| 0.6 | Copy EGM96 into `public/` | GEO/PLT worker | File served |
+| 0.7 | `config.json` + `.env.example` | PLT | **Done** |
+
+**Exit:** Empty scene runs locally; agentic system usable. *(scaffold exit met; HUD + EGM96 still open)*
+
+## Current phase pointer
+
+**Active:** Phase 0 remaining (0.5 HUD, 0.6 EGM96) **in parallel with** Phase 1 spine start (**GEO** + **TEL**).  
+**Last gate:** DSP-PLT-20260722-01 accepted (2026-07-22).
+
+---
+
+## Phase 1 — Spine (geo + telemetry + one camera/boat)
+
+**Goal:** Typed telemetry → ENU → one drone camera + one boat. Mock first.
+
+| # | Work | Owner |
+| --- | --- | --- |
+| 1.1 | Port GeoOrigin / GeoUtils + tests | GEO |
+| 1.2 | Port EGM96 loader | GEO |
+| 1.3 | DTO + router + mock source | TEL |
+| 1.4 | Replay fixture format | TEL |
+| 1.5 | Pose apply + midpoint lerp | GEO+CAL+SCN |
+| 1.6 | FOV default 66.8832° h | CAL/SCN |
+| 1.7 | Simple 2D map for correction | SCN |
+| 1.8 | Human offset sliders (basic) | CAL |
+| 1.9 | Live switch wired but off by default | TEL |
+
+**Exit (Version 1 spine / Milestone A):** Mock boat+drone move correctly; geodesy tests green; 2D map shows fleet point.
+
+**Then:** enable live VPS against real channels for soak (Milestone A-live).
+
+---
+
+## Phase 2 — Race content
+
+| # | Work | Owner |
+| --- | --- | --- |
+| 2.1 | glTF boat + tags | SCN |
+| 2.2 | Full boat channel config | TEL+SCN |
+| 2.3 | Course + buoys | SCN |
+| 2.4 | Multi POV switch | SCN+TEL |
+| 2.5 | Sponsors subset | SCN |
+| 2.6 | Countdown flags | SCN |
+| 2.7 | Name/colour JSON | SCN |
+
+**Exit (Milestone B):** Visual parity good enough for side-by-side vs Unity.
+
+---
+
+## Phase 3 — Output & ops
+
+| # | Work | Owner |
+| --- | --- | --- |
+| 3.1 | `preview` / `chroma` modes | OUT |
+| 3.2 | Visual timecode | OUT |
+| 3.3 | WebRTC underlay (WHEP) | OUT |
+| 3.4 | Connection/calib HUD harden | CAL+SCN |
+| 3.5 | Local vMix chroma experiment | OUT + human |
+| 3.6 | Console deep-link design doc agreed | CON |
+
+**Exit (Milestone C):** Chroma overlay experiment recorded; underlay works.
+
+---
+
+## Phase 4 — Harden + world tools
+
+| # | Work | Owner |
+| --- | --- | --- |
+| 4.1 | Replay polish, reconnect | TEL |
+| 4.2 | Top-down map ops UX | SCN |
+| 4.3 | Optional tiles/globe tools (not air) | SCN+GEO |
+| 4.4 | Custom world modeling pipeline notes | SCN |
+| 4.5 | CV research spike plan | CAL |
+
+**Exit:** Ops-ready preview; CV approach written.
+
+---
+
+## Phase 5 — Deploy & air path
+
+| # | Work | Owner |
+| --- | --- | --- |
+| 5.1 | Hetzner static deploy | PLT |
+| 5.2 | WSS or proxy solution | PLT+TEL |
+| 5.3 | Air runbook (local Chrome + chroma) | OUT+BW |
+| 5.4 | Evaluate WebRTC/SRT egress | OUT |
+| 5.5 | Evaluate native NDI helper (only if needed) | OUT |
+| 5.6 | Parallel air vs Unity; cutover criteria | BW |
+
+**Exit (Milestone D):** Documented air path; Unity decommission only after explicit BW+studio OK.
+
+---
+
+## Priority of output technologies (BW lock)
+
+1. **Chroma** — primary first air path  
+2. **WebRTC underlay** — required early for preview/CV  
+3. **SRT/WebRTC egress** — when remote matters  
+4. **Native NDI helper** — contingency  
+
+---
+
