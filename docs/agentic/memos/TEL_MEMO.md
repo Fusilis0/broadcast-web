@@ -1,30 +1,32 @@
 # TEL_MEMO
 
 **Last updated:** 2026-07-22  
-**Status:** DSP issued — awaiting worker for 1.3 dto/router/mock
+**Status:** Roadmap 1.3 done — mock ingest live; next replay or live
 
 ## Focus
-Roadmap **1.3**: DTOs + message router + mock (one drone + one boat).
+Typed telemetry bus ready for GEO/SCN subscribers. Next slice: replay (1.4) or live WS flag (1.9).
 
 ## Decisions
 - Unity parity targets (read-only): `TelemetryData` / `BoatTelemetry`, `TelemetryWsJsonRouter` (`stream_anchor` vs pose), `StreamAnchorMessage`.
 - Channel ID bands (arch §5.1): drones `1–4`, cams `11–12`, boats `21–52`, pilots `81–84`.
-- First mock slice: drone `"1"`, boat `"21"` only.
-- Modes: `mock` → `replay` → `live` (live later). Default `mock` via `public/config.json`.
-- Boat packets stay boat-shaped at ingest; `boatToStandardTelemetry` for normalized pose view — no ENU in TEL.
+- Mock IDs: drone `"1"`, boat `"21"`.
+- Bus events: `drone` | `boat` | `stream_anchor`.
+- Modes: `mock` → `replay` → `live`. Config resolves replay/live but they are no-ops until later DSPs.
+- Boat packets stay boat-shaped at ingest; `boatToStandardTelemetry` for normalized pose — no ENU in TEL.
+- Pose typing after classify is intentionally shallow until live WS; tighten then.
 - No pose math, scene meshes, or output in TEL dispatches.
-- PLT scaffold accepted; `src/telemetry/` ready for implementation.
 
 ## Issued dispatches
-- **DSP-TEL-20260722-01-dto-router-mock** — **ACTIVE** → `docs/agentic/dispatches/active/DSP-TEL-20260722-01-dto-router-mock.md`
+- **DSP-TEL-20260722-01-dto-router-mock** — **DONE** → `docs/agentic/dispatches/done/`  
+  DTOs + router + mock ingest (~15 Hz pose, ~1.5 s stream_anchor); counters wired in `main.ts`.
 
 ## Handoffs
-—
+- FYI GEO/SCN: subscribe via `telemetryBus` / `src/telemetry` exports when ready for ENU / visuals.
 
 ## Blockers
-- None for this slice (scaffold green).
+- None.
 
 ## Next actions
-1. Human: open **new** worker chat → paste worker bootstrap from the DSP above.
-2. On worker report-back: accept/reject, move DSP to `done/`, update this memo.
-3. Later: replay loader (1.4) → live WS behind flag (1.9).
+1. Issue replay loader DSP (roadmap **1.4**) when BW prioritizes fixtures.
+2. Or issue live WS client behind flag (roadmap **1.9**) when VPS soak is wanted.
+3. Optional: tighten typed parse of pose JSON when live lands.

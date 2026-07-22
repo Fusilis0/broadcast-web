@@ -4,42 +4,36 @@
 **Session role:** BW
 
 ## Current phase
-Phase 0 — **scaffold green** + **GitHub remote live**.  
-Done: 0.1 docs, 0.2 private repo push, 0.3 Vite/Three, 0.4 folders, 0.7 config stubs.  
-Remaining Phase 0: 0.5 stub HUD (SCN), 0.6 EGM96 (GEO worker in flight).  
-Remote: https://github.com/Fusilis0/broadcast-web (private) — account **Fusilis0**
+Phase 1 — **pose spine accepted** (mock → ENU → boat + drone camera).  
+**Done:** 0.1–0.4, 0.6–0.7, 1.1–1.3, **1.5, 1.6**.  
+**Open for Milestone A:** 0.5 stub HUD, **1.7 2D map**.  
+Then: 1.8 sliders, 1.4 replay, 1.9 live.  
+Remote: https://github.com/Fusilis0/broadcast-web
 
-## Locked decisions
-- Project name: `broadcast-web`
-- Local folder now; GitHub `fusilis` private later
-- Browser only; no Electron
-- Orchestrators plan/dispatch only; workers implement in new chats
-- Console: talk/design only; no repo pull today
-- Output priority: Chroma → WebRTC underlay → egress → NDI helper last
-- Cesium/tiles deferred; 2D map early
-- Telemetry: mock/replay first; live at Version 1 spine
-- Boat alt: HAE provisional
-- Language: English
+## Accepted (this update)
+- DSP-GEO-20260722-02 — pose ENU bus + config origin + lerp → `poseBus`
+- DSP-CAL-20260722-01 — offset store + apply; default FOV 66.8832°
+- DSP-SCN-20260722-01 — boat 21 + drone cam from `poseBus`; cube removed; Unity→Three Ry(π)
 
-## Open orchestrator sessions (human-tracked)
-- BW: this chat
-- PLT: scaffold DSP complete
-- CON: DSP-CON-20260722-01 still active (P1 — can wait)
-- Next to drive: **GEO** + **TEL** (parallel)
+## Contracts locked
+- Consume `poseBus` `pose`: `{ id, kind, position, rotation, fovHDeg, ts }`
+- Render FOV = `fovHDeg` only
+- Boat HAE; drone relative + takeoff; declination 0
 
-## Open dispatches
-- P1: `DSP-CON-20260722-01-console-deeplink-contract` (optional)
-- Need GEO + TEL to issue Phase 1 spine DSPs
+## Known quirk
+- Mock drone/boat ~300 m apart; boat intermittent until gimbal yaw sweeps — OK for now
 
-## Blockers
-- None for Phase 1 spine start
+## Priority queue
+1. **P0:** Commit + push spine (ask human)  
+2. **P0:** SCN **1.7** 2D map + **0.5** stub HUD  
+3. **P1:** CAL **1.8** sliders  
+4. **P1:** TEL **1.4** replay → **1.9** live  
+5. Optional: CON deeplink  
 
 ## Next actions for human
-1. Paste into **GEO** chat (or re-open with BOOTSTRAP_GEO): ask for DSP — EGM96 copy + GeoOrigin/GeoUtils + tests
-2. Paste into **TEL** chat (or BOOTSTRAP_TEL): ask for DSP — DTOs + router + mock source
-3. Run those two worker chats in parallel after DSPs exist
-4. Optional: ask BW/PLT for a git commit of scaffold
+1. Say **“commit and push”** to land spine on GitHub  
+2. Tell **SCN**: draft DSP for 2D map (1.7) + stub HUD (0.5)  
+3. Optional: CAL draft 1.8 sliders  
 
-## Notes
-- Unity reference: `C:\Users\PC\Documents\GitHub\broadcast`
-- Worker left uncommitted; human may request commit anytime
+## Blockers
+- None

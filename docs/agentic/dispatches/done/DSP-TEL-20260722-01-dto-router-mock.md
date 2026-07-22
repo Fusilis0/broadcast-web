@@ -1,5 +1,7 @@
 # Dispatch DSP-TEL-20260722-01-dto-router-mock
 
+**Status:** DONE — accepted by TEL 2026-07-22
+
 ## Meta
 - From orchestrator: TEL
 - Worker role: WORKER(DSP-TEL-20260722-01-dto-router-mock)
@@ -87,14 +89,14 @@ Implement typed telemetry DTOs (Unity parity), a WebSocket JSON message router (
 
 ## Acceptance criteria
 
-- [ ] `npm run build` succeeds
-- [ ] DTOs cover drone pose, boat, and `stream_anchor` wire fields used by Unity
-- [ ] Router classifies `type === "stream_anchor"` vs other JSON; invalid JSON does not crash
-- [ ] Mock emits ongoing drone id `1` and boat id `21` packets
-- [ ] Mock (or ingest path) exercises `stream_anchor` classification at least periodically
-- [ ] `boatToStandardTelemetry` (or equivalent name) maps boat → standard pose fields
-- [ ] No geodesy math and no new Three meshes / boat-drone visuals
-- [ ] `src/telemetry/README.md` documents how to confirm mock is alive (`npm run dev`)
+- [x] `npm run build` succeeds
+- [x] DTOs cover drone pose, boat, and `stream_anchor` wire fields used by Unity
+- [x] Router classifies `type === "stream_anchor"` vs other JSON; invalid JSON does not crash
+- [x] Mock emits ongoing drone id `1` and boat id `21` packets
+- [x] Mock (or ingest path) exercises `stream_anchor` classification at least periodically
+- [x] `boatToStandardTelemetry` (or equivalent name) maps boat → standard pose fields
+- [x] No geodesy math and no new Three meshes / boat-drone visuals
+- [x] `src/telemetry/README.md` documents how to confirm mock is alive (`npm run dev`)
 
 ## Report back
 

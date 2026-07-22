@@ -1,41 +1,73 @@
 import './style.css'
-import * as THREE from 'three'
+import { loadConfig } from './config/index.ts'
+import { applyConfigOrigin, ensureEgm96Loaded } from './geodesy/index.ts'
+import { startPosePipeline, stopPosePipeline, poseBus } from './pose/index.ts'
+import { startScene } from './scene/index.ts'
+import { startTelemetryIngest, telemetryBus } from './telemetry/index.ts'
 
 const app = document.querySelector<HTMLDivElement>('#app')
 if (!app) {
   throw new Error('#app root missing')
 }
 
-const scene = new THREE.Scene()
-const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 100)
-camera.position.z = 3
+const scene = startScene({ container: app })
 
-const renderer = new THREE.WebGLRenderer({ antialias: true })
-renderer.setClearColor(0x1a1a1a, 1)
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-app.appendChild(renderer.domElement)
+const status = document.createElement('div')
+status.style.cssText =
+  'position:fixed;left:8px;bottom:8px;color:#bbb;font:12px/1.4 monospace;z-index:1;pointer-events:none;white-space:pre'
+status.textContent = 'boot: loading config…'
+app.appendChild(status)
 
-const cube = new THREE.Mesh(
-  new THREE.BoxGeometry(1, 1, 1),
-  new THREE.MeshBasicMaterial({ color: 0x8899aa, wireframe: true }),
-)
-scene.add(cube)
+const counts = { drone: 0, boat: 0, stream_anchor: 0 }
+const lastEnu: {
+  drone: string
+  boat: string
+} = { drone: '—', boat: '—' }
 
-function resize(): void {
-  const width = window.innerWidth
-  const height = window.innerHeight
-  camera.aspect = width / Math.max(height, 1)
-  camera.updateProjectionMatrix()
-  renderer.setSize(width, height, false)
+function fmtEnu(p: { x: number; y: number; z: number }): string {
+  return `(${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixed(1)})`
 }
 
-function animate(): void {
-  requestAnimationFrame(animate)
-  cube.rotation.x += 0.01
-  cube.rotation.y += 0.015
-  renderer.render(scene, camera)
+function renderStatus(mode: string): void {
+  status.textContent =
+    `telemetry ${mode}  drone=${counts.drone}  boat=${counts.boat}  stream_anchor=${counts.stream_anchor}\n` +
+    `ENU m  drone=${lastEnu.drone}  boat=${lastEnu.boat}`
 }
 
-window.addEventListener('resize', resize)
-resize()
-animate()
+telemetryBus.on('drone', () => {
+  counts.drone += 1
+})
+telemetryBus.on('boat', () => {
+  counts.boat += 1
+})
+telemetryBus.on('stream_anchor', () => {
+  counts.stream_anchor += 1
+})
+
+poseBus.on('pose', (p) => {
+  const s = fmtEnu(p.position)
+  if (p.kind === 'drone') lastEnu.drone = s
+  else lastEnu.boat = s
+})
+
+void (async () => {
+  const config = await loadConfig()
+  status.textContent = 'boot: EGM96…'
+  await ensureEgm96Loaded()
+  applyConfigOrigin(config.origin)
+
+  const ingest = await startTelemetryIngest({ mode: config.telemetryMode })
+  startPosePipeline({ takeoffAltitudeMSL: config.takeoffAltitudeMSL })
+
+  const refresh = (): void => {
+    renderStatus(ingest.mode)
+  }
+  refresh()
+  setInterval(refresh, 200)
+
+  window.addEventListener('beforeunload', () => {
+    stopPosePipeline()
+    ingest.stop()
+    scene.stop()
+  })
+})()

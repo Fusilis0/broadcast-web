@@ -16,15 +16,15 @@
 | 0.3 | Vite + TS + Three scaffold | PLT → worker | **Done** (`npm run dev` OK) |
 | 0.4 | Folder layout per architecture | PLT | **Done** |
 | 0.5 | Stub HUD (mock/live toggle placeholder, status text) | SCN+PLT light | Visible DOM stub |
-| 0.6 | Copy EGM96 into `public/` | GEO/PLT worker | File served |
+| 0.6 | Copy EGM96 into `public/` | GEO → worker | **Done** (`DSP-GEO-20260722-01`) |
 | 0.7 | `config.json` + `.env.example` | PLT | **Done** |
 
-**Exit:** Empty scene runs locally; agentic system usable. *(scaffold exit met; HUD + EGM96 still open)*
+**Exit:** Empty scene runs locally; agentic system usable. *(scaffold + EGM96 met; HUD 0.5 still open)*
 
 ## Current phase pointer
 
-**Active:** Phase 0 remaining (0.5 HUD, 0.6 EGM96) **in parallel with** Phase 1 spine start (**GEO** + **TEL**).  
-**Last gate:** DSP-PLT-20260722-01 accepted (2026-07-22).
+**Active:** Phase 1 — core pose spine **green** (1.5/1.6). Next: **0.5 HUD** + **1.7 2D map** (Milestone A exit).  
+**Last gates:** DSP-GEO-02 + DSP-CAL-01 + DSP-SCN-01 accepted (2026-07-22).
 
 ---
 
@@ -34,12 +34,12 @@
 
 | # | Work | Owner |
 | --- | --- | --- |
-| 1.1 | Port GeoOrigin / GeoUtils + tests | GEO |
-| 1.2 | Port EGM96 loader | GEO |
-| 1.3 | DTO + router + mock source | TEL |
+| 1.1 | Port GeoOrigin / GeoUtils + tests — **Done** (`DSP-GEO-20260722-01`) | GEO |
+| 1.2 | Port EGM96 loader — **Done** (`DSP-GEO-20260722-01`) | GEO |
+| 1.3 | DTO + router + mock source — **Done** (`DSP-TEL-20260722-01`) | TEL |
 | 1.4 | Replay fixture format | TEL |
-| 1.5 | Pose apply + midpoint lerp | GEO+CAL+SCN |
-| 1.6 | FOV default 66.8832° h | CAL/SCN |
+| 1.5 | Pose apply + midpoint lerp — **Done** (GEO-02 + CAL-01 + SCN-01) | GEO+CAL+SCN |
+| 1.6 | FOV default 66.8832° h — **Done** (`PoseEvent.fovHDeg`) | CAL/SCN |
 | 1.7 | Simple 2D map for correction | SCN |
 | 1.8 | Human offset sliders (basic) | CAL |
 | 1.9 | Live switch wired but off by default | TEL |
