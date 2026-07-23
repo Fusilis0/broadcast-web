@@ -23,8 +23,8 @@
 
 ## Current phase pointer
 
-**Active:** Phase 1 wrap — **1.4** done. Next: TEL **1.9** live WS behind flag.  
-**Last gate:** DSP-TEL-20260723-01 (replay) accepted (2026-07-23).
+**Active:** **Phase 1 complete.** Next: Phase 2 race content (SCN lead) and/or OUT chroma (Phase 3).  
+**Last gate:** DSP-TEL-20260723-02 (live WS) accepted (2026-07-23).
 
 ---
 
@@ -42,11 +42,11 @@
 | 1.6 | FOV default 66.8832° h — **Done** (`PoseEvent.fovHDeg`) | CAL/SCN |
 | 1.7 | Simple 2D map for correction — **Done** (`DSP-SCN-20260723-01`) | SCN |
 | 1.8 | Human offset sliders (basic) — **Done** (`DSP-CAL-20260723-01`) | CAL |
-| 1.9 | Live switch wired but off by default | TEL |
+| 1.9 | Live switch wired but off by default — **Done** (`DSP-TEL-20260723-02`) | TEL |
 
-**Exit (Version 1 spine / Milestone A):** Mock boat+drone move correctly; geodesy tests green; 2D map shows fleet point. **Met** (2026-07-23) — remaining Phase 1: **1.9** only.
+**Exit (Version 1 spine / Milestone A):** Mock boat+drone move correctly; geodesy tests green; 2D map shows fleet point. **Met** (2026-07-23).
 
-**Then:** enable live VPS against real channels for soak (Milestone A-live).
+**Phase 1 complete** (2026-07-23). Live VPS soak is human-gated (config URLs + field).
 
 ---
 

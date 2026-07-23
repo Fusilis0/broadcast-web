@@ -12,6 +12,7 @@ const DEFAULT_CONFIG: AppConfig = {
   telemetryMode: 'mock',
   replayUrl: DEFAULT_REPLAY_URL,
   wsUrl: '',
+  wsBoatUrl: '',
   origin: { ...DEFAULT_ORIGIN },
   takeoffAltitudeMSL: 0,
   outputMode: 'preview',
@@ -47,6 +48,7 @@ export function normalizeConfig(raw: unknown): AppConfig {
         ? o.replayUrl
         : DEFAULT_REPLAY_URL,
     wsUrl: typeof o.wsUrl === 'string' ? o.wsUrl : '',
+    wsBoatUrl: typeof o.wsBoatUrl === 'string' ? o.wsBoatUrl : '',
     origin: parseOrigin(o.origin),
     takeoffAltitudeMSL: isFiniteNumber(o.takeoffAltitudeMSL)
       ? o.takeoffAltitudeMSL

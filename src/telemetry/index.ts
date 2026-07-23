@@ -45,7 +45,13 @@ export {
   type ReplaySourceOptions,
 } from './replaySource.ts'
 export {
+  LiveTelemetrySource,
+  type LiveSourceOptions,
+  type LiveWsStatus,
+} from './liveSource.ts'
+export {
   ingestPacket,
   startTelemetryIngest,
   type IngestHandle,
+  type StartTelemetryIngestOptions,
 } from './ingest.ts'

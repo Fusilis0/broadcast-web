@@ -1,4 +1,5 @@
 import { telemetryBus, type TelemetryBus } from './bus.ts'
+import { LiveTelemetrySource } from './liveSource.ts'
 import { MockTelemetrySource, type MockPacket } from './mockSource.ts'
 import {
   DEFAULT_REPLAY_URL,
@@ -25,6 +26,20 @@ export type IngestHandle = {
 type TelemetryConfigSlice = {
   telemetryMode?: string
   replayUrl?: string
+  wsUrl?: string
+  wsBoatUrl?: string
+}
+
+export type StartTelemetryIngestOptions = {
+  mode?: TelemetryMode
+  replayUrl?: string
+  /** Drone / primary live WS URL. If omitted, resolve via env then config. */
+  wsUrl?: string
+  /** Boat live WS URL. If omitted, resolve via env then config. */
+  wsBoatUrl?: string
+  bus?: TelemetryBus
+  /** Injectable WebSocket for tests (live mode only). */
+  WebSocketImpl?: typeof WebSocket
 }
 
 function isTelemetryData(value: Record<string, unknown>): value is TelemetryData &
@@ -81,14 +96,48 @@ export function ingestPacket(
   }
 }
 
+function readViteWsUrl(key: 'VITE_WS_URL' | 'VITE_WS_BOAT_URL'): string | undefined {
+  try {
+    const env = import.meta.env as Record<string, string | undefined>
+    const v = env[key]
+    if (typeof v === 'string' && v.trim() !== '') return v.trim()
+  } catch {
+    // non-Vite / test hosts
+  }
+  return undefined
+}
+
+/**
+ * Live URL resolution (documented in `src/telemetry/README.md`):
+ * 1. Explicit options to `startTelemetryIngest` (including `""` to force off)
+ * 2. `import.meta.env.VITE_WS_URL` / `VITE_WS_BOAT_URL` when non-empty
+ * 3. `public/config.json` `wsUrl` / `wsBoatUrl`
+ */
 async function resolveConfigSlice(options?: {
   mode?: TelemetryMode
   replayUrl?: string
-}): Promise<{ mode: TelemetryMode; replayUrl: string }> {
+  wsUrl?: string
+  wsBoatUrl?: string
+}): Promise<{
+  mode: TelemetryMode
+  replayUrl: string
+  wsUrl: string
+  wsBoatUrl: string
+}> {
   let mode = options?.mode
   let replayUrl = options?.replayUrl
+  let wsUrl = options?.wsUrl
+  let wsBoatUrl = options?.wsBoatUrl
 
-  if (mode === undefined || replayUrl === undefined) {
+  let cfgWsUrl: string | undefined
+  let cfgWsBoatUrl: string | undefined
+
+  if (
+    mode === undefined ||
+    replayUrl === undefined ||
+    wsUrl === undefined ||
+    wsBoatUrl === undefined
+  ) {
     try {
       const res = await fetch('/config.json')
       if (res.ok) {
@@ -102,10 +151,19 @@ async function resolveConfigSlice(options?: {
         if (replayUrl === undefined && typeof cfg.replayUrl === 'string') {
           replayUrl = cfg.replayUrl
         }
+        if (typeof cfg.wsUrl === 'string') cfgWsUrl = cfg.wsUrl
+        if (typeof cfg.wsBoatUrl === 'string') cfgWsBoatUrl = cfg.wsBoatUrl
       }
     } catch {
       // fall through to defaults
     }
+  }
+
+  if (wsUrl === undefined) {
+    wsUrl = readViteWsUrl('VITE_WS_URL') ?? cfgWsUrl ?? ''
+  }
+  if (wsBoatUrl === undefined) {
+    wsBoatUrl = readViteWsUrl('VITE_WS_BOAT_URL') ?? cfgWsBoatUrl ?? ''
   }
 
   return {
@@ -114,29 +172,34 @@ async function resolveConfigSlice(options?: {
       replayUrl !== undefined && replayUrl.trim() !== ''
         ? replayUrl
         : DEFAULT_REPLAY_URL,
+    wsUrl: wsUrl.trim(),
+    wsBoatUrl: wsBoatUrl.trim(),
   }
 }
 
 /**
- * Starts telemetry ingest for `mock` | `replay`.
- * `live` resolves but does not connect (TEL 1.9).
+ * Starts telemetry ingest for `mock` | `replay` | `live`.
+ * Live connects only when mode is `live` and at least one URL resolves.
  */
-export async function startTelemetryIngest(options?: {
-  mode?: TelemetryMode
-  replayUrl?: string
-  bus?: TelemetryBus
-}): Promise<IngestHandle> {
+export async function startTelemetryIngest(
+  options?: StartTelemetryIngestOptions,
+): Promise<IngestHandle> {
   const bus = options?.bus ?? telemetryBus
-  const { mode, replayUrl } = await resolveConfigSlice(options)
+  const { mode, replayUrl, wsUrl, wsBoatUrl } = await resolveConfigSlice(options)
 
   if (mode === 'live') {
-    console.warn(
-      '[telemetry] mode "live" not implemented yet (TEL 1.9); no WebSocket',
-    )
+    const source = new LiveTelemetrySource({
+      droneUrl: wsUrl,
+      boatUrl: wsBoatUrl,
+      onPacket: (packet) => ingestPacket(packet, bus),
+      WebSocketImpl: options?.WebSocketImpl,
+    })
+    source.start()
+
     return {
       mode,
       bus,
-      stop: () => undefined,
+      stop: () => source.stop(),
     }
   }
 

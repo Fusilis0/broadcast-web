@@ -13,7 +13,10 @@ export type AppConfig = {
   telemetryMode: 'mock' | 'replay' | 'live'
   /** Fixture URL for `telemetryMode: "replay"`. Empty → sample spine-demo path. */
   replayUrl: string
+  /** Drone / primary live WebSocket URL. Empty → no drone socket in live mode. */
   wsUrl: string
+  /** Boat live WebSocket URL. Empty → drone-only live (still OK). */
+  wsBoatUrl: string
   origin: ConfigOrigin
   /** Drone relative→HAE bridge (Unity `WorldAnchorManager.takeoffAltitudeMSL`). Default 0. */
   takeoffAltitudeMSL: number

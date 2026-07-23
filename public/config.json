@@ -2,6 +2,7 @@
   "telemetryMode": "mock",
   "replayUrl": "/fixtures/telemetry/spine-demo.json",
   "wsUrl": "",
+  "wsBoatUrl": "",
   "origin": {
     "lat": 41.0082,
     "lon": 28.9784,
