@@ -1,4 +1,5 @@
 import './style.css'
+import { startOffsetSliders } from './calibration/index.ts'
 import { loadConfig } from './config/index.ts'
 import { applyConfigOrigin, ensureEgm96Loaded } from './geodesy/index.ts'
 import { startPosePipeline, stopPosePipeline } from './pose/index.ts'
@@ -12,6 +13,7 @@ if (!app) {
 
 const scene = startScene({ container: app })
 const hud = startStubHud({ container: app })
+const calib = startOffsetSliders({ container: app })
 
 void (async () => {
   const config = await loadConfig()
@@ -26,6 +28,7 @@ void (async () => {
   window.addEventListener('beforeunload', () => {
     stopPosePipeline()
     ingest.stop()
+    calib.stop()
     hud.stop()
     scene.stop()
   })

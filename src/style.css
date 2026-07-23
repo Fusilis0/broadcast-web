@@ -96,3 +96,80 @@ body,
   height: auto;
   border-radius: 2px;
 }
+
+/* CAL offset sliders — pointer-events only on controls */
+.calib-panel {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 3;
+  pointer-events: none;
+  padding: 6px 8px;
+  max-width: min(320px, calc(100vw - 16px));
+  background: rgba(12, 16, 22, 0.88);
+  border: 1px solid #2a3340;
+  border-radius: 4px;
+  color: #9aa4ae;
+  font: 11px/1.3 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.calib-panel__header {
+  color: #7a8694;
+  margin-bottom: 2px;
+}
+
+.calib-panel__device {
+  color: #6a7888;
+  margin-bottom: 6px;
+}
+
+.calib-panel__row {
+  display: grid;
+  grid-template-columns: 48px 1fr 56px;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.calib-panel__label {
+  color: #8a949e;
+}
+
+.calib-panel__range,
+.calib-panel__number,
+.calib-panel__reset {
+  pointer-events: auto;
+}
+
+.calib-panel__range {
+  width: 100%;
+  accent-color: #6a7888;
+}
+
+.calib-panel__number {
+  width: 100%;
+  background: #222830;
+  color: #d0d6dc;
+  border: 1px solid #3a4450;
+  border-radius: 3px;
+  font: inherit;
+  padding: 1px 4px;
+}
+
+.calib-panel__actions {
+  margin-top: 4px;
+}
+
+.calib-panel__reset {
+  background: #222830;
+  color: #d0d6dc;
+  border: 1px solid #3a4450;
+  border-radius: 3px;
+  font: inherit;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.calib-panel__reset:hover {
+  border-color: #4a5560;
+}

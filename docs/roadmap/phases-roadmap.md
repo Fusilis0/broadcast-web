@@ -23,8 +23,8 @@
 
 ## Current phase pointer
 
-**Active:** **Milestone A met** (spine + HUD + 2D map). Next: CAL **1.8** sliders, then TEL **1.4** replay.  
-**Last gate:** DSP-SCN-20260723-01 accepted (2026-07-23).
+**Active:** Phase 1 wrap — **1.8** done. Next: TEL **1.4** replay, then **1.9** live flag.  
+**Last gate:** DSP-CAL-20260723-01 accepted (2026-07-23).
 
 ---
 
@@ -41,10 +41,10 @@
 | 1.5 | Pose apply + midpoint lerp — **Done** (GEO-02 + CAL-01 + SCN-01) | GEO+CAL+SCN |
 | 1.6 | FOV default 66.8832° h — **Done** (`PoseEvent.fovHDeg`) | CAL/SCN |
 | 1.7 | Simple 2D map for correction — **Done** (`DSP-SCN-20260723-01`) | SCN |
-| 1.8 | Human offset sliders (basic) | CAL |
+| 1.8 | Human offset sliders (basic) — **Done** (`DSP-CAL-20260723-01`) | CAL |
 | 1.9 | Live switch wired but off by default | TEL |
 
-**Exit (Version 1 spine / Milestone A):** Mock boat+drone move correctly; geodesy tests green; 2D map shows fleet point. **Met** (2026-07-23) — remaining Phase 1: 1.4, 1.8, 1.9.
+**Exit (Version 1 spine / Milestone A):** Mock boat+drone move correctly; geodesy tests green; 2D map shows fleet point. **Met** (2026-07-23) — remaining Phase 1: **1.4**, **1.9**.
 
 **Then:** enable live VPS against real channels for soak (Milestone A-live).
 
