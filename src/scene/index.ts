@@ -15,3 +15,18 @@ export {
   TEMP_HFOV_DEG,
   type DroneCameraHandle,
 } from './droneCamera.ts'
+export {
+  startStubHud,
+  type StubHudHandle,
+  type StubHudOptions,
+  type TelemetryModeUi,
+} from './stubHud.ts'
+export {
+  createMap2d,
+  boundsFromPoints,
+  enuToMapPx,
+  type Map2dHandle,
+  type Map2dOptions,
+  type MapBounds,
+  type MapPoint,
+} from './map2d.ts'

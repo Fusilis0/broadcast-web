@@ -1,32 +1,33 @@
 # SCN_MEMO
 
-**Last updated:** 2026-07-22  
-**Status:** Active — 1.5 visuals DSP drafted; blocked on GEO pose ENU API
+**Last updated:** 2026-07-23  
+**Status:** Active — 0.5+1.7 DSP issued; awaiting worker
 
 ## Focus
-Phase 1.5 SCN slice: one boat primitive + drone camera consuming GEO/pose ENU (replace demo cube).
+Milestone A ops overlay: stub HUD + simple 2D fleet map from `poseBus`.
 
 ## Decisions
 - V1 freeze: 1 drone + boats + course + 2D map; sponsors/flags can follow (BW)
 - Owns: `src/scene/`, `src/assets/`, stub HUD (DOM), 2D map; applies CAL transforms, does not invent geodesy/WS/chroma
-- **1.5 visuals:** consume ENU only — no `gpsToEnu`, no WS in scene code
-- Temporary camera hFOV **66.8832** until CAL owns FOV/offsets
-- Stub HUD (0.5) deferred behind P0 pose spine (BW priority)
+- Consume **`poseBus`** only for positions (`PoseEvent`); TEL bus OK for packet counts
+- Mode UI is **placeholder** until TEL 1.9 — must not open WS / switch ingest
+- 2D map: North-up, plot ENU East(x) vs North(z); no tiles
+- **One DSP** for 0.5 + 1.7 (both small DOM overlays)
 
 ## Issued dispatches
-- **DSP-SCN-20260722-01-boat-drone-camera** — `docs/agentic/dispatches/active/DSP-SCN-20260722-01-boat-drone-camera.md`  
-  Status: **drafted / awaiting GEO pose surface + worker**  
-  Goal: boat primitive + drone PerspectiveCamera from ENU; remove demo cube
+- **DSP-SCN-20260722-01-boat-drone-camera** — **DONE** → `docs/agentic/dispatches/done/`  
+  Boat 21 + drone cam from `poseBus`; cube removed
+- **DSP-SCN-20260723-01-stub-hud-2d-map** — `docs/agentic/dispatches/active/DSP-SCN-20260723-01-stub-hud-2d-map.md`  
+  Status: **active / awaiting worker**  
+  Goal: stub HUD (mode placeholder + status) + 2D map fleet points; refactor status out of `main.ts`
 
 ## Handoffs
-- **HO-SCN-GEO-20260722-01** — request GEO export pose/ENU consume API (`src/pose/` preferred) before/with SCN worker  
-  Path: `docs/agentic/handoffs/HO-SCN-GEO-20260722-01.md`
+- **HO-SCN-GEO-20260722-01** — satisfied by GEO-02 `poseBus` (spine on main)
 
 ## Blockers
-- **GEO pose path** — `src/pose/` empty; origin-from-config + `telemetryBus` → ENU not wired for SCN yet
-- Worker for this DSP should not start until GEO documents the consume API (or will immediately blocker-report)
+- None for this DSP — spine + `poseBus` on main
 
 ## Next
-1. GEO accepts HO + issues/lands 1.5 pose DSP → notify SCN
-2. Human opens **new worker chat** with DSP paste block
-3. After green: optional 0.5 stub HUD DSP; then 1.7 2D map plan
+1. Human opens **new worker chat** with DSP paste block
+2. On accept: tick roadmap 0.5 + 1.7; notify BW Milestone A closer
+3. Later: Phase 2 content / map ops UX (4.2)

@@ -15,16 +15,16 @@
 | 0.2 | Local git; private GitHub `Fusilis0/broadcast-web` | PLT / human / BW | **Done** (2026-07-22) |
 | 0.3 | Vite + TS + Three scaffold | PLT → worker | **Done** (`npm run dev` OK) |
 | 0.4 | Folder layout per architecture | PLT | **Done** |
-| 0.5 | Stub HUD (mock/live toggle placeholder, status text) | SCN+PLT light | Visible DOM stub |
+| 0.5 | Stub HUD (mock/live toggle placeholder, status text) | SCN | **Done** (`DSP-SCN-20260723-01`) |
 | 0.6 | Copy EGM96 into `public/` | GEO → worker | **Done** (`DSP-GEO-20260722-01`) |
 | 0.7 | `config.json` + `.env.example` | PLT | **Done** |
 
-**Exit:** Empty scene runs locally; agentic system usable. *(scaffold + EGM96 met; HUD 0.5 still open)*
+**Exit:** Empty scene runs locally; agentic system usable. **Phase 0 complete** (incl. 0.5 HUD).
 
 ## Current phase pointer
 
-**Active:** Phase 1 — core pose spine **green** (1.5/1.6). Next: **0.5 HUD** + **1.7 2D map** (Milestone A exit).  
-**Last gates:** DSP-GEO-02 + DSP-CAL-01 + DSP-SCN-01 accepted (2026-07-22).
+**Active:** **Milestone A met** (spine + HUD + 2D map). Next: CAL **1.8** sliders, then TEL **1.4** replay.  
+**Last gate:** DSP-SCN-20260723-01 accepted (2026-07-23).
 
 ---
 
@@ -40,11 +40,11 @@
 | 1.4 | Replay fixture format | TEL |
 | 1.5 | Pose apply + midpoint lerp — **Done** (GEO-02 + CAL-01 + SCN-01) | GEO+CAL+SCN |
 | 1.6 | FOV default 66.8832° h — **Done** (`PoseEvent.fovHDeg`) | CAL/SCN |
-| 1.7 | Simple 2D map for correction | SCN |
+| 1.7 | Simple 2D map for correction — **Done** (`DSP-SCN-20260723-01`) | SCN |
 | 1.8 | Human offset sliders (basic) | CAL |
 | 1.9 | Live switch wired but off by default | TEL |
 
-**Exit (Version 1 spine / Milestone A):** Mock boat+drone move correctly; geodesy tests green; 2D map shows fleet point.
+**Exit (Version 1 spine / Milestone A):** Mock boat+drone move correctly; geodesy tests green; 2D map shows fleet point. **Met** (2026-07-23) — remaining Phase 1: 1.4, 1.8, 1.9.
 
 **Then:** enable live VPS against real channels for soak (Milestone A-live).
 
