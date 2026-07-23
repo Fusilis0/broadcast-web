@@ -32,6 +32,19 @@ export {
   type MockSourceOptions,
 } from './mockSource.ts'
 export {
+  DEFAULT_REPLAY_URL,
+  loadReplayFixture,
+  parseReplayFixture,
+  type ParseReplayFixtureResult,
+  type ReplayChannel,
+  type ReplayFixturePacket,
+  type ReplayFixtureV1,
+} from './replayFixture.ts'
+export {
+  ReplayTelemetrySource,
+  type ReplaySourceOptions,
+} from './replaySource.ts'
+export {
   ingestPacket,
   startTelemetryIngest,
   type IngestHandle,

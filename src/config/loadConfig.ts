@@ -6,8 +6,11 @@ const DEFAULT_ORIGIN: ConfigOrigin = {
   altMsl: 0,
 }
 
+const DEFAULT_REPLAY_URL = '/fixtures/telemetry/spine-demo.json'
+
 const DEFAULT_CONFIG: AppConfig = {
   telemetryMode: 'mock',
+  replayUrl: DEFAULT_REPLAY_URL,
   wsUrl: '',
   origin: { ...DEFAULT_ORIGIN },
   takeoffAltitudeMSL: 0,
@@ -39,6 +42,10 @@ export function normalizeConfig(raw: unknown): AppConfig {
   const o = raw as Record<string, unknown>
   return {
     telemetryMode: parseMode(o.telemetryMode),
+    replayUrl:
+      typeof o.replayUrl === 'string' && o.replayUrl.trim() !== ''
+        ? o.replayUrl
+        : DEFAULT_REPLAY_URL,
     wsUrl: typeof o.wsUrl === 'string' ? o.wsUrl : '',
     origin: parseOrigin(o.origin),
     takeoffAltitudeMSL: isFiniteNumber(o.takeoffAltitudeMSL)

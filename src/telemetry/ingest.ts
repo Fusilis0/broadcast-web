@@ -1,6 +1,11 @@
 import { telemetryBus, type TelemetryBus } from './bus.ts'
 import { MockTelemetrySource, type MockPacket } from './mockSource.ts'
 import {
+  DEFAULT_REPLAY_URL,
+  loadReplayFixture,
+} from './replayFixture.ts'
+import { ReplayTelemetrySource } from './replaySource.ts'
+import {
   classify,
   TelemetryWsMessageKind,
   tryParseStreamAnchor,
@@ -19,6 +24,7 @@ export type IngestHandle = {
 
 type TelemetryConfigSlice = {
   telemetryMode?: string
+  replayUrl?: string
 }
 
 function isTelemetryData(value: Record<string, unknown>): value is TelemetryData &
@@ -42,7 +48,7 @@ function isBoatTelemetry(value: Record<string, unknown>): value is BoatTelemetry
 }
 
 /**
- * Route a mock/live JSON packet onto the bus.
+ * Route a mock/replay/live JSON packet onto the bus.
  * Boat vs drone for non-anchor pose is decided by `channel` (connection context).
  */
 export function ingestPacket(
@@ -75,44 +81,86 @@ export function ingestPacket(
   }
 }
 
-async function resolveMode(
-  explicitMode?: TelemetryMode,
-): Promise<TelemetryMode> {
-  if (explicitMode !== undefined) return explicitMode
+async function resolveConfigSlice(options?: {
+  mode?: TelemetryMode
+  replayUrl?: string
+}): Promise<{ mode: TelemetryMode; replayUrl: string }> {
+  let mode = options?.mode
+  let replayUrl = options?.replayUrl
 
-  try {
-    const res = await fetch('/config.json')
-    if (!res.ok) return 'mock'
-    const cfg = (await res.json()) as TelemetryConfigSlice
-    const mode = cfg.telemetryMode
-    if (mode === 'mock' || mode === 'replay' || mode === 'live') {
-      return mode
+  if (mode === undefined || replayUrl === undefined) {
+    try {
+      const res = await fetch('/config.json')
+      if (res.ok) {
+        const cfg = (await res.json()) as TelemetryConfigSlice
+        if (mode === undefined) {
+          const m = cfg.telemetryMode
+          if (m === 'mock' || m === 'replay' || m === 'live') {
+            mode = m
+          }
+        }
+        if (replayUrl === undefined && typeof cfg.replayUrl === 'string') {
+          replayUrl = cfg.replayUrl
+        }
+      }
+    } catch {
+      // fall through to defaults
     }
-    return 'mock'
-  } catch {
-    return 'mock'
+  }
+
+  return {
+    mode: mode ?? 'mock',
+    replayUrl:
+      replayUrl !== undefined && replayUrl.trim() !== ''
+        ? replayUrl
+        : DEFAULT_REPLAY_URL,
   }
 }
 
 /**
- * Starts telemetry ingest. For this DSP only `mock` is implemented;
- * replay/live resolve but do not connect (no-op stop).
+ * Starts telemetry ingest for `mock` | `replay`.
+ * `live` resolves but does not connect (TEL 1.9).
  */
 export async function startTelemetryIngest(options?: {
   mode?: TelemetryMode
+  replayUrl?: string
   bus?: TelemetryBus
 }): Promise<IngestHandle> {
   const bus = options?.bus ?? telemetryBus
-  const mode = await resolveMode(options?.mode)
+  const { mode, replayUrl } = await resolveConfigSlice(options)
 
-  if (mode !== 'mock') {
+  if (mode === 'live') {
     console.warn(
-      `[telemetry] mode "${mode}" not implemented yet; mock-only in DSP-TEL-20260722-01`,
+      '[telemetry] mode "live" not implemented yet (TEL 1.9); no WebSocket',
     )
     return {
       mode,
       bus,
       stop: () => undefined,
+    }
+  }
+
+  if (mode === 'replay') {
+    const loaded = await loadReplayFixture(replayUrl)
+    if (!loaded.ok) {
+      console.warn(`[telemetry] replay fixture failed: ${loaded.error}`)
+      return {
+        mode,
+        bus,
+        stop: () => undefined,
+      }
+    }
+
+    const source = new ReplayTelemetrySource({
+      fixture: loaded.fixture,
+      onPacket: (packet) => ingestPacket(packet, bus),
+    })
+    source.start()
+
+    return {
+      mode,
+      bus,
+      stop: () => source.stop(),
     }
   }
 

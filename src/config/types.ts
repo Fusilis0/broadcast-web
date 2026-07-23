@@ -11,6 +11,8 @@ export type ConfigOrigin = {
 
 export type AppConfig = {
   telemetryMode: 'mock' | 'replay' | 'live'
+  /** Fixture URL for `telemetryMode: "replay"`. Empty → sample spine-demo path. */
+  replayUrl: string
   wsUrl: string
   origin: ConfigOrigin
   /** Drone relative→HAE bridge (Unity `WorldAnchorManager.takeoffAltitudeMSL`). Default 0. */

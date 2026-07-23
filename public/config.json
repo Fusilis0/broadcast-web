@@ -1,5 +1,6 @@
 {
   "telemetryMode": "mock",
+  "replayUrl": "/fixtures/telemetry/spine-demo.json",
   "wsUrl": "",
   "origin": {
     "lat": 41.0082,

@@ -19,6 +19,7 @@ export {
   startStubHud,
   type StubHudHandle,
   type StubHudOptions,
+  type TelemetryModeSwitchable,
   type TelemetryModeUi,
 } from './stubHud.ts'
 export {

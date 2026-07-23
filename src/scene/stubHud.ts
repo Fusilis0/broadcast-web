@@ -5,9 +5,14 @@ import { createMap2d, type Map2dHandle } from './map2d.ts'
 
 export type TelemetryModeUi = AppConfig['telemetryMode']
 
+/** Modes that can switch ingest at runtime (live stays TEL 1.9). */
+export type TelemetryModeSwitchable = Exclude<TelemetryModeUi, 'live'>
+
 export type StubHudOptions = {
   container: HTMLElement
   initialMode?: TelemetryModeUi
+  /** Invoked for mock ↔ replay only; live is UI-only (TEL 1.9). */
+  onModeChange?: (mode: TelemetryModeSwitchable) => void
 }
 
 export type StubHudHandle = {
@@ -21,9 +26,15 @@ function fmtEnu(p: { x: number; y: number; z: number }): string {
   return `(${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixed(1)})`
 }
 
+function modeHintText(mode: TelemetryModeUi): string {
+  if (mode === 'live') return 'not wired (TEL 1.9)'
+  if (mode === 'replay') return 'fixture replay'
+  return 'mock source'
+}
+
 /**
- * Ops overlay: stub HUD (mode placeholder + TEL counts + last ENU) and 2D fleet map.
- * Positions from poseBus only; mode control does not wire live ingest (TEL 1.9).
+ * Ops overlay: stub HUD (mode + TEL counts + last ENU) and 2D fleet map.
+ * Positions from poseBus only. mock ↔ replay switches ingest via `onModeChange`.
  */
 export function startStubHud(options: StubHudOptions): StubHudHandle {
   const initialMode = options.initialMode ?? 'mock'
@@ -49,7 +60,7 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   const modeSelect = document.createElement('select')
   modeSelect.id = 'ops-telemetry-mode'
   modeSelect.className = 'ops-hud__mode-select'
-  modeSelect.title = 'Placeholder only — ingest wired at boot (TEL 1.9 for live)'
+  modeSelect.title = 'mock ↔ replay switches ingest; live not wired (TEL 1.9)'
   for (const m of ['mock', 'replay', 'live'] as const) {
     const opt = document.createElement('option')
     opt.value = m
@@ -61,7 +72,7 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
 
   const modeHint = document.createElement('span')
   modeHint.className = 'ops-hud__mode-hint'
-  modeHint.textContent = 'UI only · not wired (TEL 1.9)'
+  modeHint.textContent = modeHintText(initialMode)
   modeRow.appendChild(modeHint)
 
   const statusEl = document.createElement('pre')
@@ -97,10 +108,13 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   modeSelect.addEventListener('change', () => {
     const next = modeSelect.value as TelemetryModeUi
     uiMode = next
+    modeHint.textContent = modeHintText(next)
     if (next === 'live') {
-      console.info('[stubHud] live mode selected in UI only — WS/ingest not wired (TEL 1.9)')
-    } else if (next === 'replay') {
-      console.info('[stubHud] replay mode selected in UI only — replay load deferred (TEL 1.4)')
+      console.info(
+        '[stubHud] live mode selected — WS/ingest not wired (TEL 1.9)',
+      )
+    } else {
+      options.onModeChange?.(next)
     }
     renderStatus()
   })
@@ -128,6 +142,7 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
     setMode(mode: TelemetryModeUi): void {
       uiMode = mode
       modeSelect.value = mode
+      modeHint.textContent = modeHintText(mode)
       bootMessage = null
       renderStatus()
     },

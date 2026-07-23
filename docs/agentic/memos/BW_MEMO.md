@@ -4,23 +4,23 @@
 **Session role:** BW
 
 ## Current phase
-Milestone A + CAL **1.8** accepted.  
-**Done:** Phase 0, 1.1–1.3, 1.5–1.8.  
-**Open Phase 1:** **1.4** replay, **1.9** live (behind flag).  
+Phase 1 nearly complete.  
+**Done:** Milestone A, 1.4 replay, 1.8 sliders.  
+**Open Phase 1:** **1.9** live WS behind flag.  
 Remote: https://github.com/Fusilis0/broadcast-web
 
 ## Accepted (this update)
-- DSP-CAL-20260723-01 — offset sliders V1 (localStorage persistence / multi-device / CV deferred)
+- DSP-TEL-20260723-01 — replay fixture v1 + `spine-demo`; HUD mock↔replay; live warn-only
 
 ## Priority queue
-1. **P0:** Commit + push CAL 1.8 (uncommitted locally)  
-2. **P0:** TEL **1.4** replay fixture loader  
-3. **P1:** TEL **1.9** live WS behind flag (HUD mode can start wiring)  
-4. Later: OUT chroma; CON deeplink; CAL persistence polish / CV Phase 4  
+1. **P0:** Commit + push TEL 1.4 (if uncommitted)  
+2. **P0:** TEL **1.9** live WS behind flag (wire HUD `live` for real; default stays mock)  
+3. After 1.9: Phase 1 complete → Phase 2 (SCN race content) and/or OUT chroma  
+4. Optional later: TEL recorder; CAL persistence; CON deeplink; CV  
 
 ## Next actions for human
-1. Say **“commit and push”** for CAL sliders  
-2. Tell **TEL**: draft DSP for roadmap **1.4** — replay fixture format + loader (mock stays default)  
+1. Say **“commit and push”** for replay work  
+2. Tell **TEL**: draft DSP for roadmap **1.9** — live WebSocket client behind flag; mock/replay unchanged as defaults  
 
 ## Blockers
-- None
+- None (need VPS `ws`/`wss` URL in config/env for soak — document in DSP)
