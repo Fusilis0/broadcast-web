@@ -24,7 +24,7 @@
 ## Current phase pointer
 
 **Active:** **Phase 3** — **3.1 + 3.2 done** (2026-07-27). **3.3** WHEP deferred. Next: **3.5** vMix experiment (human) and/or **3.4** HUD / **3.6** CON.  
-**Last gate:** DSP-OUT-20260727-02 (visual timecode) accepted (2026-07-27). Local 3.2 work uncommitted — commit/push before continuing.
+**Last gate:** DSP-OUT-20260727-02 (visual timecode) accepted + pushed `0fb3dcc` (2026-07-27).
 
 ---
 
