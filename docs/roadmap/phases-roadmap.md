@@ -23,8 +23,8 @@
 
 ## Current phase pointer
 
-**Active:** **Phase 2** — **2.1–2.6 done** (2026-07-27). BW next: **2.7** name/colour JSON (closes Phase 2 content). Then OUT **3.1** chroma.  
-**Last gate:** DSP-SCN-20260727-05 (countdown flags) accepted (2026-07-27). Local 2.6 work uncommitted — commit/push before continuing.
+**Active:** **Phase 2 content complete** — **2.1–2.7 done** (2026-07-27). Milestone B ready for BW. Next: OUT **3.1** chroma (Phase 3).  
+**Last gate:** DSP-SCN-20260727-06 (boat name/colour JSON) accepted (2026-07-27).
 
 ---
 
@@ -60,9 +60,9 @@
 | 2.4 | Multi POV switch — **Done** (TEL `DSP-TEL-20260727-01` + SCN `DSP-SCN-20260727-03`) | SCN+TEL |
 | 2.5 | Sponsors subset — **Done** (`DSP-SCN-20260727-04`) | SCN |
 | 2.6 | Countdown flags — **Done** (`DSP-SCN-20260727-05`) | SCN |
-| 2.7 | Name/colour JSON | SCN |
+| 2.7 | Name/colour JSON — **Done** (`DSP-SCN-20260727-06`) | SCN |
 
-**Exit (Milestone B):** Visual parity good enough for side-by-side vs Unity.
+**Exit (Milestone B):** Visual parity good enough for side-by-side vs Unity. **Content gate met** (2026-07-27) — fleet + course + POV + sponsors + flags + name/colour tags; BW/studio side-by-side still human.
 
 ---
 

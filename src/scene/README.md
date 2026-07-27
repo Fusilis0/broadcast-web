@@ -14,7 +14,7 @@ Do **not** call `gpsToEnu` for boats, subscribe to `telemetryBus` for positions,
 
 ## Boot
 
-`main.ts` loads config → `startScene({ boatIds, povIds })` → EGM96 → origin → **`loadCourseFromUrl(courseUrl)`** → **`loadSponsorsFromUrl(sponsorsUrl)`** → **`loadCountdownFlagsFromUrl(flagsUrl)`** → TEL ingest → `startPosePipeline` → HUD mode + POV select. HUD boots early for status; scene waits on `loadConfig()` so allow-lists are known.
+`main.ts` loads config → `startScene({ boatIds, povIds })` → **`loadBoatNamesFromUrl(boatNamesUrl)`** → EGM96 → origin → **`loadCourseFromUrl(courseUrl)`** → **`loadSponsorsFromUrl(sponsorsUrl)`** → **`loadCountdownFlagsFromUrl(flagsUrl)`** → TEL ingest → `startPosePipeline` → HUD mode + POV select. HUD boots early for status; scene waits on `loadConfig()` so allow-lists are known.
 
 Mock ids: POVs from `povIds` (default `1`,`2`), boats from `boatIds` (default `21–24`). Temporary hFOV default `66.8832` (also on `PoseEvent.fovHDeg` from CAL).
 
@@ -22,14 +22,15 @@ Mock ids: POVs from `povIds` (default `1`,`2`), boats from `boatIds` (default `2
 
 | Symbol | Role |
 | --- | --- |
-| `startScene(options)` | Scene + lights + renderer + RAF + pose subscribe + fleet `Map` + POV switch + course/sponsors/flags loaders |
+| `startScene(options)` | Scene + lights + renderer + RAF + pose subscribe + fleet `Map` + POV switch + course/sponsors/flags/boatNames loaders |
 | `loadCourse` / `mountCourse` | Fetch/normalize course JSON → GEO ENU → boundary/gates/buoys |
 | `loadSponsors` / `mountSponsors` | Fetch/normalize sponsors JSON → GEO ENU → fixed world panels |
 | `loadCountdownFlags` / `mountCountdownFlags` | Fetch/normalize flags JSON → GEO ENU → poles + phase timer |
+| `loadBoatNames` / `normalizeBoatNames` | Fetch/normalize Unity category→id→name JSON → tag identity map |
 | `startStubHud(options)` | Ops overlay: mode + POV select + countdown controls + status + 2D map (`setCourseMarks`) |
 | `createMap2d()` | Top-down ENU East/North fleet panel (canvas 2D) + optional course dots |
 | `createBoatEntity()` | Pose root + glTF/procedural visual + billboard tag |
-| `createBoatTag()` | Canvas sprite label (`Boat {id}` stub) |
+| `createBoatTag()` | Canvas sprite label (catalogue name + category tint, or `Boat {id}` stub) |
 | `createDroneCamera()` | PerspectiveCamera + ENU apply |
 | `boatIdAllowSet` / `isAllowedBoatId` / `formatBoatEnuStatus` | Fleet allow-list + HUD helpers |
 | `povIdAllowSet` / `isAllowedPovId` / `formatPovStatus` / `resolvePovIdList` | POV allow-list + HUD helpers |
@@ -69,7 +70,15 @@ Clear color stays dark preview; OUT owns chroma later. Ambient + directional lig
 - On `poseBus` boat pose: ignore ids not in `boatIds`; otherwise create (clone 2.1 template + tag) then `applyPose`.
 - Each RAF: `updateTag` for every active boat (drone camera).
 - `stop()` disposes all entities and clears the map.
-- Names/colours still roadmap **2.7** (stub tags by id).
+- Names/colours: **2.7** catalogue via `boatNamesUrl` (see below).
+
+## Boat names / colours (Phase 2.7)
+
+- Fixture: `public/fixtures/boats/demo-istanbul-names.json` (config key **`boatNamesUrl`**).
+- Schema: Unity `BoatNameAssigner` nested map — category → `{ "<id>": "<name>" }` (covers default `21`–`24`).
+- Colour from category Turkish keywords (`pembe`/`mavi`/`sarı`/`sari`/`yeşil`/`yesil`/`turuncu`; else white). Optional `_color` / per-entry hex overrides.
+- Boot: `loadBoatNamesFromUrl` before TEL; `ensureBoat` resolves on create; late load re-applies via `setTagIdentity` (canvas texture redraw, no leak — same texture updated).
+- Unknown id → stub `Boat {id}` / neutral plate. Hull tint and 2D map dots are out of this slice.
 
 ## Multi-POV switch (Phase 2.4)
 
@@ -85,7 +94,7 @@ Clear color stays dark preview; OUT owns chroma later. Ambient + directional lig
 ## Boat + tag (Phase 2.1 template)
 
 - Visual: loads `/models/boat.glb` (cached, cloned per entity); procedural multi-mesh fallback if load fails. See `src/assets/README.md` for axis offset.
-- Tag: sprite billboard (auto-faces camera) with mild distance scale (Unity `BoatTagRotation` spirit). Stub name `Boat {id}`.
+- Tag: sprite billboard (auto-faces camera) with mild distance scale (Unity `BoatTagRotation` spirit). Catalogue name + category tint when **2.7** loaded; else stub `Boat {id}`.
 
 ## Stub HUD + 2D map
 

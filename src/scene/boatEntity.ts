@@ -8,15 +8,21 @@ import {
   poseRotationToQuaternion,
   type PoseEvent,
 } from '../pose/index.ts'
-import { createBoatTag, type BoatTagHandle } from './boatTag.ts'
+import {
+  createBoatTag,
+  type BoatTagHandle,
+  type BoatTagIdentity,
+} from './boatTag.ts'
 
 /** Mock boat id from TEL (`src/telemetry/mockSource.ts`). */
 export const DEFAULT_BOAT_ID = '21'
 
 export type BoatEntityOptions = {
   id?: string
-  /** Stub name until 2.7 catalogue JSON. */
+  /** Display name from catalogue (default `Boat {id}`). */
   displayName?: string
+  /** Category tint `#rrggbb` for the tag plate/border/name. */
+  color?: string
   /**
    * When true (default), start with procedural hull and swap to glTF clone
    * when `/models/boat.glb` loads. Set false to keep procedural only.
@@ -30,6 +36,8 @@ export type BoatEntityHandle = {
   applyPose: (pose: PoseEvent) => void
   /** Billboard distance scale — call each frame with the active drone camera. */
   updateTag: (camera: THREE.Camera, viewportHeightPx: number) => void
+  /** Apply catalogue name/colour after async load (or live update). */
+  setTagIdentity: (identity: BoatTagIdentity) => void
   dispose: () => void
 }
 
@@ -63,7 +71,11 @@ export function createBoatEntity(
   applyBoatVisualOffset(visual)
   root.add(visual)
 
-  const tag: BoatTagHandle = createBoatTag({ id, displayName })
+  const tag: BoatTagHandle = createBoatTag({
+    id,
+    displayName,
+    color: options.color,
+  })
   root.add(tag.root)
 
   root.visible = false
@@ -93,6 +105,9 @@ export function createBoatEntity(
     },
     updateTag(camera: THREE.Camera, viewportHeightPx: number): void {
       tag.update(camera, viewportHeightPx)
+    },
+    setTagIdentity(identity: BoatTagIdentity): void {
+      tag.setTagIdentity(identity)
     },
     dispose(): void {
       cancelled = true

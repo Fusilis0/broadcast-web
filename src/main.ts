@@ -22,6 +22,7 @@ let replayUrl = '/fixtures/telemetry/spine-demo.json'
 let courseUrl = '/fixtures/course/demo-istanbul.json'
 let sponsorsUrl = '/fixtures/sponsors/demo-istanbul.json'
 let flagsUrl = '/fixtures/flags/demo-istanbul-countdown.json'
+let boatNamesUrl = '/fixtures/boats/demo-istanbul-names.json'
 let boatIds: string[] = ['21', '22', '23', '24']
 let povIds: string[] = ['1', '2']
 let switching = false
@@ -60,6 +61,7 @@ void (async () => {
   courseUrl = config.courseUrl
   sponsorsUrl = config.sponsorsUrl
   flagsUrl = config.flagsUrl
+  boatNamesUrl = config.boatNamesUrl
   boatIds = config.boatIds
   povIds = config.povIds
 
@@ -70,6 +72,9 @@ void (async () => {
     povIds: config.povIds,
   })
   hud.setPovIds(config.povIds, scene.getActivePovId())
+
+  // Name/colour catalogue — before TEL so first boat spawn can resolve tags.
+  await scene.loadBoatNamesFromUrl(boatNamesUrl)
 
   hud.setBootMessage('boot: EGM96…')
   await ensureEgm96Loaded()

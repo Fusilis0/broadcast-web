@@ -5,6 +5,11 @@ import {
   type BoatEntityHandle,
 } from './boatEntity.ts'
 import {
+  loadBoatNames,
+  lookupBoatName,
+  type BoatNamesCatalogue,
+} from './boatNames/index.ts'
+import {
   loadCourse,
   type CourseHandle,
 } from './course/index.ts'
@@ -82,6 +87,11 @@ export type SceneHandle = {
   loadCountdownFlagsFromUrl: (
     url?: string,
   ) => Promise<CountdownFlagsHandle | null>
+  /**
+   * Load boat name/colour catalogue and apply to existing + future tags.
+   * Safe anytime after `startScene` (before or after boats spawn).
+   */
+  loadBoatNamesFromUrl: (url?: string) => Promise<BoatNamesCatalogue>
   /** Start / pause / reset / restart the loaded countdown (no-op if none). */
   controlCountdown: (
     action: 'start' | 'pause' | 'reset' | 'restart',
@@ -122,10 +132,20 @@ export function startScene(options: SceneOptions): SceneHandle {
 
   const drone = createDroneCamera(1, TEMP_HFOV_DEG)
   const boats = new Map<string, BoatEntityHandle>()
+  let boatNames: BoatNamesCatalogue = new Map()
   let course: CourseHandle | null = null
   let sponsors: SponsorsHandle | null = null
   let countdownFlags: CountdownFlagsHandle | null = null
   const clock = new THREE.Clock()
+
+  function applyCatalogueToBoat(boat: BoatEntityHandle): void {
+    const entry = lookupBoatName(boatNames, boat.id)
+    if (!entry) return
+    boat.setTagIdentity({
+      displayName: entry.name,
+      color: entry.color,
+    })
+  }
 
   const renderer = new THREE.WebGLRenderer({ antialias: true })
   renderer.setClearColor(clearColor, 1)
@@ -147,7 +167,12 @@ export function startScene(options: SceneOptions): SceneHandle {
   function ensureBoat(id: string): BoatEntityHandle {
     let boat = boats.get(id)
     if (boat) return boat
-    boat = createBoatEntity({ id })
+    const entry = lookupBoatName(boatNames, id)
+    boat = createBoatEntity({
+      id,
+      displayName: entry?.name,
+      color: entry?.color,
+    })
     boats.set(id, boat)
     scene.add(boat.root)
     return boat
@@ -244,6 +269,16 @@ export function startScene(options: SceneOptions): SceneHandle {
       countdownFlags = handle
       return handle
     },
+    async loadBoatNamesFromUrl(url?: string): Promise<BoatNamesCatalogue> {
+      if (stopped) return new Map()
+      const catalogue = await loadBoatNames(url)
+      if (stopped) return new Map()
+      boatNames = catalogue
+      for (const boat of boats.values()) {
+        applyCatalogueToBoat(boat)
+      }
+      return catalogue
+    },
     controlCountdown(action): void {
       if (!countdownFlags) return
       if (action === 'start') countdownFlags.start()
@@ -263,6 +298,7 @@ export function startScene(options: SceneOptions): SceneHandle {
       sponsors = null
       countdownFlags?.dispose()
       countdownFlags = null
+      boatNames = new Map()
       lastPoseByPovId.clear()
       for (const boat of boats.values()) {
         scene.remove(boat.root)

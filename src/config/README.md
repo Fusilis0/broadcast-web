@@ -21,6 +21,7 @@ Owned by **PLT+BW**. Thin `/config.json` loader — no domain logic.
 | `courseUrl` | Static course JSON for SCN (default `/fixtures/course/demo-istanbul.json`) |
 | `sponsorsUrl` | Static sponsor billboards JSON for SCN (default `/fixtures/sponsors/demo-istanbul.json`) |
 | `flagsUrl` | Countdown flags JSON for SCN (default `/fixtures/flags/demo-istanbul-countdown.json`) |
+| `boatNamesUrl` | Boat name/colour catalogue JSON for SCN (default `/fixtures/boats/demo-istanbul-names.json`) |
 | `wsUrl` | Drone / primary live WebSocket URL (default `""`) |
 | `wsBoatUrl` | Boat live WebSocket URL (default `""`) — **single** socket; multi-URL is a TEL follow-up |
 | `boatIds` | Boat channel ids for mock + SCN fleet registry (default `["21","22","23","24"]`; arch band `21–52`) |
@@ -32,7 +33,7 @@ Owned by **PLT+BW**. Thin `/config.json` loader — no domain logic.
 - Non-empty strings in band **`21–52`**. Missing / empty / all junk → four-id default matching committed `public/config.json`.
 - Out-of-band values (including pilots **`81–84`**) are filtered with a console warn — pilots are deferred past Phase 2.2.
 - Full band `21–52` later by extending the array only — no schema change.
-- Display names / colours remain SCN **2.7**.
+- Display names / colours: SCN **2.7** via `boatNamesUrl`.
 
 ### `povIds` (SCN contract)
 

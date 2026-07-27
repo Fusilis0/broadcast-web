@@ -10,6 +10,7 @@ const DEFAULT_REPLAY_URL = '/fixtures/telemetry/spine-demo.json'
 const DEFAULT_COURSE_URL = '/fixtures/course/demo-istanbul.json'
 const DEFAULT_SPONSORS_URL = '/fixtures/sponsors/demo-istanbul.json'
 const DEFAULT_FLAGS_URL = '/fixtures/flags/demo-istanbul-countdown.json'
+const DEFAULT_BOAT_NAMES_URL = '/fixtures/boats/demo-istanbul-names.json'
 
 /** Committed default boat band slice (full `21–52` later via config only). */
 export const DEFAULT_BOAT_IDS: readonly string[] = ['21', '22', '23', '24']
@@ -33,6 +34,7 @@ const DEFAULT_CONFIG: AppConfig = {
   courseUrl: DEFAULT_COURSE_URL,
   sponsorsUrl: DEFAULT_SPONSORS_URL,
   flagsUrl: DEFAULT_FLAGS_URL,
+  boatNamesUrl: DEFAULT_BOAT_NAMES_URL,
   wsUrl: '',
   wsBoatUrl: '',
   boatIds: [...DEFAULT_BOAT_IDS],
@@ -148,6 +150,10 @@ export function normalizeConfig(raw: unknown): AppConfig {
       typeof o.flagsUrl === 'string' && o.flagsUrl.trim() !== ''
         ? o.flagsUrl
         : DEFAULT_FLAGS_URL,
+    boatNamesUrl:
+      typeof o.boatNamesUrl === 'string' && o.boatNamesUrl.trim() !== ''
+        ? o.boatNamesUrl
+        : DEFAULT_BOAT_NAMES_URL,
     wsUrl: typeof o.wsUrl === 'string' ? o.wsUrl : '',
     wsBoatUrl: typeof o.wsBoatUrl === 'string' ? o.wsBoatUrl : '',
     boatIds: normalizeBoatIds(o.boatIds),
@@ -180,4 +186,5 @@ export {
   DEFAULT_COURSE_URL,
   DEFAULT_SPONSORS_URL,
   DEFAULT_FLAGS_URL,
+  DEFAULT_BOAT_NAMES_URL,
 }

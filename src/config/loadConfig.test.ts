@@ -142,3 +142,17 @@ describe('normalizeConfig flagsUrl', () => {
     expect(cfg.flagsUrl).toBe('/fixtures/flags/custom.json')
   })
 })
+
+describe('normalizeConfig boatNamesUrl', () => {
+  it('defaults boatNamesUrl when absent', () => {
+    const cfg = normalizeConfig({})
+    expect(cfg.boatNamesUrl).toBe('/fixtures/boats/demo-istanbul-names.json')
+  })
+
+  it('keeps custom boatNamesUrl', () => {
+    const cfg = normalizeConfig({
+      boatNamesUrl: '/fixtures/boats/custom.json',
+    })
+    expect(cfg.boatNamesUrl).toBe('/fixtures/boats/custom.json')
+  })
+})

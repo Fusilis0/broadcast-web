@@ -29,7 +29,17 @@ export {
   BOAT_TAG_CANVAS_ASPECT,
   type BoatTagHandle,
   type BoatTagOptions,
+  type BoatTagIdentity,
 } from './boatTag.ts'
+export {
+  loadBoatNames,
+  normalizeBoatNames,
+  lookupBoatName,
+  parseCategoryColor,
+  DEFAULT_BOAT_NAMES_URL,
+  type BoatNameEntry,
+  type BoatNamesCatalogue,
+} from './boatNames/index.ts'
 export {
   createDroneCamera,
   horizontalToVerticalFovDeg,
