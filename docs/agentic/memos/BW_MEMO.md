@@ -6,10 +6,11 @@
 ## Current phase
 **Phase 2 complete.**  
 **Phase 3 in progress** — **3.1 + 3.2 done** (chroma clear + visual timecode; 149 tests).  
+- **Next (BW pick):** **3.5** local vMix chroma experiment — studio ready  
 - **3.3** WHEP still deferred until underlay/CV needed  
-- **Next:** land 3.2 commit; then **3.5** vMix experiment (human) and/or **3.4** HUD harden / **3.6** CON deeplink  
+- Parallel later: **3.4** HUD / **3.6** CON  
 Remote: https://github.com/Fusilis0/broadcast-web (private, **Fusilis0**)  
-Last push: `0fb3dcc` (3.2).  
+Last push: `5dfd5b0`.  
 **Standing order:** after accepted Phase slices, BW may commit/push landings without waiting for an explicit ask.
 
 ## What works today
@@ -18,7 +19,7 @@ Last push: `0fb3dcc` (3.2).
 - Config: `timecodeEnabled`, `timecodeCorner`, `timecodeSizePx`
 
 ## Priority queue
-1. **3.5** local vMix chroma experiment when studio ready (human + OUT)  
+1. **3.5** local vMix chroma experiment (OUT DSP + human studio run)  
 2. Parallel software: **3.4** HUD harden and/or **3.6** CON deeplink  
 3. **3.3** WHEP only when underlay/CV needed  
 4. Optional: live multi-URL TEL, VPS soak, CV  
