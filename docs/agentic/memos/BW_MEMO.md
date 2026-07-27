@@ -6,11 +6,12 @@
 ## Current phase
 **Phase 2 complete.**  
 **Phase 3 in progress** — **3.1 + 3.2 done** (chroma clear + visual timecode; 149 tests).  
-- **Next (BW pick):** **3.5** local vMix chroma experiment — studio ready  
-- **3.3** WHEP still deferred until underlay/CV needed  
-- Parallel later: **3.4** HUD / **3.6** CON  
+- **Next (BW pick):** **3.4** connection/calib HUD harden — DSP issued  
+  `docs/agentic/dispatches/active/DSP-SCN-20260727-07-connection-calib-hud.md`  
+- **3.5** still human-pending (studio Results)  
+- **3.3** WHEP deferred; **3.6** CON later  
 Remote: https://github.com/Fusilis0/broadcast-web (private, **Fusilis0**)  
-Last push: `5dfd5b0`.  
+Last push: `c72ca05`.  
 **Standing order:** after accepted Phase slices, BW may commit/push landings without waiting for an explicit ask.
 
 ## What works today
@@ -19,10 +20,11 @@ Last push: `5dfd5b0`.
 - Config: `timecodeEnabled`, `timecodeCorner`, `timecodeSizePx`
 
 ## Priority queue
-1. **3.5** local vMix chroma experiment (OUT DSP + human studio run)  
-2. Parallel software: **3.4** HUD harden and/or **3.6** CON deeplink  
-3. **3.3** WHEP only when underlay/CV needed  
-4. Optional: live multi-URL TEL, VPS soak, CV  
+1. **3.4** connection/calib HUD (DSP active — worker)  
+2. **3.5** studio Results when you can run vMix  
+3. **3.6** CON deeplink  
+4. **3.3** WHEP only when underlay/CV needed  
+5. Optional: live multi-URL TEL, VPS soak, CV  
 
 ## Compaction recovery
 Re-open BW with `docs/agentic/dispatches/BOOTSTRAP_BW.md`, then read this memo + `docs/roadmap/phases-roadmap.md`.
