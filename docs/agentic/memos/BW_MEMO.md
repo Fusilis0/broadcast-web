@@ -4,30 +4,28 @@
 **Session role:** BW
 
 ## Current phase
-**Phase 2 complete** (2.1–2.7 / Milestone B content).  
-**Phase 3 in progress** — **3.1 done** (preview/chroma clear).  
-- **Next (BW pick):** **3.2** visual timecode (OUT)  
-- **3.3** WHEP deferred until underlay/CV needed  
+**Phase 2 complete.**  
+**Phase 3 in progress** — **3.1 + 3.2 done** (chroma clear + visual timecode; 149 tests).  
+- **3.3** WHEP still deferred until underlay/CV needed  
+- **Next:** land 3.2 commit; then **3.5** vMix experiment (human) and/or **3.4** HUD harden / **3.6** CON deeplink  
 Remote: https://github.com/Fusilis0/broadcast-web (private, **Fusilis0**)  
-Last push: `7eee8de` (2.7). **3.1 still uncommitted.**
+Last push: `f939c76` (3.1). **3.2 still uncommitted.**
 
 ## What works today
-- Full race-content spine: fleet, course, POV, sponsors, flags, name/colour tags
-- TEL mock/replay/live (live single URLs); GEO/CAL pose path
-- OUT: `preview` / `chroma` clear modes (runtime toggle; default preview)
-- Studio: capture WebGL window; key on clear green
+- Full race-content spine + name/colour tags
+- OUT: preview/chroma clear + Unity-compatible 8×8 LSB visual timecode overlay
+- Config: `timecodeEnabled`, `timecodeCorner`, `timecodeSizePx`
 
 ## Priority queue
-1. **Land 3.1** — commit/push  
-2. **3.2** visual timecode  
-3. **3.5** local vMix chroma experiment (human + OUT) when studio ready  
-4. **3.3** WHEP underlay when preview/CV needs video  
-5. **3.4** HUD harden / **3.6** CON deeplink as needed  
-6. Optional: live multi-URL TEL, VPS soak, CV  
+1. **Land 3.2** — commit/push  
+2. **3.5** local vMix chroma experiment when studio ready (human + OUT)  
+3. Parallel software: **3.4** HUD harden and/or **3.6** CON deeplink  
+4. **3.3** WHEP only when underlay/CV needed  
+5. Optional: live multi-URL TEL, VPS soak, CV  
 
 ## Compaction recovery
 Re-open BW with `docs/agentic/dispatches/BOOTSTRAP_BW.md`, then read this memo + `docs/roadmap/phases-roadmap.md`.
 
 ## Blockers
-- None for 3.2  
-- 3.3 blocked only by product need (no technical gate)
+- **3.5** needs studio PC + vMix (human)  
+- **3.3** product-gated (CV/underlay need)

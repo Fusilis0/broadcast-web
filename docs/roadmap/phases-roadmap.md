@@ -23,8 +23,8 @@
 
 ## Current phase pointer
 
-**Active:** **Phase 3** — **3.1 done** (2026-07-27). BW next: **3.2** visual timecode; **3.3** WHEP when underlay/CV needed.  
-**Last gate:** DSP-OUT-20260727-01 (preview/chroma clear) accepted (2026-07-27). Local 3.1 work uncommitted — commit/push before continuing.
+**Active:** **Phase 3** — **3.1 + 3.2 done** (2026-07-27). **3.3** WHEP deferred. Next: **3.5** vMix experiment (human) and/or **3.4** HUD / **3.6** CON.  
+**Last gate:** DSP-OUT-20260727-02 (visual timecode) accepted (2026-07-27). Local 3.2 work uncommitted — commit/push before continuing.
 
 ---
 
@@ -71,7 +71,7 @@
 | # | Work | Owner | Gate |
 | --- | --- | --- | --- |
 | 3.1 | `preview` / `chroma` modes | OUT | **Done** (`DSP-OUT-20260727-01`) |
-| 3.2 | Visual timecode | OUT | |
+| 3.2 | Visual timecode | OUT | **Done** (`DSP-OUT-20260727-02`) |
 | 3.3 | WebRTC underlay (WHEP) | OUT | |
 | 3.4 | Connection/calib HUD harden | CAL+SCN | |
 | 3.5 | Local vMix chroma experiment | OUT + human | |

@@ -7,7 +7,10 @@ import {
   normalizeOutputMode,
   resolveClearAppearance,
   startOutputModeControl,
+  startVisualTimecode,
   type OutputModeControlHandle,
+  type TimecodeCorner,
+  type VisualTimecodeHandle,
 } from './output/index.ts'
 import { startPosePipeline, stopPosePipeline } from './pose/index.ts'
 import { startScene, startStubHud, type SceneHandle } from './scene/index.ts'
@@ -26,6 +29,7 @@ const calib = startOffsetSliders({ container: app })
 let scene: SceneHandle | null = null
 let ingest: IngestHandle | null = null
 let outputControl: OutputModeControlHandle | null = null
+let visualTimecode: VisualTimecodeHandle | null = null
 let replayUrl = '/fixtures/telemetry/spine-demo.json'
 let courseUrl = '/fixtures/course/demo-istanbul.json'
 let sponsorsUrl = '/fixtures/sponsors/demo-istanbul.json'
@@ -104,6 +108,17 @@ void (async () => {
     },
   })
 
+  if (config.timecodeEnabled && scene) {
+    const sceneHandle = scene
+    visualTimecode = startVisualTimecode({
+      renderer: sceneHandle.renderer,
+      getActivePovId: () => sceneHandle.getActivePovId(),
+      enabled: true,
+      corner: config.timecodeCorner as TimecodeCorner,
+      sizePx: config.timecodeSizePx,
+    })
+  }
+
   // Name/colour catalogue — before TEL so first boat spawn can resolve tags.
   await scene.loadBoatNamesFromUrl(boatNamesUrl)
 
@@ -129,6 +144,8 @@ void (async () => {
   window.addEventListener('beforeunload', () => {
     stopPosePipeline()
     ingest?.stop()
+    visualTimecode?.stop()
+    visualTimecode = null
     calib.stop()
     outputControl?.stop()
     hud.stop()

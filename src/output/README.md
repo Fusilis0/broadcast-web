@@ -1,6 +1,6 @@
 # output
 
-Owned by **OUT**. Canvas clear modes, later WebRTC underlay / timecode / egress.
+Owned by **OUT**. Canvas clear modes, visual timecode, later WebRTC underlay / egress.
 
 ## Phase 3.1 — preview / chroma clear
 
@@ -19,13 +19,42 @@ Owned by **OUT**. Canvas clear modes, later WebRTC underlay / timecode / egress.
 - `outputMode`: `"preview"` (committed default) or `"chroma"`.
 - Optional `chromaKey`: `"#00ff00"` (or equivalent) when mode is chroma.
 
+## Phase 3.2 — visual timecode
+
+Unity-compatible **8×8 LSB** black/white barcode burned into the **same WebGL canvas** (orthographic overlay after the main scene). Canvas-only capture includes it; no sibling DOM canvas.
+
+| Symbol | Role |
+| --- | --- |
+| `encodeVisualTimecodeBits(ms)` | Pure 64-bit pattern, LSB at index 0 |
+| `encodeVisualTimecodeRgba(ms)` / `writeVisualTimecodeRgba` | RGBA8888 for `DataTexture` |
+| `startVisualTimecode(options)` | Overlay + `telemetryBus` drone `ts` source |
+
+### Encode contract (Unity parity)
+
+- Index `0` = bit 0 (LSB) = **bottom-left**; rows left→right, bottom→top
+- Index `63` = bit 63 (MSB) = top-right
+- White = 1, black = 0; **NearestFilter** (point sampling)
+- Re-upload only when the resolved timestamp changes
+
+### Timestamp source
+
+- Prefer active POV drone packet `ts` (`getActivePovId` + `telemetryBus`)
+- Fallback: latest drone `ts` across ids (Unity `useGlobalLatest` analogue)
+
+### Config
+
+- `timecodeEnabled`: default **`true`** (ops on). Set `false` to disable.
+- `timecodeCorner`: `"bottom-right"` (default, clear of OUT mode control) \| `"bottom-left"`
+- `timecodeSizePx`: on-screen size (default `96`, clamped 32–256)
+
 ### Studio note
 
-Capture the WebGL canvas window in **vMix** with a chroma key on the clear color (default green). No in-browser NDI.
+Barcode is sync burn-in for telemetry ↔ video timing. Capture the WebGL canvas / window in **vMix**; key chroma as before (3.1). **No in-browser NDI.**
 
-### Out of scope (later)
+## Out of scope (later)
 
 - `transparent` alpha capture
-- WebRTC WHEP underlay (3.3)
-- Timecode burn-in (3.2)
+- WebRTC WHEP underlay (3.3 — deferred)
+- NTP / `stream_anchor` status TMP line
+- Decoder / CV reader
 - Egress / native NDI helper

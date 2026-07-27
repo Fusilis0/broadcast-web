@@ -173,3 +173,31 @@ describe('normalizeConfig outputMode / chromaKey', () => {
     expect(cfg.chromaKey).toBe('#00ff00')
   })
 })
+
+describe('normalizeConfig timecode', () => {
+  it('defaults timecodeEnabled true, bottom-right, 96px', () => {
+    const cfg = normalizeConfig({})
+    expect(cfg.timecodeEnabled).toBe(true)
+    expect(cfg.timecodeCorner).toBe('bottom-right')
+    expect(cfg.timecodeSizePx).toBe(96)
+  })
+
+  it('honors timecodeEnabled false and corner / size', () => {
+    const cfg = normalizeConfig({
+      timecodeEnabled: false,
+      timecodeCorner: 'bottom-left',
+      timecodeSizePx: 128,
+    })
+    expect(cfg.timecodeEnabled).toBe(false)
+    expect(cfg.timecodeCorner).toBe('bottom-left')
+    expect(cfg.timecodeSizePx).toBe(128)
+  })
+
+  it('clamps size and rejects unknown corner', () => {
+    expect(normalizeConfig({ timecodeSizePx: 8 }).timecodeSizePx).toBe(32)
+    expect(normalizeConfig({ timecodeSizePx: 999 }).timecodeSizePx).toBe(256)
+    expect(normalizeConfig({ timecodeCorner: 'top-left' }).timecodeCorner).toBe(
+      'bottom-right',
+    )
+  })
+})

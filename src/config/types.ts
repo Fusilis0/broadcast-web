@@ -49,6 +49,18 @@ export type AppConfig = {
    * Empty → OUT default `(0, 255, 0)`.
    */
   chromaKey: string
+  /**
+   * OUT visual timecode burn-in (Phase 3.2). Default `true` for ops sync debug.
+   */
+  timecodeEnabled: boolean
+  /**
+   * Screen corner for the 8×8 barcode: `"bottom-right"` (default) | `"bottom-left"`.
+   */
+  timecodeCorner: string
+  /**
+   * On-screen barcode size in CSS pixels (8×8 logical scaled). Default `96`.
+   */
+  timecodeSizePx: number
 }
 
 /** @deprecated Prefer `AppConfig`. */

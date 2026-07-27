@@ -20,3 +20,20 @@ export {
   type OutputModeControlHandle,
   type OutputModeControlOptions,
 } from './outputModeControl.ts'
+
+export {
+  TIMECODE_BIT_COUNT,
+  TIMECODE_COLS,
+  TIMECODE_ROWS,
+  encodeVisualTimecodeBits,
+  encodeVisualTimecodeRgba,
+  toTimecodeBigInt,
+  writeVisualTimecodeRgba,
+} from './visualTimecodeEncode.ts'
+
+export {
+  startVisualTimecode,
+  type TimecodeCorner,
+  type VisualTimecodeHandle,
+  type VisualTimecodeOptions,
+} from './visualTimecodeOverlay.ts'

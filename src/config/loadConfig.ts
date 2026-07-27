@@ -43,6 +43,24 @@ const DEFAULT_CONFIG: AppConfig = {
   takeoffAltitudeMSL: 0,
   outputMode: 'preview',
   chromaKey: '',
+  timecodeEnabled: true,
+  timecodeCorner: 'bottom-right',
+  timecodeSizePx: 96,
+}
+
+function parseTimecodeEnabled(value: unknown): boolean {
+  if (typeof value === 'boolean') return value
+  return true
+}
+
+function parseTimecodeCorner(value: unknown): string {
+  if (value === 'bottom-left' || value === 'bottom-right') return value
+  return 'bottom-right'
+}
+
+function parseTimecodeSizePx(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 96
+  return Math.min(256, Math.max(32, Math.round(value)))
 }
 
 function isFiniteNumber(value: unknown): value is number {
@@ -165,6 +183,9 @@ export function normalizeConfig(raw: unknown): AppConfig {
       : 0,
     outputMode: typeof o.outputMode === 'string' ? o.outputMode : 'preview',
     chromaKey: typeof o.chromaKey === 'string' ? o.chromaKey.trim() : '',
+    timecodeEnabled: parseTimecodeEnabled(o.timecodeEnabled),
+    timecodeCorner: parseTimecodeCorner(o.timecodeCorner),
+    timecodeSizePx: parseTimecodeSizePx(o.timecodeSizePx),
   }
 }
 

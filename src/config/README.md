@@ -28,6 +28,9 @@ Owned by **PLT+BW**. Thin `/config.json` loader — no domain logic.
 | `povIds` | POV / drone+cam ids for mock multi-emit + SCN camera switch (default `["1","2"]`; bands `1–4` ∪ `11–12`) |
 | `outputMode` | OUT clear mode: `preview` (committed default) \| `chroma` (see OUT). Unknown → preview |
 | `chromaKey` | Optional chroma hex when mode is chroma (e.g. `"#00ff00"`). Empty → OUT default green |
+| `timecodeEnabled` | OUT 8×8 visual timecode burn-in (default `true`) |
+| `timecodeCorner` | `"bottom-right"` (default) \| `"bottom-left"` |
+| `timecodeSizePx` | On-screen barcode size in CSS px (default `96`, clamped 32–256) |
 
 ### `boatIds` (SCN contract)
 
