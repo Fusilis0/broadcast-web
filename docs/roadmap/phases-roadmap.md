@@ -23,7 +23,7 @@
 
 ## Current phase pointer
 
-**Active:** **Phase 3** — **3.1 + 3.2 done**. BW opened **3.5** vMix chroma experiment (studio ready). **3.3** WHEP deferred.  
+**Active:** **Phase 3** — **3.1 + 3.2 done**; **3.5** DSP issued (`DSP-OUT-20260727-03-vmix-chroma-experiment`); **3.3** WHEP deferred.  
 **Last gate:** DSP-OUT-20260727-02 (visual timecode) accepted + pushed `0fb3dcc` (2026-07-27).
 
 ---

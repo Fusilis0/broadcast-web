@@ -1,39 +1,35 @@
 # OUT_MEMO
 
 **Last updated:** 2026-07-27  
-**Status:** Idle — Phase 3.2 accepted; 3.3 WHEP deferred until BW opens underlay/CV
+**Status:** Active — 3.5 runbook ready; **awaiting human studio Results**
 
 ## Focus
-Phases **3.1** + **3.2** done. Next OUT product slice only when BW opens **3.3** or **3.5** (vMix chroma experiment).
+Phase **3.5** — human executes [`docs/ops/vmix-chroma-runbook.md`](../../ops/vmix-chroma-runbook.md), fills Results → OUT accepts
 
 ## Decisions
 - Priority: chroma → WebRTC underlay → egress → NDI helper last (BW lock)
-- No in-browser NDI
-- **3.1 DONE** — preview/chroma clear under `src/output/`
-- **3.2 DONE** — Unity-compatible 8×8 LSB visual timecode (in-renderer WebGL overlay)
-  - LSB → index 0, bottom-left texture origin; NearestFilter; default bottom-right ~96px
-  - `timecodeEnabled` default **true**; corner/size via config
-  - Active POV drone `ts`, fallback latest drone `ts`
-- **3.3 WHEP** — still **deferred** until underlay/CV needed (BW)
-- Follow-ups (not issued): NTP/`stream_anchor` status line; decoder/CV; optional ms debug text
+- No in-browser NDI; no NDI helper for 3.5
+- **3.1 + 3.2 DONE**
+- **3.5 worker docs DONE** — runbook + `src/output/README.md` link; acceptance blocked on human Results (not worker)
+- Capture path: Chrome window/screen only; no WHEP, no NDI
+- **3.3 WHEP** still deferred
 
 ## Issued dispatches
-- **DSP-OUT-20260727-01-preview-chroma-clear** — **DONE** → `dispatches/done/`
-- **DSP-OUT-20260727-02-visual-timecode** — **DONE** → `dispatches/done/`  
-  Accepted 2026-07-27; worker: 149 tests + build green
+- **DSP-OUT-20260727-01-preview-chroma-clear** — **DONE**
+- **DSP-OUT-20260727-02-visual-timecode** — **DONE**
+- **DSP-OUT-20260727-03-vmix-chroma-experiment** — active  
+  Worker runbook **accepted 2026-07-27**; human studio pending  
+  Artifact: `docs/ops/vmix-chroma-runbook.md`
 
 ## Planned dispatches (not issued)
 1. **DSP-OUT-…-whep-underlay-spike** (Phase 3.3) — **deferred** until BW opens underlay/CV
-2. **3.5** Local vMix chroma experiment — OUT + human
 
 ## Handoffs
-- **HO-SCN-OUT-20260727-01** — closed
-- **HO-OUT-BW-20260727-01** — 3.2 routed; 3.3 deferred
-- **HO-OUT-BW-20260727-02** — FYI: 3.2 accepted
+- **HO-OUT-BW-20260727-02** — 3.5 opened; runbook ready for studio
 
 ## Blockers
-- None — idle on OUT until BW routes 3.3 / 3.5 / other
+- Human must run studio checklist and fill Results table in the runbook (or paste Results here)
 
 ## Next actions
-1. Await BW (3.3 WHEP when CV/underlay needed, or 3.5 studio chroma experiment)
-2. Stay out of SCN/TEL/NDI
+1. Human: follow runbook on studio PC → fill Results (pass/fail + notes)
+2. OUT: accept 3.5, archive DSP, tick roadmap when Results recorded
