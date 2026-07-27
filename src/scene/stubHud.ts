@@ -22,6 +22,10 @@ export type StubHudOptions = {
   povIds?: readonly string[]
   /** Invoked when ops picks a POV id in the HUD select. */
   onPovChange?: (povId: string) => void
+  /** Countdown flag controls (Phase 2.6). */
+  onCountdownControl?: (
+    action: 'start' | 'pause' | 'reset' | 'restart',
+  ) => void
 }
 
 export type StubHudHandle = {
@@ -114,6 +118,27 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   povHint.className = 'ops-hud__mode-hint'
   povHint.textContent = 'digit keys 1–4'
   povRow.appendChild(povHint)
+
+  const countdownRow = document.createElement('div')
+  countdownRow.className = 'ops-hud__mode-row'
+  hud.appendChild(countdownRow)
+
+  const countdownLabel = document.createElement('span')
+  countdownLabel.className = 'ops-hud__mode-label'
+  countdownLabel.textContent = 'countdown'
+  countdownRow.appendChild(countdownLabel)
+
+  for (const action of ['start', 'pause', 'reset', 'restart'] as const) {
+    const btn = document.createElement('button')
+    btn.type = 'button'
+    btn.className = 'ops-hud__btn'
+    btn.textContent = action
+    btn.title = `Countdown ${action}`
+    btn.addEventListener('click', () => {
+      options.onCountdownControl?.(action)
+    })
+    countdownRow.appendChild(btn)
+  }
 
   const statusEl = document.createElement('pre')
   statusEl.className = 'ops-hud__status'

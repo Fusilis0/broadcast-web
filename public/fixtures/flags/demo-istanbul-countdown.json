@@ -1,0 +1,25 @@
+{
+  "name": "demo-istanbul-countdown",
+  "point1": {
+    "lat": 41.00795,
+    "lon": 28.9775,
+    "altMsl": 0
+  },
+  "point2": {
+    "lat": 41.00795,
+    "lon": 28.9793,
+    "altMsl": 0
+  },
+  "startMinutes": 6,
+  "whiteRaiseMinutes": 5,
+  "orangeRaiseMinutes": 6,
+  "blueWhiteRaiseMinutes": 4,
+  "blueWhiteLowerMinutes": 1,
+  "point1FlagVerticalOffset": 0,
+  "point2FlagVerticalOffset": 0,
+  "blueWhiteExtraOffsetM": 6,
+  "canvasVerticalOffset": 12,
+  "poleHeightM": 10,
+  "autoStart": true,
+  "demoTimeScale": 20
+}

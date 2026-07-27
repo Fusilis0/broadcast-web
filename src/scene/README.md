@@ -1,6 +1,6 @@
 # scene
 
-Owned by **SCN**. Three.js view: fleet boats (glTF/procedural) + billboard tags, drone camera, stub HUD, 2D fleet map, static course + buoys, sponsor panels.
+Owned by **SCN**. Three.js view: fleet boats (glTF/procedural) + billboard tags, drone camera, stub HUD, 2D fleet map, static course + buoys, sponsor panels, countdown flags.
 
 ## Consume contract
 
@@ -8,13 +8,13 @@ SCN draws fleet from **`poseBus`** (`src/pose/`) only — ENU meters `x=East, y=
 
 Do **not** call `gpsToEnu` for boats, subscribe to `telemetryBus` for positions, or invent calibration math here.
 
-**Course** and **sponsors** are the exception for static world content: lat/lon waypoints are converted with GEO **`gpsToEnuAmsl` only** (no ECEF reimplementation in `src/scene/`). Call after `applyConfigOrigin` + EGM96.
+**Course**, **sponsors**, and **countdown flags** are the exception for static world content: lat/lon waypoints are converted with GEO **`gpsToEnuAmsl` only** (no ECEF reimplementation in `src/scene/`). Call after `applyConfigOrigin` + EGM96.
 
 `telemetryBus` may be used for **packet counts only** in the stub HUD.
 
 ## Boot
 
-`main.ts` loads config → `startScene({ boatIds, povIds })` → EGM96 → origin → **`loadCourseFromUrl(courseUrl)`** → **`loadSponsorsFromUrl(sponsorsUrl)`** → TEL ingest → `startPosePipeline` → HUD mode + POV select. HUD boots early for status; scene waits on `loadConfig()` so allow-lists are known.
+`main.ts` loads config → `startScene({ boatIds, povIds })` → EGM96 → origin → **`loadCourseFromUrl(courseUrl)`** → **`loadSponsorsFromUrl(sponsorsUrl)`** → **`loadCountdownFlagsFromUrl(flagsUrl)`** → TEL ingest → `startPosePipeline` → HUD mode + POV select. HUD boots early for status; scene waits on `loadConfig()` so allow-lists are known.
 
 Mock ids: POVs from `povIds` (default `1`,`2`), boats from `boatIds` (default `21–24`). Temporary hFOV default `66.8832` (also on `PoseEvent.fovHDeg` from CAL).
 
@@ -22,10 +22,11 @@ Mock ids: POVs from `povIds` (default `1`,`2`), boats from `boatIds` (default `2
 
 | Symbol | Role |
 | --- | --- |
-| `startScene(options)` | Scene + lights + renderer + RAF + pose subscribe + fleet `Map` + POV switch + course/sponsors loaders |
+| `startScene(options)` | Scene + lights + renderer + RAF + pose subscribe + fleet `Map` + POV switch + course/sponsors/flags loaders |
 | `loadCourse` / `mountCourse` | Fetch/normalize course JSON → GEO ENU → boundary/gates/buoys |
 | `loadSponsors` / `mountSponsors` | Fetch/normalize sponsors JSON → GEO ENU → fixed world panels |
-| `startStubHud(options)` | Ops overlay: mode + POV select + status + 2D map (`setCourseMarks`) |
+| `loadCountdownFlags` / `mountCountdownFlags` | Fetch/normalize flags JSON → GEO ENU → poles + phase timer |
+| `startStubHud(options)` | Ops overlay: mode + POV select + countdown controls + status + 2D map (`setCourseMarks`) |
 | `createMap2d()` | Top-down ENU East/North fleet panel (canvas 2D) + optional course dots |
 | `createBoatEntity()` | Pose root + glTF/procedural visual + billboard tag |
 | `createBoatTag()` | Canvas sprite label (`Boat {id}` stub) |
@@ -51,6 +52,16 @@ Clear color stays dark preview; OUT owns chroma later. Ambient + directional lig
 - Mesh: vertical quad spanning A↔B; **fixed** world orientation (not camera-billboard). Face normal = flatten(A→B) × up (left of A→B). Order points so the course is on the facing side.
 - Missing texture → procedural canvas with `label` (no blank void). Sponsor `label` ≠ boat name catalogue (**2.7**).
 - Dispose on `scene.stop()`. Full Unity Sponsors pack / BillboardChain tiling are out of this slice.
+
+## Countdown flags (Phase 2.6)
+
+- Fixture: `public/fixtures/flags/demo-istanbul-countdown.json` (config key **`flagsUrl`**).
+- Two GPS poles near the demo course gate: P1 shore (**white**), P2 committee (**orange** + **blue-white**).
+- Timeline (Unity defaults): orange @ 6:00 → white @ 5:00 → blue-white up @ 4:00 → blue-white down @ 1:00 → freeze at 0:00.
+- Placement: **`gpsToEnuAmsl` only**; pole baseline **water Y = 0**. Flags face the other point (yaw-only).
+- World `MM:SS` sprite above P1; billboards to active POV camera with mild distance scale (boat-tag spirit). Plate red while running, green at zero.
+- Demo speed: fixture **`demoTimeScale: 20`** (~18 s for a 6-min sequence). Set `1` for real-time. HUD: Start / Pause / Reset / Restart.
+- Procedural colored planes — no Unity FBX/PNG dump. Dispose on `scene.stop()`.
 
 ## Fleet registry (Phase 2.2)
 
@@ -78,7 +89,7 @@ Clear color stays dark preview; OUT owns chroma later. Ambient + directional lig
 
 ## Stub HUD + 2D map
 
-- **HUD:** mode select (`mock` / `replay` / `live`) restarts TEL ingest via `onModeChange`. POV select lists `povIds` and calls `onPovChange` → scene `setActivePovId`. Status shows mode, TEL counts, `pov=<active>  seen=…`, last active-drone ENU, and a multi-boat ENU line (`boats=N  21=(…) 22=(…)` truncated if long).
+- **HUD:** mode select (`mock` / `replay` / `live`) restarts TEL ingest via `onModeChange`. POV select lists `povIds` and calls `onPovChange` → scene `setActivePovId`. Countdown Start / Pause / Reset / Restart → `onCountdownControl` → scene `controlCountdown`. Status shows mode, TEL counts, `pov=<active>  seen=…`, last active-drone ENU, and a multi-boat ENU line (`boats=N  21=(…) 22=(…)` truncated if long).
 - **Map:** plots `position.x` (East) vs `position.z` (North), north-up; auto-fits bounds to recent points + course marks with padding. Orange dots = course marks/gate ends.
 
 ## Camera convention

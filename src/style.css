@@ -60,6 +60,22 @@ body,
   padding: 2px 6px;
 }
 
+.ops-hud__btn {
+  pointer-events: auto;
+  background: #222830;
+  color: #d0d6dc;
+  border: 1px solid #3a4450;
+  border-radius: 3px;
+  font: inherit;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.ops-hud__btn:hover {
+  border-color: #5a6a7a;
+  color: #e8eef4;
+}
+
 .ops-hud__mode-hint {
   color: #6a7888;
   font-size: 11px;

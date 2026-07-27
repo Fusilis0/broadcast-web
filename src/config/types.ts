@@ -17,6 +17,8 @@ export type AppConfig = {
   courseUrl: string
   /** Static sponsor billboards JSON for SCN. Empty → demo Istanbul fixture. */
   sponsorsUrl: string
+  /** Countdown flags JSON for SCN (Phase 2.6). Empty → demo Istanbul fixture. */
+  flagsUrl: string
   /** Drone / primary live WebSocket URL. Empty → no drone socket in live mode. */
   wsUrl: string
   /** Boat live WebSocket URL. Empty → drone-only live (still OK). Single socket only — multi-URL is a follow-up. */

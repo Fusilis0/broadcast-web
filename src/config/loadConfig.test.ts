@@ -128,3 +128,17 @@ describe('normalizeConfig sponsorsUrl', () => {
     expect(cfg.sponsorsUrl).toBe('/fixtures/sponsors/custom.json')
   })
 })
+
+describe('normalizeConfig flagsUrl', () => {
+  it('defaults flagsUrl when absent', () => {
+    const cfg = normalizeConfig({})
+    expect(cfg.flagsUrl).toBe('/fixtures/flags/demo-istanbul-countdown.json')
+  })
+
+  it('keeps custom flagsUrl', () => {
+    const cfg = normalizeConfig({
+      flagsUrl: '/fixtures/flags/custom.json',
+    })
+    expect(cfg.flagsUrl).toBe('/fixtures/flags/custom.json')
+  })
+})

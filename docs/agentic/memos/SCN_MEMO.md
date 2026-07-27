@@ -1,28 +1,27 @@
 # SCN_MEMO
 
 **Last updated:** 2026-07-27  
-**Status:** Idle — 2.5 accepted; awaiting BW next slice
+**Status:** Idle — 2.6 accepted; awaiting BW next slice
 
 ## Focus
-Phase 2 race content — sponsors subset landed; next likely **2.6** countdown flags or **2.7** names.
+Phase 2 race content — countdown flags landed. Next: **2.7** name/colour JSON (closes Milestone B content) or OUT chroma.
 
 ## Decisions
 - Owns: `src/scene/`, `src/assets/`, stub HUD, 2D map; no geo/WS/chroma
-- **2.1–2.5 DONE**
-- **2.5:** `sponsorsUrl` → `/fixtures/sponsors/demo-istanbul.json` (3 panels); `gpsToEnuAmsl`; water Y=0; facing left-of-A→B; procedural label textures
-- Sponsor fixture labels ≠ boat name/colour JSON (**2.7** deferred)
-- No chroma (OUT 3.x)
+- **2.1–2.6 DONE**
+- **2.6:** `flagsUrl` → `/fixtures/flags/demo-istanbul-countdown.json`; `demoTimeScale: 20`; Unity phase timeline; `gpsToEnuAmsl`; water Y=0; HUD Start/Pause/Reset/Restart; blue-white +6 m
+- No boat name/colour JSON yet (**2.7**); no chroma (OUT 3.x)
 
 ## Issued dispatches
-- Through **DSP-SCN-20260727-04-sponsors-subset** — **DONE** → `dispatches/done/`  
-  Accepted 2026-07-27; tests 106/106
+- Through **DSP-SCN-20260727-05-countdown-flags** — **DONE** → `dispatches/done/`  
+  Accepted 2026-07-27; tests 115/115
 
 ## Handoffs
-- 2.4 TEL/SCN HOs — closed
+—
 
 ## Blockers
 - None
 
 ## Next
-1. FYI BW: roadmap **2.5** ticked; land commit/push when asked
-2. BW pick: **2.6** countdown flags / **2.7** names / OUT chroma
+1. FYI BW: roadmap **2.6** ticked; land commit/push when asked
+2. BW pick: **2.7** name/colour JSON (default) / OUT chroma

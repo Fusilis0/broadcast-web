@@ -18,6 +18,10 @@ import {
   resolvePovIdList,
 } from './povSwitcher.ts'
 import {
+  loadCountdownFlags,
+  type CountdownFlagsHandle,
+} from './flags/index.ts'
+import {
   loadSponsors,
   type SponsorsHandle,
 } from './sponsors/index.ts'
@@ -72,13 +76,23 @@ export type SceneHandle = {
    * Load static sponsor billboards after GEO origin + EGM96 are ready.
    */
   loadSponsorsFromUrl: (url?: string) => Promise<SponsorsHandle | null>
+  /**
+   * Load countdown flags + timer after GEO origin + EGM96 are ready.
+   */
+  loadCountdownFlagsFromUrl: (
+    url?: string,
+  ) => Promise<CountdownFlagsHandle | null>
+  /** Start / pause / reset / restart the loaded countdown (no-op if none). */
+  controlCountdown: (
+    action: 'start' | 'pause' | 'reset' | 'restart',
+  ) => void
   stop: () => void
 }
 
 /**
  * Own the Three scene, resize, RAF render loop, and poseBus → entity apply.
  * Draws only — no lat/lon math, no telemetry bus.
- * Course/sponsors lat/lon → ENU goes through GEO via loaders (after origin).
+ * Course/sponsors/flags lat/lon → ENU goes through GEO via loaders (after origin).
  */
 export function startScene(options: SceneOptions): SceneHandle {
   const allow =
@@ -110,6 +124,8 @@ export function startScene(options: SceneOptions): SceneHandle {
   const boats = new Map<string, BoatEntityHandle>()
   let course: CourseHandle | null = null
   let sponsors: SponsorsHandle | null = null
+  let countdownFlags: CountdownFlagsHandle | null = null
+  const clock = new THREE.Clock()
 
   const renderer = new THREE.WebGLRenderer({ antialias: true })
   renderer.setClearColor(clearColor, 1)
@@ -165,9 +181,11 @@ export function startScene(options: SceneOptions): SceneHandle {
     if (stopped) return
     rafId = requestAnimationFrame(frame)
     try {
+      const dt = Math.min(clock.getDelta(), 0.1)
       for (const boat of boats.values()) {
         boat.updateTag(drone.camera, viewH)
       }
+      countdownFlags?.update(dt, drone.camera, viewH)
       renderer.render(scene, drone.camera)
     } catch (err) {
       console.error('[scene] frame error', err)
@@ -212,6 +230,27 @@ export function startScene(options: SceneOptions): SceneHandle {
       sponsors = handle
       return handle
     },
+    async loadCountdownFlagsFromUrl(
+      url?: string,
+    ): Promise<CountdownFlagsHandle | null> {
+      if (stopped) return null
+      countdownFlags?.dispose()
+      countdownFlags = null
+      const handle = await loadCountdownFlags({ scene, url })
+      if (stopped) {
+        handle?.dispose()
+        return null
+      }
+      countdownFlags = handle
+      return handle
+    },
+    controlCountdown(action): void {
+      if (!countdownFlags) return
+      if (action === 'start') countdownFlags.start()
+      else if (action === 'pause') countdownFlags.pause()
+      else if (action === 'reset') countdownFlags.reset()
+      else countdownFlags.restart()
+    },
     stop(): void {
       if (stopped) return
       stopped = true
@@ -222,6 +261,8 @@ export function startScene(options: SceneOptions): SceneHandle {
       course = null
       sponsors?.dispose()
       sponsors = null
+      countdownFlags?.dispose()
+      countdownFlags = null
       lastPoseByPovId.clear()
       for (const boat of boats.values()) {
         scene.remove(boat.root)

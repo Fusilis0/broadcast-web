@@ -78,3 +78,16 @@ export {
   type SponsorsData,
   type SponsorEnuEndpoints,
 } from './sponsors/index.ts'
+export {
+  loadCountdownFlags,
+  mountCountdownFlags,
+  normalizeCountdownFlags,
+  buildCountdownFlagsLayout,
+  flagPhasesFromRemaining,
+  formatCountdownMmSs,
+  FLAG_WATER_Y,
+  DEFAULT_FLAGS_URL,
+  DEFAULT_DEMO_TIME_SCALE,
+  type CountdownFlagsHandle,
+  type CountdownFlagsData,
+} from './flags/index.ts'
