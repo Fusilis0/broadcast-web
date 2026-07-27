@@ -27,6 +27,7 @@ export {
   MockTelemetrySource,
   MOCK_BOAT_ID,
   MOCK_DRONE_ID,
+  DEFAULT_MOCK_BOAT_IDS,
   type MockChannel,
   type MockPacket,
   type MockSourceOptions,

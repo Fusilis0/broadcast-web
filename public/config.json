@@ -3,6 +3,7 @@
   "replayUrl": "/fixtures/telemetry/spine-demo.json",
   "wsUrl": "",
   "wsBoatUrl": "",
+  "boatIds": ["21", "22", "23", "24"],
   "origin": {
     "lat": 41.0082,
     "lon": 28.9784,

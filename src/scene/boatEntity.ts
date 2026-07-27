@@ -1,61 +1,103 @@
 import * as THREE from 'three'
 import {
+  applyBoatVisualOffset,
+} from '../assets/boatVisualOffset.ts'
+import { createProceduralBoatVisual } from '../assets/createProceduralBoatVisual.ts'
+import { loadBoatModelTemplate } from '../assets/loadBoatModel.ts'
+import {
   poseRotationToQuaternion,
   type PoseEvent,
 } from '../pose/index.ts'
+import { createBoatTag, type BoatTagHandle } from './boatTag.ts'
 
 /** Mock boat id from TEL (`src/telemetry/mockSource.ts`). */
 export const DEFAULT_BOAT_ID = '21'
 
+export type BoatEntityOptions = {
+  id?: string
+  /** Stub name until 2.7 catalogue JSON. */
+  displayName?: string
+  /**
+   * When true (default), start with procedural hull and swap to glTF clone
+   * when `/models/boat.glb` loads. Set false to keep procedural only.
+   */
+  tryGltf?: boolean
+}
+
 export type BoatEntityHandle = {
   root: THREE.Group
+  id: string
   applyPose: (pose: PoseEvent) => void
+  /** Billboard distance scale — call each frame with the active drone camera. */
+  updateTag: (camera: THREE.Camera, viewportHeightPx: number) => void
   dispose: () => void
 }
 
+function disposeObject3D(root: THREE.Object3D): void {
+  root.traverse((obj) => {
+    if (obj instanceof THREE.Mesh) {
+      obj.geometry.dispose()
+      const mat = obj.material
+      if (Array.isArray(mat)) mat.forEach((m) => m.dispose())
+      else mat.dispose()
+    }
+  })
+}
+
 /**
- * Simple elongated box boat — no glTF in this DSP.
- * Length along local Z (north when yaw = 0).
+ * Boat entity: pose root + visual child (glTF or procedural) + billboard tag.
+ * Fleet registry (`createScene`) owns `Map<id, BoatEntityHandle>` and clones
+ * the shared glTF/procedural template per id.
  */
-export function createBoatEntity(): BoatEntityHandle {
+export function createBoatEntity(
+  options: BoatEntityOptions = {},
+): BoatEntityHandle {
+  const id = options.id ?? DEFAULT_BOAT_ID
+  const displayName = options.displayName ?? `Boat ${id}`
+  const tryGltf = options.tryGltf !== false
+
   const root = new THREE.Group()
-  root.name = 'boat'
+  root.name = `boat-${id}`
 
-  // Sized for mock ENU separation (~hundreds of m) so the boat reads on-air.
-  const hull = new THREE.Mesh(
-    new THREE.BoxGeometry(6, 2, 18),
-    new THREE.MeshBasicMaterial({ color: 0xc45c26 }),
-  )
-  hull.position.y = 1
-  root.add(hull)
+  let visual: THREE.Object3D = createProceduralBoatVisual()
+  applyBoatVisualOffset(visual)
+  root.add(visual)
 
-  // Cabin so yaw is readable when the drone gimbal sweeps past.
-  const cabin = new THREE.Mesh(
-    new THREE.BoxGeometry(4, 2.5, 6),
-    new THREE.MeshBasicMaterial({ color: 0xe8dcc8 }),
-  )
-  cabin.position.set(0, 3.2, -2)
-  root.add(cabin)
+  const tag: BoatTagHandle = createBoatTag({ id, displayName })
+  root.add(tag.root)
 
   root.visible = false
 
+  let cancelled = false
+  if (tryGltf) {
+    void loadBoatModelTemplate().then((template) => {
+      if (cancelled) return
+      const next = template.clone(true)
+      root.remove(visual)
+      disposeObject3D(visual)
+      visual = next
+      root.add(visual)
+      // Keep tag as last child for stable draw order
+      root.add(tag.root)
+    })
+  }
+
   return {
     root,
+    id,
     applyPose(pose: PoseEvent): void {
       const { x, y, z } = pose.position
       root.position.set(x, y, z)
       root.quaternion.copy(poseRotationToQuaternion(pose.rotation))
       root.visible = true
     },
+    updateTag(camera: THREE.Camera, viewportHeightPx: number): void {
+      tag.update(camera, viewportHeightPx)
+    },
     dispose(): void {
-      for (const child of root.children) {
-        if (child instanceof THREE.Mesh) {
-          child.geometry.dispose()
-          const mat = child.material
-          if (Array.isArray(mat)) mat.forEach((m) => m.dispose())
-          else mat.dispose()
-        }
-      }
+      cancelled = true
+      tag.dispose()
+      disposeObject3D(root)
       root.clear()
     },
   }

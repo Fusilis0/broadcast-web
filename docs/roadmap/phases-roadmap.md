@@ -23,8 +23,8 @@
 
 ## Current phase pointer
 
-**Active:** **Phase 1 complete.** Next: Phase 2 race content (SCN lead) and/or OUT chroma (Phase 3).  
-**Last gate:** DSP-TEL-20260723-02 (live WS) accepted (2026-07-23).
+**Active:** **Phase 2** — **2.1–2.2 done** (2026-07-27). BW next: **2.3** course/buoys; **2.7** names later. OUT chroma remains Phase 3.  
+**Last gate:** DSP-SCN-20260727-01 (fleet-registry) accepted (2026-07-27). Local `main` has uncommitted 2.1–2.2 work — commit/push before continuing.
 
 ---
 
@@ -54,8 +54,8 @@
 
 | # | Work | Owner |
 | --- | --- | --- |
-| 2.1 | glTF boat + tags | SCN |
-| 2.2 | Full boat channel config | TEL+SCN |
+| 2.1 | glTF boat + tags — **Done** (`DSP-SCN-20260723-02`) | SCN |
+| 2.2 | Full boat channel config — **Done** (TEL `DSP-TEL-20260724-01` + SCN `DSP-SCN-20260727-01`) | TEL+SCN |
 | 2.3 | Course + buoys | SCN |
 | 2.4 | Multi POV switch | SCN+TEL |
 | 2.5 | Sponsors subset | SCN |

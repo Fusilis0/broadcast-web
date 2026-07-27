@@ -7,7 +7,19 @@ import type {
 
 /** Mock channel bands from architecture / dispatch. */
 export const MOCK_DRONE_ID = '1'
+/**
+ * Legacy single-boat constant (`"21"`). Prefer configured `boatIds` /
+ * `boatIds[0]` for multi-boat mock; kept for callers that still import it.
+ */
 export const MOCK_BOAT_ID = '21'
+
+/** Default mock fleet when `boatIds` is omitted (matches committed config). */
+export const DEFAULT_MOCK_BOAT_IDS: readonly string[] = [
+  '21',
+  '22',
+  '23',
+  '24',
+]
 
 export type MockChannel = 'drone' | 'boat'
 
@@ -21,6 +33,11 @@ export type MockSourceOptions = {
   hz?: number
   /** How often to emit a stream_anchor for the drone channel (ms). Default 1500. */
   streamAnchorIntervalMs?: number
+  /**
+   * Boat ids to emit each pose tick (`channel: 'boat'`). Default
+   * `["21","22","23","24"]`. One packet per id; phase-offset so they are not stacked.
+   */
+  boatIds?: readonly string[]
   onPacket?: (packet: MockPacket) => void
 }
 
@@ -43,12 +60,14 @@ function eulerQuat(
 }
 
 /**
- * Interval mock: one drone (`1`) + one boat (`21`), plus periodic `stream_anchor`.
- * Emits JSON text so ingest can run packets through the router.
+ * Interval mock: one drone (`1`) + one boat packet per `boatIds` entry,
+ * plus periodic `stream_anchor`. Emits JSON text so ingest can run packets
+ * through the router.
  */
 export class MockTelemetrySource {
   private readonly hz: number
   private readonly streamAnchorIntervalMs: number
+  private readonly boatIds: readonly string[]
   private readonly onPacket?: (packet: MockPacket) => void
 
   private timer: ReturnType<typeof setInterval> | null = null
@@ -60,6 +79,10 @@ export class MockTelemetrySource {
   constructor(options: MockSourceOptions = {}) {
     this.hz = options.hz ?? 15
     this.streamAnchorIntervalMs = options.streamAnchorIntervalMs ?? 1500
+    this.boatIds =
+      options.boatIds !== undefined && options.boatIds.length > 0
+        ? [...options.boatIds]
+        : [...DEFAULT_MOCK_BOAT_IDS]
     this.onPacket = options.onPacket
   }
 
@@ -105,7 +128,10 @@ export class MockTelemetrySource {
   private tickPose(): void {
     const t = this.elapsedSec()
     this.emit('drone', JSON.stringify(this.buildDrone(t)))
-    this.emit('boat', JSON.stringify(this.buildBoat(t)))
+    for (let i = 0; i < this.boatIds.length; i++) {
+      const id = this.boatIds[i]!
+      this.emit('boat', JSON.stringify(this.buildBoat(t, id, i)))
+    }
   }
 
   private tickStreamAnchor(): void {
@@ -147,16 +173,19 @@ export class MockTelemetrySource {
     }
   }
 
-  private buildBoat(t: number): BoatTelemetry {
+  private buildBoat(t: number, id: string, index: number): BoatTelemetry {
+    const phase = index * 0.55
+    const latOff = index * 0.00035
+    const lonOff = index * 0.0004
     return {
-      lat: 41.006 + Math.sin(t * 0.03) * 0.0012,
-      lon: 28.98 + Math.cos(t * 0.03) * 0.0012,
-      alt: 0.5 + Math.sin(t * 0.1) * 0.1,
+      lat: 41.006 + latOff + Math.sin(t * 0.03 + phase) * 0.0012,
+      lon: 28.98 + lonOff + Math.cos(t * 0.03 + phase) * 0.0012,
+      alt: 0.5 + Math.sin(t * 0.1 + phase) * 0.1,
       acc: 1.2,
-      spd: 4 + Math.sin(t * 0.2) * 0.5,
-      brg: (t * 12) % 360,
+      spd: 4 + Math.sin(t * 0.2 + phase) * 0.5,
+      brg: (t * 12 + index * 40) % 360,
       time: Date.now(),
-      id: MOCK_BOAT_ID,
+      id,
       t_sync: true,
       t_err: 5,
     }

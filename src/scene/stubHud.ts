@@ -1,6 +1,7 @@
 import type { AppConfig } from '../config/types.ts'
 import { poseBus, type PoseEvent } from '../pose/index.ts'
 import { telemetryBus } from '../telemetry/index.ts'
+import { formatBoatEnuStatus } from './fleetRegistry.ts'
 import { createMap2d, type Map2dHandle } from './map2d.ts'
 
 export type TelemetryModeUi = AppConfig['telemetryMode']
@@ -83,7 +84,8 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   root.appendChild(map.root)
 
   const counts = { drone: 0, boat: 0, stream_anchor: 0 }
-  const lastEnu = { drone: '—', boat: '—' }
+  let lastDroneEnu = '—'
+  const lastBoatEnuById = new Map<string, string>()
   let uiMode: TelemetryModeUi = initialMode
   let bootMessage: string | null = 'boot: loading config…'
 
@@ -94,13 +96,16 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
     }
     statusEl.textContent =
       `mode=${uiMode}  drone=${counts.drone}  boat=${counts.boat}  stream_anchor=${counts.stream_anchor}\n` +
-      `ENU m  drone=${lastEnu.drone}  boat=${lastEnu.boat}`
+      `ENU m  drone=${lastDroneEnu}  ${formatBoatEnuStatus(lastBoatEnuById)}`
   }
 
   function onPose(pose: PoseEvent): void {
     const s = fmtEnu(pose.position)
-    if (pose.kind === 'drone') lastEnu.drone = s
-    else lastEnu.boat = s
+    if (pose.kind === 'drone') {
+      lastDroneEnu = s
+    } else if (pose.kind === 'boat') {
+      lastBoatEnuById.set(pose.id, s)
+    }
     map.updatePose(pose)
     renderStatus()
   }

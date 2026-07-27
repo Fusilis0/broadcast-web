@@ -1,40 +1,37 @@
 # TEL_MEMO
 
-**Last updated:** 2026-07-23  
-**Status:** Roadmap 1.9 done — Phase 1 TEL spine complete
+**Last updated:** 2026-07-24  
+**Status:** 2.2 TEL half done — idle pending SCN fleet-registry / BW route
 
 ## Focus
-All Phase 1 TEL items shipped: mock (1.3), replay (1.4), live WS behind flag (1.9). Default remains **mock**. Idle pending BW route (Phase 2 multi-fleet / recorder / soak).
+Multi-boat channels shipped for mock + replay. Live multi-URL still deferred. Waiting on SCN registry (or BW next).
 
 ## Decisions
-- Unity parity targets (read-only): `TelemetryData` / `BoatTelemetry`, `TelemetryWsJsonRouter` (`stream_anchor` vs pose), `StreamAnchorMessage`.
-- Channel ID bands (arch §5.1): drones `1–4`, cams `11–12`, boats `21–52`, pilots `81–84`.
-- Mock / sample replay IDs: drone `"1"`, boat `"21"`.
-- Bus events: `drone` | `boat` | `stream_anchor`.
-- Modes: `mock` | `replay` | `live` all implemented; committed default **`mock`**.
-- Live URL resolve: options → `VITE_WS_URL` / `VITE_WS_BOAT_URL` → `config.json` `wsUrl` / `wsBoatUrl`.
-- Empty live URLs soft-fail; reconnect capped exponential backoff; `stop` closes cleanly.
-- HTTPS pages need **`wss://`** (mixed content); PLT reverse-proxy remains roadmap **5.2**.
-- Fixture v1 for replay; **recorder** still not implemented (later).
-- Multi-channel fleet deferred to Phase 2+.
-- Boat packets stay boat-shaped at ingest; `boatToStandardTelemetry` for normalized pose — no ENU in TEL.
+- Unity parity targets (read-only): `TelemetryData` / `BoatTelemetry`, router, `StreamAnchorMessage`.
+- Channel bands (arch §5.1): drones `1–4`, cams `11–12`, boats `21–52`, pilots `81–84`.
+- **2.2 config (BW lock):** `boatIds: string[]` — default `["21","22","23","24"]`; out-of-band filtered with warn; empty → four-id default.
+- **Pilots `81–84` deferred** out of 2.2.
+- Mock: one `boat` packet per `boatIds` entry per tick (phase offsets); drone `1` + `stream_anchor` unchanged.
+- Replay: `spine-fleet.json` (21–24); default `replayUrl` still `spine-demo`.
+- Live: single `wsBoatUrl` only — multi-URL / subscribe-map = follow-up TEL DSP.
+- Bus contract for SCN: `boat` events with distinct `BoatTelemetry.id` ∈ `boatIds`; use `loadConfig().boatIds`.
 - No pose math, scene meshes, or output in TEL dispatches.
 
 ## Issued dispatches
-- **DSP-TEL-20260722-01-dto-router-mock** — **DONE** → `docs/agentic/dispatches/done/`
-- **DSP-TEL-20260723-01-replay-fixture-loader** — **DONE** → `docs/agentic/dispatches/done/`
-- **DSP-TEL-20260723-02-live-ws-client** — **DONE** → `docs/agentic/dispatches/done/`  
-  Live WS client; HUD live wired; default mock; empty URLs soft-fail; reconnect; `ws`/`wss` docs. Real VPS soak not run (human-gated).
+- **DSP-TEL-20260722-01-dto-router-mock** — **DONE**
+- **DSP-TEL-20260723-01-replay-fixture-loader** — **DONE**
+- **DSP-TEL-20260723-02-live-ws-client** — **DONE**
+- **DSP-TEL-20260724-01-multi-boat-channels** — **DONE** → `docs/agentic/dispatches/done/`  
+  `boatIds` + mock multi-emit + `spine-fleet.json`; live multi-URL deferred.
 
 ## Handoffs
-- **FYI BW:** Roadmap **1.9** accepted by TEL → **Phase 1 TEL work complete** (spine modes mock/replay/live). Optional Milestone A-live = human soak vs VPS.
-- FYI GEO/SCN: all three modes share the same bus.
-- FYI PLT: client requires `wss://` on HTTPS; reverse-proxy remains 5.2.
+- **Acked:** `HO-SCN-TEL-20260723-01`
+- **Sent:** `HO-TEL-SCN-20260724-01` — config shape locked; **TEL worker green** — SCN can implement fleet-registry against mock/replay now.
+- FYI PLT: `wss://` on HTTPS still 5.2.
 
 ## Blockers
-- None.
+- None for TEL. 2.2 complete on TEL side pending SCN registry.
 
 ## Next actions
-1. BW: acknowledge Phase 1 complete / prioritize Phase 2 or OUT.
-2. Optional human: soak live against real VPS via local `.env` (steps in `src/telemetry/README.md`).
-3. Later TEL: fixture recorder; multi-channel fleet (Phase 2+).
+1. SCN: fleet-registry DSP/worker (if not already) — `loadConfig().boatIds`, mock 21–24, optional replay `spine-fleet`.
+2. Later TEL: live multi-boat URLs; fixture recorder; full `21–52` via config only.
