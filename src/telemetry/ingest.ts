@@ -2,6 +2,7 @@ import { telemetryBus, type TelemetryBus } from './bus.ts'
 import { LiveTelemetrySource } from './liveSource.ts'
 import {
   DEFAULT_MOCK_BOAT_IDS,
+  DEFAULT_MOCK_POV_IDS,
   MockTelemetrySource,
   type MockPacket,
 } from './mockSource.ts'
@@ -33,6 +34,7 @@ type TelemetryConfigSlice = {
   wsUrl?: string
   wsBoatUrl?: string
   boatIds?: unknown
+  povIds?: unknown
 }
 
 export type StartTelemetryIngestOptions = {
@@ -47,6 +49,11 @@ export type StartTelemetryIngestOptions = {
    * default `["21","22","23","24"]`.
    */
   boatIds?: readonly string[]
+  /**
+   * POV / drone+cam ids for mock multi-emit. If omitted, resolve from config
+   * then default `["1","2"]`. Live remains a single `wsUrl` (no multi-URL).
+   */
+  povIds?: readonly string[]
   bus?: TelemetryBus
   /** Injectable WebSocket for tests (live mode only). */
   WebSocketImpl?: typeof WebSocket
@@ -91,6 +98,29 @@ function resolveBoatIds(raw: unknown): string[] {
     if (out.length > 0) return out
   }
   return [...DEFAULT_MOCK_BOAT_IDS]
+}
+
+/**
+ * Soft-normalize POV ids for ingest (TEL). Prefer bands `1–4` ∪ `11–12`;
+ * empty / junk → `["1","2"]`. Full validation lives in `normalizePovIds`.
+ */
+function resolvePovIds(raw: unknown): string[] {
+  if (Array.isArray(raw)) {
+    const out: string[] = []
+    for (const item of raw) {
+      if (typeof item !== 'string') continue
+      const id = item.trim()
+      if (id === '') continue
+      const n = Number(id)
+      const inBand =
+        (Number.isInteger(n) && n >= 1 && n <= 4) ||
+        (Number.isInteger(n) && n >= 11 && n <= 12)
+      if (!inBand) continue
+      if (!out.includes(id)) out.push(id)
+    }
+    if (out.length > 0) return out
+  }
+  return [...DEFAULT_MOCK_POV_IDS]
 }
 
 /**
@@ -150,12 +180,14 @@ async function resolveConfigSlice(options?: {
   wsUrl?: string
   wsBoatUrl?: string
   boatIds?: readonly string[]
+  povIds?: readonly string[]
 }): Promise<{
   mode: TelemetryMode
   replayUrl: string
   wsUrl: string
   wsBoatUrl: string
   boatIds: string[]
+  povIds: string[]
 }> {
   let mode = options?.mode
   let replayUrl = options?.replayUrl
@@ -163,17 +195,21 @@ async function resolveConfigSlice(options?: {
   let wsBoatUrl = options?.wsBoatUrl
   let boatIds =
     options?.boatIds !== undefined ? resolveBoatIds(options.boatIds) : undefined
+  let povIds =
+    options?.povIds !== undefined ? resolvePovIds(options.povIds) : undefined
 
   let cfgWsUrl: string | undefined
   let cfgWsBoatUrl: string | undefined
   let cfgBoatIds: unknown
+  let cfgPovIds: unknown
 
   if (
     mode === undefined ||
     replayUrl === undefined ||
     wsUrl === undefined ||
     wsBoatUrl === undefined ||
-    boatIds === undefined
+    boatIds === undefined ||
+    povIds === undefined
   ) {
     try {
       const res = await fetch('/config.json')
@@ -191,6 +227,7 @@ async function resolveConfigSlice(options?: {
         if (typeof cfg.wsUrl === 'string') cfgWsUrl = cfg.wsUrl
         if (typeof cfg.wsBoatUrl === 'string') cfgWsBoatUrl = cfg.wsBoatUrl
         if (boatIds === undefined) cfgBoatIds = cfg.boatIds
+        if (povIds === undefined) cfgPovIds = cfg.povIds
       }
     } catch {
       // fall through to defaults
@@ -206,6 +243,9 @@ async function resolveConfigSlice(options?: {
   if (boatIds === undefined) {
     boatIds = resolveBoatIds(cfgBoatIds)
   }
+  if (povIds === undefined) {
+    povIds = resolvePovIds(cfgPovIds)
+  }
 
   return {
     mode: mode ?? 'mock',
@@ -216,19 +256,21 @@ async function resolveConfigSlice(options?: {
     wsUrl: wsUrl.trim(),
     wsBoatUrl: wsBoatUrl.trim(),
     boatIds,
+    povIds,
   }
 }
 
 /**
  * Starts telemetry ingest for `mock` | `replay` | `live`.
  * Live connects only when mode is `live` and at least one URL resolves.
- * Mock emits one `boat` packet per configured `boatIds` entry each pose tick.
+ * Mock emits one `drone` packet per `povIds` and one `boat` per `boatIds`
+ * each pose tick. Live multi-drone / multi-cam URLs are deferred (single `wsUrl`).
  */
 export async function startTelemetryIngest(
   options?: StartTelemetryIngestOptions,
 ): Promise<IngestHandle> {
   const bus = options?.bus ?? telemetryBus
-  const { mode, replayUrl, wsUrl, wsBoatUrl, boatIds } =
+  const { mode, replayUrl, wsUrl, wsBoatUrl, boatIds, povIds } =
     await resolveConfigSlice(options)
 
   if (mode === 'live') {
@@ -272,6 +314,7 @@ export async function startTelemetryIngest(
   }
 
   const source = new MockTelemetrySource({
+    povIds,
     boatIds,
     onPacket: (packet) => ingestPacket(packet, bus),
   })

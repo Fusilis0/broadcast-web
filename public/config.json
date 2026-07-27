@@ -5,6 +5,7 @@
   "wsUrl": "",
   "wsBoatUrl": "",
   "boatIds": ["21", "22", "23", "24"],
+  "povIds": ["1", "2"],
   "origin": {
     "lat": 41.0082,
     "lon": 28.9784,

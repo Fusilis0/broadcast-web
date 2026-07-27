@@ -1,0 +1,187 @@
+{
+  "version": 1,
+  "name": "spine-pov",
+  "loop": true,
+  "packets": [
+    {
+      "t_ms": 0,
+      "channel": "drone",
+      "payload": {
+        "ts": 0,
+        "seq": 1,
+        "id": "1",
+        "ntp_synced": true,
+        "ntp_err_ms": 2,
+        "pos": { "lat": 41.0082, "lon": 28.9784, "alt": 45 },
+        "rot": { "x": 0, "y": 0, "z": 0, "w": 1, "yaw": 0, "pitch": 0, "roll": 0 },
+        "gimbal": { "x": 0, "y": 0, "z": 0, "w": 1, "yaw": 5, "pitch": -15, "roll": 0 },
+        "vel": { "x": 2, "y": 0, "z": 0 },
+        "cam": { "fov": 72 },
+        "meta": { "bat": 88, "sat": 14, "sig": 90 }
+      }
+    },
+    {
+      "t_ms": 0,
+      "channel": "drone",
+      "payload": {
+        "ts": 0,
+        "seq": 2,
+        "id": "2",
+        "ntp_synced": true,
+        "ntp_err_ms": 2,
+        "pos": { "lat": 41.00865, "lon": 28.9789, "alt": 48 },
+        "rot": { "x": 0, "y": 0, "z": 0, "w": 1, "yaw": 45, "pitch": 1, "roll": 0.5 },
+        "gimbal": { "x": 0, "y": 0, "z": 0, "w": 1, "yaw": 50, "pitch": -14, "roll": 0 },
+        "vel": { "x": 1.5, "y": 0.5, "z": 0 },
+        "cam": { "fov": 72 },
+        "meta": { "bat": 87, "sat": 14, "sig": 89 }
+      }
+    },
+    {
+      "t_ms": 0,
+      "channel": "boat",
+      "payload": {
+        "lat": 41.006,
+        "lon": 28.98,
+        "alt": 0.5,
+        "acc": 1.2,
+        "spd": 4,
+        "brg": 90,
+        "time": 0,
+        "id": "21",
+        "t_sync": true,
+        "t_err": 5
+      }
+    },
+    {
+      "t_ms": 400,
+      "channel": "drone",
+      "payload": {
+        "type": "stream_anchor",
+        "stream_id": "1",
+        "kind": "periodic",
+        "fps": 30,
+        "pts_90khz": 36000,
+        "ntp_capture_ms": 400,
+        "ntp_synced": true,
+        "ntp_err_ms": 2
+      }
+    },
+    {
+      "t_ms": 400,
+      "channel": "drone",
+      "payload": {
+        "ts": 400,
+        "seq": 3,
+        "id": "1",
+        "ntp_synced": true,
+        "ntp_err_ms": 2,
+        "pos": { "lat": 41.00835, "lon": 28.97855, "alt": 46 },
+        "rot": { "x": 0, "y": 0, "z": 0, "w": 1, "yaw": 8, "pitch": 1, "roll": 0.5 },
+        "gimbal": { "x": 0, "y": 0, "z": 0, "w": 1, "yaw": 10, "pitch": -14, "roll": 0 },
+        "vel": { "x": 2.1, "y": 0.3, "z": 0.1 },
+        "cam": { "fov": 72 },
+        "meta": { "bat": 88, "sat": 14, "sig": 90 }
+      }
+    },
+    {
+      "t_ms": 400,
+      "channel": "drone",
+      "payload": {
+        "ts": 400,
+        "seq": 4,
+        "id": "2",
+        "ntp_synced": true,
+        "ntp_err_ms": 2,
+        "pos": { "lat": 41.0088, "lon": 28.97905, "alt": 49 },
+        "rot": { "x": 0, "y": 0, "z": 0, "w": 1, "yaw": 53, "pitch": 1.5, "roll": 0.8 },
+        "gimbal": { "x": 0, "y": 0, "z": 0, "w": 1, "yaw": 58, "pitch": -13, "roll": 0 },
+        "vel": { "x": 1.6, "y": 0.6, "z": 0.1 },
+        "cam": { "fov": 72 },
+        "meta": { "bat": 87, "sat": 14, "sig": 89 }
+      }
+    },
+    {
+      "t_ms": 800,
+      "channel": "drone",
+      "payload": {
+        "ts": 800,
+        "seq": 5,
+        "id": "1",
+        "ntp_synced": true,
+        "ntp_err_ms": 2,
+        "pos": { "lat": 41.0085, "lon": 28.9787, "alt": 47 },
+        "rot": { "x": 0, "y": 0, "z": 0, "w": 1, "yaw": 16, "pitch": 2, "roll": 1 },
+        "gimbal": { "x": 0, "y": 0, "z": 0, "w": 1, "yaw": 18, "pitch": -13, "roll": 0 },
+        "vel": { "x": 2, "y": 0.5, "z": 0.15 },
+        "cam": { "fov": 72 },
+        "meta": { "bat": 87, "sat": 14, "sig": 89 }
+      }
+    },
+    {
+      "t_ms": 800,
+      "channel": "drone",
+      "payload": {
+        "ts": 800,
+        "seq": 6,
+        "id": "2",
+        "ntp_synced": true,
+        "ntp_err_ms": 2,
+        "pos": { "lat": 41.00895, "lon": 28.9792, "alt": 50 },
+        "rot": { "x": 0, "y": 0, "z": 0, "w": 1, "yaw": 61, "pitch": 2, "roll": 1 },
+        "gimbal": { "x": 0, "y": 0, "z": 0, "w": 1, "yaw": 66, "pitch": -12, "roll": 0 },
+        "vel": { "x": 1.4, "y": 0.7, "z": 0.12 },
+        "cam": { "fov": 72 },
+        "meta": { "bat": 86, "sat": 14, "sig": 88 }
+      }
+    },
+    {
+      "t_ms": 1200,
+      "channel": "drone",
+      "payload": {
+        "type": "stream_anchor",
+        "stream_id": "1",
+        "kind": "periodic",
+        "fps": 30,
+        "pts_90khz": 108000,
+        "ntp_capture_ms": 1200,
+        "ntp_synced": true,
+        "ntp_err_ms": 2
+      }
+    },
+    {
+      "t_ms": 1200,
+      "channel": "drone",
+      "payload": {
+        "ts": 1200,
+        "seq": 7,
+        "id": "1",
+        "ntp_synced": true,
+        "ntp_err_ms": 2,
+        "pos": { "lat": 41.00865, "lon": 28.97885, "alt": 46.5 },
+        "rot": { "x": 0, "y": 0, "z": 0, "w": 1, "yaw": 24, "pitch": 1.5, "roll": 0.7 },
+        "gimbal": { "x": 0, "y": 0, "z": 0, "w": 1, "yaw": 26, "pitch": -14, "roll": 0 },
+        "vel": { "x": 1.9, "y": 0.4, "z": 0.05 },
+        "cam": { "fov": 72 },
+        "meta": { "bat": 87, "sat": 14, "sig": 89 }
+      }
+    },
+    {
+      "t_ms": 1200,
+      "channel": "drone",
+      "payload": {
+        "ts": 1200,
+        "seq": 8,
+        "id": "2",
+        "ntp_synced": true,
+        "ntp_err_ms": 2,
+        "pos": { "lat": 41.0091, "lon": 28.97935, "alt": 49.5 },
+        "rot": { "x": 0, "y": 0, "z": 0, "w": 1, "yaw": 69, "pitch": 1.8, "roll": 0.9 },
+        "gimbal": { "x": 0, "y": 0, "z": 0, "w": 1, "yaw": 74, "pitch": -13, "roll": 0 },
+        "vel": { "x": 1.3, "y": 0.8, "z": 0.08 },
+        "cam": { "fov": 72 },
+        "meta": { "bat": 86, "sat": 14, "sig": 88 }
+      }
+    }
+  ]
+}

@@ -28,6 +28,7 @@ export {
   MOCK_BOAT_ID,
   MOCK_DRONE_ID,
   DEFAULT_MOCK_BOAT_IDS,
+  DEFAULT_MOCK_POV_IDS,
   type MockChannel,
   type MockPacket,
   type MockSourceOptions,

@@ -14,22 +14,23 @@ Do **not** call `gpsToEnu` for boats, subscribe to `telemetryBus` for positions,
 
 ## Boot
 
-`main.ts` loads config → `startScene({ boatIds })` → EGM96 → origin → **`loadCourseFromUrl(courseUrl)`** → TEL ingest → `startPosePipeline` → HUD mode. HUD boots early for status; scene waits on `loadConfig()` so the allow-list is known.
+`main.ts` loads config → `startScene({ boatIds, povIds })` → EGM96 → origin → **`loadCourseFromUrl(courseUrl)`** → TEL ingest → `startPosePipeline` → HUD mode + POV select. HUD boots early for status; scene waits on `loadConfig()` so allow-lists are known.
 
-Mock ids: drone `1`, boats from `boatIds` (default `21–24`). Temporary hFOV default `66.8832` (also on `PoseEvent.fovHDeg` from CAL).
+Mock ids: POVs from `povIds` (default `1`,`2`), boats from `boatIds` (default `21–24`). Temporary hFOV default `66.8832` (also on `PoseEvent.fovHDeg` from CAL).
 
 ## Public API
 
 | Symbol | Role |
 | --- | --- |
-| `startScene(options)` | Scene + lights + renderer + RAF + pose subscribe + fleet `Map` + `loadCourseFromUrl` |
+| `startScene(options)` | Scene + lights + renderer + RAF + pose subscribe + fleet `Map` + POV switch + `loadCourseFromUrl` |
 | `loadCourse` / `mountCourse` | Fetch/normalize course JSON → GEO ENU → boundary/gates/buoys |
-| `startStubHud(options)` | Ops overlay: mode select + status + 2D map (`setCourseMarks`) |
+| `startStubHud(options)` | Ops overlay: mode + POV select + status + 2D map (`setCourseMarks`) |
 | `createMap2d()` | Top-down ENU East/North fleet panel (canvas 2D) + optional course dots |
 | `createBoatEntity()` | Pose root + glTF/procedural visual + billboard tag |
 | `createBoatTag()` | Canvas sprite label (`Boat {id}` stub) |
 | `createDroneCamera()` | PerspectiveCamera + ENU apply |
 | `boatIdAllowSet` / `isAllowedBoatId` / `formatBoatEnuStatus` | Fleet allow-list + HUD helpers |
+| `povIdAllowSet` / `isAllowedPovId` / `formatPovStatus` / `resolvePovIdList` | POV allow-list + HUD helpers |
 
 Clear color stays dark preview; OUT owns chroma later. Ambient + directional lights are present so `MeshStandard` / glTF materials read.
 
@@ -47,8 +48,18 @@ Clear color stays dark preview; OUT owns chroma later. Ambient + directional lig
 - On `poseBus` boat pose: ignore ids not in `boatIds`; otherwise create (clone 2.1 template + tag) then `applyPose`.
 - Each RAF: `updateTag` for every active boat (drone camera).
 - `stop()` disposes all entities and clears the map.
-- Drone path unchanged (`droneId`, default `1`).
 - Names/colours still roadmap **2.7** (stub tags by id).
+
+## Multi-POV switch (Phase 2.4)
+
+- `startScene({ povIds })` caches last `poseBus` drone pose per id ∈ `povIds`.
+- Only **`activePovId`** (default `povIds[0]`) drives the Three `PerspectiveCamera`.
+- `setActivePovId(id)` switches immediately using the cached pose when available (no wait for next packet).
+- Deprecated `droneId` remains as a single-id / initial-active alias when needed.
+- Cam ids `11`/`12` use the same `kind: 'drone'` path when listed in `povIds` — no second pipeline.
+- HUD: POV select (labels = raw id; **not** 2.7 names) + status `pov=<id>  seen=…`; optional digit keys `1`–`4`.
+- Boat tags still billboard to the **active** camera. Frustum gizmos for inactive POVs are out of this slice.
+- TEL must emit ≥2 POV ids on mock for a visible switch demo (`HO-SCN-TEL-20260727-01`).
 
 ## Boat + tag (Phase 2.1 template)
 
@@ -57,7 +68,7 @@ Clear color stays dark preview; OUT owns chroma later. Ambient + directional lig
 
 ## Stub HUD + 2D map
 
-- **HUD:** mode select (`mock` / `replay` / `live`) restarts TEL ingest via `onModeChange`. Status shows mode, TEL counts, last drone ENU, and a multi-boat ENU line (`boats=N  21=(…) 22=(…)` truncated if long).
+- **HUD:** mode select (`mock` / `replay` / `live`) restarts TEL ingest via `onModeChange`. POV select lists `povIds` and calls `onPovChange` → scene `setActivePovId`. Status shows mode, TEL counts, `pov=<active>  seen=…`, last active-drone ENU, and a multi-boat ENU line (`boats=N  21=(…) 22=(…)` truncated if long).
 - **Map:** plots `position.x` (East) vs `position.z` (North), north-up; auto-fits bounds to recent points + course marks with padding. Orange dots = course marks/gate ends.
 
 ## Camera convention

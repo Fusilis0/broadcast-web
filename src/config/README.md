@@ -22,6 +22,7 @@ Owned by **PLT+BW**. Thin `/config.json` loader — no domain logic.
 | `wsUrl` | Drone / primary live WebSocket URL (default `""`) |
 | `wsBoatUrl` | Boat live WebSocket URL (default `""`) — **single** socket; multi-URL is a TEL follow-up |
 | `boatIds` | Boat channel ids for mock + SCN fleet registry (default `["21","22","23","24"]`; arch band `21–52`) |
+| `povIds` | POV / drone+cam ids for mock multi-emit + SCN camera switch (default `["1","2"]`; bands `1–4` ∪ `11–12`) |
 | `outputMode` | Preview / later output modes |
 
 ### `boatIds` (SCN contract)
@@ -31,10 +32,17 @@ Owned by **PLT+BW**. Thin `/config.json` loader — no domain logic.
 - Full band `21–52` later by extending the array only — no schema change.
 - Display names / colours remain SCN **2.7**.
 
+### `povIds` (SCN contract)
+
+- Non-empty strings in bands **`1–4`** (drones) ∪ **`11–12`** (cams). Missing / empty / all junk → `["1","2"]`.
+- Out-of-band values (boats / pilots / junk) are filtered with a console warn.
+- Wire: still `channel: "drone"` + `TelemetryData.id` ∈ `povIds` (cams use the same DTO). SCN reads `loadConfig().povIds` for HUD switch allow-list.
+- Full `1–4` + cams later by extending the array only. Display names remain **2.7**. Camera / HUD POV switch is **SCN**, not config/TEL.
+
 Mock-centered default origin is Istanbul near TEL mock tracks (`41.0082, 28.9784`), not `0,0`.
 
 ### Live URLs
 
-Leave `wsUrl` / `wsBoatUrl` empty in git. Override locally via config or Vite env (`VITE_WS_URL`, `VITE_WS_BOAT_URL` — see `.env.example`). Full resolution order and **`ws://` vs `wss://`** (HTTPS mixed content) are documented in [`src/telemetry/README.md`](../telemetry/README.md).
+Leave `wsUrl` / `wsBoatUrl` empty in git. Override locally via config or Vite env (`VITE_WS_URL`, `VITE_WS_BOAT_URL` — see `.env.example`). Full resolution order and **`ws://` vs `wss://`** (HTTPS mixed content) are documented in [`src/telemetry/README.md`](../telemetry/README.md). Live remains a **single** primary `wsUrl` — multi-drone / multi-cam WebSockets are a TEL follow-up.
 
-To try replay locally: set `"telemetryMode": "replay"` in `public/config.json` (do not commit that change as the default). For multi-boat replay, point `replayUrl` at `/fixtures/telemetry/spine-fleet.json`.
+To try replay locally: set `"telemetryMode": "replay"` in `public/config.json` (do not commit that change as the default). For multi-boat replay, point `replayUrl` at `/fixtures/telemetry/spine-fleet.json`. For multi-POV replay, point at `/fixtures/telemetry/spine-pov.json`.

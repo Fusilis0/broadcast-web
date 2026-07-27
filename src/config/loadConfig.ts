@@ -12,8 +12,18 @@ const DEFAULT_COURSE_URL = '/fixtures/course/demo-istanbul.json'
 /** Committed default boat band slice (full `21–52` later via config only). */
 export const DEFAULT_BOAT_IDS: readonly string[] = ['21', '22', '23', '24']
 
+/** Committed default POV ids (drones `1–4` / cams `11–12`; extend array later). */
+export const DEFAULT_POV_IDS: readonly string[] = ['1', '2']
+
 const BOAT_ID_MIN = 21
 const BOAT_ID_MAX = 52
+
+function isPovBandId(n: number): boolean {
+  return (
+    (Number.isInteger(n) && n >= 1 && n <= 4) ||
+    (Number.isInteger(n) && n >= 11 && n <= 12)
+  )
+}
 
 const DEFAULT_CONFIG: AppConfig = {
   telemetryMode: 'mock',
@@ -22,6 +32,7 @@ const DEFAULT_CONFIG: AppConfig = {
   wsUrl: '',
   wsBoatUrl: '',
   boatIds: [...DEFAULT_BOAT_IDS],
+  povIds: [...DEFAULT_POV_IDS],
   origin: { ...DEFAULT_ORIGIN },
   takeoffAltitudeMSL: 0,
   outputMode: 'preview',
@@ -75,12 +86,42 @@ export function normalizeBoatIds(raw: unknown): string[] {
   return out.length > 0 ? out : [...DEFAULT_BOAT_IDS]
 }
 
+/**
+ * Normalize `povIds`: non-empty strings in arch bands `1–4` ∪ `11–12`.
+ * Missing/empty/all-junk → `["1","2"]` matching committed `config.json`.
+ * Out-of-band values (boats/pilots/junk) are filtered with a console warn.
+ */
+export function normalizePovIds(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [...DEFAULT_POV_IDS]
+
+  const out: string[] = []
+  for (const item of raw) {
+    if (typeof item !== 'string') {
+      console.warn('[config] povIds: ignoring non-string entry')
+      continue
+    }
+    const id = item.trim()
+    if (id === '') continue
+    const n = Number(id)
+    if (!isPovBandId(n)) {
+      console.warn(
+        `[config] povIds: ignoring out-of-band id "${id}" (prefer 1–4 or 11–12)`,
+      )
+      continue
+    }
+    if (!out.includes(id)) out.push(id)
+  }
+
+  return out.length > 0 ? out : [...DEFAULT_POV_IDS]
+}
+
 /** Normalize a parsed JSON object into `AppConfig` (fills defaults). */
 export function normalizeConfig(raw: unknown): AppConfig {
   if (raw === null || typeof raw !== 'object') {
     return {
       ...DEFAULT_CONFIG,
       boatIds: [...DEFAULT_BOAT_IDS],
+      povIds: [...DEFAULT_POV_IDS],
       origin: { ...DEFAULT_ORIGIN },
     }
   }
@@ -98,6 +139,7 @@ export function normalizeConfig(raw: unknown): AppConfig {
     wsUrl: typeof o.wsUrl === 'string' ? o.wsUrl : '',
     wsBoatUrl: typeof o.wsBoatUrl === 'string' ? o.wsBoatUrl : '',
     boatIds: normalizeBoatIds(o.boatIds),
+    povIds: normalizePovIds(o.povIds),
     origin: parseOrigin(o.origin),
     takeoffAltitudeMSL: isFiniteNumber(o.takeoffAltitudeMSL)
       ? o.takeoffAltitudeMSL

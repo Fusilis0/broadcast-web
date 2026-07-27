@@ -1,29 +1,26 @@
 # SCN_MEMO
 
 **Last updated:** 2026-07-27  
-**Status:** Idle — 2.3 accepted; awaiting BW next slice
+**Status:** Idle — 2.4 accepted; awaiting BW next slice
 
 ## Focus
-Phase 2 race content — course/buoys landed; next likely 2.4 multi-POV.
+Phase 2 race content — multi-POV landed; next likely 2.5 sponsors.
 
 ## Decisions
-- V1 freeze: 1 drone + boats + course + 2D map; sponsors/flags can follow (BW)
 - Owns: `src/scene/`, `src/assets/`, stub HUD, 2D map; no geo/WS/chroma
-- **2.1–2.2 DONE** (pushed `16a89fb`)
-- **2.3 DONE** (`DSP-SCN-20260727-02`) — demo Istanbul course + buoys; water Y = 0; `courseUrl`; ENU via `gpsToEnuAmsl` only; 2D map orange mark dots
-- Buoy labels = fixture waypoint names only — **not** boat name/colour JSON (**2.7** deferred)
+- **2.1–2.4 DONE** (TEL+SCN multi-POV; HUD switch + last-pose cache; `povIds`)
+- Labels still raw id until **2.7**
 - No chroma (OUT 3.x)
 
 ## Issued dispatches
-- Prior SCN DSPs — **DONE** (see `dispatches/done/`)
-- **DSP-SCN-20260727-02-course-buoys** — archived `dispatches/done/` — **DONE**
+- Through **DSP-SCN-20260727-03** — **DONE** (`dispatches/done/`)
 
 ## Handoffs
-- **HO-TEL-SCN-20260724-01** — closed (2.2)
+- **HO-SCN-TEL-20260727-01** / **HO-TEL-SCN-20260727-01** — closed (2.4)
 
 ## Blockers
 - None
 
 ## Next
-1. Land 2.3 (commit/push when BW asks)
-2. BW pick: **2.4** multi-POV (default) / 2.5–2.6 / 2.7 / OUT chroma
+1. Land 2.4 (commit/push when BW asks)
+2. BW pick: **2.5** sponsors (default) / 2.6 / 2.7 / OUT chroma

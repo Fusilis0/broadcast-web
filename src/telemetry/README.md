@@ -9,7 +9,7 @@ Owned by **TEL**. WebSocket-shaped ingest: DTOs, JSON router, mock / replay / li
 | `types.ts` | Wire DTOs (`TelemetryData`, `BoatTelemetry`, `StreamAnchorMessage`) |
 | `boatToStandardTelemetry.ts` | Boat → standard pose mapping (Unity `ToStandardTelemetry` parity) |
 | `router.ts` | `classify` / `tryParseStreamAnchor` (Unity `TelemetryWsJsonRouter`) |
-| `mockSource.ts` | Interval mock: drone `1`, one boat packet per `boatIds`, periodic `stream_anchor` |
+| `mockSource.ts` | Interval mock: one drone packet per `povIds`, one boat per `boatIds`, periodic `stream_anchor` (`povIds[0]`) |
 | `replayFixture.ts` | Fixture v1 types + `parseReplayFixture` / `loadReplayFixture` |
 | `replaySource.ts` | Timer playback of a fixture onto `ingestPacket` |
 | `liveSource.ts` | Browser WebSocket client(s) for live mode (drone + optional boat) |
@@ -40,6 +40,7 @@ Boat vs drone for non-anchor pose JSON is decided by **source/channel context**,
 | `wsUrl` | Drone / primary live WebSocket URL (default `""`) |
 | `wsBoatUrl` | Boat live WebSocket URL (default `""` → drone-only live). **Single socket only** |
 | `boatIds` | `string[]` boat channel ids (default `["21","22","23","24"]`; band `21–52`) |
+| `povIds` | `string[]` POV / drone+cam ids (default `["1","2"]`; bands `1–4` ∪ `11–12`) |
 
 ### `boatIds` (SCN consumers)
 
@@ -48,13 +49,22 @@ Boat vs drone for non-anchor pose JSON is decided by **source/channel context**,
 - Pilots `81–84` are **deferred** (filtered if present in config). Full `21–52` is config-only later.
 - Passed into `startTelemetryIngest({ boatIds })` the same way as `replayUrl` / `wsUrl`.
 
+### `povIds` (SCN consumers)
+
+- Mock emits **one `drone` bus event per id** each pose tick (`TelemetryData.id` ∈ `povIds`). Wire stays `channel: "drone"` even for cams `11–12` (Unity parity DTO).
+- `poseBus` already keys `kind: 'drone'` by `id` — no new bus event. SCN POV switch should use `loadConfig().povIds`.
+- Periodic `stream_anchor` uses **`povIds[0]`** (primary POV; not rotated).
+- Passed into `startTelemetryIngest({ povIds })` like `boatIds`.
+- **No Three camera / HUD POV switch in TEL** — that is SCN (`DSP-SCN-20260727-03`).
+- **Live multi-drone / multi-cam URLs are deferred** — `wsUrl` remains a single primary socket (same spirit as single `wsBoatUrl`).
+
 ### Modes
 
-- **mock** — `MockTelemetrySource` with multi-id boats from `boatIds`.
-- **replay** — fetch `replayUrl`, validate v1, play via timers onto `ingestPacket` (fixtures may carry multiple boat ids).
-- **live** — open WebSocket(s) when URL(s) resolve; text frames → `ingestPacket` by channel. **Still one `wsBoatUrl`** — multi-URL / subscribe-map is a **follow-up TEL DSP**.
+- **mock** — `MockTelemetrySource` with multi-id POVs from `povIds` + boats from `boatIds`.
+- **replay** — fetch `replayUrl`, validate v1, play via timers onto `ingestPacket` (fixtures may carry multiple drone/boat ids).
+- **live** — open WebSocket(s) when URL(s) resolve; text frames → `ingestPacket` by channel. **Still one `wsUrl` + one `wsBoatUrl`** — multi-URL / subscribe-map is a **follow-up TEL DSP**.
 
-If `/config.json` fetch fails, mode defaults to `mock` and `boatIds` to the four-id default.
+If `/config.json` fetch fails, mode defaults to `mock`, `boatIds` to the four-id default, and `povIds` to `["1","2"]`.
 ### Live URL resolution order
 
 Documented order used by `startTelemetryIngest`:
@@ -132,6 +142,8 @@ Sample: [`public/fixtures/telemetry/spine-demo.json`](../../public/fixtures/tele
 
 Fleet sample (multi-id tests / SCN registry): [`public/fixtures/telemetry/spine-fleet.json`](../../public/fixtures/telemetry/spine-fleet.json) — drone `1` + boats `21–24` (~1.6 s loop). Default `replayUrl` stays `spine-demo`; point config at `spine-fleet` when exercising multi-boat replay.
 
+POV sample (multi-drone for SCN camera switch): [`public/fixtures/telemetry/spine-pov.json`](../../public/fixtures/telemetry/spine-pov.json) — drones `1` + `2` + boat `21` (~1.2 s loop). Point `replayUrl` at `/fixtures/telemetry/spine-pov.json` when exercising multi-POV replay; committed default remains `spine-demo`.
+
 Invalid fixtures fail soft: console warn, ingest no-op stop, app does not crash.
 
 ## Verify mock is alive
@@ -155,10 +167,10 @@ Must succeed with no TypeScript errors; Vitest covers fixture parse/playback and
 
 ## Channel IDs (mock / fixtures)
 
-- Drone: `"1"` (unchanged; multi-drone not in this slice)
+- POVs / drones+cams: configured `povIds` (default `"1"`, `"2"`; bands `1–4` ∪ `11–12`). Legacy export `MOCK_DRONE_ID === "1"` remains for single-id callers; prefer `povIds[0]` / configured list.
 - Boats: configured `boatIds` (default `"21"`…`"24"`). Legacy export `MOCK_BOAT_ID === "21"` remains for single-id callers; prefer `boatIds[0]` / configured list.
 - Pilots `81–84`: out of scope
 
 ## Out of this module (other orchestrators)
 
-No ECEF/ENU (GEO), no Three boat/drone meshes / fleet registry (SCN), no fixture recorder, no live multi-URL, no PLT reverse-proxy WSS (5.2).
+No ECEF/ENU (GEO), no Three boat/drone meshes / fleet registry / POV camera switch (SCN), no fixture recorder, no live multi-URL (multi-drone or multi-boat), no PLT reverse-proxy WSS (5.2).

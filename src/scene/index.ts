@@ -10,6 +10,14 @@ export {
   isAllowedBoatId,
 } from './fleetRegistry.ts'
 export {
+  DEFAULT_POV_IDS,
+  formatPovStatus,
+  isAllowedPovId,
+  povIdAllowSet,
+  resolveInitialPovId,
+  resolvePovIdList,
+} from './povSwitcher.ts'
+export {
   createBoatEntity,
   DEFAULT_BOAT_ID,
   type BoatEntityHandle,

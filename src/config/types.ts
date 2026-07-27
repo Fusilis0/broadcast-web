@@ -24,6 +24,12 @@ export type AppConfig = {
    * Default `["21","22","23","24"]`. Pilots `81–84` are not included.
    */
   boatIds: string[]
+  /**
+   * POV / drone+cam channel ids for mock multi-emit (SCN camera switch).
+   * Arch bands `1–4` (drones) ∪ `11–12` (cams). Default `["1","2"]`.
+   * Wire remains `channel: "drone"` + `TelemetryData.id` ∈ this list.
+   */
+  povIds: string[]
   origin: ConfigOrigin
   /** Drone relative→HAE bridge (Unity `WorldAnchorManager.takeoffAltitudeMSL`). Default 0. */
   takeoffAltitudeMSL: number

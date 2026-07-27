@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   DEFAULT_BOAT_IDS,
+  DEFAULT_POV_IDS,
   normalizeBoatIds,
   normalizeConfig,
+  normalizePovIds,
 } from './loadConfig.ts'
 
 describe('normalizeBoatIds', () => {
@@ -35,6 +37,40 @@ describe('normalizeBoatIds', () => {
   })
 })
 
+describe('normalizePovIds', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('returns default ["1","2"] when missing', () => {
+    expect(normalizePovIds(undefined)).toEqual([...DEFAULT_POV_IDS])
+    expect(normalizePovIds(null)).toEqual([...DEFAULT_POV_IDS])
+  })
+
+  it('keeps drone and cam band ids', () => {
+    expect(normalizePovIds(['1', '2', '11', '12'])).toEqual([
+      '1',
+      '2',
+      '11',
+      '12',
+    ])
+  })
+
+  it('filters boats / pilots / junk and falls back if empty', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    expect(normalizePovIds(['21', '81', '99'])).toEqual([...DEFAULT_POV_IDS])
+    expect(warn).toHaveBeenCalled()
+  })
+
+  it('allows cams 11/12 alone', () => {
+    expect(normalizePovIds(['11', '12'])).toEqual(['11', '12'])
+  })
+
+  it('dedupes and drops empty strings', () => {
+    expect(normalizePovIds(['1', '', '1', '2'])).toEqual(['1', '2'])
+  })
+})
+
 describe('normalizeConfig boatIds', () => {
   it('exposes boatIds on AppConfig', () => {
     const cfg = normalizeConfig({
@@ -47,6 +83,21 @@ describe('normalizeConfig boatIds', () => {
   it('defaults boatIds when absent', () => {
     const cfg = normalizeConfig({})
     expect(cfg.boatIds).toEqual([...DEFAULT_BOAT_IDS])
+  })
+})
+
+describe('normalizeConfig povIds', () => {
+  it('exposes povIds on AppConfig', () => {
+    const cfg = normalizeConfig({
+      telemetryMode: 'mock',
+      povIds: ['1', '11'],
+    })
+    expect(cfg.povIds).toEqual(['1', '11'])
+  })
+
+  it('defaults povIds when absent', () => {
+    const cfg = normalizeConfig({})
+    expect(cfg.povIds).toEqual([...DEFAULT_POV_IDS])
   })
 })
 

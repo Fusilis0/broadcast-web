@@ -21,6 +21,7 @@ let ingest: IngestHandle | null = null
 let replayUrl = '/fixtures/telemetry/spine-demo.json'
 let courseUrl = '/fixtures/course/demo-istanbul.json'
 let boatIds: string[] = ['21', '22', '23', '24']
+let povIds: string[] = ['1', '2']
 let switching = false
 
 const hud = startStubHud({
@@ -31,12 +32,20 @@ const hud = startStubHud({
       switching = true
       try {
         ingest?.stop()
-        ingest = await startTelemetryIngest({ mode, replayUrl, boatIds })
+        ingest = await startTelemetryIngest({
+          mode,
+          replayUrl,
+          boatIds,
+          povIds,
+        })
         hud.setMode(mode)
       } finally {
         switching = false
       }
     })()
+  },
+  onPovChange: (id) => {
+    scene?.setActivePovId(id)
   },
 })
 
@@ -45,9 +54,15 @@ void (async () => {
   replayUrl = config.replayUrl
   courseUrl = config.courseUrl
   boatIds = config.boatIds
+  povIds = config.povIds
 
-  // Scene after config so boatIds allow-list is known before first poses.
-  scene = startScene({ container: app, boatIds: config.boatIds })
+  // Scene after config so boatIds / povIds allow-lists are known before first poses.
+  scene = startScene({
+    container: app,
+    boatIds: config.boatIds,
+    povIds: config.povIds,
+  })
+  hud.setPovIds(config.povIds, scene.getActivePovId())
 
   hud.setBootMessage('boot: EGM96…')
   await ensureEgm96Loaded()
@@ -61,6 +76,7 @@ void (async () => {
     mode: config.telemetryMode,
     replayUrl: config.replayUrl,
     boatIds: config.boatIds,
+    povIds: config.povIds,
   })
   startPosePipeline({ takeoffAltitudeMSL: config.takeoffAltitudeMSL })
   hud.setMode(config.telemetryMode)

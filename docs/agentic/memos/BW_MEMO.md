@@ -5,29 +5,30 @@
 
 ## Current phase
 **Phase 2 in progress.**  
-- **2.1–2.3 done** (glTF boats, multi-boat fleet, course + buoys; 79/79 tests)  
-- **Next (BW pick):** **2.4** multi-POV switch (SCN+TEL)  
-- **2.7** names later; OUT chroma remains Phase 3  
+- **2.1–2.4 done** (boats, fleet, course, multi-POV; 99/99 tests)  
+- **Next (BW pick):** **2.5** sponsors subset (SCN)  
+- Alt: **2.7** names if tags matter more; OUT chroma remains Phase 3  
 Remote: https://github.com/Fusilis0/broadcast-web (private, **Fusilis0**)  
-Last push: `16a89fb` (2.1–2.2). **2.3 still uncommitted.**
+Last push: `e5c3713` (2.3). **2.4 still uncommitted.**
 
 ## What works today
-- TEL: mock | replay multi-boat via `boatIds` (default `21–24`); live single `wsBoatUrl`
+- TEL: `boatIds` + `povIds` mock multi-emit; live still single URLs
 - GEO: EGM96 + ENU; pose bus multi-id keyed
-- CAL: FOV 66.8832° + offset store + sliders
-- SCN: fleet registry + tags; demo Istanbul course/buoys (`courseUrl`, water Y=0, `gpsToEnuAmsl`); HUD/map course marks
-- Config: `boatIds`, `courseUrl` → `/fixtures/course/demo-istanbul.json`
+- CAL: FOV 66.8832° + per-device offsets + sliders
+- SCN: fleet + course + HUD POV switch (`activePovId` ∈ `povIds`, last-pose cache)
+- Config: `boatIds`, `povIds` `["1","2"]`, `courseUrl`
 
 ## Priority queue
-1. **Land 2.3** — commit/push course+buoys  
-2. **2.4** multi-POV  
-3. **2.5–2.6** sponsors / countdown (or **2.7** names if tags matter more)  
-4. Parallel later: OUT **3.1** chroma  
-5. Optional: live multi-URL TEL, VPS soak, CON deeplink, CV  
+1. **Land 2.4** — commit/push  
+2. **2.5** sponsors subset  
+3. **2.6** countdown flags  
+4. **2.7** name/colour JSON  
+5. Parallel later: OUT **3.1** chroma  
+6. Optional: live multi-URL TEL, VPS soak, CON deeplink, CV  
 
 ## Compaction recovery
 Re-open BW with `docs/agentic/dispatches/BOOTSTRAP_BW.md`, then read this memo + `docs/roadmap/phases-roadmap.md`.
 
 ## Blockers
-- None for 2.4  
-- Live multi-boat soak blocked until TEL follow-up + VPS URLs
+- None for 2.5  
+- Live multi-POV/boat soak deferred until TEL follow-up + VPS URLs
