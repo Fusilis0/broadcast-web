@@ -13,6 +13,8 @@ export type AppConfig = {
   telemetryMode: 'mock' | 'replay' | 'live'
   /** Fixture URL for `telemetryMode: "replay"`. Empty → sample spine-demo path. */
   replayUrl: string
+  /** Static course JSON for SCN (boundary/gates/buoys). Empty → demo Istanbul fixture. */
+  courseUrl: string
   /** Drone / primary live WebSocket URL. Empty → no drone socket in live mode. */
   wsUrl: string
   /** Boat live WebSocket URL. Empty → drone-only live (still OK). Single socket only — multi-URL is a follow-up. */

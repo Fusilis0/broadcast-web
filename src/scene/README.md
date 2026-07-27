@@ -1,18 +1,20 @@
 # scene
 
-Owned by **SCN**. Three.js view: fleet boats (glTF/procedural) + billboard tags, drone camera, stub HUD, 2D fleet map.
+Owned by **SCN**. Three.js view: fleet boats (glTF/procedural) + billboard tags, drone camera, stub HUD, 2D fleet map, static course + buoys.
 
 ## Consume contract
 
-SCN draws from **`poseBus`** (`src/pose/`) only — ENU meters `x=East, y=Up, z=North`.
+SCN draws fleet from **`poseBus`** (`src/pose/`) only — ENU meters `x=East, y=Up, z=North`.
 
-Do **not** call `gpsToEnu`, subscribe to `telemetryBus` for positions, or invent calibration math here.
+Do **not** call `gpsToEnu` for boats, subscribe to `telemetryBus` for positions, or invent calibration math here.
+
+**Course** is the exception for static world content: lat/lon waypoints are converted with GEO **`gpsToEnuAmsl` only** (no ECEF reimplementation in `src/scene/`). Call after `applyConfigOrigin` + EGM96.
 
 `telemetryBus` may be used for **packet counts only** in the stub HUD.
 
 ## Boot
 
-`main.ts` loads config → `startScene({ boatIds })` → EGM96 → origin → TEL ingest → `startPosePipeline` → HUD mode. HUD boots early for status; scene waits on `loadConfig()` so the allow-list is known.
+`main.ts` loads config → `startScene({ boatIds })` → EGM96 → origin → **`loadCourseFromUrl(courseUrl)`** → TEL ingest → `startPosePipeline` → HUD mode. HUD boots early for status; scene waits on `loadConfig()` so the allow-list is known.
 
 Mock ids: drone `1`, boats from `boatIds` (default `21–24`). Temporary hFOV default `66.8832` (also on `PoseEvent.fovHDeg` from CAL).
 
@@ -20,15 +22,24 @@ Mock ids: drone `1`, boats from `boatIds` (default `21–24`). Temporary hFOV de
 
 | Symbol | Role |
 | --- | --- |
-| `startScene(options)` | Scene + lights + renderer + RAF + pose subscribe + fleet `Map` |
-| `startStubHud(options)` | Ops overlay: mode select + status + 2D map |
-| `createMap2d()` | Top-down ENU East/North fleet panel (canvas 2D) |
+| `startScene(options)` | Scene + lights + renderer + RAF + pose subscribe + fleet `Map` + `loadCourseFromUrl` |
+| `loadCourse` / `mountCourse` | Fetch/normalize course JSON → GEO ENU → boundary/gates/buoys |
+| `startStubHud(options)` | Ops overlay: mode select + status + 2D map (`setCourseMarks`) |
+| `createMap2d()` | Top-down ENU East/North fleet panel (canvas 2D) + optional course dots |
 | `createBoatEntity()` | Pose root + glTF/procedural visual + billboard tag |
 | `createBoatTag()` | Canvas sprite label (`Boat {id}` stub) |
 | `createDroneCamera()` | PerspectiveCamera + ENU apply |
 | `boatIdAllowSet` / `isAllowedBoatId` / `formatBoatEnuStatus` | Fleet allow-list + HUD helpers |
 
 Clear color stays dark preview; OUT owns chroma later. Ambient + directional lights are present so `MeshStandard` / glTF materials read.
+
+## Course + buoys (Phase 2.3)
+
+- Fixture: `public/fixtures/course/demo-istanbul.json` (config key `courseUrl`).
+- Waypoints: `mark` | `gateLeft` | `gateRight` — see fixture README for schema + gate pairing (Unity name-prefix).
+- **Water Y:** course lines and buoy bases forced to **`y = 0`** (Unity `waterSurfaceY`). Converted AMSL ENU `y` is ignored for graphics so Istanbul geoid offset does not float the course.
+- Boundary: `LineLoop` through marks (fixture order). Gates: segment per Left/Right pair. Buoys: cylinder poles + stub name sprites at marks and gate ends (visible for web ops).
+- Not `poseBus`-driven; dispose on `scene.stop()`.
 
 ## Fleet registry (Phase 2.2)
 
@@ -47,7 +58,7 @@ Clear color stays dark preview; OUT owns chroma later. Ambient + directional lig
 ## Stub HUD + 2D map
 
 - **HUD:** mode select (`mock` / `replay` / `live`) restarts TEL ingest via `onModeChange`. Status shows mode, TEL counts, last drone ENU, and a multi-boat ENU line (`boats=N  21=(…) 22=(…)` truncated if long).
-- **Map:** plots `position.x` (East) vs `position.z` (North), north-up; auto-fits bounds to recent points with padding. Shared single `poseBus.on('pose')` with HUD ENU lines — multi-id already.
+- **Map:** plots `position.x` (East) vs `position.z` (North), north-up; auto-fits bounds to recent points + course marks with padding. Orange dots = course marks/gate ends.
 
 ## Camera convention
 

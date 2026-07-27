@@ -1,0 +1,53 @@
+{
+  "name": "demo-istanbul",
+  "waypoints": [
+    {
+      "name": "Mark-NW",
+      "type": "mark",
+      "lat": 41.0087,
+      "lon": 28.9778,
+      "altMsl": 0
+    },
+    {
+      "name": "Mark-NE",
+      "type": "mark",
+      "lat": 41.0087,
+      "lon": 28.9790,
+      "altMsl": 0
+    },
+    {
+      "name": "Mark-SE",
+      "type": "mark",
+      "lat": 41.0072,
+      "lon": 28.9790,
+      "altMsl": 0
+    },
+    {
+      "name": "Mark-SW",
+      "type": "mark",
+      "lat": 41.0072,
+      "lon": 28.9778,
+      "altMsl": 0
+    },
+    {
+      "name": "Gate1-Left",
+      "type": "gateLeft",
+      "lat": 41.00795,
+      "lon": 28.9778,
+      "altMsl": 0
+    },
+    {
+      "name": "Gate1-Right",
+      "type": "gateRight",
+      "lat": 41.00795,
+      "lon": 28.9790,
+      "altMsl": 0
+    }
+  ],
+  "appearance": {
+    "boundaryColor": "#ffb200",
+    "gateColor": "#00ff80",
+    "buoyColor": "#ffdd33",
+    "buoyHeightM": 5
+  }
+}

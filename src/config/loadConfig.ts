@@ -7,6 +7,7 @@ const DEFAULT_ORIGIN: ConfigOrigin = {
 }
 
 const DEFAULT_REPLAY_URL = '/fixtures/telemetry/spine-demo.json'
+const DEFAULT_COURSE_URL = '/fixtures/course/demo-istanbul.json'
 
 /** Committed default boat band slice (full `21–52` later via config only). */
 export const DEFAULT_BOAT_IDS: readonly string[] = ['21', '22', '23', '24']
@@ -17,6 +18,7 @@ const BOAT_ID_MAX = 52
 const DEFAULT_CONFIG: AppConfig = {
   telemetryMode: 'mock',
   replayUrl: DEFAULT_REPLAY_URL,
+  courseUrl: DEFAULT_COURSE_URL,
   wsUrl: '',
   wsBoatUrl: '',
   boatIds: [...DEFAULT_BOAT_IDS],
@@ -89,6 +91,10 @@ export function normalizeConfig(raw: unknown): AppConfig {
       typeof o.replayUrl === 'string' && o.replayUrl.trim() !== ''
         ? o.replayUrl
         : DEFAULT_REPLAY_URL,
+    courseUrl:
+      typeof o.courseUrl === 'string' && o.courseUrl.trim() !== ''
+        ? o.courseUrl
+        : DEFAULT_COURSE_URL,
     wsUrl: typeof o.wsUrl === 'string' ? o.wsUrl : '',
     wsBoatUrl: typeof o.wsBoatUrl === 'string' ? o.wsBoatUrl : '',
     boatIds: normalizeBoatIds(o.boatIds),
@@ -114,4 +120,4 @@ export async function loadConfig(url = '/config.json'): Promise<AppConfig> {
   }
 }
 
-export { DEFAULT_CONFIG, DEFAULT_ORIGIN }
+export { DEFAULT_CONFIG, DEFAULT_ORIGIN, DEFAULT_COURSE_URL }

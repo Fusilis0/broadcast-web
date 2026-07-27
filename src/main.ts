@@ -19,6 +19,7 @@ const calib = startOffsetSliders({ container: app })
 let scene: SceneHandle | null = null
 let ingest: IngestHandle | null = null
 let replayUrl = '/fixtures/telemetry/spine-demo.json'
+let courseUrl = '/fixtures/course/demo-istanbul.json'
 let boatIds: string[] = ['21', '22', '23', '24']
 let switching = false
 
@@ -42,6 +43,7 @@ const hud = startStubHud({
 void (async () => {
   const config = await loadConfig()
   replayUrl = config.replayUrl
+  courseUrl = config.courseUrl
   boatIds = config.boatIds
 
   // Scene after config so boatIds allow-list is known before first poses.
@@ -50,6 +52,10 @@ void (async () => {
   hud.setBootMessage('boot: EGM96…')
   await ensureEgm96Loaded()
   applyConfigOrigin(config.origin)
+
+  // Course needs origin + EGM96 (gpsToEnuAmsl). Static — not poseBus-driven.
+  const course = await scene.loadCourseFromUrl(courseUrl)
+  if (course) hud.setCourseMarks(course.mapPoints)
 
   ingest = await startTelemetryIngest({
     mode: config.telemetryMode,

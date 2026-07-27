@@ -43,4 +43,18 @@ export {
   type Map2dOptions,
   type MapBounds,
   type MapPoint,
+  type MapCourseMark,
 } from './map2d.ts'
+export {
+  loadCourse,
+  mountCourse,
+  normalizeCourse,
+  pairGates,
+  gateBaseName,
+  buildCourseLayout,
+  COURSE_WATER_Y,
+  DEFAULT_COURSE_URL,
+  type CourseHandle,
+  type CourseData,
+  type CourseEnuPoint,
+} from './course/index.ts'

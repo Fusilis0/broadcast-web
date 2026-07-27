@@ -20,6 +20,10 @@ export type StubHudHandle = {
   /** Set mode control + status label (does not change TEL ingest). */
   setMode: (mode: TelemetryModeUi) => void
   setBootMessage: (msg: string) => void
+  /** Static course mark dots on the 2D map (ENU east/north). */
+  setCourseMarks: (
+    marks: readonly { name: string; x: number; z: number }[],
+  ) => void
   stop: () => void
 }
 
@@ -148,6 +152,11 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
     setBootMessage(msg: string): void {
       bootMessage = msg
       renderStatus()
+    },
+    setCourseMarks(marks): void {
+      map.setCourseMarks(
+        marks.map((m) => ({ name: m.name, east: m.x, north: m.z })),
+      )
     },
     stop(): void {
       window.clearInterval(refreshId)

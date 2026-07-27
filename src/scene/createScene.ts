@@ -4,6 +4,10 @@ import {
   createBoatEntity,
   type BoatEntityHandle,
 } from './boatEntity.ts'
+import {
+  loadCourse,
+  type CourseHandle,
+} from './course/index.ts'
 import { createDroneCamera, TEMP_HFOV_DEG } from './droneCamera.ts'
 import { boatIdAllowSet, isAllowedBoatId } from './fleetRegistry.ts'
 
@@ -31,12 +35,18 @@ export type SceneHandle = {
   renderer: THREE.WebGLRenderer
   /** Live fleet registry (boats with at least one applied pose). */
   boats: ReadonlyMap<string, BoatEntityHandle>
+  /**
+   * Load static course after GEO origin + EGM96 are ready.
+   * Returns map points (marks + gate ends) for the 2D overlay.
+   */
+  loadCourseFromUrl: (url?: string) => Promise<CourseHandle | null>
   stop: () => void
 }
 
 /**
  * Own the Three scene, resize, RAF render loop, and poseBus → entity apply.
  * Draws only — no lat/lon math, no telemetry bus.
+ * Course lat/lon → ENU goes through GEO via `loadCourse` (after origin).
  */
 export function startScene(options: SceneOptions): SceneHandle {
   const allow =
@@ -63,6 +73,7 @@ export function startScene(options: SceneOptions): SceneHandle {
 
   const drone = createDroneCamera(1, TEMP_HFOV_DEG)
   const boats = new Map<string, BoatEntityHandle>()
+  let course: CourseHandle | null = null
 
   const renderer = new THREE.WebGLRenderer({ antialias: true })
   renderer.setClearColor(clearColor, 1)
@@ -125,12 +136,26 @@ export function startScene(options: SceneOptions): SceneHandle {
     camera: drone.camera,
     renderer,
     boats,
+    async loadCourseFromUrl(url?: string): Promise<CourseHandle | null> {
+      if (stopped) return null
+      course?.dispose()
+      course = null
+      const handle = await loadCourse({ scene, url })
+      if (stopped) {
+        handle?.dispose()
+        return null
+      }
+      course = handle
+      return handle
+    },
     stop(): void {
       if (stopped) return
       stopped = true
       cancelAnimationFrame(rafId)
       window.removeEventListener('resize', resize)
       unsubPose()
+      course?.dispose()
+      course = null
       for (const boat of boats.values()) {
         scene.remove(boat.root)
         boat.dispose()

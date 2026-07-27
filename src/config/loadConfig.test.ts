@@ -49,3 +49,17 @@ describe('normalizeConfig boatIds', () => {
     expect(cfg.boatIds).toEqual([...DEFAULT_BOAT_IDS])
   })
 })
+
+describe('normalizeConfig courseUrl', () => {
+  it('defaults courseUrl when absent', () => {
+    const cfg = normalizeConfig({})
+    expect(cfg.courseUrl).toBe('/fixtures/course/demo-istanbul.json')
+  })
+
+  it('keeps custom courseUrl', () => {
+    const cfg = normalizeConfig({
+      courseUrl: '/fixtures/course/custom.json',
+    })
+    expect(cfg.courseUrl).toBe('/fixtures/course/custom.json')
+  })
+})

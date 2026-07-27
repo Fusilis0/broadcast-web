@@ -15,6 +15,13 @@ export type MapPoint = {
   up: number
 }
 
+/** Static course mark / gate end for 2D overlay (not a pose). */
+export type MapCourseMark = {
+  name: string
+  east: number
+  north: number
+}
+
 const DEFAULT_HALF_EXTENT_M = 25
 const PADDING_PX = 20
 
@@ -22,8 +29,11 @@ const PADDING_PX = 20
  * Auto-fit ENU East/North AABB with padding; single/empty → fixed half-extent about centroid (or origin).
  * North-up panel: +N → top, +E → right.
  */
-export function boundsFromPoints(points: readonly MapPoint[]): MapBounds {
-  if (points.length === 0) {
+export function boundsFromPoints(
+  points: readonly MapPoint[],
+  courseMarks: readonly MapCourseMark[] = [],
+): MapBounds {
+  if (points.length === 0 && courseMarks.length === 0) {
     return {
       minE: -DEFAULT_HALF_EXTENT_M,
       maxE: DEFAULT_HALF_EXTENT_M,
@@ -42,10 +52,16 @@ export function boundsFromPoints(points: readonly MapPoint[]): MapBounds {
     minN = Math.min(minN, p.north)
     maxN = Math.max(maxN, p.north)
   }
+  for (const m of courseMarks) {
+    minE = Math.min(minE, m.east)
+    maxE = Math.max(maxE, m.east)
+    minN = Math.min(minN, m.north)
+    maxN = Math.max(maxN, m.north)
+  }
 
   if (maxE - minE < 1e-3 && maxN - minN < 1e-3) {
-    const e = points[0]!.east
-    const n = points[0]!.north
+    const e = points[0]?.east ?? courseMarks[0]!.east
+    const n = points[0]?.north ?? courseMarks[0]!.north
     return {
       minE: e - DEFAULT_HALF_EXTENT_M,
       maxE: e + DEFAULT_HALF_EXTENT_M,
@@ -85,6 +101,7 @@ export function enuToMapPx(
 export type Map2dHandle = {
   root: HTMLElement
   updatePose: (pose: PoseEvent) => void
+  setCourseMarks: (marks: readonly MapCourseMark[]) => void
   redraw: () => void
   dispose: () => void
 }
@@ -96,6 +113,7 @@ export type Map2dOptions = {
 
 /**
  * Simple top-down fleet map from poseBus ENU only (x=E, z=N). Not Three.js.
+ * Optional static course mark dots (orange).
  */
 export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
   const sizePx = options.sizePx ?? 240
@@ -117,6 +135,7 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
 
   const ctx = canvas.getContext('2d')
   const points = new Map<string, MapPoint>()
+  let courseMarks: MapCourseMark[] = []
 
   function toMapPoint(pose: PoseEvent): MapPoint {
     const pos: EnuPosition = pose.position
@@ -134,7 +153,7 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
     const w = canvas.width
     const h = canvas.height
     const list = [...points.values()]
-    const bounds = boundsFromPoints(list)
+    const bounds = boundsFromPoints(list, courseMarks)
 
     ctx.fillStyle = '#12161c'
     ctx.fillRect(0, 0, w, h)
@@ -152,6 +171,15 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
     ctx.font = '10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
     ctx.fillText('N', w / 2 - 4, 12)
     ctx.fillText('E', w - 12, h / 2 + 3)
+
+    // Course marks under fleet icons.
+    for (const m of courseMarks) {
+      const { x, y } = enuToMapPx(m.east, m.north, bounds, w, h)
+      ctx.fillStyle = '#ffb200'
+      ctx.beginPath()
+      ctx.arc(x, y, 3.5, 0, Math.PI * 2)
+      ctx.fill()
+    }
 
     for (const p of list) {
       const { x, y } = enuToMapPx(p.east, p.north, bounds, w, h)
@@ -180,9 +208,14 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
       points.set(pose.id, toMapPoint(pose))
       redraw()
     },
+    setCourseMarks(marks: readonly MapCourseMark[]): void {
+      courseMarks = marks.map((m) => ({ ...m }))
+      redraw()
+    },
     redraw,
     dispose(): void {
       points.clear()
+      courseMarks = []
       root.remove()
     },
   }
