@@ -42,6 +42,7 @@ const DEFAULT_CONFIG: AppConfig = {
   origin: { ...DEFAULT_ORIGIN },
   takeoffAltitudeMSL: 0,
   outputMode: 'preview',
+  chromaKey: '',
 }
 
 function isFiniteNumber(value: unknown): value is number {
@@ -163,6 +164,7 @@ export function normalizeConfig(raw: unknown): AppConfig {
       ? o.takeoffAltitudeMSL
       : 0,
     outputMode: typeof o.outputMode === 'string' ? o.outputMode : 'preview',
+    chromaKey: typeof o.chromaKey === 'string' ? o.chromaKey.trim() : '',
   }
 }
 

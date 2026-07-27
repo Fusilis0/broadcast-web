@@ -113,6 +113,44 @@ body,
   border-radius: 2px;
 }
 
+/* OUT output mode — preview / chroma toggle (runtime only) */
+.output-mode-control {
+  position: fixed;
+  left: 8px;
+  bottom: 118px;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  pointer-events: none;
+  padding: 4px 8px;
+  background: rgba(12, 16, 22, 0.88);
+  border: 1px solid #2a3340;
+  border-radius: 4px;
+  color: #9aa4ae;
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.output-mode-control__label {
+  color: #8a949e;
+}
+
+.output-mode-control__select {
+  pointer-events: auto;
+  background: #222830;
+  color: #d0d6dc;
+  border: 1px solid #3a4450;
+  border-radius: 3px;
+  font: inherit;
+  padding: 2px 6px;
+}
+
+.output-mode-control__hint {
+  color: #6a7888;
+  font-size: 11px;
+}
+
 /* CAL offset sliders — pointer-events only on controls */
 .calib-panel {
   position: fixed;

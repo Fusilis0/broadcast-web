@@ -23,8 +23,8 @@
 
 ## Current phase pointer
 
-**Active:** **Phase 2 content complete** — **2.1–2.7 done** (2026-07-27). Milestone B ready for BW. Next: OUT **3.1** chroma (Phase 3).  
-**Last gate:** DSP-SCN-20260727-06 (boat name/colour JSON) accepted (2026-07-27).
+**Active:** **Phase 3** — **3.1 done** (2026-07-27). BW next: **3.2** visual timecode; **3.3** WHEP when underlay/CV needed.  
+**Last gate:** DSP-OUT-20260727-01 (preview/chroma clear) accepted (2026-07-27). Local 3.1 work uncommitted — commit/push before continuing.
 
 ---
 
@@ -68,14 +68,14 @@
 
 ## Phase 3 — Output & ops
 
-| # | Work | Owner |
-| --- | --- | --- |
-| 3.1 | `preview` / `chroma` modes | OUT |
-| 3.2 | Visual timecode | OUT |
-| 3.3 | WebRTC underlay (WHEP) | OUT |
-| 3.4 | Connection/calib HUD harden | CAL+SCN |
-| 3.5 | Local vMix chroma experiment | OUT + human |
-| 3.6 | Console deep-link design doc agreed | CON |
+| # | Work | Owner | Gate |
+| --- | --- | --- | --- |
+| 3.1 | `preview` / `chroma` modes | OUT | **Done** (`DSP-OUT-20260727-01`) |
+| 3.2 | Visual timecode | OUT | |
+| 3.3 | WebRTC underlay (WHEP) | OUT | |
+| 3.4 | Connection/calib HUD harden | CAL+SCN | |
+| 3.5 | Local vMix chroma experiment | OUT + human | |
+| 3.6 | Console deep-link design doc agreed | CON | |
 
 **Exit (Milestone C):** Chroma overlay experiment recorded; underlay works.
 

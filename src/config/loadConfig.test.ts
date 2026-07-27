@@ -156,3 +156,20 @@ describe('normalizeConfig boatNamesUrl', () => {
     expect(cfg.boatNamesUrl).toBe('/fixtures/boats/custom.json')
   })
 })
+
+describe('normalizeConfig outputMode / chromaKey', () => {
+  it('defaults outputMode to preview and chromaKey empty', () => {
+    const cfg = normalizeConfig({})
+    expect(cfg.outputMode).toBe('preview')
+    expect(cfg.chromaKey).toBe('')
+  })
+
+  it('keeps chroma outputMode and chromaKey', () => {
+    const cfg = normalizeConfig({
+      outputMode: 'chroma',
+      chromaKey: '#00ff00',
+    })
+    expect(cfg.outputMode).toBe('chroma')
+    expect(cfg.chromaKey).toBe('#00ff00')
+  })
+})

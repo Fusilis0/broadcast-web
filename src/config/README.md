@@ -26,7 +26,8 @@ Owned by **PLT+BW**. Thin `/config.json` loader — no domain logic.
 | `wsBoatUrl` | Boat live WebSocket URL (default `""`) — **single** socket; multi-URL is a TEL follow-up |
 | `boatIds` | Boat channel ids for mock + SCN fleet registry (default `["21","22","23","24"]`; arch band `21–52`) |
 | `povIds` | POV / drone+cam ids for mock multi-emit + SCN camera switch (default `["1","2"]`; bands `1–4` ∪ `11–12`) |
-| `outputMode` | Preview / later output modes |
+| `outputMode` | OUT clear mode: `preview` (committed default) \| `chroma` (see OUT). Unknown → preview |
+| `chromaKey` | Optional chroma hex when mode is chroma (e.g. `"#00ff00"`). Empty → OUT default green |
 
 ### `boatIds` (SCN contract)
 

@@ -53,7 +53,10 @@ export type SceneOptions = {
    * allow-list entry; when both set, selects initial active id if allowed.
    */
   droneId?: string
-  /** Dark preview clear — OUT owns chroma later. */
+  /**
+   * Initial WebGL clear color. OUT owns values via `resolveClearAppearance`
+   * / `applyOutputMode`; pass the resolved color at boot.
+   */
   clearColor?: number
 }
 
@@ -96,6 +99,11 @@ export type SceneHandle = {
   controlCountdown: (
     action: 'start' | 'pause' | 'reset' | 'restart',
   ) => void
+  /**
+   * Thin OUT hook: set WebGL clear color + alpha at runtime.
+   * Prefer `applyOutputMode(renderer, …)` from `src/output/` for mode mapping.
+   */
+  setClearColor: (color: number, alpha?: number) => void
   stop: () => void
 }
 
@@ -285,6 +293,10 @@ export function startScene(options: SceneOptions): SceneHandle {
       else if (action === 'pause') countdownFlags.pause()
       else if (action === 'reset') countdownFlags.reset()
       else countdownFlags.restart()
+    },
+    setClearColor(color, alpha = 1): void {
+      if (stopped) return
+      renderer.setClearColor(color, alpha)
     },
     stop(): void {
       if (stopped) return

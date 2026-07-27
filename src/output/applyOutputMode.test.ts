@@ -1,0 +1,94 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  applyOutputMode,
+  normalizeOutputMode,
+  parseChromaKey,
+  resolveClearAppearance,
+} from './applyOutputMode.ts'
+import {
+  DEFAULT_CHROMA_KEY,
+  PREVIEW_CLEAR_COLOR,
+} from './types.ts'
+
+describe('normalizeOutputMode', () => {
+  it('keeps preview and chroma', () => {
+    expect(normalizeOutputMode('preview')).toBe('preview')
+    expect(normalizeOutputMode('chroma')).toBe('chroma')
+  })
+
+  it('maps unknown / future modes to preview', () => {
+    expect(normalizeOutputMode('transparent')).toBe('preview')
+    expect(normalizeOutputMode('webrtc-underlay')).toBe('preview')
+    expect(normalizeOutputMode('egress')).toBe('preview')
+    expect(normalizeOutputMode('')).toBe('preview')
+    expect(normalizeOutputMode(undefined)).toBe('preview')
+    expect(normalizeOutputMode(42)).toBe('preview')
+  })
+})
+
+describe('parseChromaKey', () => {
+  it('defaults to 0x00ff00', () => {
+    expect(parseChromaKey(undefined)).toBe(DEFAULT_CHROMA_KEY)
+    expect(parseChromaKey('')).toBe(DEFAULT_CHROMA_KEY)
+    expect(parseChromaKey('nope')).toBe(DEFAULT_CHROMA_KEY)
+  })
+
+  it('accepts #rrggbb and rrggbb', () => {
+    expect(parseChromaKey('#00ff00')).toBe(0x00ff00)
+    expect(parseChromaKey('00FF00')).toBe(0x00ff00)
+    expect(parseChromaKey('#ff00ff')).toBe(0xff00ff)
+  })
+
+  it('accepts numeric hex in range', () => {
+    expect(parseChromaKey(0x00ff00)).toBe(0x00ff00)
+    expect(parseChromaKey(0)).toBe(0)
+  })
+})
+
+describe('resolveClearAppearance', () => {
+  it('preview → dark clear', () => {
+    expect(resolveClearAppearance('preview')).toEqual({
+      color: PREVIEW_CLEAR_COLOR,
+      alpha: 1,
+    })
+  })
+
+  it('chroma → default green', () => {
+    expect(resolveClearAppearance('chroma')).toEqual({
+      color: DEFAULT_CHROMA_KEY,
+      alpha: 1,
+    })
+  })
+
+  it('chroma honors chromaKey override', () => {
+    expect(
+      resolveClearAppearance('chroma', { chromaKey: '#ff00ff' }),
+    ).toEqual({ color: 0xff00ff, alpha: 1 })
+  })
+
+  it('unknown mode → preview dark', () => {
+    expect(resolveClearAppearance('transparent')).toEqual({
+      color: PREVIEW_CLEAR_COLOR,
+      alpha: 1,
+    })
+  })
+})
+
+describe('applyOutputMode', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('calls setClearColor with mapped appearance', () => {
+    const setClearColor = vi.fn()
+    const appearance = applyOutputMode({ setClearColor }, 'chroma')
+    expect(appearance).toEqual({ color: DEFAULT_CHROMA_KEY, alpha: 1 })
+    expect(setClearColor).toHaveBeenCalledWith(DEFAULT_CHROMA_KEY, 1)
+  })
+
+  it('preview maps to dark clear', () => {
+    const setClearColor = vi.fn()
+    applyOutputMode({ setClearColor }, 'preview')
+    expect(setClearColor).toHaveBeenCalledWith(PREVIEW_CLEAR_COLOR, 1)
+  })
+})

@@ -39,7 +39,16 @@ export type AppConfig = {
   origin: ConfigOrigin
   /** Drone relative→HAE bridge (Unity `WorldAnchorManager.takeoffAltitudeMSL`). Default 0. */
   takeoffAltitudeMSL: number
+  /**
+   * Canvas clear mode for OUT (architecture §5.5).
+   * Phase 3.1: `preview` \| `chroma`. Unknown → treated as `preview` by OUT.
+   */
   outputMode: string
+  /**
+   * Optional chroma key hex when `outputMode` is `chroma` (e.g. `"#00ff00"`).
+   * Empty → OUT default `(0, 255, 0)`.
+   */
+  chromaKey: string
 }
 
 /** @deprecated Prefer `AppConfig`. */

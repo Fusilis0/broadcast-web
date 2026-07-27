@@ -2,6 +2,13 @@ import './style.css'
 import { startOffsetSliders } from './calibration/index.ts'
 import { loadConfig } from './config/index.ts'
 import { applyConfigOrigin, ensureEgm96Loaded } from './geodesy/index.ts'
+import {
+  applyOutputMode,
+  normalizeOutputMode,
+  resolveClearAppearance,
+  startOutputModeControl,
+  type OutputModeControlHandle,
+} from './output/index.ts'
 import { startPosePipeline, stopPosePipeline } from './pose/index.ts'
 import { startScene, startStubHud, type SceneHandle } from './scene/index.ts'
 import {
@@ -18,6 +25,7 @@ const calib = startOffsetSliders({ container: app })
 
 let scene: SceneHandle | null = null
 let ingest: IngestHandle | null = null
+let outputControl: OutputModeControlHandle | null = null
 let replayUrl = '/fixtures/telemetry/spine-demo.json'
 let courseUrl = '/fixtures/course/demo-istanbul.json'
 let sponsorsUrl = '/fixtures/sponsors/demo-istanbul.json'
@@ -25,6 +33,7 @@ let flagsUrl = '/fixtures/flags/demo-istanbul-countdown.json'
 let boatNamesUrl = '/fixtures/boats/demo-istanbul-names.json'
 let boatIds: string[] = ['21', '22', '23', '24']
 let povIds: string[] = ['1', '2']
+let chromaKey = ''
 let switching = false
 
 const hud = startStubHud({
@@ -65,13 +74,35 @@ void (async () => {
   boatIds = config.boatIds
   povIds = config.povIds
 
+  chromaKey = config.chromaKey
+  const outputMode = normalizeOutputMode(config.outputMode)
+  const clear = resolveClearAppearance(outputMode, {
+    chromaKey: chromaKey || undefined,
+  })
+
   // Scene after config so boatIds / povIds allow-lists are known before first poses.
+  // Clear color from OUT (preview dark / chroma green).
   scene = startScene({
     container: app,
     boatIds: config.boatIds,
     povIds: config.povIds,
+    clearColor: clear.color,
+  })
+  applyOutputMode(scene.renderer, outputMode, {
+    chromaKey: chromaKey || undefined,
   })
   hud.setPovIds(config.povIds, scene.getActivePovId())
+
+  outputControl = startOutputModeControl({
+    container: app,
+    initialMode: outputMode,
+    onChange: (mode) => {
+      if (!scene) return
+      applyOutputMode(scene.renderer, mode, {
+        chromaKey: chromaKey || undefined,
+      })
+    },
+  })
 
   // Name/colour catalogue — before TEL so first boat spawn can resolve tags.
   await scene.loadBoatNamesFromUrl(boatNamesUrl)
@@ -99,6 +130,7 @@ void (async () => {
     stopPosePipeline()
     ingest?.stop()
     calib.stop()
+    outputControl?.stop()
     hud.stop()
     scene?.stop()
   })
