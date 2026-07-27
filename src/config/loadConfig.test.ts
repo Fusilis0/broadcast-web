@@ -114,3 +114,17 @@ describe('normalizeConfig courseUrl', () => {
     expect(cfg.courseUrl).toBe('/fixtures/course/custom.json')
   })
 })
+
+describe('normalizeConfig sponsorsUrl', () => {
+  it('defaults sponsorsUrl when absent', () => {
+    const cfg = normalizeConfig({})
+    expect(cfg.sponsorsUrl).toBe('/fixtures/sponsors/demo-istanbul.json')
+  })
+
+  it('keeps custom sponsorsUrl', () => {
+    const cfg = normalizeConfig({
+      sponsorsUrl: '/fixtures/sponsors/custom.json',
+    })
+    expect(cfg.sponsorsUrl).toBe('/fixtures/sponsors/custom.json')
+  })
+})

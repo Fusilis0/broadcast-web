@@ -20,6 +20,7 @@ let scene: SceneHandle | null = null
 let ingest: IngestHandle | null = null
 let replayUrl = '/fixtures/telemetry/spine-demo.json'
 let courseUrl = '/fixtures/course/demo-istanbul.json'
+let sponsorsUrl = '/fixtures/sponsors/demo-istanbul.json'
 let boatIds: string[] = ['21', '22', '23', '24']
 let povIds: string[] = ['1', '2']
 let switching = false
@@ -53,6 +54,7 @@ void (async () => {
   const config = await loadConfig()
   replayUrl = config.replayUrl
   courseUrl = config.courseUrl
+  sponsorsUrl = config.sponsorsUrl
   boatIds = config.boatIds
   povIds = config.povIds
 
@@ -68,9 +70,10 @@ void (async () => {
   await ensureEgm96Loaded()
   applyConfigOrigin(config.origin)
 
-  // Course needs origin + EGM96 (gpsToEnuAmsl). Static — not poseBus-driven.
+  // Course + sponsors need origin + EGM96 (gpsToEnuAmsl). Static — not poseBus-driven.
   const course = await scene.loadCourseFromUrl(courseUrl)
   if (course) hud.setCourseMarks(course.mapPoints)
+  await scene.loadSponsorsFromUrl(sponsorsUrl)
 
   ingest = await startTelemetryIngest({
     mode: config.telemetryMode,

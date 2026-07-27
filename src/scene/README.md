@@ -1,6 +1,6 @@
 # scene
 
-Owned by **SCN**. Three.js view: fleet boats (glTF/procedural) + billboard tags, drone camera, stub HUD, 2D fleet map, static course + buoys.
+Owned by **SCN**. Three.js view: fleet boats (glTF/procedural) + billboard tags, drone camera, stub HUD, 2D fleet map, static course + buoys, sponsor panels.
 
 ## Consume contract
 
@@ -8,13 +8,13 @@ SCN draws fleet from **`poseBus`** (`src/pose/`) only — ENU meters `x=East, y=
 
 Do **not** call `gpsToEnu` for boats, subscribe to `telemetryBus` for positions, or invent calibration math here.
 
-**Course** is the exception for static world content: lat/lon waypoints are converted with GEO **`gpsToEnuAmsl` only** (no ECEF reimplementation in `src/scene/`). Call after `applyConfigOrigin` + EGM96.
+**Course** and **sponsors** are the exception for static world content: lat/lon waypoints are converted with GEO **`gpsToEnuAmsl` only** (no ECEF reimplementation in `src/scene/`). Call after `applyConfigOrigin` + EGM96.
 
 `telemetryBus` may be used for **packet counts only** in the stub HUD.
 
 ## Boot
 
-`main.ts` loads config → `startScene({ boatIds, povIds })` → EGM96 → origin → **`loadCourseFromUrl(courseUrl)`** → TEL ingest → `startPosePipeline` → HUD mode + POV select. HUD boots early for status; scene waits on `loadConfig()` so allow-lists are known.
+`main.ts` loads config → `startScene({ boatIds, povIds })` → EGM96 → origin → **`loadCourseFromUrl(courseUrl)`** → **`loadSponsorsFromUrl(sponsorsUrl)`** → TEL ingest → `startPosePipeline` → HUD mode + POV select. HUD boots early for status; scene waits on `loadConfig()` so allow-lists are known.
 
 Mock ids: POVs from `povIds` (default `1`,`2`), boats from `boatIds` (default `21–24`). Temporary hFOV default `66.8832` (also on `PoseEvent.fovHDeg` from CAL).
 
@@ -22,8 +22,9 @@ Mock ids: POVs from `povIds` (default `1`,`2`), boats from `boatIds` (default `2
 
 | Symbol | Role |
 | --- | --- |
-| `startScene(options)` | Scene + lights + renderer + RAF + pose subscribe + fleet `Map` + POV switch + `loadCourseFromUrl` |
+| `startScene(options)` | Scene + lights + renderer + RAF + pose subscribe + fleet `Map` + POV switch + course/sponsors loaders |
 | `loadCourse` / `mountCourse` | Fetch/normalize course JSON → GEO ENU → boundary/gates/buoys |
+| `loadSponsors` / `mountSponsors` | Fetch/normalize sponsors JSON → GEO ENU → fixed world panels |
 | `startStubHud(options)` | Ops overlay: mode + POV select + status + 2D map (`setCourseMarks`) |
 | `createMap2d()` | Top-down ENU East/North fleet panel (canvas 2D) + optional course dots |
 | `createBoatEntity()` | Pose root + glTF/procedural visual + billboard tag |
@@ -41,6 +42,15 @@ Clear color stays dark preview; OUT owns chroma later. Ambient + directional lig
 - **Water Y:** course lines and buoy bases forced to **`y = 0`** (Unity `waterSurfaceY`). Converted AMSL ENU `y` is ignored for graphics so Istanbul geoid offset does not float the course.
 - Boundary: `LineLoop` through marks (fixture order). Gates: segment per Left/Right pair. Buoys: cylinder poles + stub name sprites at marks and gate ends (visible for web ops).
 - Not `poseBus`-driven; dispose on `scene.stop()`.
+
+## Sponsors (Phase 2.5)
+
+- Fixture: `public/fixtures/sponsors/demo-istanbul.json` (config key `sponsorsUrl`) — **2–4** demo panels near the course.
+- Schema: `a`/`b` GPS anchors + `heightM` + optional `textureUrl` / `label` / `color` — see fixture README.
+- Placement: **`gpsToEnuAmsl` only**; panel baseline **water Y = 0** (same as course).
+- Mesh: vertical quad spanning A↔B; **fixed** world orientation (not camera-billboard). Face normal = flatten(A→B) × up (left of A→B). Order points so the course is on the facing side.
+- Missing texture → procedural canvas with `label` (no blank void). Sponsor `label` ≠ boat name catalogue (**2.7**).
+- Dispose on `scene.stop()`. Full Unity Sponsors pack / BillboardChain tiling are out of this slice.
 
 ## Fleet registry (Phase 2.2)
 

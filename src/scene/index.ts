@@ -66,3 +66,15 @@ export {
   type CourseData,
   type CourseEnuPoint,
 } from './course/index.ts'
+export {
+  loadSponsors,
+  mountSponsors,
+  normalizeSponsors,
+  buildSponsorLayout,
+  horizontalSpanFromEnu,
+  SPONSOR_WATER_Y,
+  DEFAULT_SPONSORS_URL,
+  type SponsorsHandle,
+  type SponsorsData,
+  type SponsorEnuEndpoints,
+} from './sponsors/index.ts'

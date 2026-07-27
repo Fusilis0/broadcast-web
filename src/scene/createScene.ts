@@ -17,6 +17,10 @@ import {
   resolveInitialPovId,
   resolvePovIdList,
 } from './povSwitcher.ts'
+import {
+  loadSponsors,
+  type SponsorsHandle,
+} from './sponsors/index.ts'
 
 export { DEFAULT_DRONE_ID }
 
@@ -64,13 +68,17 @@ export type SceneHandle = {
    * Returns map points (marks + gate ends) for the 2D overlay.
    */
   loadCourseFromUrl: (url?: string) => Promise<CourseHandle | null>
+  /**
+   * Load static sponsor billboards after GEO origin + EGM96 are ready.
+   */
+  loadSponsorsFromUrl: (url?: string) => Promise<SponsorsHandle | null>
   stop: () => void
 }
 
 /**
  * Own the Three scene, resize, RAF render loop, and poseBus → entity apply.
  * Draws only — no lat/lon math, no telemetry bus.
- * Course lat/lon → ENU goes through GEO via `loadCourse` (after origin).
+ * Course/sponsors lat/lon → ENU goes through GEO via loaders (after origin).
  */
 export function startScene(options: SceneOptions): SceneHandle {
   const allow =
@@ -101,6 +109,7 @@ export function startScene(options: SceneOptions): SceneHandle {
   const drone = createDroneCamera(1, TEMP_HFOV_DEG)
   const boats = new Map<string, BoatEntityHandle>()
   let course: CourseHandle | null = null
+  let sponsors: SponsorsHandle | null = null
 
   const renderer = new THREE.WebGLRenderer({ antialias: true })
   renderer.setClearColor(clearColor, 1)
@@ -191,6 +200,18 @@ export function startScene(options: SceneOptions): SceneHandle {
       course = handle
       return handle
     },
+    async loadSponsorsFromUrl(url?: string): Promise<SponsorsHandle | null> {
+      if (stopped) return null
+      sponsors?.dispose()
+      sponsors = null
+      const handle = await loadSponsors({ scene, url })
+      if (stopped) {
+        handle?.dispose()
+        return null
+      }
+      sponsors = handle
+      return handle
+    },
     stop(): void {
       if (stopped) return
       stopped = true
@@ -199,6 +220,8 @@ export function startScene(options: SceneOptions): SceneHandle {
       unsubPose()
       course?.dispose()
       course = null
+      sponsors?.dispose()
+      sponsors = null
       lastPoseByPovId.clear()
       for (const boat of boats.values()) {
         scene.remove(boat.root)

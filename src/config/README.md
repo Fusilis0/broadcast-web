@@ -19,6 +19,7 @@ Owned by **PLT+BW**. Thin `/config.json` loader — no domain logic.
 | `telemetryMode` | `mock` \| `replay` \| `live` (committed default: `mock`) |
 | `replayUrl` | Fixture path for replay mode (default `/fixtures/telemetry/spine-demo.json`) |
 | `courseUrl` | Static course JSON for SCN (default `/fixtures/course/demo-istanbul.json`) |
+| `sponsorsUrl` | Static sponsor billboards JSON for SCN (default `/fixtures/sponsors/demo-istanbul.json`) |
 | `wsUrl` | Drone / primary live WebSocket URL (default `""`) |
 | `wsBoatUrl` | Boat live WebSocket URL (default `""`) — **single** socket; multi-URL is a TEL follow-up |
 | `boatIds` | Boat channel ids for mock + SCN fleet registry (default `["21","22","23","24"]`; arch band `21–52`) |

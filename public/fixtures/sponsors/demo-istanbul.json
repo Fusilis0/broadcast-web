@@ -1,0 +1,32 @@
+{
+  "name": "demo-istanbul-sponsors",
+  "sponsors": [
+    {
+      "id": "sp-west",
+      "label": "Fusilis",
+      "a": { "lat": 41.00855, "lon": 28.97755, "altMsl": 0 },
+      "b": { "lat": 41.00745, "lon": 28.97755, "altMsl": 0 },
+      "heightM": 8,
+      "textureUrl": null,
+      "color": "#1e4d8c"
+    },
+    {
+      "id": "sp-north",
+      "label": "Bosphorus Cup",
+      "a": { "lat": 41.00885, "lon": 28.9779, "altMsl": 0 },
+      "b": { "lat": 41.00885, "lon": 28.9789, "altMsl": 0 },
+      "heightM": 7,
+      "textureUrl": null,
+      "color": "#8b2e1f"
+    },
+    {
+      "id": "sp-east",
+      "label": "Marina Tech",
+      "a": { "lat": 41.00745, "lon": 28.97925, "altMsl": 0 },
+      "b": { "lat": 41.00855, "lon": 28.97925, "altMsl": 0 },
+      "heightM": 8,
+      "textureUrl": null,
+      "color": "#1a6b4a"
+    }
+  ]
+}
