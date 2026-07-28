@@ -1,6 +1,10 @@
 import './style.css'
 import { startOffsetSliders } from './calibration/index.ts'
 import { loadConfig } from './config/index.ts'
+import {
+  applyDeeplinkToBoot,
+  parseConsoleDeeplink,
+} from './console/index.ts'
 import { applyConfigOrigin, ensureEgm96Loaded } from './geodesy/index.ts'
 import {
   applyOutputMode,
@@ -99,6 +103,8 @@ function applyIngestConnectionStatus(handle: IngestHandle): void {
 }
 void (async () => {
   const config = await loadConfig()
+  // CON: query overrides after config.json; before origin / ingest (token not validated).
+  applyDeeplinkToBoot(config, parseConsoleDeeplink(window.location.search))
   replayUrl = config.replayUrl
   courseUrl = config.courseUrl
   sponsorsUrl = config.sponsorsUrl

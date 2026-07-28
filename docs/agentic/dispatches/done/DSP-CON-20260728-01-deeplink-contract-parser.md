@@ -8,6 +8,7 @@
 - Related handoffs: none (console team negotiation is human/CON later)
 - BW ask: lock a handable contract + SPA query parser stub; no console repo; no auth server; no WHEP/NDI
 - Supersedes: `DSP-CON-20260722-01-console-deeplink-contract` (Phase 0 docs-only; never completed — contract still stub)
+- **Status: DONE** (worker report accepted by BW 2026-07-28) — SPA gate met; console-team ack still Draft
 
 ## Goal
 

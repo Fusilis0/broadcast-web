@@ -35,6 +35,12 @@ npm run dev
 
 Open the URL printed by Vite (usually `http://localhost:5173`). You should see a dark WebGL canvas with a rotating wireframe cube.
 
+Optional console deep-link query overrides (after `config.json`; see [`docs/contracts/console-deeplink.md`](./docs/contracts/console-deeplink.md)):
+
+```
+http://127.0.0.1:5173/?mode=replay&originLat=41.0082&originLon=28.9784
+```
+
 Also available:
 
 - `npm run build` — typecheck + production build to `dist/`
