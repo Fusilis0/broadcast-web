@@ -1,23 +1,28 @@
 # CON_MEMO
 
-**Last updated:** 2026-07-22  
-**Status:** Active — bootstrapped
+**Last updated:** 2026-07-28  
+**Status:** Active — Phase 3.6 DSP issued
 
 ## Focus
-Proposed console → broadcast-web deep-link URL contract (docs only). Next after contract: SPA query parser stub under `src/console/` (CON+PLT), when scaffold exists.
+Console → broadcast-web deep-link: expand contract + SPA parser stub.
 
 ## Decisions
-- Console repo: no pull today; contract docs only
-- Deep-link path baseline from architecture §5.4: `/overlay?race=&token=&originLat=&originLon=&mode=live|mock` — expand `mode` to include `replay` for PLT/TEL config parity
-- Auth token: opaque handoff design only; no JWT claims invented until console team negotiates
-- Existing stub at `docs/contracts/console-deeplink.md` is insufficient; worker expands it via DSP below
+- Console repo: no pull; contract + our SPA only
+- Path baseline `/overlay?...`; local Vite may use `/?...` (same query parser)
+- `mode`: `mock` | `replay` | `live`
+- Token: opaque only — no JWT validation in V1
+- URL origin overrides win over `config.json` when present
+- Supersedes unfinished Phase 0 DSP-CON-20260722-01 (archived `done/`)
 
 ## Issued dispatches
-- `DSP-CON-20260722-01-console-deeplink-contract` — expand `docs/contracts/console-deeplink.md` into negotiable proposed contract (**active**)
+- **DSP-CON-20260728-01-deeplink-contract-parser** — `docs/agentic/dispatches/active/` — **active / awaiting worker**
 
 ## Handoffs
 —
 
 ## Blockers
-- Need console team contact for deep-link negotiation (later)
-- SPA parser dispatch blocked until PLT scaffold lands `src/console/` (PLT `DSP-PLT-20260722-01-scaffold-vite-three`)
+- External “agreed” with console team is human/CON after contract is ready
+
+## Next
+1. Human: worker chat with DSP paste block
+2. On accept: tick roadmap 3.6 (proposed-ready); FYI BW for console-team send

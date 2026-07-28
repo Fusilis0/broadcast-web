@@ -23,7 +23,7 @@
 
 ## Current phase pointer
 
-**Active:** **Phase 3** — **3.1 + 3.2 + 3.4 done** (2026-07-28). **3.5** human-pending (studio Results). Next software: **3.6** CON deeplink; **3.3** WHEP deferred.  
+**Active:** **Phase 3** — **3.1 + 3.2 + 3.4 done**. **3.6** DSP issued (`DSP-CON-20260728-01`). **3.5** human-pending. **3.3** WHEP deferred.  
 **Last gate:** DSP-SCN-20260727-07 (connection/calib HUD) accepted (2026-07-28).
 
 ---
@@ -75,7 +75,7 @@
 | 3.3 | WebRTC underlay (WHEP) | OUT | |
 | 3.4 | Connection/calib HUD harden | CAL+SCN | **Done** (`DSP-SCN-20260727-07`) |
 | 3.5 | Local vMix chroma experiment | OUT + human | |
-| 3.6 | Console deep-link design doc agreed | CON | |
+| 3.6 | Console deep-link design doc agreed | CON | **DSP issued** (`DSP-CON-20260728-01`) |
 
 **Exit (Milestone C):** Chroma overlay experiment recorded; underlay works.
 

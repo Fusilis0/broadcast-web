@@ -1,6 +1,7 @@
 # Dispatch DSP-CON-20260722-01-console-deeplink-contract
 
 ## Meta
+- **Status: SUPERSEDED** by `DSP-CON-20260728-01-deeplink-contract-parser` (2026-07-28)
 - From orchestrator: CON
 - Worker role: WORKER(DSP-CON-20260722-01-console-deeplink-contract)
 - Priority: P1
