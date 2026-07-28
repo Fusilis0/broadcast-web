@@ -9,7 +9,8 @@
 - **3.5** still human-pending (studio Results / vMix runbook)  
 - **Next software:** **3.6** CON deeplink (or **3.3** WHEP if underlay/CV needed)  
 Remote: https://github.com/Fusilis0/broadcast-web (private, **Fusilis0**)  
-**Standing order:** after accepted Phase slices, BW may commit/push landings without waiting for an explicit ask.
+**Standing order:** after accepted Phase slices, BW may commit/push landings without waiting for an explicit ask.  
+Last push: `7c83f10` (3.4).
 
 ## What works today
 - Full race-content spine + name/colour tags
@@ -18,11 +19,10 @@ Remote: https://github.com/Fusilis0/broadcast-web (private, **Fusilis0**)
 - CAL: multi-device picker over `povIds`; synced from HUD POV
 
 ## Priority queue
-1. **Land 3.4** — commit/push  
-2. **3.5** studio Results when you can run vMix  
-3. **3.6** CON deeplink  
-4. **3.3** WHEP only when underlay/CV needed  
-5. Optional: live multi-URL TEL, VPS soak, CV  
+1. **3.5** studio Results when you can run vMix  
+2. **3.6** CON deeplink  
+3. **3.3** WHEP only when underlay/CV needed  
+4. Optional: live multi-URL TEL, VPS soak, CV  
 
 ## Compaction recovery
 Re-open BW with `docs/agentic/dispatches/BOOTSTRAP_BW.md`, then read this memo + `docs/roadmap/phases-roadmap.md`.
