@@ -5,29 +5,23 @@
 
 ## Current phase
 **Phase 2 complete.**  
-**Phase 3 in progress** — **3.1 + 3.2 + 3.4 + 3.6 (SPA) done**.  
-- **3.6:** contract proposed + parser live; external “agreed” = console-team human follow-up  
-- **3.5** human-pending (studio Results) — blocks Milestone C air proof  
-- **3.3** WHEP deferred until underlay/CV needed  
-Remote: https://github.com/Fusilis0/broadcast-web (private, **Fusilis0**)  
-Last push: landing 3.6 with this commit.  
-**Standing order:** after accepted Phase slices, BW may commit/push landings without waiting for an explicit ask.
+**Phase 3:** 3.1/3.2/3.4/3.6 SPA done; **3.5** human-pending; **3.3 WHEP opened**.  
+**Phase 4 soft-start:** **4.1** TEL + **4.5** CAL docs DSPs issued (parallel while studio waits).  
+Remote: https://github.com/Fusilis0/broadcast-web  
+**Standing order:** land accepted slices with commit/push.
 
-## What works today
-- Full race-content spine + name/colour tags
-- OUT: preview/chroma + visual timecode
-- HUD: live WS status; CAL multi-device over `povIds`
-- CON: `?mode=&originLat=&originLon=` (etc.) applied at boot
+## Still blocked on humans
+- **3.5** studio Results (`docs/ops/vmix-chroma-runbook.md`)
+- Console-team ack of deeplink contract
 
-## Priority queue
-1. **3.5** studio Results when you can run vMix  
-2. Console-team ack of deeplink contract (human / CON)  
-3. **3.3** WHEP only when underlay/CV needed  
-4. Optional: live multi-URL TEL, Phase 4/5, CV  
+## Active DSPs (no-studio finish pack)
+1. `DSP-OUT-20260728-01-whep-underlay` — **P0**
+2. `DSP-TEL-20260728-01-replay-reconnect-polish` — **P1**
+3. `DSP-CAL-20260728-01-cv-spike-plan` — **P2** docs
+4. `DSP-OUT-20260727-03-vmix-chroma-experiment` — runbook done; Results pending
+
+## Deferred / later
+- Live multi-URL TEL, 4.2 map UX, 4.3–4.4, Phase 5 deploy, NDI helper
 
 ## Compaction recovery
-Re-open BW with `docs/agentic/dispatches/BOOTSTRAP_BW.md`, then read this memo + `docs/roadmap/phases-roadmap.md`.
-
-## Blockers
-- **3.5** needs studio PC + vMix (human)  
-- **3.3** product-gated
+`BOOTSTRAP_BW.md` → this memo → `docs/roadmap/phases-roadmap.md`
