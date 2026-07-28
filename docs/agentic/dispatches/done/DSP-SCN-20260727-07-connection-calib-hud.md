@@ -7,6 +7,7 @@
 - Phase: Phase 3.4 — Connection / calib HUD harden
 - Related handoffs: none required (CAL panel stays under `src/calibration/`)
 - BW ask: harden ops HUD while studio **3.5** is human-pending; no WHEP; no NDI; no CON deeplink
+- **Status: DONE** (worker report accepted by BW 2026-07-28)
 
 ## Goal
 

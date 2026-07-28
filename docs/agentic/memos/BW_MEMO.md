@@ -1,26 +1,24 @@
 # BW_MEMO — Broadcast-Web Master Orchestrator
 
-**Last updated:** 2026-07-27  
+**Last updated:** 2026-07-28  
 **Session role:** BW
 
 ## Current phase
 **Phase 2 complete.**  
-**Phase 3 in progress** — **3.1 + 3.2 done** (chroma clear + visual timecode; 149 tests).  
-- **Next (BW pick):** **3.4** connection/calib HUD harden — DSP issued  
-  `docs/agentic/dispatches/active/DSP-SCN-20260727-07-connection-calib-hud.md`  
-- **3.5** still human-pending (studio Results)  
-- **3.3** WHEP deferred; **3.6** CON later  
+**Phase 3 in progress** — **3.1 + 3.2 + 3.4 done** (chroma, timecode, connection/calib HUD; 154 tests).  
+- **3.5** still human-pending (studio Results / vMix runbook)  
+- **Next software:** **3.6** CON deeplink (or **3.3** WHEP if underlay/CV needed)  
 Remote: https://github.com/Fusilis0/broadcast-web (private, **Fusilis0**)  
-Last push: `c72ca05`.  
 **Standing order:** after accepted Phase slices, BW may commit/push landings without waiting for an explicit ask.
 
 ## What works today
 - Full race-content spine + name/colour tags
-- OUT: preview/chroma clear + Unity-compatible 8×8 LSB visual timecode overlay
-- Config: `timecodeEnabled`, `timecodeCorner`, `timecodeSizePx`
+- OUT: preview/chroma + visual timecode
+- HUD: live WS drone/boat status; mock/replay `ws=n/a`
+- CAL: multi-device picker over `povIds`; synced from HUD POV
 
 ## Priority queue
-1. **3.4** connection/calib HUD (DSP active — worker)  
+1. **Land 3.4** — commit/push  
 2. **3.5** studio Results when you can run vMix  
 3. **3.6** CON deeplink  
 4. **3.3** WHEP only when underlay/CV needed  

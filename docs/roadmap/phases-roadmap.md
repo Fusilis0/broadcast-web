@@ -23,8 +23,8 @@
 
 ## Current phase pointer
 
-**Active:** **Phase 3** — **3.1 + 3.2 done**; **3.5** DSP issued (`DSP-OUT-20260727-03-vmix-chroma-experiment`); **3.3** WHEP deferred.  
-**Last gate:** DSP-OUT-20260727-02 (visual timecode) accepted + pushed `0fb3dcc` (2026-07-27).
+**Active:** **Phase 3** — **3.1 + 3.2 + 3.4 done** (2026-07-28). **3.5** human-pending (studio Results). Next software: **3.6** CON deeplink; **3.3** WHEP deferred.  
+**Last gate:** DSP-SCN-20260727-07 (connection/calib HUD) accepted (2026-07-28).
 
 ---
 
@@ -73,7 +73,7 @@
 | 3.1 | `preview` / `chroma` modes | OUT | **Done** (`DSP-OUT-20260727-01`) |
 | 3.2 | Visual timecode | OUT | **Done** (`DSP-OUT-20260727-02`) |
 | 3.3 | WebRTC underlay (WHEP) | OUT | |
-| 3.4 | Connection/calib HUD harden | CAL+SCN | |
+| 3.4 | Connection/calib HUD harden | CAL+SCN | **Done** (`DSP-SCN-20260727-07`) |
 | 3.5 | Local vMix chroma experiment | OUT + human | |
 | 3.6 | Console deep-link design doc agreed | CON | |
 

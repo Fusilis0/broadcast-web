@@ -172,9 +172,31 @@ body,
   margin-bottom: 2px;
 }
 
-.calib-panel__device {
+.calib-panel__device,
+.calib-panel__device-row {
   color: #6a7888;
   margin-bottom: 6px;
+}
+
+.calib-panel__device-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.calib-panel__device-label {
+  color: #8a949e;
+}
+
+.calib-panel__device-select {
+  pointer-events: auto;
+  background: #222830;
+  color: #d0d6dc;
+  border: 1px solid #3a4450;
+  border-radius: 3px;
+  font: inherit;
+  padding: 1px 6px;
 }
 
 .calib-panel__row {

@@ -1,6 +1,9 @@
 import type { AppConfig } from '../config/types.ts'
 import { poseBus, type PoseEvent } from '../pose/index.ts'
-import { telemetryBus } from '../telemetry/index.ts'
+import {
+  telemetryBus,
+  type LiveWsStatus,
+} from '../telemetry/index.ts'
 import { formatBoatEnuStatus } from './fleetRegistry.ts'
 import { createMap2d, type Map2dHandle } from './map2d.ts'
 import { formatPovStatus, resolvePovIdList } from './povSwitcher.ts'
@@ -9,6 +12,21 @@ export type TelemetryModeUi = AppConfig['telemetryMode']
 
 /** Modes that can switch ingest at runtime (mock | replay | live). */
 export type TelemetryModeSwitchable = TelemetryModeUi
+
+/** Per-channel live WS statuses for the ops HUD. */
+export type HudLiveChannelStatus = {
+  drone: LiveWsStatus
+  boat: LiveWsStatus
+}
+
+/**
+ * Connection line for the stub HUD.
+ * - `non_live`: mock/replay — never fake open sockets
+ * - `live`: surface real drone/boat WS state from TEL
+ */
+export type ConnectionStatusUi =
+  | { kind: 'non_live'; mode: 'mock' | 'replay' }
+  | { kind: 'live'; channels: HudLiveChannelStatus }
 
 export type StubHudOptions = {
   container: HTMLElement
@@ -40,6 +58,8 @@ export type StubHudHandle = {
   setCourseMarks: (
     marks: readonly { name: string; x: number; z: number }[],
   ) => void
+  /** Telemetry WS / non-live connection line (Phase 3.4). */
+  setConnectionStatus: (status: ConnectionStatusUi) => void
   stop: () => void
 }
 
@@ -51,6 +71,15 @@ function modeHintText(mode: TelemetryModeUi): string {
   if (mode === 'live') return 'live WS'
   if (mode === 'replay') return 'fixture replay'
   return 'mock source'
+}
+
+/** Compact connection status for the HUD status block. */
+export function formatConnectionStatus(status: ConnectionStatusUi): string {
+  if (status.kind === 'non_live') {
+    return `ws=n/a (${status.mode})`
+  }
+  const { drone, boat } = status.channels
+  return `ws drone=${drone} boat=${boat}`
 }
 
 /**
@@ -153,6 +182,10 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   const seenPovIds = new Set<string>()
   let uiMode: TelemetryModeUi = initialMode
   let bootMessage: string | null = 'boot: loading config…'
+  let connectionStatus: ConnectionStatusUi =
+    initialMode === 'live'
+      ? { kind: 'live', channels: { drone: 'idle', boat: 'idle' } }
+      : { kind: 'non_live', mode: initialMode }
 
   function rebuildPovSelect(): void {
     povSelect.replaceChildren()
@@ -176,6 +209,7 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
     }
     statusEl.textContent =
       `mode=${uiMode}  drone=${counts.drone}  boat=${counts.boat}  stream_anchor=${counts.stream_anchor}\n` +
+      `${formatConnectionStatus(connectionStatus)}\n` +
       `${formatPovStatus(activePovId, seenPovIds)}\n` +
       `ENU m  drone=${lastDroneEnu}  ${formatBoatEnuStatus(lastBoatEnuById)}`
   }
@@ -288,6 +322,10 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
       map.setCourseMarks(
         marks.map((m) => ({ name: m.name, east: m.x, north: m.z })),
       )
+    },
+    setConnectionStatus(status: ConnectionStatusUi): void {
+      connectionStatus = status
+      renderStatus()
     },
     stop(): void {
       window.clearInterval(refreshId)

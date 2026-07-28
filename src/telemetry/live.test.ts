@@ -213,8 +213,53 @@ describe('live ingest → bus', () => {
     })
     expect(handle.mode).toBe('live')
     expect(FakeWebSocket.instances).toHaveLength(0)
+    expect(handle.getLiveStatus).toBeDefined()
+    expect(handle.getLiveStatus?.()).toEqual({ drone: 'idle', boat: 'idle' })
     handle.stop()
     warn.mockRestore()
+  })
+
+  it('exposes getLiveStatus / onLiveStatus for live sockets', async () => {
+    const bus = new TelemetryBus()
+    const seen: { channel: string; status: string }[] = []
+    const handle = await startTelemetryIngest({
+      mode: 'live',
+      wsUrl: 'ws://example.invalid/drone',
+      wsBoatUrl: 'ws://example.invalid/boat',
+      bus,
+      WebSocketImpl: FakeWebSocket as unknown as typeof WebSocket,
+    })
+
+    expect(handle.getLiveStatus).toBeDefined()
+    expect(handle.onLiveStatus).toBeDefined()
+    const unsub = handle.onLiveStatus!((channel, status) => {
+      seen.push({ channel, status })
+    })
+
+    // FakeWebSocket opens on a microtask; flush then assert snapshot + listener.
+    await Promise.resolve()
+    expect(handle.getLiveStatus?.()).toEqual({ drone: 'open', boat: 'open' })
+
+    const droneWs = FakeWebSocket.instances.find((w) =>
+      w.url.includes('drone'),
+    )!
+    droneWs.close()
+    expect(handle.getLiveStatus?.().drone).toBe('closed')
+    expect(seen.some((e) => e.channel === 'drone' && e.status === 'closed')).toBe(
+      true,
+    )
+
+    unsub()
+    handle.stop()
+    expect(handle.getLiveStatus?.()).toEqual({ drone: 'idle', boat: 'idle' })
+  })
+
+  it('mock/replay omit live status helpers', async () => {
+    const bus = new TelemetryBus()
+    const mock = await startTelemetryIngest({ mode: 'mock', bus })
+    expect(mock.getLiveStatus).toBeUndefined()
+    expect(mock.onLiveStatus).toBeUndefined()
+    mock.stop()
   })
 
   it('ingestPacket still routes channel context', () => {

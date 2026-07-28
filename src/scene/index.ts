@@ -47,7 +47,10 @@ export {
   type DroneCameraHandle,
 } from './droneCamera.ts'
 export {
+  formatConnectionStatus,
   startStubHud,
+  type ConnectionStatusUi,
+  type HudLiveChannelStatus,
   type StubHudHandle,
   type StubHudOptions,
   type TelemetryModeSwitchable,

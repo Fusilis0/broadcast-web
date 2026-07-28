@@ -17,6 +17,7 @@ import { startScene, startStubHud, type SceneHandle } from './scene/index.ts'
 import {
   startTelemetryIngest,
   type IngestHandle,
+  type LiveWsStatus,
 } from './telemetry/index.ts'
 
 const app = document.querySelector<HTMLDivElement>('#app')
@@ -30,6 +31,7 @@ let scene: SceneHandle | null = null
 let ingest: IngestHandle | null = null
 let outputControl: OutputModeControlHandle | null = null
 let visualTimecode: VisualTimecodeHandle | null = null
+let unsubLiveStatus: (() => void) | null = null
 let replayUrl = '/fixtures/telemetry/spine-demo.json'
 let courseUrl = '/fixtures/course/demo-istanbul.json'
 let sponsorsUrl = '/fixtures/sponsors/demo-istanbul.json'
@@ -40,6 +42,11 @@ let povIds: string[] = ['1', '2']
 let chromaKey = ''
 let switching = false
 
+function clearLiveStatusSub(): void {
+  unsubLiveStatus?.()
+  unsubLiveStatus = null
+}
+
 const hud = startStubHud({
   container: app,
   onModeChange: (mode) => {
@@ -47,6 +54,7 @@ const hud = startStubHud({
       if (switching) return
       switching = true
       try {
+        clearLiveStatusSub()
         ingest?.stop()
         ingest = await startTelemetryIngest({
           mode,
@@ -54,6 +62,7 @@ const hud = startStubHud({
           boatIds,
           povIds,
         })
+        applyIngestConnectionStatus(ingest)
         hud.setMode(mode)
       } finally {
         switching = false
@@ -62,12 +71,32 @@ const hud = startStubHud({
   },
   onPovChange: (id) => {
     scene?.setActivePovId(id)
+    calib.setDeviceId(id)
   },
   onCountdownControl: (action) => {
     scene?.controlCountdown(action)
   },
 })
 
+function applyIngestConnectionStatus(handle: IngestHandle): void {
+  clearLiveStatusSub()
+  if (handle.mode === 'live' && handle.getLiveStatus && handle.onLiveStatus) {
+    const channels = { ...handle.getLiveStatus() }
+    hud.setConnectionStatus({ kind: 'live', channels })
+    unsubLiveStatus = handle.onLiveStatus((channel, status: LiveWsStatus) => {
+      channels[channel] = status
+      hud.setConnectionStatus({
+        kind: 'live',
+        channels: { drone: channels.drone, boat: channels.boat },
+      })
+    })
+    return
+  }
+  hud.setConnectionStatus({
+    kind: 'non_live',
+    mode: handle.mode === 'replay' ? 'replay' : 'mock',
+  })
+}
 void (async () => {
   const config = await loadConfig()
   replayUrl = config.replayUrl
@@ -95,7 +124,9 @@ void (async () => {
   applyOutputMode(scene.renderer, outputMode, {
     chromaKey: chromaKey || undefined,
   })
-  hud.setPovIds(config.povIds, scene.getActivePovId())
+  const activePov = scene.getActivePovId()
+  hud.setPovIds(config.povIds, activePov)
+  calib.setPovIds(config.povIds, activePov)
 
   outputControl = startOutputModeControl({
     container: app,
@@ -139,10 +170,12 @@ void (async () => {
     povIds: config.povIds,
   })
   startPosePipeline({ takeoffAltitudeMSL: config.takeoffAltitudeMSL })
+  applyIngestConnectionStatus(ingest)
   hud.setMode(config.telemetryMode)
 
   window.addEventListener('beforeunload', () => {
     stopPosePipeline()
+    clearLiveStatusSub()
     ingest?.stop()
     visualTimecode?.stop()
     visualTimecode = null

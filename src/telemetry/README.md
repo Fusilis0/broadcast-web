@@ -14,7 +14,7 @@ Owned by **TEL**. WebSocket-shaped ingest: DTOs, JSON router, mock / replay / li
 | `replaySource.ts` | Timer playback of a fixture onto `ingestPacket` |
 | `liveSource.ts` | Browser WebSocket client(s) for live mode (drone + optional boat) |
 | `bus.ts` | Typed pub-sub |
-| `ingest.ts` | Start ingest from `telemetryMode`; route JSON onto the bus |
+| `ingest.ts` | Start ingest from `telemetryMode`; route JSON onto the bus; live `getLiveStatus` / `onLiveStatus` |
 | `index.ts` | Public exports |
 
 ## Events
@@ -84,6 +84,15 @@ Do **not** commit production VPS URLs or `telemetryMode: "live"` as defaults.
 3. Do **not** leave the committed default as `live`.
 
 Empty drone URL in live mode: console warn, idle handle, app does not crash. Empty boat URL: drone-only live (OK for spine).
+
+### Live status expose (HUD)
+
+Live `IngestHandle` adds optional:
+
+- `getLiveStatus()` → `{ drone, boat }` as `LiveWsStatus` (`idle` | `connecting` | `open` | `closed`)
+- `onLiveStatus(listener)` → unsubscribe; forwards `LiveTelemetrySource` `onStatus`
+
+Mock/replay handles omit these — SCN HUD shows `ws=n/a (mock|replay)` instead of inventing sockets. Empty URLs stay `idle` (no fake `open`).
 
 ### `ws://` vs `wss://` (mixed content)
 

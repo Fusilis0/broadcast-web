@@ -72,6 +72,15 @@ describe('writeOffsetField', () => {
     expect(getOffsets(id).yawDeg).toBe(45)
   })
 
+  it('keeps per-device stores isolated', () => {
+    writeOffsetField('1', 'yawDeg', 10)
+    writeOffsetField('2', 'yawDeg', -20)
+    expect(getOffsets('1').yawDeg).toBe(10)
+    expect(getOffsets('2').yawDeg).toBe(-20)
+    expect(getOffsets('1').fovHDeg).toBe(DEFAULT_HFOV_DEG)
+    expect(getOffsets('2').fovHDeg).toBe(DEFAULT_HFOV_DEG)
+  })
+
   it('reset restores zeros + default FOV', () => {
     const id = DEFAULT_CALIB_DEVICE_ID
     writeOffsetField(id, 'pitchDeg', 20)

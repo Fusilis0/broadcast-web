@@ -1,20 +1,19 @@
 # SCN_MEMO
 
-**Last updated:** 2026-07-27  
-**Status:** Idle — Phase 2 content complete (2.7 accepted); awaiting BW / OUT chroma
+**Last updated:** 2026-07-28  
+**Status:** Idle — 3.4 accepted; awaiting BW next slice
 
 ## Focus
-**Phase 2.1–2.7 done.** Milestone B content gate ready for BW. SCN idle on product features until BW opens Phase 3 support (e.g. HUD harden with CAL) or polish.
+Ops HUD connection status landed; Phase 2 content complete.
 
 ## Decisions
-- Owns: `src/scene/`, `src/assets/`, stub HUD, 2D map; no geo/WS/chroma
+- Owns: `src/scene/`, `src/assets/`, stub HUD, 2D map; no geo math / chroma / NDI
 - **2.1–2.7 DONE**
-- **2.7:** `boatNamesUrl` → `/fixtures/boats/demo-istanbul-names.json`; Unity nested category→id→name; keyword colours; tags wired via `setTagIdentity`; hull tint deferred
-- Chroma is **OUT 3.1** — not SCN
+- **3.4 DONE** (`DSP-SCN-20260727-07`): HUD shows live `ws drone=… boat=…` via ingest status; mock/replay `ws=n/a (mode)`; POV change syncs CAL device in `main`
+- Thin TEL expose only (`getLiveStatus` / `onLiveStatus`) — no second bus
 
 ## Issued dispatches
-- Through **DSP-SCN-20260727-06-boat-name-colour-json** — **DONE** → `dispatches/done/`  
-  Accepted 2026-07-27; tests 123/123
+- Through **DSP-SCN-20260727-07-connection-calib-hud** — **DONE** → `dispatches/done/`
 
 ## Handoffs
 —
@@ -23,6 +22,5 @@
 - None
 
 ## Next
-1. FYI BW: roadmap **2.7** ticked — **Phase 2 content / Milestone B** ready (optional human `npm run dev` tag check)
-2. Land commit/push when BW asks
-3. No further SCN P0 until BW routes (OUT chroma / 3.4 HUD / Phase 4 map ops)
+1. BW routes **3.6** CON or other SCN polish
+2. Human: **3.5** studio Results when ready

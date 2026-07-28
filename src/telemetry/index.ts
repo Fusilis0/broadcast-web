@@ -55,5 +55,6 @@ export {
   ingestPacket,
   startTelemetryIngest,
   type IngestHandle,
+  type LiveStatusMap,
   type StartTelemetryIngestOptions,
 } from './ingest.ts'

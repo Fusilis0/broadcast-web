@@ -1,9 +1,13 @@
 import { telemetryBus, type TelemetryBus } from './bus.ts'
-import { LiveTelemetrySource } from './liveSource.ts'
+import {
+  LiveTelemetrySource,
+  type LiveWsStatus,
+} from './liveSource.ts'
 import {
   DEFAULT_MOCK_BOAT_IDS,
   DEFAULT_MOCK_POV_IDS,
   MockTelemetrySource,
+  type MockChannel,
   type MockPacket,
 } from './mockSource.ts'
 import {
@@ -22,10 +26,24 @@ import type {
   TelemetryMode,
 } from './types.ts'
 
+export type LiveStatusMap = Record<MockChannel, LiveWsStatus>
+
 export type IngestHandle = {
   mode: TelemetryMode
   bus: TelemetryBus
   stop: () => void
+  /**
+   * Live mode only: snapshot of drone/boat WebSocket status.
+   * Absent for mock/replay (HUD should show `ws=n/a (mode)`).
+   */
+  getLiveStatus?: () => LiveStatusMap
+  /**
+   * Live mode only: subscribe to status transitions.
+   * Returns unsubscribe. Absent for mock/replay.
+   */
+  onLiveStatus?: (
+    listener: (channel: MockChannel, status: LiveWsStatus) => void,
+  ) => () => void
 }
 
 type TelemetryConfigSlice = {
@@ -274,10 +292,18 @@ export async function startTelemetryIngest(
     await resolveConfigSlice(options)
 
   if (mode === 'live') {
+    const statusListeners = new Set<
+      (channel: MockChannel, status: LiveWsStatus) => void
+    >()
     const source = new LiveTelemetrySource({
       droneUrl: wsUrl,
       boatUrl: wsBoatUrl,
       onPacket: (packet) => ingestPacket(packet, bus),
+      onStatus: (channel, status) => {
+        for (const listener of statusListeners) {
+          listener(channel, status)
+        }
+      },
       WebSocketImpl: options?.WebSocketImpl,
     })
     source.start()
@@ -285,7 +311,17 @@ export async function startTelemetryIngest(
     return {
       mode,
       bus,
-      stop: () => source.stop(),
+      stop: () => {
+        statusListeners.clear()
+        source.stop()
+      },
+      getLiveStatus: () => source.getStatus(),
+      onLiveStatus: (listener) => {
+        statusListeners.add(listener)
+        return () => {
+          statusListeners.delete(listener)
+        }
+      },
     }
   }
 
