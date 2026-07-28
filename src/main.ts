@@ -12,9 +12,11 @@ import {
   resolveClearAppearance,
   startOutputModeControl,
   startVisualTimecode,
+  startWhepUnderlay,
   type OutputModeControlHandle,
   type TimecodeCorner,
   type VisualTimecodeHandle,
+  type WhepUnderlayHandle,
 } from './output/index.ts'
 import { startPosePipeline, stopPosePipeline } from './pose/index.ts'
 import { startScene, startStubHud, type SceneHandle } from './scene/index.ts'
@@ -35,6 +37,7 @@ let scene: SceneHandle | null = null
 let ingest: IngestHandle | null = null
 let outputControl: OutputModeControlHandle | null = null
 let visualTimecode: VisualTimecodeHandle | null = null
+let whepUnderlay: WhepUnderlayHandle | null = null
 let unsubLiveStatus: (() => void) | null = null
 let replayUrl = '/fixtures/telemetry/spine-demo.json'
 let courseUrl = '/fixtures/course/demo-istanbul.json'
@@ -142,7 +145,15 @@ void (async () => {
       applyOutputMode(scene.renderer, mode, {
         chromaKey: chromaKey || undefined,
       })
+      whepUnderlay?.setMode(mode)
     },
+  })
+
+  whepUnderlay = startWhepUnderlay({
+    container: app,
+    whepUrl: config.whepUrl,
+    initialMode: outputMode,
+    renderer: scene.renderer,
   })
 
   if (config.timecodeEnabled && scene) {
@@ -185,6 +196,8 @@ void (async () => {
     ingest?.stop()
     visualTimecode?.stop()
     visualTimecode = null
+    whepUnderlay?.stop()
+    whepUnderlay = null
     calib.stop()
     outputControl?.stop()
     hud.stop()

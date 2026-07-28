@@ -14,7 +14,7 @@ Owned by **TEL**. WebSocket-shaped ingest: DTOs, JSON router, mock / replay / li
 | `replaySource.ts` | Timer playback of a fixture onto `ingestPacket` |
 | `liveSource.ts` | Browser WebSocket client(s) for live mode (drone + optional boat) |
 | `bus.ts` | Typed pub-sub |
-| `ingest.ts` | Start ingest from `telemetryMode`; route JSON onto the bus; live `getLiveStatus` / `onLiveStatus` |
+| `ingest.ts` | Start ingest from `telemetryMode`; route JSON onto the bus; live `getLiveStatus` / `onLiveStatus`; replay `getReplayStatus` |
 | `index.ts` | Public exports |
 
 ## Events
@@ -37,6 +37,7 @@ Boat vs drone for non-anchor pose JSON is decided by **source/channel context**,
 | --- | --- |
 | `telemetryMode` | `"mock"` \| `"replay"` \| `"live"` — **committed default is `mock`** |
 | `replayUrl` | Fixture URL for replay (default `/fixtures/telemetry/spine-demo.json`) |
+| `replayLoop` | Optional boolean override of fixture `loop`. Omit → use fixture. Committed samples use `loop: true` |
 | `wsUrl` | Drone / primary live WebSocket URL (default `""`) |
 | `wsBoatUrl` | Boat live WebSocket URL (default `""` → drone-only live). **Single socket only** |
 | `boatIds` | `string[]` boat channel ids (default `["21","22","23","24"]`; band `21–52`) |
@@ -61,10 +62,25 @@ Boat vs drone for non-anchor pose JSON is decided by **source/channel context**,
 ### Modes
 
 - **mock** — `MockTelemetrySource` with multi-id POVs from `povIds` + boats from `boatIds`.
-- **replay** — fetch `replayUrl`, validate v1, play via timers onto `ingestPacket` (fixtures may carry multiple drone/boat ids).
+- **replay** — fetch `replayUrl`, validate v1, play via timers onto `ingestPacket` (fixtures may carry multiple drone/boat ids). **Looping** is controlled by fixture `loop` (committed samples: `true`); optional `replayLoop` in config / `startTelemetryIngest` overrides. HUD mock↔replay↔live calls `stop()` then a fresh ingest — timers/sockets do not leak.
 - **live** — open WebSocket(s) when URL(s) resolve; text frames → `ingestPacket` by channel. **Still one `wsUrl` + one `wsBoatUrl`** — multi-URL / subscribe-map is a **follow-up TEL DSP**.
 
 If `/config.json` fetch fails, mode defaults to `mock`, `boatIds` to the four-id default, and `povIds` to `["1","2"]`.
+
+### Live reconnect (capped exponential backoff)
+
+`LiveTelemetrySource` reconnects after unexpected close/error:
+
+| Knob | Default | Behaviour |
+| --- | --- | --- |
+| `initialBackoffMs` | `500` | Delay before first reconnect attempt |
+| `maxBackoffMs` | `10_000` | Cap; delay doubles after each attempt (`500 → 1000 → … → 10000`) |
+| On successful `open` | — | Backoff resets to `initialBackoffMs` |
+| `stop()` | — | Sets intentional-stop, **clears reconnect timers**, closes sockets; no further connects |
+| Empty URLs | — | Stay `idle` (warn once); **no** fake `open` |
+
+HUD mode switches and `beforeunload` call ingest `stop()` so reconnect cannot fire after leave-live / teardown.
+
 ### Live URL resolution order
 
 Documented order used by `startTelemetryIngest`:
@@ -93,6 +109,14 @@ Live `IngestHandle` adds optional:
 - `onLiveStatus(listener)` → unsubscribe; forwards `LiveTelemetrySource` `onStatus`
 
 Mock/replay handles omit these — SCN HUD shows `ws=n/a (mock|replay)` instead of inventing sockets. Empty URLs stay `idle` (no fake `open`).
+
+### Replay status expose (optional)
+
+Replay `IngestHandle` adds optional:
+
+- `getReplayStatus()` → `ReplayStatus` (`idle` | `playing` | `ended` | `error`)
+
+Mock/live omit this. Not wired into SCN HUD yet — cheap for later soak/debug. Fixture load failure → `error` + console warn (ops-friendly message includes URL / HTTP / parse detail). One-shot (`loop: false`) reaches `ended`; call ingest again (HUD mode switch) or `source.start()` after stop to restart.
 
 ### `ws://` vs `wss://` (mixed content)
 
@@ -139,7 +163,7 @@ JSON only (not binary), served from `public/`. Shape:
 | --- | --- |
 | `version` | Must be `1` |
 | `name` | String label |
-| `loop` | `true` restarts after the last `t_ms`; `false` plays once |
+| `loop` | `true` restarts after the last `t_ms`; `false` plays once then `ended`. Committed samples use `true`. Optional config / ingest `replayLoop` overrides this |
 | `packets` | Non-empty array |
 | `t_ms` | ms from replay start; finite ≥ 0; monotonic non-decreasing |
 | `channel` | `"drone"` \| `"boat"` (connection context, same as mock) |
@@ -153,7 +177,7 @@ Fleet sample (multi-id tests / SCN registry): [`public/fixtures/telemetry/spine-
 
 POV sample (multi-drone for SCN camera switch): [`public/fixtures/telemetry/spine-pov.json`](../../public/fixtures/telemetry/spine-pov.json) — drones `1` + `2` + boat `21` (~1.2 s loop). Point `replayUrl` at `/fixtures/telemetry/spine-pov.json` when exercising multi-POV replay; committed default remains `spine-demo`.
 
-Invalid fixtures fail soft: console warn, ingest no-op stop, app does not crash.
+Invalid fixtures fail soft: console warn with URL + reason (missing 404, bad JSON, schema), ingest returns a no-op `stop` with `getReplayStatus() === "error"`, app does not crash.
 
 ## Verify mock is alive
 

@@ -1,6 +1,7 @@
 # Dispatch DSP-CAL-20260728-01-cv-spike-plan
 
 ## Meta
+- **Status: DONE** (accepted by BW 2026-07-28)
 - From orchestrator: CAL (BW: finish no-studio software — Phase **4.5**)
 - Worker role: WORKER(DSP-CAL-20260728-01-cv-spike-plan)
 - Priority: P2

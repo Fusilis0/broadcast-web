@@ -1,35 +1,25 @@
 # CAL_MEMO
 
 **Last updated:** 2026-07-28  
-**Status:** Idle — 3.4 multi-device panel accepted
+**Status:** Idle — 4.5 CV spike plan done
 
 ## Focus
-None active. Per-device calib UI landed for `povIds`.
+None active. Waiting on BW for offline CV fixture spike (code) if desired.
 
 ## Decisions
-- Offsets are first-class; CV will write same knobs (no second pose pipeline)
-- Default hFOV **66.8832°**; declination **0** (GEO-owned)
-- Owns `src/calibration/` + pose apply helpers; SCN draws
-- Slider ranges locked: yaw/pitch/roll ±45°; FOV 20–120°; alt ±50 m
-- **3.4:** device picker over `povIds`; `getDeviceId` / `setDeviceId` / `setPovIds`; HUD POV syncs device in `main`
-
-## Issued dispatches
-—
+- Offsets first-class; CV writes `setOffsets` only — no second pose pipeline
+- Default hFOV **66.8832°**
+- **3.4** multi-device picker — DONE
+- **4.5** plan: `docs/research/cv-calibration-spike.md` (linked from CAL README + roadmap)
 
 ## Done
-- **DSP-CAL-20260722-01** — store + apply + FOV default
-- **DSP-CAL-20260723-01** — offset sliders (1.8)
-- **DSP-SCN-20260727-07** (CAL slice) — multi-device picker over `povIds` (3.4)
-
-## Planned
-- Optional: localStorage / export of offsets
-- Later: CV spike doc (Phase 4 / roadmap 4.5)
-
-## Handoffs
-—
+- DSP-CAL-20260722-01, DSP-CAL-20260723-01
+- DSP-SCN-20260727-07 (CAL slice)
+- **DSP-CAL-20260728-01-cv-spike-plan** — **DONE**
 
 ## Blockers
-- None
+- Live CV milestones need OUT WHEP (now available) + ops policy for CV vs sliders
 
-## Next actions
-1. Idle until BW asks persistence or CV spike
+## Next
+1. Idle until BW opens offline CV fixture spike
+2. Optional: localStorage persistence for offsets

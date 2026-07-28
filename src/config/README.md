@@ -31,6 +31,7 @@ Owned by **PLT+BW**. Thin `/config.json` loader — no domain logic.
 | `timecodeEnabled` | OUT 8×8 visual timecode burn-in (default `true`) |
 | `timecodeCorner` | `"bottom-right"` (default) \| `"bottom-left"` |
 | `timecodeSizePx` | On-screen barcode size in CSS px (default `96`, clamped 32–256) |
+| `whepUrl` | OUT MediaMTX WHEP underlay URL (default `""` = idle). Non-empty enables in preview — see [`src/output/README.md`](../output/README.md) |
 
 ### `boatIds` (SCN contract)
 

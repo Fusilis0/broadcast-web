@@ -14,7 +14,10 @@ import {
   DEFAULT_REPLAY_URL,
   loadReplayFixture,
 } from './replayFixture.ts'
-import { ReplayTelemetrySource } from './replaySource.ts'
+import {
+  ReplayTelemetrySource,
+  type ReplayStatus,
+} from './replaySource.ts'
 import {
   classify,
   TelemetryWsMessageKind,
@@ -44,11 +47,18 @@ export type IngestHandle = {
   onLiveStatus?: (
     listener: (channel: MockChannel, status: LiveWsStatus) => void,
   ) => () => void
+  /**
+   * Replay mode only: playback snapshot (`idle` | `playing` | `ended` | `error`).
+   * Absent for mock/live. Not wired to SCN HUD in this slice.
+   */
+  getReplayStatus?: () => ReplayStatus
 }
 
 type TelemetryConfigSlice = {
   telemetryMode?: string
   replayUrl?: string
+  /** Optional override of fixture.loop (boolean). */
+  replayLoop?: unknown
   wsUrl?: string
   wsBoatUrl?: string
   boatIds?: unknown
@@ -58,6 +68,11 @@ type TelemetryConfigSlice = {
 export type StartTelemetryIngestOptions = {
   mode?: TelemetryMode
   replayUrl?: string
+  /**
+   * Override fixture.loop when set. Omit → use fixture.loop (committed samples
+   * use `true`). Explicit `true` / `false` forces loop / one-shot.
+   */
+  replayLoop?: boolean
   /** Drone / primary live WS URL. If omitted, resolve via env then config. */
   wsUrl?: string
   /** Boat live WS URL. If omitted, resolve via env then config. */
@@ -191,10 +206,14 @@ function readViteWsUrl(key: 'VITE_WS_URL' | 'VITE_WS_BOAT_URL'): string | undefi
  * 1. Explicit options to `startTelemetryIngest` (including `""` to force off)
  * 2. `import.meta.env.VITE_WS_URL` / `VITE_WS_BOAT_URL` when non-empty
  * 3. `public/config.json` `wsUrl` / `wsBoatUrl`
+ *
+ * `replayLoop`: explicit option, else config boolean when present, else unset
+ * (fixture.loop wins).
  */
 async function resolveConfigSlice(options?: {
   mode?: TelemetryMode
   replayUrl?: string
+  replayLoop?: boolean
   wsUrl?: string
   wsBoatUrl?: string
   boatIds?: readonly string[]
@@ -202,6 +221,7 @@ async function resolveConfigSlice(options?: {
 }): Promise<{
   mode: TelemetryMode
   replayUrl: string
+  replayLoop: boolean | undefined
   wsUrl: string
   wsBoatUrl: string
   boatIds: string[]
@@ -209,6 +229,7 @@ async function resolveConfigSlice(options?: {
 }> {
   let mode = options?.mode
   let replayUrl = options?.replayUrl
+  let replayLoop = options?.replayLoop
   let wsUrl = options?.wsUrl
   let wsBoatUrl = options?.wsBoatUrl
   let boatIds =
@@ -242,6 +263,9 @@ async function resolveConfigSlice(options?: {
         if (replayUrl === undefined && typeof cfg.replayUrl === 'string') {
           replayUrl = cfg.replayUrl
         }
+        if (replayLoop === undefined && typeof cfg.replayLoop === 'boolean') {
+          replayLoop = cfg.replayLoop
+        }
         if (typeof cfg.wsUrl === 'string') cfgWsUrl = cfg.wsUrl
         if (typeof cfg.wsBoatUrl === 'string') cfgWsBoatUrl = cfg.wsBoatUrl
         if (boatIds === undefined) cfgBoatIds = cfg.boatIds
@@ -271,6 +295,7 @@ async function resolveConfigSlice(options?: {
       replayUrl !== undefined && replayUrl.trim() !== ''
         ? replayUrl
         : DEFAULT_REPLAY_URL,
+    replayLoop,
     wsUrl: wsUrl.trim(),
     wsBoatUrl: wsBoatUrl.trim(),
     boatIds,
@@ -288,7 +313,7 @@ export async function startTelemetryIngest(
   options?: StartTelemetryIngestOptions,
 ): Promise<IngestHandle> {
   const bus = options?.bus ?? telemetryBus
-  const { mode, replayUrl, wsUrl, wsBoatUrl, boatIds, povIds } =
+  const { mode, replayUrl, replayLoop, wsUrl, wsBoatUrl, boatIds, povIds } =
     await resolveConfigSlice(options)
 
   if (mode === 'live') {
@@ -328,16 +353,20 @@ export async function startTelemetryIngest(
   if (mode === 'replay') {
     const loaded = await loadReplayFixture(replayUrl)
     if (!loaded.ok) {
-      console.warn(`[telemetry] replay fixture failed: ${loaded.error}`)
+      console.warn(
+        `[telemetry] replay: cannot start — ${loaded.error}`,
+      )
       return {
         mode,
         bus,
         stop: () => undefined,
+        getReplayStatus: () => 'error',
       }
     }
 
     const source = new ReplayTelemetrySource({
       fixture: loaded.fixture,
+      loop: replayLoop,
       onPacket: (packet) => ingestPacket(packet, bus),
     })
     source.start()
@@ -346,6 +375,7 @@ export async function startTelemetryIngest(
       mode,
       bus,
       stop: () => source.stop(),
+      getReplayStatus: () => source.getStatus(),
     }
   }
 

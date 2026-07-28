@@ -23,8 +23,8 @@
 
 ## Current phase pointer
 
-**Active:** **Phase 3/4** — studio **3.5** pending; software pack open: **3.3** WHEP + **4.1** TEL polish + **4.5** CV plan.  
-**Last gate:** DSP-CON-20260728-01 (deeplink) accepted (2026-07-28).
+**Active:** **Phase 3/4** — software pack landed (**3.3**, **4.1**, **4.5**). Only **3.5** studio Results + console ack remain for Phase 3 close.  
+**Last gate:** OUT/TEL/CAL finish-pack accepted (2026-07-28).
 
 ---
 
@@ -72,7 +72,7 @@
 | --- | --- | --- | --- |
 | 3.1 | `preview` / `chroma` modes | OUT | **Done** (`DSP-OUT-20260727-01`) |
 | 3.2 | Visual timecode | OUT | **Done** (`DSP-OUT-20260727-02`) |
-| 3.3 | WebRTC underlay (WHEP) | OUT | **DSP issued** (`DSP-OUT-20260728-01`) |
+| 3.3 | WebRTC underlay (WHEP) | OUT | **Done** (`DSP-OUT-20260728-01`) |
 | 3.4 | Connection/calib HUD harden | CAL+SCN | **Done** (`DSP-SCN-20260727-07`) |
 | 3.5 | Local vMix chroma experiment | OUT + human | |
 | 3.6 | Console deep-link design doc agreed | CON | **SPA done** (`DSP-CON-20260728-01`); console ack pending |
@@ -85,11 +85,11 @@
 
 | # | Work | Owner |
 | --- | --- | --- |
-| 4.1 | Replay polish, reconnect | TEL |
+| 4.1 | Replay polish, reconnect — **Done** (`DSP-TEL-20260728-01`) | TEL |
 | 4.2 | Top-down map ops UX | SCN |
 | 4.3 | Optional tiles/globe tools (not air) | SCN+GEO |
 | 4.4 | Custom world modeling pipeline notes | SCN |
-| 4.5 | CV research spike plan | CAL |
+| 4.5 | CV research spike plan — **Done** (`DSP-CAL-20260728-01`); plan: [`docs/research/cv-calibration-spike.md`](../research/cv-calibration-spike.md) | CAL |
 
 **Exit:** Ops-ready preview; CV approach written.
 

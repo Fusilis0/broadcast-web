@@ -1,6 +1,7 @@
 # Dispatch DSP-TEL-20260728-01-replay-reconnect-polish
 
 ## Meta
+- **Status: DONE** (accepted by BW 2026-07-28)
 - From orchestrator: TEL (BW: finish no-studio software — Phase **4.1**)
 - Worker role: WORKER(DSP-TEL-20260728-01-replay-reconnect-polish)
 - Priority: P1

@@ -1,6 +1,7 @@
 # Dispatch DSP-OUT-20260728-01-whep-underlay
 
 ## Meta
+- **Status: DONE** (accepted by BW 2026-07-28)
 - From orchestrator: OUT (BW-opened Phase **3.3** — finish software while **3.5** studio Results pending)
 - Worker role: WORKER(DSP-OUT-20260728-01-whep-underlay)
 - Priority: P0

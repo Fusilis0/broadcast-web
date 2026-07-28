@@ -45,6 +45,7 @@ export {
 export {
   ReplayTelemetrySource,
   type ReplaySourceOptions,
+  type ReplayStatus,
 } from './replaySource.ts'
 export {
   LiveTelemetrySource,

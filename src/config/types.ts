@@ -61,6 +61,12 @@ export type AppConfig = {
    * On-screen barcode size in CSS pixels (8×8 logical scaled). Default `96`.
    */
   timecodeSizePx: number
+  /**
+   * MediaMTX WHEP endpoint for OUT video underlay (Phase 3.3).
+   * Empty → underlay idle (no connect). Non-empty enables in preview mode.
+   * Example: `"http://127.0.0.1:8889/cam1/whep"`.
+   */
+  whepUrl: string
 }
 
 /** @deprecated Prefer `AppConfig`. */

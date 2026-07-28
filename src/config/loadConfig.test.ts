@@ -174,6 +174,19 @@ describe('normalizeConfig outputMode / chromaKey', () => {
   })
 })
 
+describe('normalizeConfig whepUrl', () => {
+  it('defaults whepUrl to empty', () => {
+    expect(normalizeConfig({}).whepUrl).toBe('')
+  })
+
+  it('trims whepUrl', () => {
+    expect(
+      normalizeConfig({ whepUrl: '  http://127.0.0.1:8889/cam1/whep  ' })
+        .whepUrl,
+    ).toBe('http://127.0.0.1:8889/cam1/whep')
+  })
+})
+
 describe('normalizeConfig timecode', () => {
   it('defaults timecodeEnabled true, bottom-right, 96px', () => {
     const cfg = normalizeConfig({})

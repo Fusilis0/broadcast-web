@@ -155,7 +155,8 @@ export function startScene(options: SceneOptions): SceneHandle {
     })
   }
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true })
+  // alpha:true so OUT WHEP underlay can show through transparent preview clear.
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
   renderer.setClearColor(clearColor, 1)
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
   options.container.appendChild(renderer.domElement)

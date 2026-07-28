@@ -37,3 +37,17 @@ export {
   type VisualTimecodeHandle,
   type VisualTimecodeOptions,
 } from './visualTimecodeOverlay.ts'
+
+export {
+  formatWhepStatusLabel,
+  normalizeWhepUrl,
+  resolveUnderlayClearAlpha,
+  shouldRunWhepUnderlay,
+  type WhepStatus,
+} from './whepUnderlayHelpers.ts'
+
+export {
+  startWhepUnderlay,
+  type WhepUnderlayHandle,
+  type WhepUnderlayOptions,
+} from './whepUnderlay.ts'

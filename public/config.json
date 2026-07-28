@@ -18,5 +18,6 @@
   "outputMode": "preview",
   "timecodeEnabled": true,
   "timecodeCorner": "bottom-right",
-  "timecodeSizePx": 96
+  "timecodeSizePx": 96,
+  "whepUrl": ""
 }

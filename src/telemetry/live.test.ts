@@ -125,6 +125,78 @@ describe('LiveTelemetrySource', () => {
     await vi.advanceTimersByTimeAsync(1000)
     expect(FakeWebSocket.instances.length).toBe(countAfterStop)
   })
+
+  it('reconnects with capped exponential backoff until stop', async () => {
+    vi.useFakeTimers()
+    /** Does not auto-open — keeps backoff from resetting on successful open. */
+    class ManualWebSocket {
+      static instances: ManualWebSocket[] = []
+      readonly url: string
+      readyState = FakeWebSocket.CONNECTING
+      onopen: Listener = null
+      onclose: Listener = null
+      onmessage: Listener = null
+      onerror: Listener = null
+      constructor(url: string) {
+        this.url = url
+        ManualWebSocket.instances.push(this)
+      }
+      close(): void {
+        if (this.readyState === FakeWebSocket.CLOSED) return
+        this.readyState = FakeWebSocket.CLOSED
+        this.onclose?.(new CloseEvent('close'))
+      }
+    }
+
+    const source = new LiveTelemetrySource({
+      droneUrl: 'ws://example.invalid/drone',
+      WebSocketImpl: ManualWebSocket as unknown as typeof WebSocket,
+      initialBackoffMs: 100,
+      maxBackoffMs: 400,
+    })
+    source.start()
+    expect(ManualWebSocket.instances).toHaveLength(1)
+
+    ManualWebSocket.instances[0]!.close()
+    // First reconnect after 100ms
+    await vi.advanceTimersByTimeAsync(99)
+    expect(ManualWebSocket.instances).toHaveLength(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(ManualWebSocket.instances).toHaveLength(2)
+
+    ManualWebSocket.instances[1]!.close()
+    // Doubled → 200ms
+    await vi.advanceTimersByTimeAsync(199)
+    expect(ManualWebSocket.instances).toHaveLength(2)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(ManualWebSocket.instances).toHaveLength(3)
+
+    ManualWebSocket.instances[2]!.close()
+    // Doubled → 400ms (cap)
+    await vi.advanceTimersByTimeAsync(399)
+    expect(ManualWebSocket.instances).toHaveLength(3)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(ManualWebSocket.instances).toHaveLength(4)
+
+    ManualWebSocket.instances[3]!.close()
+    source.stop()
+    const n = ManualWebSocket.instances.length
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(ManualWebSocket.instances.length).toBe(n)
+  })
+
+  it('empty URL status stays idle (no fake open)', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const source = new LiveTelemetrySource({
+      droneUrl: '',
+      boatUrl: '',
+      WebSocketImpl: FakeWebSocket as unknown as typeof WebSocket,
+    })
+    source.start()
+    expect(source.getStatus()).toEqual({ drone: 'idle', boat: 'idle' })
+    source.stop()
+    warn.mockRestore()
+  })
 })
 
 describe('live ingest → bus', () => {

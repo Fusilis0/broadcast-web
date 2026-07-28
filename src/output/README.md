@@ -1,6 +1,6 @@
 # output
 
-Owned by **OUT**. Canvas clear modes, visual timecode, later WebRTC underlay / egress.
+Owned by **OUT**. Canvas clear modes, visual timecode, WebRTC WHEP underlay / later egress.
 
 ## Phase 3.1 — preview / chroma clear
 
@@ -51,10 +51,47 @@ Unity-compatible **8×8 LSB** black/white barcode burned into the **same WebGL c
 
 Barcode is sync burn-in for telemetry ↔ video timing. Capture the WebGL canvas / window in **vMix**; key chroma as before (3.1). **No in-browser NDI.** Studio steps + pass/fail: [docs/ops/vmix-chroma-runbook.md](../../docs/ops/vmix-chroma-runbook.md) (Phase 3.5).
 
+## Phase 3.3 — WHEP underlay
+
+Browser **MediaMTX WHEP** video under the Three canvas in **preview** (DOM `<video>` + native `RTCPeerConnection`, no extra deps). Soft-fails when URL empty or server unreachable.
+
+| Symbol | Role |
+| --- | --- |
+| `normalizeWhepUrl(raw)` | Trim; empty → idle |
+| `shouldRunWhepUnderlay(url, mode)` | Non-empty URL **and** `preview` |
+| `startWhepUnderlay(options)` | Connect / reconnect / status DOM; `getVideoElement()` for future CV |
+| `formatWhepStatusLabel(status)` | `whep=off\|connecting\|live\|error` |
+
+### Config
+
+- `whepUrl`: full WHEP POST URL. Default `""` (idle, no errors). Non-empty enables underlay in preview.
+- Example shapes (placeholders — use your MediaMTX host/path):
+  - `http://127.0.0.1:8889/cam1/whep`
+  - `http://mediamtx:8889/read:cam1:pub1:token/whep` (Unity-style path)
+  - Some MediaMTX setups also use `/whep/<path>` — set the **exact** endpoint your server exposes.
+
+Leave empty in git. Override locally in `public/config.json` (or a local copy). No secrets required for typical LAN WHEP; see `.env.example` note.
+
+### Compositing / chroma
+
+| Mode | Underlay |
+| --- | --- |
+| `preview` | Connect when `whepUrl` set; video behind canvas; clear alpha → `0` while connecting/live so video shows through |
+| `chroma` | **Stopped and hidden** by default — green key must stay clean (no video bleed) |
+
+Timecode + AR canvas stay on top. Status chip lives on the OUT mode control: `whep=off|connecting|live|error`.
+
+### Manual check (no MediaMTX in CI)
+
+1. Empty `whepUrl` → boot with `whep=off`; `npm test` / `npm run build` green.
+2. Point `whepUrl` at a live MediaMTX WHEP endpoint → preview shows video under AR; status `live`.
+3. Toggle to chroma → underlay stops; solid green clear.
+
+**No in-browser NDI.** Egress / native NDI helper remain later phases.
+
 ## Out of scope (later)
 
-- `transparent` alpha capture
-- WebRTC WHEP underlay (3.3 — deferred)
+- `transparent` alpha capture (dedicated mode)
 - NTP / `stream_anchor` status TMP line
-- Decoder / CV reader
+- Decoder / CV reader (use `getVideoElement()` when ready)
 - Egress / native NDI helper

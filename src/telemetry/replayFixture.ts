@@ -128,19 +128,55 @@ export function parseReplayFixture(raw: unknown): ParseReplayFixtureResult {
 
 /**
  * Fetch a fixture URL and parse as v1. Fail-soft: never throws.
+ * Errors are ops-friendly (missing URL, HTTP status, parse detail).
  */
 export async function loadReplayFixture(
   url: string,
 ): Promise<ParseReplayFixtureResult> {
+  const label = url.trim() === '' ? '(empty replayUrl)' : url
+  if (url.trim() === '') {
+    return {
+      ok: false,
+      error: `fixture missing: ${label} — set replayUrl in config or startTelemetryIngest options`,
+    }
+  }
   try {
     const res = await fetch(url)
     if (!res.ok) {
-      return { ok: false, error: `fetch ${url} failed: HTTP ${res.status}` }
+      if (res.status === 404) {
+        return {
+          ok: false,
+          error: `fixture missing (HTTP 404): ${label}`,
+        }
+      }
+      return {
+        ok: false,
+        error: `fixture fetch failed (HTTP ${res.status}): ${label}`,
+      }
     }
-    const json: unknown = await res.json()
-    return parseReplayFixture(json)
+    let json: unknown
+    try {
+      json = await res.json()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      return {
+        ok: false,
+        error: `fixture invalid JSON at ${label}: ${msg}`,
+      }
+    }
+    const parsed = parseReplayFixture(json)
+    if (!parsed.ok) {
+      return {
+        ok: false,
+        error: `fixture invalid at ${label}: ${parsed.error}`,
+      }
+    }
+    return parsed
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    return { ok: false, error: `fetch/parse ${url} failed: ${msg}` }
+    return {
+      ok: false,
+      error: `fixture load failed for ${label}: ${msg}`,
+    }
   }
 }

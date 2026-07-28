@@ -14,8 +14,26 @@ body,
   background: #1a1a1a;
 }
 
+#app {
+  position: relative;
+}
+
+/* OUT WHEP underlay — DOM video under WebGL canvas (preview only) */
+.whep-underlay {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  background: #000;
+}
+
 /* WebGL preview canvas only (map uses .ops-map__canvas) */
 #app > canvas {
+  position: relative;
+  z-index: 1;
   display: block;
   width: 100%;
   height: 100%;
@@ -149,6 +167,23 @@ body,
 .output-mode-control__hint {
   color: #6a7888;
   font-size: 11px;
+}
+
+.output-mode-control__whep {
+  color: #6a7888;
+  font-size: 11px;
+}
+
+.output-mode-control__whep[data-whep-status='live'] {
+  color: #7aaf7a;
+}
+
+.output-mode-control__whep[data-whep-status='error'] {
+  color: #c08070;
+}
+
+.output-mode-control__whep[data-whep-status='connecting'] {
+  color: #a09060;
 }
 
 /* CAL offset sliders — pointer-events only on controls */

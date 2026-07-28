@@ -28,6 +28,7 @@ function baseConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     timecodeEnabled: true,
     timecodeCorner: 'bottom-right',
     timecodeSizePx: 96,
+    whepUrl: '',
     ...rest,
   }
 }
