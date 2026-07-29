@@ -61,16 +61,16 @@ Unity sibling `../broadcast` is **reference only** until assets/contracts are co
 2. This repo is local until `fusilis/broadcast-web` (private) is created. Do not assume GitHub remote exists.
 3. Console repo: **discussion only** for now — no clone/pull unless BW opens a later phase.
 
-## 10. Output stack decision (locked by BW)
+## 10. Output stack decision (locked by BW — updated 2026-07-29)
 
 | Priority | Path |
 | --- | --- |
-| 1 | **Chroma** (green clear) → vMix key/capture — first web-on-air path |
-| 2 | **WebRTC** underlay (MediaMTX) for preview + future CV; later overlay egress if needed |
-| 3 | **SRT/WebRTC out** for remote/Hetzner viewing into vMix |
-| 4 | **Native NDI helper** (separate studio process) — only if chroma/stream fail studio requirements |
+| 1 | **Chroma** (green clear) → vMix window/screen capture — first web-on-air path |
+| 2 | **WebRTC underlay** (MediaMTX WHEP) for preview + future CV |
+| 3 | **SRT/WebRTC egress** for remote viewing into vMix |
+| 4 | **NDI out of AR camera view** — **optimum** studio path (evaluate third-party NDI, native helper, or **Electron + our NDI sender**) |
 
-No in-browser NDI. No Electron for the SPA.
+No **in-browser** NDI without a native bridge. Electron is allowed as a **studio shell** for owned NDI (Phase 7); default product remains the web SPA for preview/chroma/Hetzner.
 
 ## 11. Safety
 

@@ -1,22 +1,23 @@
 # System Architecture — broadcast-web
 
-**Status:** Design locked for agentic build (2026-07-22)  
+**Status:** Design extended (2026-07-29) — projects, shared world layers, NDI optimum  
 **Master:** BW Orchestrator  
-**Sibling reference:** Unity project `../broadcast` (analysis + assets + telemetry contracts)
+**Sibling reference:** Unity project `../broadcast` (analysis + assets + telemetry contracts)  
+**Also see:** [`race-projects-and-world-authoring.md`](./race-projects-and-world-authoring.md)
 
 ---
 
 ## 1. Purpose
 
-`broadcast-web` is a **browser-only** Three.js application that:
+`broadcast-web` is a Three.js AR overlay for maritime race broadcast that:
 
 1. Ingests race telemetry (mock → replay → live VPS).
-2. Places boats / course / graphics in a geo-referenced ENU scene.
+2. Places boats / course / graphics in a geo-referenced ENU scene from a **race project** (JSON pack → later DB).
 3. Drives a virtual camera from drone/cam pose + **runtime calibration offsets**.
-4. Outputs pixels for ops preview and eventually **vMix** (chroma first).
-5. Opens from the existing **web console** via redirect (console owned by another team).
+4. Outputs pixels for ops preview and **vMix** (chroma first; **NDI camera view is the optimum long-term air path**).
+5. Opens from the existing **web console** via redirect (`?race=` loads a project when packs exist).
 
-Unity `broadcast` continues on-air (NDI) until web output is trusted.
+**Runtime today:** browser SPA (Vite). **Future studio shell:** optional **Electron** (or native helper) when owned NDI out is required. Unity `broadcast` stays on-air until web output is trusted.
 
 ---
 
@@ -25,163 +26,144 @@ Unity `broadcast` continues on-air (NDI) until web output is trusted.
 ```
 ┌──────────────────────────┐
 │ Web Console (other team) │
-│ telemetry lists / ops UI │
+│ projects / telemetry UI  │
 └────────────┬─────────────┘
-             │ deep link (CON)
+             │ deep link ?race= (CON)
              ▼
 ┌────────────────────────────────────────────────────────────┐
-│ broadcast-web SPA (browser on studio PC or ops laptop)     │
+│ broadcast-web (browser today; optional Electron later)     │
 │                                                            │
-│  TEL ──events──▶ GEO (lat/lon/alt→ENU)                     │
-│    │                │                                      │
-│    │                ▼                                      │
-│    │           SCN (Three.js scene)                        │
-│    │                │                                      │
-│    └────▶ CAL (offsets) ──▶ camera                         │
+│  Project pack (JSON/API) ──▶ feature layout (GEO ENU)      │
+│         │                         │                        │
+│         │              ┌──────────┴──────────┐             │
+│         │              ▼                     ▼             │
+│         │         SCN 3D AR              SCN 2D map        │
+│         │         (air camera)           (ops / stream)    │
+│  TEL ───┴──▶ pose + CAL offsets ──▶ active POV camera      │
 │                         │                                  │
 │                         ▼                                  │
-│                        OUT (canvas / chroma / WebRTC)      │
-│                         │                                  │
-│  PLT: Vite build, env, later Hetzner static host           │
+│              OUT: preview │ chroma │ WHEP │ (NDI later)    │
 └────────────────────────────────────────────────────────────┘
              │                         │
              ▼                         ▼
-      VPS WebSockets              MediaMTX (WHEP video)
-      drone/boat/cam              underlay + future CV
+      VPS WebSockets              MediaMTX (WHEP)
+      + Project API/DB (later)    underlay + CV
              │
              ▼
-           vMix  ◀── chroma capture / later stream
-           (Unity NDI remains parallel backup)
+        vMix ◀── chroma capture  and/or  NDI (optimum)
 ```
 
 ---
 
-## 3. Runtime placement (critical)
+## 3. Runtime placement
 
 | Component | Where it runs |
 | --- | --- |
-| SPA bundle | Served from localhost or **Hetzner** (static) |
-| Three.js + geodesy + WS client | **Browser** on the machine that opens the page |
-| Heavy GPU | Studio PC GPU — **not** Hetzner CPU |
-| Telemetry server | Existing VPS (unchanged) |
+| SPA bundle | localhost or **Hetzner** static |
+| Three.js + geodesy + WS | **Browser** (or Electron renderer) on studio GPU |
+| Project API / DB | Hetzner/VPS — **stores JSON packs only**, does not render |
+| Telemetry server | Existing VPS |
 | Compositor | vMix on studio LAN |
+| NDI sender (later) | Electron main / native helper / third-party tool on studio PC |
 
 Hetzner is **not** a render farm.
 
 ---
 
-## 4. Logical modules (map to orchestrators)
+## 4. Logical modules
 
-| Module path (planned) | Orchestrator | Responsibility |
+| Module | Orchestrator | Responsibility |
 | --- | --- | --- |
-| `src/telemetry/` | TEL | WS, mock, replay, live, DTOs, router |
+| `src/telemetry/` | TEL | WS, mock, replay, live, DTOs |
 | `src/geodesy/` | GEO | Origin, EGM96, ENU |
-| `src/pose/` | GEO+CAL | Apply geo pose + offsets → camera/boats |
-| `src/scene/` | SCN | Three scene, entities, 2D map |
-| `src/assets/` | SCN | glTF/textures loading |
-| `src/output/` | OUT | Transparent/chroma, WebRTC, timecode |
-| `src/calibration/` | CAL | Offset state, UI hooks, future CV |
-| `src/console/` | CON | Deep-link parse, optional postMessage |
-| `src/config/` | PLT+BW | `config.json`, env |
-| `public/` | PLT/SCN | EGM96 bin, models |
-
-Exact folder names may be adjusted by PLT scaffold dispatch; owners stay as above.
+| `src/pose/` | GEO+CAL | Pose + offsets |
+| `src/scene/` | SCN | 3D entities, 2D map, **feature consumers**, later map editor |
+| `src/assets/` | SCN | glTF / textures |
+| `src/output/` | OUT | Chroma, timecode, WHEP, later NDI bridge contract |
+| `src/calibration/` | CAL | Offsets, UI, CV writes same store |
+| `src/console/` | CON | Deeplink parse; later `race` → pack resolve |
+| `src/config/` | PLT+BW | Config + later project merge |
+| `src/projects/` (planned) | PLT+SCN | Pack load/save, schema, API client |
+| `public/` / races API | PLT/SCN | Fixtures → race packs |
 
 ---
 
 ## 5. Data contracts
 
-### 5.1 Telemetry (from Unity parity)
+### 5.1 Telemetry
 
-- Channels (initial config): drones `1–4`, cams `11–12`, boats `21–52`, pilots `81–84`.
-- Transport: WebSocket JSON; classify `stream_anchor` vs pose (port `TelemetryWsJsonRouter` behavior).
-- Modes: `mock` | `replay` | `live` (config switch). Live only when Version-1 ready.
+- Channels: drones `1–4`, cams `11–12`, boats `21–52`, pilots `81–84` (pilots deferred).
+- Modes: `mock` | `replay` | `live`.
 
 ### 5.2 Geodesy
 
-- Axes: Unity-compatible ENU → Three `x=East, y=Up, z=North`.
-- Drones: relative alt + `takeoffAltitudeMSL` + EGM96.
-- Boats: **HAE** for now (revisit after tests).
-- Declination default `0` (true-north MSDK assumption).
+- ENU: `x=East, y=Up, z=North`. Drones: relative + takeoff + EGM96. Boats: HAE for now. Declination default `0`.
 
-### 5.3 Calibration offsets (first-class)
+### 5.3 Calibration
 
-```ts
-// Conceptual — CAL owns
-interface CalibrationOffsets {
-  yawDeg: number;
-  pitchDeg: number;
-  rollDeg: number;
-  fovHDeg: number;      // start 66.8832 for Mini 4 Pro
-  altMeters: number;
-  // per-device id keyed in a map
-}
-```
+Five fields per device; CV **only** writes `setOffsets` (see CV spike plan).
 
-Pipeline: `rawTelemetryPose → GEO → + CAL offsets → SCN camera`.
+### 5.4 Console deep link
 
-Future CV **only writes these offsets** (no second pose pipeline).
+See [`../contracts/console-deeplink.md`](../contracts/console-deeplink.md).  
+`race` becomes **project id** when packs/API exist (URL wins for mode/origin; pack supplies features/fleet).
 
-### 5.4 Console deep link (CON — design now, integrate later)
+### 5.5 Race project & shared features
 
-Proposed query shape (negotiable with console team):
+Canonical design: [`race-projects-and-world-authoring.md`](./race-projects-and-world-authoring.md).
 
-```
-https://<host>/overlay?race=<id>&token=<jwt>&originLat=&originLon=&mode=live|mock
-```
+- One project → origin + fleet catalogue + **feature layers** (course, sponsors, S/F, arrows, flags, …).
+- **Same normalized features** feed 3D AR and 2D map.
+- Persist as JSON; later DB for far-PC load.
+- Optional GeoJSON import (geojson.io compatibility).
 
-No console repo access today — CON documents the contract only.
-
-### 5.5 Output modes (OUT)
+### 5.6 Output modes
 
 | Mode | Behavior |
 | --- | --- |
-| `preview` | Normal clear / sky or dark; ops viewing |
-| `chroma` | Clear `(0,255,0)` or configurable key; for vMix |
-| `transparent` | Alpha canvas where browser allows (limited for capture) |
-| `webrtc-underlay` | MediaMTX WHEP behind AR |
-| `egress` (later) | Stream out — design in Phase 5 |
+| `preview` | Ops viewing; WHEP underlay allowed |
+| `chroma` | Green clear for vMix window capture |
+| WHEP underlay | MediaMTX behind AR (preview) |
+| **NDI out (optimum)** | Named video source of AR camera view for vMix — requires Electron or native/third-party helper |
 
-**NDI:** not in SPA. Optional future **native helper** on studio PC consumes frames/stream — separate mini-project under OUT plan, not Phase 0.
+**Near-term air:** chroma + capture. **Optimum air:** NDI of the WebGL camera view (evaluate Electron + our sender vs helper vs third-party NDI).
 
 ---
 
 ## 6. External systems
 
-| System | Owner | Interface |
-| --- | --- | --- |
-| VPS `49.13.20.49` | Existing infra | WS now; **WSS required** for HTTPS Hetzner pages |
-| MediaMTX | Existing | WHEP underlay |
-| vMix | Studio | Chroma/window or later stream ingest; Unity NDI parallel |
-| Web console | Other team | Redirect button + future token |
-| Unity broadcast | Sibling | Reference + asset export source |
+| System | Interface |
+| --- | --- |
+| VPS telemetry | WS / WSS |
+| MediaMTX | WHEP |
+| vMix | Chroma capture and/or NDI ingest |
+| Web console | Redirect + later project picker |
+| Project API/DB (planned) | CRUD race JSON |
+| Unity broadcast | Reference + parallel air backup |
 
 ---
 
 ## 7. Security & config
 
-- No API keys in repo.
-- `.env` / local config for live URLs.
-- Deep-link tokens validated later with console team.
-- Google/Cesium tiles deferred (Phase 4+); custom world modeling preferred long-term.
+- No secrets in repo; tokens with console team.
+- Project API auth later (operator vs editor roles).
+- Tiles/globe optional under editor; custom world modeling preferred for air content.
 
 ---
 
-## 8. Non-goals (current)
+## 8. Non-goals (near term)
 
-- Electron shell  
-- In-browser NDI SDK  
-- Server-side Three.js render on Hetzner  
-- Replacing console 2D telemetry UI  
-- Perfect SRT sync Phase B on day one  
+- Server-side Three.js on Hetzner  
+- Replacing full console product UI  
+- In-browser NDI **without** Electron/native helper  
+- Perfect multi-user live co-editing in V1  
+
+**Revised (no longer hard non-goals):** Electron shell and owned NDI sender are **planned options** for the optimum air path (Phase 5.5 / 7).
 
 ---
 
-## 9. Reference materials (Unity)
-
-Read-only sibling paths (when available on disk):
+## 9. Unity references
 
 - `../broadcast/docs/project-analysis.md`
-- `../broadcast/docs/threejs-migration-draft.md`
-- `../broadcast/Assets/Scripts/` (GeoUtils, TelemetryReceiver, WorldAnchorManager, …)
+- `../broadcast/Assets/Scripts/` (GeoUtils, TelemetryReceiver, WorldAnchorManager, BillboardChainFromGeoJson, …)
 - `../broadcast/Assets/StreamingAssets/EGM96_1deg.bin`

@@ -1,32 +1,29 @@
 # BW_MEMO — Broadcast-Web Master Orchestrator
 
-**Last updated:** 2026-07-28  
+**Last updated:** 2026-07-29  
 **Session role:** BW
 
 ## Current phase
-**Phase 0–2 complete.**  
-**Phase 3:** 3.1–3.4 + **3.3 WHEP** + 3.6 SPA done; **only 3.5** left (studio Results).  
-**Phase 4:** **4.1** + **4.5** done; 4.2–4.4 not opened.  
+**Phase 0–2 complete; Phase 3 almost closed** (only **3.5** studio Results).  
+**Design lock (2026-07-29):** race **projects** + map editor + shared 3D/2D features + DB remote load + **NDI optimum** air path — see architecture docs / roadmap Phases **4 / 6 / 7**.  
 Remote: https://github.com/Fusilis0/broadcast-web  
-Last push: landing finish-pack with this commit.  
 **Standing order:** land accepted slices with commit/push.
 
 ## What works today
-- Race content + calib HUD + deeplink parser
-- OUT: preview/chroma, timecode, **WHEP underlay** (empty URL idle; chroma stops underlay)
-- TEL: mock/replay(loop)/live + reconnect polish
-- CAL: CV spike plan docs (`docs/research/cv-calibration-spike.md`)
+- Spine + race content fixtures + calib HUD + deeplink parser
+- OUT: chroma, timecode, WHEP underlay
+- TEL: mock/replay(loop)/live
+- Single config pack pointers (not multi-project DB yet)
 
 ## Still human
-1. **3.5** — fill Results in `docs/ops/vmix-chroma-runbook.md`  
-2. Console-team ack of deeplink contract  
-3. Optional: MediaMTX soak for WHEP on LAN
+1. **3.5** vMix Results  
+2. Console deeplink ack  
 
-## Next software (when you want)
-- **4.2** map ops UX (SCN)
-- Live multi-URL TEL
-- Phase 5 Hetzner / air runbook (after 3.5)
-- Offline CV fixture spike (CAL, after you want code)
+## Next software tracks
+1. **Phase 4.2+** map editor + shared features (+ GeoJSON)  
+2. **Phase 6** RaceProject schema → API/DB → `?race=` far-PC load  
+3. **Phase 5** Hetzner + chroma air runbook; NDI evaluate  
+4. **Phase 7** NDI production (Electron / helper / third-party)  
 
 ## Compaction recovery
-`BOOTSTRAP_BW.md` → this memo → `docs/roadmap/phases-roadmap.md`
+`BOOTSTRAP_BW.md` → this memo → `docs/roadmap/phases-roadmap.md` + `docs/architecture/race-projects-and-world-authoring.md`

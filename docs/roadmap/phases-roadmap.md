@@ -1,7 +1,8 @@
 # Phases Roadmap — broadcast-web
 
 **Owner:** BW  
-**Update memos when a phase gate passes.**
+**Update memos when a phase gate passes.**  
+**Design addendum (2026-07-29):** race projects, shared 3D/2D features, map editor, DB load, NDI optimum — see [`../architecture/race-projects-and-world-authoring.md`](../architecture/race-projects-and-world-authoring.md).
 
 ---
 
@@ -23,8 +24,9 @@
 
 ## Current phase pointer
 
-**Active:** **Phase 3/4** — software pack landed (**3.3**, **4.1**, **4.5**). Only **3.5** studio Results + console ack remain for Phase 3 close.  
-**Last gate:** OUT/TEL/CAL finish-pack accepted (2026-07-28).
+**Active:** Close Phase **3.5** (studio Results). Next product track: **Phase 4** world authoring (4.2+) then **Phase 6** projects/DB and **Phase 7** NDI optimum.  
+**Last gate:** OUT/TEL/CAL finish-pack accepted (2026-07-28).  
+**Design:** Projects + map editor + NDI optimum locked in architecture (2026-07-29).
 
 ---
 
@@ -44,9 +46,7 @@
 | 1.8 | Human offset sliders (basic) — **Done** (`DSP-CAL-20260723-01`) | CAL |
 | 1.9 | Live switch wired but off by default — **Done** (`DSP-TEL-20260723-02`) | TEL |
 
-**Exit (Version 1 spine / Milestone A):** Mock boat+drone move correctly; geodesy tests green; 2D map shows fleet point. **Met** (2026-07-23).
-
-**Phase 1 complete** (2026-07-23). Live VPS soak is human-gated (config URLs + field).
+**Exit (Milestone A):** Met (2026-07-23).
 
 ---
 
@@ -54,15 +54,9 @@
 
 | # | Work | Owner |
 | --- | --- | --- |
-| 2.1 | glTF boat + tags — **Done** (`DSP-SCN-20260723-02`) | SCN |
-| 2.2 | Full boat channel config — **Done** (TEL `DSP-TEL-20260724-01` + SCN `DSP-SCN-20260727-01`) | TEL+SCN |
-| 2.3 | Course + buoys — **Done** (`DSP-SCN-20260727-02`) | SCN |
-| 2.4 | Multi POV switch — **Done** (TEL `DSP-TEL-20260727-01` + SCN `DSP-SCN-20260727-03`) | SCN+TEL |
-| 2.5 | Sponsors subset — **Done** (`DSP-SCN-20260727-04`) | SCN |
-| 2.6 | Countdown flags — **Done** (`DSP-SCN-20260727-05`) | SCN |
-| 2.7 | Name/colour JSON — **Done** (`DSP-SCN-20260727-06`) | SCN |
+| 2.1–2.7 | glTF fleet, course, POV, sponsors, flags, name/colour — **Done** | SCN+TEL |
 
-**Exit (Milestone B):** Visual parity good enough for side-by-side vs Unity. **Content gate met** (2026-07-27) — fleet + course + POV + sponsors + flags + name/colour tags; BW/studio side-by-side still human.
+**Exit (Milestone B):** Content gate met (2026-07-27).
 
 ---
 
@@ -70,52 +64,113 @@
 
 | # | Work | Owner | Gate |
 | --- | --- | --- | --- |
-| 3.1 | `preview` / `chroma` modes | OUT | **Done** (`DSP-OUT-20260727-01`) |
-| 3.2 | Visual timecode | OUT | **Done** (`DSP-OUT-20260727-02`) |
-| 3.3 | WebRTC underlay (WHEP) | OUT | **Done** (`DSP-OUT-20260728-01`) |
-| 3.4 | Connection/calib HUD harden | CAL+SCN | **Done** (`DSP-SCN-20260727-07`) |
-| 3.5 | Local vMix chroma experiment | OUT + human | |
-| 3.6 | Console deep-link design doc agreed | CON | **SPA done** (`DSP-CON-20260728-01`); console ack pending |
+| 3.1 | `preview` / `chroma` modes | OUT | **Done** |
+| 3.2 | Visual timecode | OUT | **Done** |
+| 3.3 | WebRTC underlay (WHEP) | OUT | **Done** |
+| 3.4 | Connection/calib HUD harden | CAL+SCN | **Done** |
+| 3.5 | Local vMix chroma experiment | OUT + human | Pending Results |
+| 3.6 | Console deep-link | CON | **SPA done**; console ack pending |
 
-**Exit (Milestone C):** Chroma overlay experiment recorded; underlay works.
-
----
-
-## Phase 4 — Harden + world tools
-
-| # | Work | Owner |
-| --- | --- | --- |
-| 4.1 | Replay polish, reconnect — **Done** (`DSP-TEL-20260728-01`) | TEL |
-| 4.2 | Top-down map ops UX | SCN |
-| 4.3 | Optional tiles/globe tools (not air) | SCN+GEO |
-| 4.4 | Custom world modeling pipeline notes | SCN |
-| 4.5 | CV research spike plan — **Done** (`DSP-CAL-20260728-01`); plan: [`docs/research/cv-calibration-spike.md`](../research/cv-calibration-spike.md) | CAL |
-
-**Exit:** Ops-ready preview; CV approach written.
+**Exit (Milestone C):** Chroma experiment recorded; underlay works. (Underlay met; chroma Results pending.)
 
 ---
 
-## Phase 5 — Deploy & air path
+## Phase 4 — Harden + world authoring
+
+| # | Work | Owner | Notes |
+| --- | --- | --- | --- |
+| 4.1 | Replay polish, reconnect — **Done** | TEL | |
+| 4.2 | **Map ops + feature editor** | SCN | Draw/edit marks, gates, sponsors, S/F, arrows; live 3D preview |
+| 4.2a | **Shared feature layout** | SCN+GEO | One ENU feature list → 3D **and** 2D map |
+| 4.2b | Stream / larger 2D map graphic | SCN+OUT | Optional on-air 2D from same features |
+| 4.3 | Optional tiles/basemap under editor | SCN+GEO | Not required for air meshes |
+| 4.4 | World modeling + **GeoJSON import/export** | SCN | geojson.io compatibility |
+| 4.5 | CV research spike plan — **Done** | CAL | [`docs/research/cv-calibration-spike.md`](../research/cv-calibration-spike.md) |
+| 4.6 | Hull + map-dot colours from categories | SCN | QoL from boat catalogue |
+| 4.7 | Feature validation + editor QoL | SCN | Orphan gates, snap, bearing readout |
+
+**Exit (Milestone E):** Operator can author course/sponsors/S/F/arrows on a map; 3D and 2D match; GeoJSON optional.
+
+---
+
+## Phase 5 — Deploy & first air path
 
 | # | Work | Owner |
 | --- | --- | --- |
 | 5.1 | Hetzner static deploy | PLT |
-| 5.2 | WSS or proxy solution | PLT+TEL |
-| 5.3 | Air runbook (local Chrome + chroma) | OUT+BW |
+| 5.2 | WSS or proxy for live TEL | PLT+TEL |
+| 5.3 | Air runbook (Chrome + chroma) | OUT+BW |
 | 5.4 | Evaluate WebRTC/SRT egress | OUT |
-| 5.5 | Evaluate native NDI helper (only if needed) | OUT |
+| 5.5 | **NDI path evaluation** (third-party vs helper vs Electron) | OUT+PLT+BW |
 | 5.6 | Parallel air vs Unity; cutover criteria | BW |
 
-**Exit (Milestone D):** Documented air path; Unity decommission only after explicit BW+studio OK.
+**Exit (Milestone D):** Documented chroma air path; NDI options scored; Unity decommission only after explicit OK.
 
 ---
 
-## Priority of output technologies (BW lock)
+## Phase 6 — Race projects & remote load
 
-1. **Chroma** — primary first air path  
-2. **WebRTC underlay** — required early for preview/CV  
+| # | Work | Owner | Notes |
+| --- | --- | --- | --- |
+| 6.1 | **RaceProject schema** + folder/JSON pack | PLT+SCN | Origin, fleet, features, output defaults |
+| 6.2 | Local pack CRUD UI (create/duplicate/save) | SCN+PLT | |
+| 6.3 | `?race=` / console loads pack | CON+PLT | Far PC via HTTPS |
+| 6.4 | **Project API + database** | PLT | Persist JSON; revision metadata |
+| 6.5 | Auth roles (editor vs air-only) | PLT+CON | With console team |
+| 6.6 | Offline pack download / venue mode | PLT | QoL |
+| 6.7 | Calib profiles stored on project | CAL+PLT | Per POV |
+
+**Exit (Milestone F):** Create project → save to DB → open on another computer → scene matches.
+
+---
+
+## Phase 7 — Optimum air: NDI camera view
+
+| # | Work | Owner | Notes |
+| --- | --- | --- | --- |
+| 7.1 | Spike: third-party NDI from capture/window | OUT+human | Fast trial |
+| 7.2 | Spike: **native NDI helper** sidecar | OUT | Browser SPA stays |
+| 7.3 | Spike: **Electron + our NDI sender** | OUT+PLT | Owned named source |
+| 7.4 | Choose production NDI path (BW + studio) | BW | Prefer owned A/B if C insufficient |
+| 7.5 | Production NDI out of active POV camera | OUT | Sync with timecode |
+| 7.6 | vMix NDI input runbook + cutover | OUT+BW | Unity NDI parallel until OK |
+
+**Exit (Milestone G):** Studio receives AR camera view as **NDI** (or documented equivalent); chroma remains fallback.
+
+---
+
+## Capability map (skills → phase)
+
+| Skill | Phase |
+| --- | --- |
+| Telemetry / geo / calib / chroma / WHEP / deeplink parser | 0–3 (mostly done) |
+| Course, sponsors, flags, boat names/categories | 2 (done) |
+| Map editor, shared 3D+2D features, GeoJSON, stream 2D | **4** |
+| Hetzner, WSS, chroma air runbook, NDI evaluate | **5** |
+| Project packs, DB, far-PC load, roles | **6** |
+| Owned/third-party NDI camera out | **7** |
+
+---
+
+## Priority of output technologies (BW lock — updated 2026-07-29)
+
+1. **Chroma + window/screen capture** — first air path (now)  
+2. **WebRTC underlay (WHEP)** — preview + CV  
 3. **SRT/WebRTC egress** — when remote matters  
-4. **Native NDI helper** — contingency  
+4. **NDI out of AR camera view** — **optimum** studio path (Electron and/or native helper and/or third-party; decide after spikes)  
+
+Browser-only SPA cannot emit NDI; Electron or a native/third-party bridge is required for optimum.
 
 ---
 
+## QoL backlog (pull into phases as needed)
+
+- Project list: rename, archive, “duplicate last race”  
+- Revision history on packs  
+- Hide ops HUD for air; editor chrome separate  
+- Snap / bearing while drawing arrows  
+- Validate boat ids vs catalogue  
+- Venue offline pack cache  
+- Live multi-URL TEL (boats/POVs)  
+
+---

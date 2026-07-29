@@ -4,10 +4,11 @@ Browser-based Three.js AR overlay for maritime race broadcast. Runs **beside** t
 
 | | |
 | --- | --- |
-| **Runtime** | Web browser only (no Electron) |
+| **Runtime** | Browser SPA today; optional **Electron** later for owned NDI |
 | **Stack** | Vite · TypeScript · Three.js |
-| **Air path (planned)** | Chroma → vMix first; WebRTC/SRT later; native NDI helper only if required |
-| **Host (later)** | Hetzner static/SPA — render runs in studio Chrome |
+| **Air path** | Chroma → vMix first; **NDI camera view = optimum** (Electron / native helper / third-party); WHEP underlay + SRT/WebRTC as needed |
+| **Projects (planned)** | Race packs (JSON → DB): boats, course, billboards, S/F, arrows — load on any PC via `?race=` |
+| **Host (later)** | Hetzner static/SPA + project API; render on studio GPU |
 | **Unity sibling** | `../broadcast` (telemetry contracts, assets, analysis) |
 
 ## Start here (humans & agents)
@@ -16,7 +17,8 @@ Browser-based Three.js AR overlay for maritime race broadcast. Runs **beside** t
 | --- | --- |
 | [`docs/agentic/README.md`](./docs/agentic/README.md) | Agentic operating system overview |
 | [`docs/architecture/system-architecture.md`](./docs/architecture/system-architecture.md) | Full system architecture |
-| [`docs/roadmap/phases-roadmap.md`](./docs/roadmap/phases-roadmap.md) | Phased roadmap |
+| [`docs/architecture/race-projects-and-world-authoring.md`](./docs/architecture/race-projects-and-world-authoring.md) | Race projects, map editor, shared 3D/2D, NDI options |
+| [`docs/roadmap/phases-roadmap.md`](./docs/roadmap/phases-roadmap.md) | Phased roadmap (incl. Phase 6 projects, Phase 7 NDI) |
 | [`docs/agentic/ORCHESTRATORS.md`](./docs/agentic/ORCHESTRATORS.md) | Orchestrator registry (full names) |
 | [`docs/agentic/dispatches/`](./docs/agentic/dispatches/) | Paste-ready session bootstrap dispatches |
 
