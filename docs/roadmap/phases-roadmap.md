@@ -24,9 +24,9 @@
 
 ## Current phase pointer
 
-**Active:** Close Phase **3.5** (studio Results). Next product track: **Phase 4** world authoring (4.2+) then **Phase 6** projects/DB and **Phase 7** NDI optimum.  
-**Last gate:** OUT/TEL/CAL finish-pack accepted (2026-07-28).  
-**Design:** Projects + map editor + NDI optimum locked in architecture (2026-07-29).
+**Active:** **Phase 4** world authoring — **4.2 / 4.2a** shared features + map (DSP issued). Phase **3 complete** (Milestone C 2026-07-30).  
+**Last gate:** Phase 3.5 chroma studio **Pass** (OBS; 2026-07-30).  
+**Design:** Projects + map editor + NDI optimum — Phases 4 / 6 / 7.
 
 ---
 
@@ -68,10 +68,10 @@
 | 3.2 | Visual timecode | OUT | **Done** |
 | 3.3 | WebRTC underlay (WHEP) | OUT | **Done** |
 | 3.4 | Connection/calib HUD harden | CAL+SCN | **Done** |
-| 3.5 | Local vMix chroma experiment | OUT + human | Pending Results |
+| 3.5 | Local vMix/OBS chroma experiment | OUT + human | **Pass** (2026-07-30, OBS) |
 | 3.6 | Console deep-link | CON | **SPA done**; console ack pending |
 
-**Exit (Milestone C):** Chroma experiment recorded; underlay works. (Underlay met; chroma Results pending.)
+**Exit (Milestone C):** Chroma overlay experiment recorded; underlay works. **Met** (2026-07-30).
 
 ---
 
@@ -81,7 +81,7 @@
 | --- | --- | --- | --- |
 | 4.1 | Replay polish, reconnect — **Done** | TEL | |
 | 4.2 | **Map ops + feature editor** | SCN | Draw/edit marks, gates, sponsors, S/F, arrows; live 3D preview |
-| 4.2a | **Shared feature layout** | SCN+GEO | One ENU feature list → 3D **and** 2D map |
+| 4.2a | **Shared feature layout** | SCN+GEO | One ENU feature list → 3D **and** 2D map — **DSP issued** (`DSP-SCN-20260730-01`) |
 | 4.2b | Stream / larger 2D map graphic | SCN+OUT | Optional on-air 2D from same features |
 | 4.3 | Optional tiles/basemap under editor | SCN+GEO | Not required for air meshes |
 | 4.4 | World modeling + **GeoJSON import/export** | SCN | geojson.io compatibility |

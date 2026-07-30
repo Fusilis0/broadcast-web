@@ -6,8 +6,9 @@
 - Priority: P0
 - Phase: Phase 3.5 — Local vMix chroma experiment (OUT docs + human studio run)
 - Related handoffs: HO-OUT-BW-20260727-02 (BW: studio ready → open 3.5)
-- Status: **worker docs DONE 2026-07-27** — runbook landed; **awaiting human studio Results** before OUT accepts 3.5
+- Status: **DONE** — worker runbook 2026-07-27; **human studio Pass 2026-07-30** (OBS chroma key; BW/OUT accepted). Milestone C met.
 - BW ask: Chrome fullscreen → chroma → vMix window capture → key green → confirm AR + visual timecode; **no WHEP**, **no NDI helper**
+  - Note: studio used **OBS** instead of vMix (accepted equivalent).
 
 ## Goal
 

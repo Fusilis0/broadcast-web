@@ -1,28 +1,23 @@
 # OUT_MEMO
 
-**Last updated:** 2026-07-28  
-**Status:** Idle on software — **3.5** awaiting human studio Results
+**Last updated:** 2026-07-30  
+**Status:** Idle — Phase **3.5 Pass**; Milestone C met
 
 ## Focus
-Human executes [`docs/ops/vmix-chroma-runbook.md`](../../ops/vmix-chroma-runbook.md) → fill Results → accept 3.5
+None active. Next OUT track: Phase 5 air runbook polish / NDI evaluate when BW opens.
 
 ## Decisions
-- Priority: chroma → WebRTC underlay → egress → NDI last
-- **3.1 + 3.2 + 3.3 DONE**
-- **3.3:** `whepUrl` empty = idle; preview underlay; chroma stops/hides underlay; native WHEP in `src/output/`; status on OUT control; `getVideoElement()` for future CV
-- **3.5** runbook done; Results pending
-- No in-browser NDI
+- **3.1–3.3 + 3.5 DONE**
+- Studio chroma proved with **OBS** (window capture + key) — accepted as vMix-equivalent for 3.5
+- Chroma remains first air path; NDI optimum later (Phase 7)
+- Output must be **`chroma`** (not preview) for green clear
 
 ## Issued dispatches
-- **DSP-OUT-20260727-01** — DONE
-- **DSP-OUT-20260727-02** — DONE
-- **DSP-OUT-20260728-01-whep-underlay** — **DONE**
-- **DSP-OUT-20260727-03-vmix-chroma-experiment** — active (human Results)
+- Through **DSP-OUT-20260728-01** (WHEP) — DONE
+- **DSP-OUT-20260727-03** — **DONE** (human Pass 2026-07-30)
 
 ## Blockers
-- Human studio Results for 3.5
+- None
 
 ## Next
-1. Human: studio checklist → paste Results
-2. Optional: MediaMTX LAN soak; CORS if cross-origin
-3. Later: egress eval / NDI helper only if needed
+1. Idle until BW opens 5.3 / 5.5 NDI spikes

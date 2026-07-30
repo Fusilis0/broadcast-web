@@ -77,24 +77,26 @@ Committed config keeps `"outputMode": "preview"` unless the studio sets chroma f
 
 ## Pass / fail checklist
 
-- [ ] App runs; telemetry / scene visible in preview first (optional sanity)
-- [ ] Chroma clear is pure green (no sky / dark bleed in keyed areas)
-- [ ] vMix keys cleanly (minimal spill / hole-punch on green)
-- [ ] AR overlays readable after key
-- [ ] Visual timecode visible, pointy / nearest (not smeared), bottom-right
-- [ ] No reliance on NDI
-- [ ] Chrome + vMix were on the **same** PC
+- [x] App runs; telemetry / scene visible in preview first (optional sanity)
+- [x] Chroma clear is pure green (no sky / dark bleed in keyed areas)
+- [x] Capture tool keys cleanly (minimal spill / hole-punch on green) — **OBS** chroma key used (vMix OK equivalent)
+- [x] AR overlays readable after key
+- [x] Visual timecode visible, pointy / nearest (not smeared), bottom-right
+- [x] No reliance on NDI
+- [x] Chrome + compositor were on the **same** PC
 
 ## Results (human fills after studio)
 
 | Field | Value |
 | --- | --- |
-| Date | |
-| Operator | |
-| Pass / fail | |
-| Notes | |
-| Screenshot paths (optional) | |
-| `git log -1` on studio PC (optional) | |
+| Date | 2026-07-30 |
+| Operator | Fusilis (studio PC) |
+| Pass / fail | **Pass** |
+| Notes | OBS used instead of vMix (window capture + chroma key). Output must be set to `chroma` (not `preview`) for green clear. Milestone C chroma gate met. |
+| Screenshot paths (optional) | (operator screenshots in session) |
+| `git log -1` on studio PC (optional) | at/after `005837e` |
+
+**Accepted by BW / OUT:** 2026-07-30 — Phase **3.5** closed; Milestone **C** met (underlay already done; chroma experiment recorded).
 
 ## Related
 
