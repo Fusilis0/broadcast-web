@@ -22,3 +22,17 @@ export type {
   LayoutEnuPoint,
   LayoutFeature,
 } from './types.ts'
+export {
+  startMapFeatureEditor,
+  serializeWorldFeaturesExport,
+  downloadWorldFeaturesJson,
+  createPointFeature,
+  createSponsorFeature,
+  createGatePairFeatures,
+  featuresToCourseData,
+  featuresToSponsorsData,
+  featuresToFlagsData,
+  type MapFeatureEditorHandle,
+  type MapFeatureEditorOptions,
+  type EditorTool,
+} from './editor/index.ts'

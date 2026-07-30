@@ -16,6 +16,8 @@ export const DEFAULT_FLAGS_URL = '/fixtures/flags/demo-istanbul-countdown.json'
 export type FlagsHandle = CountdownFlagsHandle & {
   /** GPS-space features for shared layout (pre-GEO). */
   worldFeatures: readonly WorldFeature[]
+  /** Normalized fixture (editor remount preserves timing knobs). */
+  flagsData: CountdownFlagsData
 }
 
 export type { CountdownFlagsHandle }
@@ -93,6 +95,7 @@ export function mountCountdownFlags(
   return {
     ...handle,
     worldFeatures: adaptFlagsToFeatures(data),
+    flagsData: data,
     dispose(): void {
       scene.remove(handle.root)
       innerDispose()

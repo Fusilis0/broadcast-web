@@ -8,6 +8,7 @@ import {
 import {
   applyConfigOrigin,
   ensureEgm96Loaded,
+  enuToGpsAmsl,
   gpsToEnuAmsl,
 } from './geodesy/index.ts'
 import {
@@ -26,8 +27,10 @@ import { startPosePipeline, stopPosePipeline } from './pose/index.ts'
 import {
   layoutFeatures,
   setLayoutFeatures,
+  startMapFeatureEditor,
   startScene,
   startStubHud,
+  type MapFeatureEditorHandle,
   type SceneHandle,
   type WorldFeature,
 } from './scene/index.ts'
@@ -49,6 +52,7 @@ let ingest: IngestHandle | null = null
 let outputControl: OutputModeControlHandle | null = null
 let visualTimecode: VisualTimecodeHandle | null = null
 let whepUnderlay: WhepUnderlayHandle | null = null
+let mapEditor: MapFeatureEditorHandle | null = null
 let unsubLiveStatus: (() => void) | null = null
 let replayUrl = '/fixtures/telemetry/spine-demo.json'
 let courseUrl = '/fixtures/course/demo-istanbul.json'
@@ -60,6 +64,14 @@ let povIds: string[] = ['1', '2']
 let chromaKey = ''
 let switching = false
 
+function editorQueryOpen(): boolean {
+  try {
+    return new URLSearchParams(window.location.search).get('editor') === '1'
+  } catch {
+    return false
+  }
+}
+
 function clearLiveStatusSub(): void {
   unsubLiveStatus?.()
   unsubLiveStatus = null
@@ -67,6 +79,7 @@ function clearLiveStatusSub(): void {
 
 const hud = startStubHud({
   container: app,
+  editorInitiallyOpen: editorQueryOpen(),
   onModeChange: (mode) => {
     void (async () => {
       if (switching) return
@@ -93,6 +106,9 @@ const hud = startStubHud({
   },
   onCountdownControl: (action) => {
     scene?.controlCountdown(action)
+  },
+  onEditorToggle: (open) => {
+    mapEditor?.setOpen(open)
   },
 })
 
@@ -190,18 +206,36 @@ void (async () => {
   const sponsors = await scene.loadSponsorsFromUrl(sponsorsUrl)
   const flags = await scene.loadCountdownFlagsFromUrl(flagsUrl)
 
-  // Shared GPS→ENU layout: one list for 2D map (+ future editor). 3D mounts from loaders above.
+  // Shared GPS→ENU layout: one list for 2D map + editor. 3D mounts from loaders above.
+  const gpsToEnu = (lat: number, lon: number, alt: number) => {
+    const v = gpsToEnuAmsl(lat, lon, alt)
+    return { x: v.x, y: v.y, z: v.z }
+  }
   const world: WorldFeature[] = [
     ...(course?.worldFeatures ?? []),
     ...(sponsors?.worldFeatures ?? []),
     ...(flags?.worldFeatures ?? []),
   ]
-  const layout = layoutFeatures(world, (lat, lon, alt) => {
-    const v = gpsToEnuAmsl(lat, lon, alt)
-    return { x: v.x, y: v.y, z: v.z }
-  })
+  const layout = layoutFeatures(world, gpsToEnu)
   setLayoutFeatures(layout)
   hud.setLayoutFeatures(layout)
+
+  // V1 map feature editor — seeded from adapters; edits re-layout + remount 3D.
+  mapEditor = startMapFeatureEditor({
+    container: app.querySelector('.ops-overlay') ?? app,
+    map: hud.getMap(),
+    initialFeatures: world,
+    gpsToEnuAmsl: gpsToEnu,
+    enuToGpsAmsl: (east, up, north) => {
+      const g = enuToGpsAmsl(east, up, north)
+      return { lat: g.lat, lon: g.lon, alt: g.alt }
+    },
+    initiallyOpen: editorQueryOpen(),
+    onApply: async (features) => {
+      await scene?.remountWorldFromFeatures(features)
+    },
+  })
+  hud.setEditorOpen(editorQueryOpen())
 
   ingest = await startTelemetryIngest({
     mode: config.telemetryMode,
@@ -223,6 +257,8 @@ void (async () => {
     whepUnderlay = null
     calib.stop()
     outputControl?.stop()
+    mapEditor?.dispose()
+    mapEditor = null
     hud.stop()
     scene?.stop()
   })

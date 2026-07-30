@@ -1,24 +1,24 @@
 # SCN_MEMO
 
 **Last updated:** 2026-07-30  
-**Status:** Active — 4.2a done; 4.2 map editor DSP issued
+**Status:** Idle — 4.2 editor V1 done; awaiting BW next slice
 
 ## Focus
-Phase 4 world authoring — shared features landed; next map editor.
+Phase 4 world authoring — editor landed; ready for packs / GeoJSON / PiP as BW routes.
 
 ## Decisions
-- Owns: `src/scene/`, `src/assets/`, stub HUD, 2D map, features; no chroma/NDI/DB
-- **4.2a DONE:** `WorldFeature` / `LayoutFeature` + adapters; `layoutFeatures` + `gpsToEnuAmsl`; 2D map shows marks, gates, sponsors, flags
-- `getLayoutFeatures()` / `setLayoutFeatures()` ready for editor
-- Demo still boots via `courseUrl` / `sponsorsUrl` / `flagsUrl`
+- **4.2a + 4.2 DONE**
+- Editor: HUD checkbox or `?editor=1`; place/select/delete/export `world-features.json`
+- Pipeline: editable `WorldFeature[]` → `layoutFeatures` → map + `remountWorldFromFeatures`
+- GEO: `enuToGps` / `enuToGpsAmsl` for map clicks
+- Start/finish/arrow: map stubs only (no 3D meshes yet)
 
 ## Issued dispatches
-- **DSP-SCN-20260730-01-shared-feature-layout** — **DONE**
-- **DSP-SCN-20260730-02-map-feature-editor** — active (see `dispatches/active/`)
+- **DSP-SCN-20260730-01** — DONE (shared layout)
+- **DSP-SCN-20260730-02** — DONE (map editor V1)
 
 ## Blockers
 - None
 
 ## Next
-1. Worker: map feature editor DSP
-2. Later: 4.2b stream PiP; 3D-only from LayoutFeature; start/finish/arrow meshes
+BW pick: Phase 6 local RaceProject pack / 4.4 GeoJSON / 4.2b stream PiP

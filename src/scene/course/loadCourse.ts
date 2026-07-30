@@ -6,7 +6,12 @@ import { createBuoyMarkers, type BuoyMarkersHandle } from './buoyMarkers.ts'
 import { buildCourseLayout } from './courseLayout.ts'
 import { createCourseLines, type CourseLinesHandle } from './courseLines.ts'
 import { normalizeCourse } from './normalizeCourse.ts'
-import type { CourseData, CourseEnuPoint, GpsToEnuAmslFn } from './types.ts'
+import type {
+  CourseAppearance,
+  CourseData,
+  CourseEnuPoint,
+  GpsToEnuAmslFn,
+} from './types.ts'
 
 export const DEFAULT_COURSE_URL = '/fixtures/course/demo-istanbul.json'
 
@@ -16,6 +21,8 @@ export type CourseHandle = {
   mapPoints: readonly CourseEnuPoint[]
   /** GPS-space features for shared layout (pre-GEO). */
   worldFeatures: readonly WorldFeature[]
+  /** Normalized appearance (editor remount). */
+  appearance: CourseAppearance
   dispose: () => void
 }
 
@@ -92,6 +99,7 @@ export function mountCourse(
     root,
     mapPoints: buoyPoints,
     worldFeatures: adaptCourseToFeatures(course),
+    appearance: { ...course.appearance },
     dispose(): void {
       scene.remove(root)
       lines?.dispose()

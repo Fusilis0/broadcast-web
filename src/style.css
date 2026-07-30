@@ -94,6 +94,11 @@ body,
   color: #e8eef4;
 }
 
+.ops-hud__checkbox {
+  pointer-events: auto;
+  accent-color: #8aa0b8;
+}
+
 .ops-hud__mode-hint {
   color: #6a7888;
   font-size: 11px;
@@ -119,6 +124,17 @@ body,
   font: 11px/1.3 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
+.ops-map--interactive,
+.ops-map--editor {
+  pointer-events: auto;
+  z-index: 4;
+}
+
+.ops-map--editor {
+  width: 420px;
+  border-color: #4a5a6a;
+}
+
 .ops-map__title {
   margin-bottom: 4px;
   color: #7a8694;
@@ -129,6 +145,93 @@ body,
   width: 100%;
   height: auto;
   border-radius: 2px;
+  cursor: crosshair;
+}
+
+.ops-map:not(.ops-map--interactive) .ops-map__canvas {
+  cursor: default;
+}
+
+/* SCN world feature editor (Phase 4.2) */
+.ops-editor {
+  pointer-events: auto;
+  position: absolute;
+  top: 8px;
+  right: 440px;
+  width: min(280px, calc(100vw - 460px));
+  max-height: calc(100vh - 16px);
+  overflow: auto;
+  padding: 8px;
+  background: rgba(12, 16, 22, 0.92);
+  border: 1px solid #2a3340;
+  border-radius: 4px;
+  color: #9aa4ae;
+  font: 11px/1.3 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  z-index: 4;
+}
+
+.ops-editor__title {
+  margin-bottom: 6px;
+  color: #c8d0d8;
+}
+
+.ops-editor__tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.ops-editor__tool--active {
+  border-color: #c8a84a !important;
+  color: #ffe08a !important;
+}
+
+.ops-editor__hint {
+  color: #6a7888;
+  margin-bottom: 6px;
+  min-height: 1.2em;
+}
+
+.ops-editor__props {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.ops-editor__field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #8a949e;
+}
+
+.ops-editor__input {
+  pointer-events: auto;
+  width: 140px;
+  background: #222830;
+  color: #d0d6dc;
+  border: 1px solid #3a4450;
+  border-radius: 3px;
+  font: inherit;
+  padding: 2px 6px;
+}
+
+.ops-editor__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+@media (max-width: 900px) {
+  .ops-editor {
+    right: 8px;
+    top: auto;
+    bottom: 140px;
+    width: min(280px, calc(100vw - 16px));
+  }
 }
 
 /* OUT output mode — preview / chroma toggle (runtime only) */

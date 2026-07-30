@@ -35,8 +35,21 @@ Sponsor example: `type: "sponsor"`, `points: [a, b]`, `label` + `color`.
 1. Load + normalize fixture JSON (course / sponsors / flags) as today.  
 2. **Adapt** → `WorldFeature[]` (`adaptCourseToFeatures`, …).  
 3. **`layoutFeatures(features, gpsToEnuAmsl)`** — one GEO pass; water **Y = 0**.  
-4. **`setLayoutFeatures` / `getLayoutFeatures`** — store for map + tests + future editor.  
-5. 3D builders still mount from their own normalized data (parity); map draws from the shared ENU list.
+4. **`setLayoutFeatures` / `getLayoutFeatures`** — store for map + editor.  
+5. Editor mutates the GPS list → re-layout → map redraw + **`remountWorldFromFeatures`** (3D course/sponsors/flags).
+
+## Map feature editor (Phase 4.2 V1)
+
+Enable with HUD **editor** checkbox or URL `?editor=1`.
+
+| Action | How |
+| --- | --- |
+| Tools | select, mark, gate L/R, gate pair (A–B), sponsor (A–B), flags, start/finish/arrow stubs |
+| Place | Click enlarged map (ENU → lat/lon via GEO `enuToGpsAmsl`) |
+| Edit | Select → name / label / heightM / color; **Delete** |
+| Export | **Export JSON** → `world-features.json` `{ features: [...] }` |
+
+No DB persist, no GeoJSON import. Boot without editor unchanged.
 
 ## API
 
@@ -46,5 +59,8 @@ Sponsor example: `type: "sponsor"`, `points: [a, b]`, `label` + `color`.
 | `layoutFeatures` | GPS → ENU (`FEATURE_WATER_Y`) |
 | `pairLayoutGates` | Pair gate ends for map segments |
 | `getLayoutFeatures` / `setLayoutFeatures` | Shared store |
+| `startMapFeatureEditor` | Ops UI + place/select/export |
+| `serializeWorldFeaturesExport` | Pure JSON string for download |
+| `featuresToCourseData` / `featuresToSponsorsData` / `featuresToFlagsData` | Editor → remount fixtures |
 
-Out of scope here: map editor UI, RaceProject pack/DB, GeoJSON import, NDI.
+Out of scope here: RaceProject pack/DB, GeoJSON import, NDI, stream PiP map.

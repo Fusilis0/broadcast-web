@@ -60,6 +60,7 @@ export {
   createMap2d,
   boundsFromPoints,
   enuToMapPx,
+  mapPxToEnu,
   type Map2dHandle,
   type Map2dOptions,
   type MapBounds,
@@ -76,10 +77,15 @@ export {
   getLayoutFeatures,
   setLayoutFeatures,
   clearLayoutFeatures,
+  startMapFeatureEditor,
+  serializeWorldFeaturesExport,
   type WorldFeature,
   type WorldFeatureType,
   type LayoutFeature,
   type GpsToEnuAmslFn as FeatureGpsToEnuAmslFn,
+  type MapFeatureEditorHandle,
+  type MapFeatureEditorOptions,
+  type EditorTool,
 } from './features/index.ts'
 export {
   loadCourse,

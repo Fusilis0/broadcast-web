@@ -10,9 +10,19 @@ import {
   type BoatNamesCatalogue,
 } from './boatNames/index.ts'
 import {
+  DEFAULT_COURSE_APPEARANCE,
   loadCourse,
+  mountCourse,
+  type CourseAppearance,
   type CourseHandle,
 } from './course/index.ts'
+import {
+  featuresToCourseData,
+  featuresToFlagsData,
+  featuresToSponsorsData,
+  type FlagsRemountMeta,
+} from './features/editor/reverseAdapters.ts'
+import type { WorldFeature } from './features/types.ts'
 import { clearLayoutFeatures } from './features/layoutStore.ts'
 import { createDroneCamera, TEMP_HFOV_DEG } from './droneCamera.ts'
 import { boatIdAllowSet, isAllowedBoatId } from './fleetRegistry.ts'
@@ -25,10 +35,13 @@ import {
 } from './povSwitcher.ts'
 import {
   loadCountdownFlags,
+  mountCountdownFlags,
   type FlagsHandle,
 } from './flags/index.ts'
+import type { CountdownFlagsData } from './flags/types.ts'
 import {
   loadSponsors,
+  mountSponsors,
   type SponsorsHandle,
 } from './sponsors/index.ts'
 
@@ -92,6 +105,13 @@ export type SceneHandle = {
     url?: string,
   ) => Promise<FlagsHandle | null>
   /**
+   * Remount course / sponsors / flags from editable WorldFeature[] (map editor).
+   * Stub types (start/finish/arrow) stay map-only.
+   */
+  remountWorldFromFeatures: (
+    features: readonly WorldFeature[],
+  ) => Promise<void>
+  /**
    * Load boat name/colour catalogue and apply to existing + future tags.
    * Safe anytime after `startScene` (before or after boats spawn).
    */
@@ -145,7 +165,27 @@ export function startScene(options: SceneOptions): SceneHandle {
   let course: CourseHandle | null = null
   let sponsors: SponsorsHandle | null = null
   let countdownFlags: FlagsHandle | null = null
+  let courseAppearance: CourseAppearance = { ...DEFAULT_COURSE_APPEARANCE }
+  let flagsMeta: FlagsRemountMeta = {}
+  let remountGen = 0
   const clock = new THREE.Clock()
+
+  function captureFlagsMeta(data: CountdownFlagsData): void {
+    flagsMeta = {
+      startMinutes: data.startMinutes,
+      whiteRaiseMinutes: data.whiteRaiseMinutes,
+      orangeRaiseMinutes: data.orangeRaiseMinutes,
+      blueWhiteRaiseMinutes: data.blueWhiteRaiseMinutes,
+      blueWhiteLowerMinutes: data.blueWhiteLowerMinutes,
+      point1FlagVerticalOffset: data.point1FlagVerticalOffset,
+      point2FlagVerticalOffset: data.point2FlagVerticalOffset,
+      blueWhiteExtraOffsetM: data.blueWhiteExtraOffsetM,
+      canvasVerticalOffset: data.canvasVerticalOffset,
+      poleHeightM: data.poleHeightM,
+      autoStart: data.autoStart,
+      demoTimeScale: data.demoTimeScale,
+    }
+  }
 
   function applyCatalogueToBoat(boat: BoatEntityHandle): void {
     const entry = lookupBoatName(boatNames, boat.id)
@@ -251,6 +291,7 @@ export function startScene(options: SceneOptions): SceneHandle {
         return null
       }
       course = handle
+      if (handle) courseAppearance = { ...handle.appearance }
       return handle
     },
     async loadSponsorsFromUrl(url?: string): Promise<SponsorsHandle | null> {
@@ -277,7 +318,50 @@ export function startScene(options: SceneOptions): SceneHandle {
         return null
       }
       countdownFlags = handle
+      if (handle) captureFlagsMeta(handle.flagsData)
       return handle
+    },
+    async remountWorldFromFeatures(
+      features: readonly WorldFeature[],
+    ): Promise<void> {
+      if (stopped) return
+      const gen = ++remountGen
+
+      const courseData = featuresToCourseData(features, courseAppearance)
+      course?.dispose()
+      course = null
+      if (courseData.waypoints.length > 0) {
+        course = mountCourse(scene, courseData)
+      }
+      if (stopped || gen !== remountGen) {
+        course?.dispose()
+        course = null
+        return
+      }
+
+      const sponsorsData = featuresToSponsorsData(features)
+      sponsors?.dispose()
+      sponsors = null
+      if (sponsorsData.sponsors.length > 0) {
+        const handle = await mountSponsors(scene, sponsorsData)
+        if (stopped || gen !== remountGen) {
+          handle.dispose()
+          return
+        }
+        sponsors = handle
+      }
+
+      const flagsData = featuresToFlagsData(features, flagsMeta)
+      if (flagsData) {
+        captureFlagsMeta(flagsData)
+        countdownFlags?.dispose()
+        countdownFlags = null
+        if (stopped || gen !== remountGen) return
+        countdownFlags = mountCountdownFlags(scene, {
+          ...flagsData,
+          autoStart: false,
+        })
+      }
     },
     async loadBoatNamesFromUrl(url?: string): Promise<BoatNamesCatalogue> {
       if (stopped) return new Map()

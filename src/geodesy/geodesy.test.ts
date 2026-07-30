@@ -12,7 +12,13 @@ import {
 } from './egm96.ts'
 import { applyConfigOrigin } from './applyConfigOrigin.ts'
 import * as GeoOrigin from './geoOrigin.ts'
-import { gpsToEnu, gpsToEnuAmsl, gpsToEnuRelative } from './geoUtils.ts'
+import {
+  enuToGps,
+  enuToGpsAmsl,
+  gpsToEnu,
+  gpsToEnuAmsl,
+  gpsToEnuRelative,
+} from './geoUtils.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const BIN_PATH = resolve(__dirname, '../../public/EGM96_1deg.bin')
@@ -131,5 +137,24 @@ describe('GeoOrigin + GeoUtils ENU', () => {
     applyConfigOrigin({ lat: 41, lon: 29, altMsl: 10 })
     expect(GeoOrigin.isValid).toBe(true)
     expect(GeoOrigin.altitudeHAE).toBeCloseTo(amslToHae(41, 29, 10), 6)
+  })
+
+  it('enuToGps / enuToGpsAmsl round-trip gpsToEnu*', () => {
+    const lat = 41.0087
+    const lon = 28.9785
+    const amsl = 0
+    GeoOrigin.setOriginAMSL(41.008, 28.978, 0)
+    const enu = gpsToEnuAmsl(lat, lon, amsl)
+    const back = enuToGpsAmsl(enu.x, enu.y, enu.z)
+    expect(back.lat).toBeCloseTo(lat, 5)
+    expect(back.lon).toBeCloseTo(lon, 5)
+    expect(back.alt).toBeCloseTo(amsl, 2)
+
+    const hae = amslToHae(lat, lon, amsl)
+    const enuHae = gpsToEnu(lat, lon, hae)
+    const backHae = enuToGps(enuHae.x, enuHae.y, enuHae.z)
+    expect(backHae.lat).toBeCloseTo(lat, 5)
+    expect(backHae.lon).toBeCloseTo(lon, 5)
+    expect(backHae.alt).toBeCloseTo(hae, 2)
   })
 })

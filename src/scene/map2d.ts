@@ -124,6 +124,24 @@ export function enuToMapPx(
   return { x, y }
 }
 
+/** Panel px → ENU East/North (inverse of `enuToMapPx`). */
+export function mapPxToEnu(
+  x: number,
+  y: number,
+  bounds: MapBounds,
+  width: number,
+  height: number,
+  paddingPx = PADDING_PX,
+): { east: number; north: number } {
+  const innerW = Math.max(width - paddingPx * 2, 1)
+  const innerH = Math.max(height - paddingPx * 2, 1)
+  const spanE = Math.max(bounds.maxE - bounds.minE, 1e-6)
+  const spanN = Math.max(bounds.maxN - bounds.minN, 1e-6)
+  const east = bounds.minE + ((x - paddingPx) / innerW) * spanE
+  const north = bounds.maxN - ((y - paddingPx) / innerH) * spanN
+  return { east, north }
+}
+
 function hexFill(color: number | undefined, fallback: string): string {
   if (color === undefined || !Number.isFinite(color)) return fallback
   const n = Math.max(0, Math.min(0xffffff, Math.floor(color)))
@@ -154,6 +172,25 @@ export type Map2dHandle = {
   setCourseMarks: (marks: readonly MapCourseMark[]) => void
   /** Shared ENU world features (marks, gates, sponsors, flags, stubs). */
   setLayoutFeatures: (features: readonly LayoutFeature[]) => void
+  /** Highlight selected feature ids (editor). */
+  setSelectedFeatureIds: (ids: readonly string[]) => void
+  /** Enable pointer interaction for editor clicks. */
+  setInteractive: (on: boolean) => void
+  /** Resize canvas (editor enlarges map). */
+  setSizePx: (sizePx: number) => void
+  /**
+   * Hit-test nearest layout feature to ENU east/north.
+   * `maxDistPx` is screen-space threshold after projection.
+   */
+  hitTestFeature: (
+    east: number,
+    north: number,
+    maxDistPx?: number,
+  ) => LayoutFeature | null
+  /** Subscribe to map clicks in ENU (editor). Returns unsubscribe. */
+  onMapClick: (
+    cb: (east: number, north: number) => void,
+  ) => () => void
   redraw: () => void
   dispose: () => void
 }
@@ -168,7 +205,7 @@ export type Map2dOptions = {
  * Shared layout features: marks, gate segments, sponsor footprints, flag icons.
  */
 export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
-  const sizePx = options.sizePx ?? 240
+  let sizePx = options.sizePx ?? 240
 
   const root = document.createElement('div')
   root.className = 'ops-map'
@@ -189,6 +226,10 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
   const points = new Map<string, MapPoint>()
   let courseMarks: MapCourseMark[] = []
   let layoutFeatures: LayoutFeature[] = []
+  let selectedIds = new Set<string>()
+  let lastBounds: MapBounds = boundsFromPoints([], [], [])
+  let interactive = false
+  const clickListeners = new Set<(east: number, north: number) => void>()
 
   function toMapPoint(pose: PoseEvent): MapPoint {
     const pos: EnuPosition = pose.position
@@ -199,6 +240,19 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
       north: pos.z,
       up: pos.y,
     }
+  }
+
+  function drawSelectionRing(
+    x: number,
+    y: number,
+    r: number,
+  ): void {
+    if (!ctx) return
+    ctx.strokeStyle = '#ffe08a'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.arc(x, y, r, 0, Math.PI * 2)
+    ctx.stroke()
   }
 
   function drawLayoutFeatures(
@@ -224,19 +278,22 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
     }
 
     for (const f of layoutFeatures) {
+      const selected = selectedIds.has(f.id)
+
       if (f.type === 'sponsor' && f.points.length >= 2) {
         const a = f.points[0]!
         const b = f.points[1]!
         const pa = enuToMapPx(a.x, a.z, bounds, w, h)
         const pb = enuToMapPx(b.x, b.z, bounds, w, h)
         ctx.strokeStyle = hexFill(f.color, '#2a6f7a')
-        ctx.lineWidth = 3
+        ctx.lineWidth = selected ? 5 : 3
         ctx.beginPath()
         ctx.moveTo(pa.x, pa.y)
         ctx.lineTo(pb.x, pb.y)
         ctx.stroke()
         const mx = (pa.x + pb.x) / 2
         const my = (pa.y + pb.y) / 2
+        if (selected) drawSelectionRing(mx, my, 8)
         if (f.label) {
           ctx.fillStyle = '#a8b4c0'
           ctx.font = '9px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
@@ -274,6 +331,8 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
         ctx.lineWidth = 1.5
         ctx.strokeRect(x - 4, y - 4, 8, 8)
       }
+
+      if (selected) drawSelectionRing(x, y, 9)
     }
   }
 
@@ -283,6 +342,7 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
     const h = canvas.height
     const list = [...points.values()]
     const bounds = boundsFromPoints(list, courseMarks, layoutFeatures)
+    lastBounds = bounds
 
     ctx.fillStyle = '#12161c'
     ctx.fillRect(0, 0, w, h)
@@ -334,6 +394,31 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
     }
   }
 
+  function canvasLocal(ev: MouseEvent): { x: number; y: number } {
+    const rect = canvas.getBoundingClientRect()
+    const sx = canvas.width / Math.max(rect.width, 1)
+    const sy = canvas.height / Math.max(rect.height, 1)
+    return {
+      x: (ev.clientX - rect.left) * sx,
+      y: (ev.clientY - rect.top) * sy,
+    }
+  }
+
+  function onCanvasClick(ev: MouseEvent): void {
+    if (!interactive || clickListeners.size === 0) return
+    const { x, y } = canvasLocal(ev)
+    const { east, north } = mapPxToEnu(
+      x,
+      y,
+      lastBounds,
+      canvas.width,
+      canvas.height,
+    )
+    for (const cb of clickListeners) cb(east, north)
+  }
+
+  canvas.addEventListener('click', onCanvasClick)
+
   redraw()
 
   return {
@@ -354,11 +439,64 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
       }))
       redraw()
     },
+    setSelectedFeatureIds(ids: readonly string[]): void {
+      selectedIds = new Set(ids)
+      redraw()
+    },
+    setInteractive(on: boolean): void {
+      interactive = on
+      root.classList.toggle('ops-map--interactive', on)
+    },
+    setSizePx(next: number): void {
+      sizePx = Math.max(120, Math.floor(next))
+      canvas.width = sizePx
+      canvas.height = sizePx
+      root.style.width = `${sizePx}px`
+      redraw()
+    },
+    hitTestFeature(east, north, maxDistPx = 12): LayoutFeature | null {
+      const w = canvas.width
+      const h = canvas.height
+      const click = enuToMapPx(east, north, lastBounds, w, h)
+      let best: LayoutFeature | null = null
+      let bestD = maxDistPx
+      for (const f of layoutFeatures) {
+        for (const p of f.points) {
+          const px = enuToMapPx(p.x, p.z, lastBounds, w, h)
+          const d = Math.hypot(px.x - click.x, px.y - click.y)
+          if (d <= bestD) {
+            bestD = d
+            best = f
+          }
+        }
+        if (f.type === 'sponsor' && f.points.length >= 2) {
+          const a = enuToMapPx(f.points[0]!.x, f.points[0]!.z, lastBounds, w, h)
+          const b = enuToMapPx(f.points[1]!.x, f.points[1]!.z, lastBounds, w, h)
+          const mx = (a.x + b.x) / 2
+          const my = (a.y + b.y) / 2
+          const d = Math.hypot(mx - click.x, my - click.y)
+          if (d <= bestD) {
+            bestD = d
+            best = f
+          }
+        }
+      }
+      return best
+    },
+    onMapClick(cb): () => void {
+      clickListeners.add(cb)
+      return () => {
+        clickListeners.delete(cb)
+      }
+    },
     redraw,
     dispose(): void {
+      canvas.removeEventListener('click', onCanvasClick)
+      clickListeners.clear()
       points.clear()
       courseMarks = []
       layoutFeatures = []
+      selectedIds.clear()
       root.remove()
     },
   }

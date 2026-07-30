@@ -8,7 +8,7 @@ SCN draws fleet from **`poseBus`** (`src/pose/`) only — ENU meters `x=East, y=
 
 Do **not** call `gpsToEnu` for boats, subscribe to `telemetryBus` for positions, or invent calibration math here.
 
-**Course**, **sponsors**, and **countdown flags** are the exception for static world content: lat/lon waypoints are converted with GEO **`gpsToEnuAmsl` only** (no ECEF reimplementation in `src/scene/`). Call after `applyConfigOrigin` + EGM96. Fixtures also adapt into a shared **`WorldFeature[]`** → **`layoutFeatures`** list for the 2D map (and future editor); see `src/scene/features/`.
+**Course**, **sponsors**, and **countdown flags** are the exception for static world content: lat/lon waypoints are converted with GEO **`gpsToEnuAmsl` only** (no ECEF reimplementation in `src/scene/`). Call after `applyConfigOrigin` + EGM96. Fixtures also adapt into a shared **`WorldFeature[]`** → **`layoutFeatures`** list for the 2D map and **map feature editor**; see `src/scene/features/`.
 
 `telemetryBus` may be used for **packet counts only** in the stub HUD.
 
@@ -27,10 +27,12 @@ Mock ids: POVs from `povIds` (default `1`,`2`), boats from `boatIds` (default `2
 | `loadSponsors` / `mountSponsors` | Fetch/normalize sponsors JSON → GEO ENU → fixed world panels |
 | `loadCountdownFlags` / `mountCountdownFlags` | Fetch/normalize flags JSON → GEO ENU → poles + phase timer |
 | `loadBoatNames` / `normalizeBoatNames` | Fetch/normalize Unity category→id→name JSON → tag identity map |
-| `startStubHud(options)` | Ops overlay: mode + POV select + countdown + WS connection line + status + 2D map |
+| `startStubHud(options)` | Ops overlay: mode + POV select + countdown + editor toggle + WS + status + 2D map |
 | `formatConnectionStatus` | Compact `ws=…` / `ws=n/a (mock|replay)` string for HUD status |
 | `createMap2d()` | Top-down ENU East/North fleet panel (canvas 2D) + shared layout features |
 | `layoutFeatures` / `getLayoutFeatures` | Shared GPS→ENU world features (course/sponsors/flags adapters) |
+| `startMapFeatureEditor` | V1 world editor: place/select/delete/export; remounts 3D via scene |
+| `remountWorldFromFeatures` | Rebuild course/sponsors/flags from editable `WorldFeature[]` |
 | `createBoatEntity()` | Pose root + glTF/procedural visual + billboard tag |
 | `createBoatTag()` | Canvas sprite label (catalogue name + category tint, or `Boat {id}` stub) |
 | `createDroneCamera()` | PerspectiveCamera + ENU apply |
@@ -100,8 +102,9 @@ Clear color stays dark preview; OUT owns chroma later. Ambient + directional lig
 
 ## Stub HUD + 2D map
 
-- **HUD:** mode select (`mock` / `replay` / `live`) restarts TEL ingest via `onModeChange`. POV select lists `povIds` and calls `onPovChange` → scene `setActivePovId` (and calib device sync in `main`). Countdown Start / Pause / Reset / Restart → `onCountdownControl` → scene `controlCountdown`. Status shows mode, TEL counts, **connection line** (`ws drone=… boat=…` in live via `setConnectionStatus`, or `ws=n/a (mock|replay)` — never fake `open`), `pov=<active>  seen=…`, last active-drone ENU, and a multi-boat ENU line (`boats=N  21=(…) 22=(…)` truncated if long).
-- **Map:** plots `position.x` (East) vs `position.z` (North), north-up; auto-fits bounds to recent points + course marks with padding. Orange dots = course marks/gate ends.
+- **HUD:** mode select (`mock` / `replay` / `live`) restarts TEL ingest via `onModeChange`. POV select lists `povIds` and calls `onPovChange` → scene `setActivePovId` (and calib device sync in `main`). Countdown Start / Pause / Reset / Restart → `onCountdownControl` → scene `controlCountdown`. **Editor** checkbox (or `?editor=1`) opens the world feature editor. Status shows mode, TEL counts, **connection line** (`ws drone=… boat=…` in live via `setConnectionStatus`, or `ws=n/a (mock|replay)` — never fake `open`), `pov=<active>  seen=…`, last active-drone ENU, and a multi-boat ENU line (`boats=N  21=(…) 22=(…)` truncated if long).
+- **Map:** plots `position.x` (East) vs `position.z` (North), north-up; auto-fits bounds to recent points + shared layout features (marks, gates, sponsors, flags).
+- **World editor (4.2):** see `src/scene/features/README.md` — place/edit/delete features on the map; ENU→GPS via GEO `enuToGpsAmsl`; export `world-features.json`; remounts 3D course/sponsors/flags. No DB / GeoJSON import.
 
 ## Camera convention
 

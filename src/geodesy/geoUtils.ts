@@ -8,7 +8,7 @@
  */
 
 import { Vector3 } from 'three'
-import { amslToHae, relativeToHae } from './egm96.ts'
+import { amslToHae, haeToAmsl, relativeToHae } from './egm96.ts'
 import * as GeoOrigin from './geoOrigin.ts'
 import { WGS84 } from './geoOrigin.ts'
 
@@ -107,5 +107,90 @@ export function gpsToEnuBatch(
     const dy = y - GeoOrigin.ecefY
     const dz = z - GeoOrigin.ecefZ
     enuFromEcefDelta(dx, dy, dz, results[i]!)
+  }
+}
+
+export type GpsPoint = {
+  lat: number
+  lon: number
+  /** Altitude — HAE for `enuToGps`, AMSL for `enuToGpsAmsl`. */
+  alt: number
+}
+
+/** ECEF → geodetic (WGS84). Iterative latitude; lon via atan2. */
+function geodeticFromEcef(
+  x: number,
+  y: number,
+  z: number,
+): { lat: number; lon: number; altHAE: number } {
+  const lon = (Math.atan2(y, x) * 180) / Math.PI
+  const p = Math.sqrt(x * x + y * y)
+  if (p < 1e-12) {
+    const lat = z >= 0 ? 90 : -90
+    const altHAE = Math.abs(z) - A * Math.sqrt(1 - E_SQ)
+    return { lat, lon, altHAE }
+  }
+
+  let latRad = Math.atan2(z, p * (1 - E_SQ))
+  for (let i = 0; i < 8; i++) {
+    const sinLat = Math.sin(latRad)
+    const N = A / Math.sqrt(1.0 - E_SQ * sinLat * sinLat)
+    const alt = p / Math.cos(latRad) - N
+    const next = Math.atan2(z, p * (1 - (E_SQ * N) / (N + alt)))
+    if (Math.abs(next - latRad) < 1e-12) {
+      latRad = next
+      break
+    }
+    latRad = next
+  }
+
+  const sinLat = Math.sin(latRad)
+  const N = A / Math.sqrt(1.0 - E_SQ * sinLat * sinLat)
+  const altHAE = p / Math.cos(latRad) - N
+  return { lat: (latRad * 180) / Math.PI, lon, altHAE }
+}
+
+/**
+ * Local ENU (x=East, y=Up, z=North) → GPS with HAE altitude.
+ * Inverse of `gpsToEnu`. Unset origin → (0,0,0) and warn.
+ */
+export function enuToGps(
+  east: number,
+  up: number,
+  north: number,
+): GpsPoint {
+  if (!ensureOrigin()) return { lat: 0, lon: 0, alt: 0 }
+
+  // R^T · ENU — rows of R are East/North/Up in ECEF.
+  const dx =
+    GeoOrigin.m00 * east + GeoOrigin.m10 * north + GeoOrigin.m20 * up
+  const dy =
+    GeoOrigin.m01 * east + GeoOrigin.m11 * north + GeoOrigin.m21 * up
+  const dz =
+    GeoOrigin.m02 * east + GeoOrigin.m12 * north + GeoOrigin.m22 * up
+
+  const g = geodeticFromEcef(
+    GeoOrigin.ecefX + dx,
+    GeoOrigin.ecefY + dy,
+    GeoOrigin.ecefZ + dz,
+  )
+  return { lat: g.lat, lon: g.lon, alt: g.altHAE }
+}
+
+/**
+ * Local ENU → GPS with AMSL altitude (EGM96 bridge).
+ * Inverse of `gpsToEnuAmsl`.
+ */
+export function enuToGpsAmsl(
+  east: number,
+  up: number,
+  north: number,
+): GpsPoint {
+  const hae = enuToGps(east, up, north)
+  if (!GeoOrigin.isValid) return hae
+  return {
+    lat: hae.lat,
+    lon: hae.lon,
+    alt: haeToAmsl(hae.lat, hae.lon, hae.alt),
   }
 }

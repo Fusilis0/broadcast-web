@@ -24,8 +24,8 @@
 
 ## Current phase pointer
 
-**Active:** **Phase 4** — **4.2a done**; **4.2** map feature editor DSP issued (`DSP-SCN-20260730-02`).  
-**Last gate:** DSP-SCN-20260730-01 shared feature layout accepted (2026-07-30).
+**Active:** **Phase 4.2 done**; next **Phase 6.1** local RaceProject pack (`DSP-PLT-20260730-01`).  
+**Last gate:** DSP-SCN-20260730-02 map feature editor accepted (2026-07-30).
 
 ---
 
@@ -79,7 +79,7 @@
 | # | Work | Owner | Notes |
 | --- | --- | --- | --- |
 | 4.1 | Replay polish, reconnect — **Done** | TEL | |
-| 4.2 | **Map ops + feature editor** | SCN | **DSP issued** (`DSP-SCN-20260730-02`) |
+| 4.2 | **Map ops + feature editor** | SCN | **Done** (`DSP-SCN-20260730-02`) |
 | 4.2a | **Shared feature layout** | SCN+GEO | **Done** (`DSP-SCN-20260730-01`) |
 | 4.2b | Stream / larger 2D map graphic | SCN+OUT | Optional on-air 2D from same features |
 | 4.3 | Optional tiles/basemap under editor | SCN+GEO | Not required for air meshes |
@@ -111,9 +111,9 @@
 
 | # | Work | Owner | Notes |
 | --- | --- | --- | --- |
-| 6.1 | **RaceProject schema** + folder/JSON pack | PLT+SCN | Origin, fleet, features, output defaults |
+| 6.1 | **RaceProject schema** + folder/JSON pack | PLT+SCN | **DSP issued** (`DSP-PLT-20260730-01`) — local static; no DB |
 | 6.2 | Local pack CRUD UI (create/duplicate/save) | SCN+PLT | |
-| 6.3 | `?race=` / console loads pack | CON+PLT | Far PC via HTTPS |
+| 6.3 | `?race=` / console loads pack | CON+PLT | Included in 6.1 local DSP; HTTPS/far-PC later with host |
 | 6.4 | **Project API + database** | PLT | Persist JSON; revision metadata |
 | 6.5 | Auth roles (editor vs air-only) | PLT+CON | With console team |
 | 6.6 | Offline pack download / venue mode | PLT | QoL |

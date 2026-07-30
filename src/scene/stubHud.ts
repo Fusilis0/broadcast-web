@@ -45,6 +45,13 @@ export type StubHudOptions = {
   onCountdownControl?: (
     action: 'start' | 'pause' | 'reset' | 'restart',
   ) => void
+  /**
+   * Start with world editor open (`?editor=1` or explicit).
+   * Checkbox in HUD also toggles; notifies `onEditorToggle`.
+   */
+  editorInitiallyOpen?: boolean
+  /** Invoked when ops toggles the world editor checkbox. */
+  onEditorToggle?: (open: boolean) => void
 }
 
 export type StubHudHandle = {
@@ -61,6 +68,10 @@ export type StubHudHandle = {
   ) => void
   /** Shared ENU world features for the 2D map (marks/gates/sponsors/flags). */
   setLayoutFeatures: (features: readonly LayoutFeature[]) => void
+  /** Ops 2D map handle (editor attaches click tools). */
+  getMap: () => Map2dHandle
+  /** Sync editor checkbox without notifying (or with notify=true). */
+  setEditorOpen: (open: boolean, notify?: boolean) => void
   /** Telemetry WS / non-live connection line (Phase 3.4). */
   setConnectionStatus: (status: ConnectionStatusUi) => void
   stop: () => void
@@ -172,12 +183,39 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
     countdownRow.appendChild(btn)
   }
 
+  const editorRow = document.createElement('div')
+  editorRow.className = 'ops-hud__mode-row'
+  hud.appendChild(editorRow)
+
+  const editorLabel = document.createElement('label')
+  editorLabel.className = 'ops-hud__mode-label'
+  editorLabel.htmlFor = 'ops-world-editor'
+  editorLabel.textContent = 'editor'
+  editorRow.appendChild(editorLabel)
+
+  const editorCheck = document.createElement('input')
+  editorCheck.id = 'ops-world-editor'
+  editorCheck.type = 'checkbox'
+  editorCheck.className = 'ops-hud__checkbox'
+  editorCheck.title = 'World feature editor (also ?editor=1)'
+  editorCheck.checked = options.editorInitiallyOpen ?? false
+  editorRow.appendChild(editorCheck)
+
+  const editorHint = document.createElement('span')
+  editorHint.className = 'ops-hud__mode-hint'
+  editorHint.textContent = '?editor=1'
+  editorRow.appendChild(editorHint)
+
   const statusEl = document.createElement('pre')
   statusEl.className = 'ops-hud__status'
   hud.appendChild(statusEl)
 
   const map: Map2dHandle = createMap2d({ sizePx: 240 })
   root.appendChild(map.root)
+
+  editorCheck.addEventListener('change', () => {
+    options.onEditorToggle?.(editorCheck.checked)
+  })
 
   const counts = { drone: 0, boat: 0, stream_anchor: 0 }
   let lastDroneEnu = '—'
@@ -328,6 +366,11 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
     },
     setLayoutFeatures(features): void {
       map.setLayoutFeatures(features)
+    },
+    getMap: () => map,
+    setEditorOpen(open, notify = false): void {
+      editorCheck.checked = open
+      if (notify) options.onEditorToggle?.(open)
     },
     setConnectionStatus(status: ConnectionStatusUi): void {
       connectionStatus = status

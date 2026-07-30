@@ -7,6 +7,7 @@
 - Phase: Phase 4.2 — Map ops + feature editor (V1)
 - Related: `docs/architecture/race-projects-and-world-authoring.md` §5; prior `DSP-SCN-20260730-01`
 - BW ask: draw/edit world features on the 2D map; update shared layout + refresh 3D; export JSON; no DB/NDI
+- **Status: DONE** (worker report accepted by BW 2026-07-30)
 
 ## Goal
 

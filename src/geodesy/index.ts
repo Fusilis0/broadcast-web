@@ -5,6 +5,7 @@ export {
   getIsLoaded as isEgm96Loaded,
   getUndulation,
   amslToHae,
+  haeToAmsl,
   relativeToHae,
   resetForTests as resetEgm96ForTests,
 } from './egm96.ts'
@@ -21,6 +22,14 @@ export {
   WGS84,
 } from './geoOrigin.ts'
 
-export { gpsToEnu, gpsToEnuAmsl, gpsToEnuRelative, gpsToEnuBatch } from './geoUtils.ts'
+export {
+  gpsToEnu,
+  gpsToEnuAmsl,
+  gpsToEnuRelative,
+  gpsToEnuBatch,
+  enuToGps,
+  enuToGpsAmsl,
+  type GpsPoint,
+} from './geoUtils.ts'
 
 export { applyConfigOrigin, type ConfigOrigin } from './applyConfigOrigin.ts'

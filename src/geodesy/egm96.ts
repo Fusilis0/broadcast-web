@@ -155,6 +155,11 @@ export function amslToHae(lat: number, lon: number, altAMSL: number): number {
   return altAMSL + getUndulation(lat, lon)
 }
 
+/** HAE → AMSL: AMSL = HAE − N */
+export function haeToAmsl(lat: number, lon: number, altHAE: number): number {
+  return altHAE - getUndulation(lat, lon)
+}
+
 /** Relative takeoff altitude → HAE: AMSL = takeoffAMSL + relativeAlt; HAE = AMSL + N */
 export function relativeToHae(
   lat: number,
