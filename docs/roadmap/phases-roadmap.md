@@ -24,9 +24,8 @@
 
 ## Current phase pointer
 
-**Active:** **Phase 4** world authoring — **4.2 / 4.2a** shared features + map (DSP issued). Phase **3 complete** (Milestone C 2026-07-30).  
-**Last gate:** Phase 3.5 chroma studio **Pass** (OBS; 2026-07-30).  
-**Design:** Projects + map editor + NDI optimum — Phases 4 / 6 / 7.
+**Active:** **Phase 4** — **4.2a done**; **4.2** map feature editor DSP issued (`DSP-SCN-20260730-02`).  
+**Last gate:** DSP-SCN-20260730-01 shared feature layout accepted (2026-07-30).
 
 ---
 
@@ -80,8 +79,8 @@
 | # | Work | Owner | Notes |
 | --- | --- | --- | --- |
 | 4.1 | Replay polish, reconnect — **Done** | TEL | |
-| 4.2 | **Map ops + feature editor** | SCN | Draw/edit marks, gates, sponsors, S/F, arrows; live 3D preview |
-| 4.2a | **Shared feature layout** | SCN+GEO | One ENU feature list → 3D **and** 2D map — **DSP issued** (`DSP-SCN-20260730-01`) |
+| 4.2 | **Map ops + feature editor** | SCN | **DSP issued** (`DSP-SCN-20260730-02`) |
+| 4.2a | **Shared feature layout** | SCN+GEO | **Done** (`DSP-SCN-20260730-01`) |
 | 4.2b | Stream / larger 2D map graphic | SCN+OUT | Optional on-air 2D from same features |
 | 4.3 | Optional tiles/basemap under editor | SCN+GEO | Not required for air meshes |
 | 4.4 | World modeling + **GeoJSON import/export** | SCN | geojson.io compatibility |

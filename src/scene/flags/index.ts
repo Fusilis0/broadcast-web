@@ -18,6 +18,7 @@ export {
   buildCountdownFlagsLayout,
   DEFAULT_FLAGS_URL,
   type CountdownFlagsHandle,
+  type FlagsHandle,
   type LoadCountdownFlagsOptions,
 } from './loadCountdownFlags.ts'
 export { FLAG_WATER_Y, faceFlat } from './flagMeshes.ts'

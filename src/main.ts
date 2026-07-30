@@ -5,7 +5,11 @@ import {
   applyDeeplinkToBoot,
   parseConsoleDeeplink,
 } from './console/index.ts'
-import { applyConfigOrigin, ensureEgm96Loaded } from './geodesy/index.ts'
+import {
+  applyConfigOrigin,
+  ensureEgm96Loaded,
+  gpsToEnuAmsl,
+} from './geodesy/index.ts'
 import {
   applyOutputMode,
   normalizeOutputMode,
@@ -19,7 +23,14 @@ import {
   type WhepUnderlayHandle,
 } from './output/index.ts'
 import { startPosePipeline, stopPosePipeline } from './pose/index.ts'
-import { startScene, startStubHud, type SceneHandle } from './scene/index.ts'
+import {
+  layoutFeatures,
+  setLayoutFeatures,
+  startScene,
+  startStubHud,
+  type SceneHandle,
+  type WorldFeature,
+} from './scene/index.ts'
 import {
   startTelemetryIngest,
   type IngestHandle,
@@ -176,9 +187,21 @@ void (async () => {
 
   // Course + sponsors + flags need origin + EGM96 (gpsToEnuAmsl). Static — not poseBus-driven.
   const course = await scene.loadCourseFromUrl(courseUrl)
-  if (course) hud.setCourseMarks(course.mapPoints)
-  await scene.loadSponsorsFromUrl(sponsorsUrl)
-  await scene.loadCountdownFlagsFromUrl(flagsUrl)
+  const sponsors = await scene.loadSponsorsFromUrl(sponsorsUrl)
+  const flags = await scene.loadCountdownFlagsFromUrl(flagsUrl)
+
+  // Shared GPS→ENU layout: one list for 2D map (+ future editor). 3D mounts from loaders above.
+  const world: WorldFeature[] = [
+    ...(course?.worldFeatures ?? []),
+    ...(sponsors?.worldFeatures ?? []),
+    ...(flags?.worldFeatures ?? []),
+  ]
+  const layout = layoutFeatures(world, (lat, lon, alt) => {
+    const v = gpsToEnuAmsl(lat, lon, alt)
+    return { x: v.x, y: v.y, z: v.z }
+  })
+  setLayoutFeatures(layout)
+  hud.setLayoutFeatures(layout)
 
   ingest = await startTelemetryIngest({
     mode: config.telemetryMode,

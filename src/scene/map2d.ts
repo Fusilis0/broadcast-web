@@ -1,3 +1,5 @@
+import type { LayoutFeature } from './features/types.ts'
+import { pairLayoutGates } from './features/layoutFeatures.ts'
 import type { EnuPosition, PoseEvent, PoseKind } from '../pose/types.ts'
 
 export type MapBounds = {
@@ -15,7 +17,7 @@ export type MapPoint = {
   up: number
 }
 
-/** Static course mark / gate end for 2D overlay (not a pose). */
+/** Static course mark / gate end for 2D overlay (not a pose). Legacy simple dots. */
 export type MapCourseMark = {
   name: string
   east: number
@@ -25,6 +27,18 @@ export type MapCourseMark = {
 const DEFAULT_HALF_EXTENT_M = 25
 const PADDING_PX = 20
 
+function collectLayoutEnu(
+  features: readonly LayoutFeature[],
+): Array<{ east: number; north: number }> {
+  const out: Array<{ east: number; north: number }> = []
+  for (const f of features) {
+    for (const p of f.points) {
+      out.push({ east: p.x, north: p.z })
+    }
+  }
+  return out
+}
+
 /**
  * Auto-fit ENU East/North AABB with padding; single/empty → fixed half-extent about centroid (or origin).
  * North-up panel: +N → top, +E → right.
@@ -32,8 +46,14 @@ const PADDING_PX = 20
 export function boundsFromPoints(
   points: readonly MapPoint[],
   courseMarks: readonly MapCourseMark[] = [],
+  layoutFeatures: readonly LayoutFeature[] = [],
 ): MapBounds {
-  if (points.length === 0 && courseMarks.length === 0) {
+  const layoutPts = collectLayoutEnu(layoutFeatures)
+  if (
+    points.length === 0 &&
+    courseMarks.length === 0 &&
+    layoutPts.length === 0
+  ) {
     return {
       minE: -DEFAULT_HALF_EXTENT_M,
       maxE: DEFAULT_HALF_EXTENT_M,
@@ -58,10 +78,16 @@ export function boundsFromPoints(
     minN = Math.min(minN, m.north)
     maxN = Math.max(maxN, m.north)
   }
+  for (const m of layoutPts) {
+    minE = Math.min(minE, m.east)
+    maxE = Math.max(maxE, m.east)
+    minN = Math.min(minN, m.north)
+    maxN = Math.max(maxN, m.north)
+  }
 
   if (maxE - minE < 1e-3 && maxN - minN < 1e-3) {
-    const e = points[0]?.east ?? courseMarks[0]!.east
-    const n = points[0]?.north ?? courseMarks[0]!.north
+    const e = points[0]?.east ?? courseMarks[0]?.east ?? layoutPts[0]!.east
+    const n = points[0]?.north ?? courseMarks[0]?.north ?? layoutPts[0]!.north
     return {
       minE: e - DEFAULT_HALF_EXTENT_M,
       maxE: e + DEFAULT_HALF_EXTENT_M,
@@ -98,10 +124,36 @@ export function enuToMapPx(
   return { x, y }
 }
 
+function hexFill(color: number | undefined, fallback: string): string {
+  if (color === undefined || !Number.isFinite(color)) return fallback
+  const n = Math.max(0, Math.min(0xffffff, Math.floor(color)))
+  return `#${n.toString(16).padStart(6, '0')}`
+}
+
+function drawDiamond(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  r: number,
+  fill: string,
+): void {
+  ctx.fillStyle = fill
+  ctx.beginPath()
+  ctx.moveTo(x, y - r)
+  ctx.lineTo(x + r, y)
+  ctx.lineTo(x, y + r)
+  ctx.lineTo(x - r, y)
+  ctx.closePath()
+  ctx.fill()
+}
+
 export type Map2dHandle = {
   root: HTMLElement
   updatePose: (pose: PoseEvent) => void
+  /** @deprecated Prefer `setLayoutFeatures` for gates/sponsors/flags. */
   setCourseMarks: (marks: readonly MapCourseMark[]) => void
+  /** Shared ENU world features (marks, gates, sponsors, flags, stubs). */
+  setLayoutFeatures: (features: readonly LayoutFeature[]) => void
   redraw: () => void
   dispose: () => void
 }
@@ -113,7 +165,7 @@ export type Map2dOptions = {
 
 /**
  * Simple top-down fleet map from poseBus ENU only (x=E, z=N). Not Three.js.
- * Optional static course mark dots (orange).
+ * Shared layout features: marks, gate segments, sponsor footprints, flag icons.
  */
 export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
   const sizePx = options.sizePx ?? 240
@@ -136,6 +188,7 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
   const ctx = canvas.getContext('2d')
   const points = new Map<string, MapPoint>()
   let courseMarks: MapCourseMark[] = []
+  let layoutFeatures: LayoutFeature[] = []
 
   function toMapPoint(pose: PoseEvent): MapPoint {
     const pos: EnuPosition = pose.position
@@ -148,12 +201,88 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
     }
   }
 
+  function drawLayoutFeatures(
+    bounds: MapBounds,
+    w: number,
+    h: number,
+  ): void {
+    if (!ctx) return
+
+    // Gate segments under marks.
+    for (const gate of pairLayoutGates(layoutFeatures)) {
+      const a = gate.left.points[0]
+      const b = gate.right.points[0]
+      if (!a || !b) continue
+      const pa = enuToMapPx(a.x, a.z, bounds, w, h)
+      const pb = enuToMapPx(b.x, b.z, bounds, w, h)
+      ctx.strokeStyle = hexFill(gate.left.color ?? gate.right.color, '#00ff80')
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.moveTo(pa.x, pa.y)
+      ctx.lineTo(pb.x, pb.y)
+      ctx.stroke()
+    }
+
+    for (const f of layoutFeatures) {
+      if (f.type === 'sponsor' && f.points.length >= 2) {
+        const a = f.points[0]!
+        const b = f.points[1]!
+        const pa = enuToMapPx(a.x, a.z, bounds, w, h)
+        const pb = enuToMapPx(b.x, b.z, bounds, w, h)
+        ctx.strokeStyle = hexFill(f.color, '#2a6f7a')
+        ctx.lineWidth = 3
+        ctx.beginPath()
+        ctx.moveTo(pa.x, pa.y)
+        ctx.lineTo(pb.x, pb.y)
+        ctx.stroke()
+        const mx = (pa.x + pb.x) / 2
+        const my = (pa.y + pb.y) / 2
+        if (f.label) {
+          ctx.fillStyle = '#a8b4c0'
+          ctx.font = '9px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
+          ctx.fillText(f.label, mx + 4, my - 2)
+        }
+        continue
+      }
+
+      const p0 = f.points[0]
+      if (!p0) continue
+      const { x, y } = enuToMapPx(p0.x, p0.z, bounds, w, h)
+
+      if (f.type === 'mark') {
+        ctx.fillStyle = hexFill(f.color, '#ffb200')
+        ctx.beginPath()
+        ctx.arc(x, y, 3.5, 0, Math.PI * 2)
+        ctx.fill()
+      } else if (f.type === 'gateLeft' || f.type === 'gateRight') {
+        ctx.fillStyle = hexFill(f.color, '#00ff80')
+        ctx.beginPath()
+        ctx.arc(x, y, 2.5, 0, Math.PI * 2)
+        ctx.fill()
+      } else if (f.type === 'flagP1') {
+        drawDiamond(ctx, x, y, 5, '#f0f0f0')
+      } else if (f.type === 'flagP2') {
+        drawDiamond(ctx, x, y, 5, '#ff8c00')
+      } else if (
+        f.type === 'start' ||
+        f.type === 'finish' ||
+        f.type === 'arrow' ||
+        f.type === 'rotation'
+      ) {
+        // Stub glyphs for future authoring.
+        ctx.strokeStyle = '#8aa0b8'
+        ctx.lineWidth = 1.5
+        ctx.strokeRect(x - 4, y - 4, 8, 8)
+      }
+    }
+  }
+
   function redraw(): void {
     if (!ctx) return
     const w = canvas.width
     const h = canvas.height
     const list = [...points.values()]
-    const bounds = boundsFromPoints(list, courseMarks)
+    const bounds = boundsFromPoints(list, courseMarks, layoutFeatures)
 
     ctx.fillStyle = '#12161c'
     ctx.fillRect(0, 0, w, h)
@@ -172,13 +301,18 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
     ctx.fillText('N', w / 2 - 4, 12)
     ctx.fillText('E', w - 12, h / 2 + 3)
 
-    // Course marks under fleet icons.
-    for (const m of courseMarks) {
-      const { x, y } = enuToMapPx(m.east, m.north, bounds, w, h)
-      ctx.fillStyle = '#ffb200'
-      ctx.beginPath()
-      ctx.arc(x, y, 3.5, 0, Math.PI * 2)
-      ctx.fill()
+    // Shared world features under fleet icons.
+    if (layoutFeatures.length > 0) {
+      drawLayoutFeatures(bounds, w, h)
+    } else {
+      // Legacy course-mark dots when layout not set.
+      for (const m of courseMarks) {
+        const { x, y } = enuToMapPx(m.east, m.north, bounds, w, h)
+        ctx.fillStyle = '#ffb200'
+        ctx.beginPath()
+        ctx.arc(x, y, 3.5, 0, Math.PI * 2)
+        ctx.fill()
+      }
     }
 
     for (const p of list) {
@@ -212,10 +346,19 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
       courseMarks = marks.map((m) => ({ ...m }))
       redraw()
     },
+    setLayoutFeatures(features: readonly LayoutFeature[]): void {
+      layoutFeatures = features.map((f) => ({
+        ...f,
+        points: f.points.map((p) => ({ ...p })),
+        rawPoints: f.rawPoints.map((p) => ({ ...p })),
+      }))
+      redraw()
+    },
     redraw,
     dispose(): void {
       points.clear()
       courseMarks = []
+      layoutFeatures = []
       root.remove()
     },
   }

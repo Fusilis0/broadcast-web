@@ -5,6 +5,7 @@ import {
   type LiveWsStatus,
 } from '../telemetry/index.ts'
 import { formatBoatEnuStatus } from './fleetRegistry.ts'
+import type { LayoutFeature } from './features/types.ts'
 import { createMap2d, type Map2dHandle } from './map2d.ts'
 import { formatPovStatus, resolvePovIdList } from './povSwitcher.ts'
 
@@ -54,10 +55,12 @@ export type StubHudHandle = {
   setPovIds: (povIds: readonly string[], activePovId?: string) => void
   /** Sync active POV label without firing `onPovChange`. */
   setActivePovId: (povId: string) => void
-  /** Static course mark dots on the 2D map (ENU east/north). */
+  /** Static course mark dots on the 2D map (ENU east/north). Legacy. */
   setCourseMarks: (
     marks: readonly { name: string; x: number; z: number }[],
   ) => void
+  /** Shared ENU world features for the 2D map (marks/gates/sponsors/flags). */
+  setLayoutFeatures: (features: readonly LayoutFeature[]) => void
   /** Telemetry WS / non-live connection line (Phase 3.4). */
   setConnectionStatus: (status: ConnectionStatusUi) => void
   stop: () => void
@@ -322,6 +325,9 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
       map.setCourseMarks(
         marks.map((m) => ({ name: m.name, east: m.x, north: m.z })),
       )
+    },
+    setLayoutFeatures(features): void {
+      map.setLayoutFeatures(features)
     },
     setConnectionStatus(status: ConnectionStatusUi): void {
       connectionStatus = status

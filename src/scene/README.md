@@ -8,7 +8,7 @@ SCN draws fleet from **`poseBus`** (`src/pose/`) only — ENU meters `x=East, y=
 
 Do **not** call `gpsToEnu` for boats, subscribe to `telemetryBus` for positions, or invent calibration math here.
 
-**Course**, **sponsors**, and **countdown flags** are the exception for static world content: lat/lon waypoints are converted with GEO **`gpsToEnuAmsl` only** (no ECEF reimplementation in `src/scene/`). Call after `applyConfigOrigin` + EGM96.
+**Course**, **sponsors**, and **countdown flags** are the exception for static world content: lat/lon waypoints are converted with GEO **`gpsToEnuAmsl` only** (no ECEF reimplementation in `src/scene/`). Call after `applyConfigOrigin` + EGM96. Fixtures also adapt into a shared **`WorldFeature[]`** → **`layoutFeatures`** list for the 2D map (and future editor); see `src/scene/features/`.
 
 `telemetryBus` may be used for **packet counts only** in the stub HUD.
 
@@ -29,7 +29,8 @@ Mock ids: POVs from `povIds` (default `1`,`2`), boats from `boatIds` (default `2
 | `loadBoatNames` / `normalizeBoatNames` | Fetch/normalize Unity category→id→name JSON → tag identity map |
 | `startStubHud(options)` | Ops overlay: mode + POV select + countdown + WS connection line + status + 2D map |
 | `formatConnectionStatus` | Compact `ws=…` / `ws=n/a (mock|replay)` string for HUD status |
-| `createMap2d()` | Top-down ENU East/North fleet panel (canvas 2D) + optional course dots |
+| `createMap2d()` | Top-down ENU East/North fleet panel (canvas 2D) + shared layout features |
+| `layoutFeatures` / `getLayoutFeatures` | Shared GPS→ENU world features (course/sponsors/flags adapters) |
 | `createBoatEntity()` | Pose root + glTF/procedural visual + billboard tag |
 | `createBoatTag()` | Canvas sprite label (catalogue name + category tint, or `Boat {id}` stub) |
 | `createDroneCamera()` | PerspectiveCamera + ENU apply |

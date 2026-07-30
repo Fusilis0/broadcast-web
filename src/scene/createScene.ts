@@ -13,6 +13,7 @@ import {
   loadCourse,
   type CourseHandle,
 } from './course/index.ts'
+import { clearLayoutFeatures } from './features/layoutStore.ts'
 import { createDroneCamera, TEMP_HFOV_DEG } from './droneCamera.ts'
 import { boatIdAllowSet, isAllowedBoatId } from './fleetRegistry.ts'
 import {
@@ -24,7 +25,7 @@ import {
 } from './povSwitcher.ts'
 import {
   loadCountdownFlags,
-  type CountdownFlagsHandle,
+  type FlagsHandle,
 } from './flags/index.ts'
 import {
   loadSponsors,
@@ -89,7 +90,7 @@ export type SceneHandle = {
    */
   loadCountdownFlagsFromUrl: (
     url?: string,
-  ) => Promise<CountdownFlagsHandle | null>
+  ) => Promise<FlagsHandle | null>
   /**
    * Load boat name/colour catalogue and apply to existing + future tags.
    * Safe anytime after `startScene` (before or after boats spawn).
@@ -143,7 +144,7 @@ export function startScene(options: SceneOptions): SceneHandle {
   let boatNames: BoatNamesCatalogue = new Map()
   let course: CourseHandle | null = null
   let sponsors: SponsorsHandle | null = null
-  let countdownFlags: CountdownFlagsHandle | null = null
+  let countdownFlags: FlagsHandle | null = null
   const clock = new THREE.Clock()
 
   function applyCatalogueToBoat(boat: BoatEntityHandle): void {
@@ -266,7 +267,7 @@ export function startScene(options: SceneOptions): SceneHandle {
     },
     async loadCountdownFlagsFromUrl(
       url?: string,
-    ): Promise<CountdownFlagsHandle | null> {
+    ): Promise<FlagsHandle | null> {
       if (stopped) return null
       countdownFlags?.dispose()
       countdownFlags = null
@@ -311,6 +312,7 @@ export function startScene(options: SceneOptions): SceneHandle {
       sponsors = null
       countdownFlags?.dispose()
       countdownFlags = null
+      clearLayoutFeatures()
       boatNames = new Map()
       lastPoseByPovId.clear()
       for (const boat of boats.values()) {

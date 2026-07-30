@@ -1,26 +1,24 @@
 # SCN_MEMO
 
-**Last updated:** 2026-07-28  
-**Status:** Idle — 3.4 accepted; awaiting BW next slice
+**Last updated:** 2026-07-30  
+**Status:** Active — 4.2a done; 4.2 map editor DSP issued
 
 ## Focus
-Ops HUD connection status landed; Phase 2 content complete.
+Phase 4 world authoring — shared features landed; next map editor.
 
 ## Decisions
-- Owns: `src/scene/`, `src/assets/`, stub HUD, 2D map; no geo math / chroma / NDI
-- **2.1–2.7 DONE**
-- **3.4 DONE** (`DSP-SCN-20260727-07`): HUD shows live `ws drone=… boat=…` via ingest status; mock/replay `ws=n/a (mode)`; POV change syncs CAL device in `main`
-- Thin TEL expose only (`getLiveStatus` / `onLiveStatus`) — no second bus
+- Owns: `src/scene/`, `src/assets/`, stub HUD, 2D map, features; no chroma/NDI/DB
+- **4.2a DONE:** `WorldFeature` / `LayoutFeature` + adapters; `layoutFeatures` + `gpsToEnuAmsl`; 2D map shows marks, gates, sponsors, flags
+- `getLayoutFeatures()` / `setLayoutFeatures()` ready for editor
+- Demo still boots via `courseUrl` / `sponsorsUrl` / `flagsUrl`
 
 ## Issued dispatches
-- Through **DSP-SCN-20260727-07-connection-calib-hud** — **DONE** → `dispatches/done/`
-
-## Handoffs
-—
+- **DSP-SCN-20260730-01-shared-feature-layout** — **DONE**
+- **DSP-SCN-20260730-02-map-feature-editor** — active (see `dispatches/active/`)
 
 ## Blockers
 - None
 
 ## Next
-1. BW routes **3.6** CON or other SCN polish
-2. Human: **3.5** studio Results when ready
+1. Worker: map feature editor DSP
+2. Later: 4.2b stream PiP; 3D-only from LayoutFeature; start/finish/arrow meshes

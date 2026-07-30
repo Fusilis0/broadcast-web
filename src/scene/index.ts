@@ -67,6 +67,21 @@ export {
   type MapCourseMark,
 } from './map2d.ts'
 export {
+  adaptCourseToFeatures,
+  adaptSponsorsToFeatures,
+  adaptFlagsToFeatures,
+  layoutFeatures,
+  pairLayoutGates,
+  FEATURE_WATER_Y,
+  getLayoutFeatures,
+  setLayoutFeatures,
+  clearLayoutFeatures,
+  type WorldFeature,
+  type WorldFeatureType,
+  type LayoutFeature,
+  type GpsToEnuAmslFn as FeatureGpsToEnuAmslFn,
+} from './features/index.ts'
+export {
   loadCourse,
   mountCourse,
   normalizeCourse,

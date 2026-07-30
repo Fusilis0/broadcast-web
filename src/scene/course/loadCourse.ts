@@ -1,5 +1,7 @@
 import * as THREE from 'three'
 import { gpsToEnuAmsl } from '../../geodesy/index.ts'
+import { adaptCourseToFeatures } from '../features/adapters.ts'
+import type { WorldFeature } from '../features/types.ts'
 import { createBuoyMarkers, type BuoyMarkersHandle } from './buoyMarkers.ts'
 import { buildCourseLayout } from './courseLayout.ts'
 import { createCourseLines, type CourseLinesHandle } from './courseLines.ts'
@@ -12,6 +14,8 @@ export type CourseHandle = {
   root: THREE.Group
   /** Marks + gate ends at water Y (for 2D map overlay). */
   mapPoints: readonly CourseEnuPoint[]
+  /** GPS-space features for shared layout (pre-GEO). */
+  worldFeatures: readonly WorldFeature[]
   dispose: () => void
 }
 
@@ -87,6 +91,7 @@ export function mountCourse(
   return {
     root,
     mapPoints: buoyPoints,
+    worldFeatures: adaptCourseToFeatures(course),
     dispose(): void {
       scene.remove(root)
       lines?.dispose()

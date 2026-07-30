@@ -1,5 +1,7 @@
 import * as THREE from 'three'
 import { gpsToEnuAmsl } from '../../geodesy/index.ts'
+import { adaptFlagsToFeatures } from '../features/adapters.ts'
+import type { WorldFeature } from '../features/types.ts'
 import { createCountdownFlagsController } from './countdownController.ts'
 import { normalizeCountdownFlags } from './normalizeCountdownFlags.ts'
 import type {
@@ -10,6 +12,11 @@ import type {
 import type { CountdownFlagsHandle } from './countdownController.ts'
 
 export const DEFAULT_FLAGS_URL = '/fixtures/flags/demo-istanbul-countdown.json'
+
+export type FlagsHandle = CountdownFlagsHandle & {
+  /** GPS-space features for shared layout (pre-GEO). */
+  worldFeatures: readonly WorldFeature[]
+}
 
 export type { CountdownFlagsHandle }
 
@@ -44,7 +51,7 @@ export function buildCountdownFlagsLayout(
  */
 export async function loadCountdownFlags(
   options: LoadCountdownFlagsOptions,
-): Promise<CountdownFlagsHandle | null> {
+): Promise<FlagsHandle | null> {
   const url = options.url?.trim() || DEFAULT_FLAGS_URL
   let raw: unknown
   try {
@@ -76,7 +83,7 @@ export function mountCountdownFlags(
     const v = gpsToEnuAmsl(lat, lon, alt)
     return { x: v.x, y: v.y, z: v.z }
   },
-): CountdownFlagsHandle {
+): FlagsHandle {
   const layout = buildCountdownFlagsLayout(data, convert)
   const handle = createCountdownFlagsController(layout)
   scene.add(handle.root)
@@ -85,6 +92,7 @@ export function mountCountdownFlags(
   const innerDispose = handle.dispose.bind(handle)
   return {
     ...handle,
+    worldFeatures: adaptFlagsToFeatures(data),
     dispose(): void {
       scene.remove(handle.root)
       innerDispose()

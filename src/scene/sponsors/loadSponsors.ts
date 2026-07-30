@@ -1,5 +1,7 @@
 import * as THREE from 'three'
 import { gpsToEnuAmsl } from '../../geodesy/index.ts'
+import { adaptSponsorsToFeatures } from '../features/adapters.ts'
+import type { WorldFeature } from '../features/types.ts'
 import {
   createSponsorBillboard,
   type SponsorBillboardHandle,
@@ -14,6 +16,8 @@ export type SponsorsHandle = {
   root: THREE.Group
   /** Midpoints at water Y (optional 2D map ticks). */
   mapPoints: readonly { x: number; y: number; z: number; id: string }[]
+  /** GPS-space features for shared layout (pre-GEO). */
+  worldFeatures: readonly WorldFeature[]
   dispose: () => void
 }
 
@@ -90,6 +94,7 @@ export async function mountSponsors(
   return {
     root,
     mapPoints,
+    worldFeatures: adaptSponsorsToFeatures(data),
     dispose(): void {
       scene.remove(root)
       for (const p of panels) p.dispose()

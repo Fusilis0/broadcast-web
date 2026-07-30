@@ -6,6 +6,7 @@
 - Priority: P0
 - Phase: Phase 4.2a — Shared feature layout (foundation for map editor + RaceProject)
 - Related: `docs/architecture/race-projects-and-world-authoring.md` §4
+- **Status: DONE** (worker report accepted by BW 2026-07-30) — Phase 4.2a
 - BW ask: one ENU feature list feeds **3D and 2D**; keep existing fixture URLs working via adapter; no full draw-editor yet; no DB/NDI
 
 ## Goal
