@@ -253,9 +253,19 @@ export function startScene(options: SceneOptions): SceneHandle {
       const height = Math.max(1, lockedOut.height | 0)
       viewH = height
       drone.setAspect(width / height)
+      // updateStyle false — then force 1:1 CSS px so the window cannot
+      // scale the bitmap (barcode must stay fixed on screen and on NDI).
       renderer.setSize(width, height, false)
+      const el = renderer.domElement
+      el.style.width = `${width}px`
+      el.style.height = `${height}px`
+      el.style.maxWidth = 'none'
+      el.style.maxHeight = 'none'
+      el.style.objectFit = 'fill'
+      options.container.classList.add('studio-shell')
       return
     }
+    options.container.classList.remove('studio-shell')
     const width = window.innerWidth
     const height = Math.max(window.innerHeight, 1)
     viewH = height

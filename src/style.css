@@ -44,9 +44,25 @@ body.output-transparent,
   display: block;
   width: 100%;
   height: 100%;
-  /* Studio locks buffer to 1920×1080; letterbox if the window aspect differs */
-  object-fit: contain;
   background: transparent;
+}
+
+/*
+ * Electron studio: canvas stays native 1920×1080 CSS px (inline styles).
+ * Do not stretch to the window — that was shrinking/growing the timecode.
+ */
+#app.studio-shell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  background: #0a0a0a;
+}
+
+#app.studio-shell > canvas {
+  width: auto;
+  height: auto;
+  flex-shrink: 0;
 }
 
 /* SCN ops overlay — pointer-events only on mode control */
