@@ -1,17 +1,39 @@
 # broadcast-web desktop (studio shell)
 
-Minimal **Electron** shell that loads the existing SPA. Path **A** scaffold for Phase **7.3** — **no NDI SDK** and no frame sender in this slice.
+**Electron** shell that loads the existing SPA and publishes a **named alpha NDI** source (path **A**, Phase **7.3b**).
 
-Product contract: [`../docs/architecture/ndi-alpha-electron.md`](../docs/architecture/ndi-alpha-electron.md).
+Product contract: [`../docs/architecture/ndi-alpha-electron.md`](../docs/architecture/ndi-alpha-electron.md).  
+vMix ingest: [`../docs/ops/vmix-ndi-alpha-runbook.md`](../docs/ops/vmix-ndi-alpha-runbook.md).
 
 ## Shell vs Chrome chroma air
 
 | Path | When | How |
 | --- | --- | --- |
 | **Chrome + chroma** (interim air) | Shows today | [`../docs/ops/air-runbook.md`](../docs/ops/air-runbook.md) — `npm run dev` in Chrome, `outputMode=chroma`, OBS/vMix window capture + green key |
-| **Electron studio shell** (this folder) | Studio path A scaffold | Load SPA in Electron; later slices attach named **alpha** NDI |
+| **Electron + alpha NDI** (this folder) | Studio path A | SPA in Electron; WebGL readback → BGRA → NDI (`grandi`) |
 
-Default product remains the browser SPA. Do not treat Electron as required for current air.
+Default product remains the browser SPA. Electron is the **studio** path.
+
+## NDI
+
+| Item | Value |
+| --- | --- |
+| Binding | [`grandi`](https://www.npmjs.com/package/grandi) ^2 (NDI SDK 6, Node-API) |
+| Default source name | `broadcast-web` → appears as `HOSTNAME (broadcast-web)` |
+| Pixel path | WebGL `readPixels` RGBA → main converts to top-down **BGRA** (straight alpha) |
+| Clear mode | Prefer `outputMode=transparent` (alpha 0 plate; opaque AR + timecode) |
+
+### Overrides
+
+```bash
+# Windows PowerShell
+$env:BROADCAST_NDI_NAME="Broadcast AR"; npm run desktop:dev
+```
+
+```bash
+npm run desktop:dev -- --ndi-name=BroadcastAR
+npm run desktop:dev -- --no-ndi
+```
 
 ## Setup
 
@@ -22,6 +44,8 @@ npm install
 npm install --prefix desktop
 ```
 
+`grandi` downloads/bundles the NDI runtime for the host platform (do not use `--omit=optional`).
+
 ## Run — SPA in Electron (dev)
 
 Terminal 1 — Vite:
@@ -30,26 +54,25 @@ Terminal 1 — Vite:
 npm run dev
 ```
 
-Terminal 2 — shell (loads `http://127.0.0.1:5173`):
+Terminal 2 — shell (loads `http://127.0.0.1:5173`, starts NDI):
 
 ```bash
 npm run desktop:dev
 ```
 
-Or from this folder: `npm run start:dev`.
-
-Optional race / chroma query (still useful for interim testing inside the shell):
+Studio alpha plate URL:
 
 ```text
-http://127.0.0.1:5173/?race=demo-istanbul&outputMode=chroma
+http://127.0.0.1:5173/?race=demo-istanbul&outputMode=transparent
 ```
 
-Override URL:
+Or set:
 
 ```bash
-# Windows PowerShell
-$env:BROADCAST_WEB_URL="http://127.0.0.1:5173/?race=demo-istanbul"; npm run desktop:dev
+$env:BROADCAST_WEB_URL="http://127.0.0.1:5173/?race=demo-istanbul&outputMode=transparent"; npm run desktop:dev
 ```
+
+Confirm the source in NDI Studio Monitor / vMix NDI input (see vMix runbook). Timecode corner should stay sharp (nearest; avoid soft scale on the input).
 
 ## Run — production build in Electron
 
@@ -57,8 +80,6 @@ $env:BROADCAST_WEB_URL="http://127.0.0.1:5173/?race=demo-istanbul"; npm run desk
 npm run build
 npm run desktop:file
 ```
-
-Loads `dist/index.html` via `file://`. Static assets under `/races/` etc. work when opened from `dist/` as Vite `base: '/'` expects a proper origin in hosted deploys; for local file mode prefer `npm run preview` + `--preview` if asset paths misbehave.
 
 ## Modes
 
@@ -69,11 +90,20 @@ Loads `dist/index.html` via `file://`. Static assets under `/races/` etc. work w
 | `npm run desktop:file` / `--file` | `../dist/index.html` |
 | `BROADCAST_WEB_URL` | Any URL (wins over flags) |
 | `--devtools` | Open detached DevTools |
+| `--no-ndi` | Shell only (no sender) |
+| `BROADCAST_NDI_NAME` / `--ndi-name=` | NDI source name |
+
+## Layout
+
+| File | Role |
+| --- | --- |
+| `main.cjs` | BrowserWindow + NDI IPC |
+| `preload.cjs` | `window.broadcastStudio` bridge |
+| `ndiSender.cjs` | `grandi` send (BGRA) |
 
 ## Non-goals (this slice)
 
-- NDI SDK, native addon, sending frames
-- electron-builder release pipeline
-- Changing Chrome chroma as default air
-
-Next: follow-up DSP for NDI SDK + alpha frame send (7.3b / toward 7.5).
+- electron-builder release pipeline / asar unpack polish
+- Path B helper
+- Killing Chrome chroma as interim air
+- GPU zero-copy (CPU readback is intentional for the spike)

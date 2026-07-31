@@ -104,7 +104,7 @@ Trial **C** → owned **B** preferred → **A** alternate. See scoring matrix ab
 
 **Near-term air:** chroma. **Optimum / full product air:** Electron NDI **with alpha**.
 
-**7.3 first slice (docs + shell):** alpha contract [`../architecture/ndi-alpha-electron.md`](../architecture/ndi-alpha-electron.md); Electron scaffold [`../../desktop/`](../../desktop/) — **no NDI SDK yet**.
+**7.3:** alpha contract [`../architecture/ndi-alpha-electron.md`](../architecture/ndi-alpha-electron.md); Electron shell + `outputMode=transparent` + named BGRA send via `grandi` ([`../../desktop/`](../../desktop/), [`vmix-ndi-alpha-runbook.md`](./vmix-ndi-alpha-runbook.md)).
 
 ## Spike checklist — human trial of C (Phase 7.1)
 
@@ -141,7 +141,8 @@ Canonical filled table: [`ndi-c-spike-runbook.md`](./ndi-c-spike-runbook.md) § 
 | [`air-runbook.md`](./air-runbook.md) | Canonical chroma air path — NDI not required |
 | [`ndi-c-spike-runbook.md`](./ndi-c-spike-runbook.md) | Phase 7.1 third-party NDI trial (path C) |
 | [`../architecture/ndi-alpha-electron.md`](../architecture/ndi-alpha-electron.md) | Phase 7.3 — alpha NDI + Electron product contract |
-| [`../../desktop/README.md`](../../desktop/README.md) | Studio Electron shell (SPA load; no SDK yet) |
+| [`../../desktop/README.md`](../../desktop/README.md) | Studio Electron shell + alpha NDI send |
+| [`vmix-ndi-alpha-runbook.md`](./vmix-ndi-alpha-runbook.md) | vMix/OBS alpha NDI ingest |
 | [`vmix-chroma-runbook.md`](./vmix-chroma-runbook.md) | Milestone C historical record |
 | [`../architecture/race-projects-and-world-authoring.md`](../architecture/race-projects-and-world-authoring.md) §7 | Output ladder + A/B/C options |
 | [`../roadmap/phases-roadmap.md`](../roadmap/phases-roadmap.md) | Phase 5.5 eval · Phase 7 spikes |

@@ -73,6 +73,12 @@ describe('parseConsoleDeeplink', () => {
     expect(warn).toHaveBeenCalled()
   })
 
+  it('accepts outputMode=transparent', () => {
+    expect(parseConsoleDeeplink('?outputMode=transparent')).toEqual({
+      outputMode: 'transparent',
+    })
+  })
+
   it('ignores non-finite origin numbers', () => {
     expect(
       parseConsoleDeeplink('?originLat=NaN&originLon=abc&originAltMsl='),

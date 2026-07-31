@@ -24,10 +24,10 @@
 
 ## Current phase pointer
 
-**Active:** **Phase 7.3b** transparent + alpha NDI send — `DSP-OUT-20260731-05`.  
-**Last gate:** 7.3a done (Electron shell + alpha contract, `DSP-OUT-20260731-04`). BW lock **A + alpha**; skip **B**.  
-**Milestone D:** Chroma air documented ✓; NDI options scored ✓ — cutover vs Unity still explicit BW+studio OK.  
-**Parallel later:** 5.4 + 6.4 + human ops (do not block 7.3).
+**Active:** **Human gate** — vMix/OBS alpha check for `HOSTNAME (broadcast-web)` ([`vmix-ndi-alpha-runbook.md`](../ops/vmix-ndi-alpha-runbook.md)).  
+**Last gate:** 7.3b done — transparent + Electron alpha NDI (`grandi` / SDK 6.3.2), `DSP-OUT-20260731-05`.  
+**Next DSP after human Pass:** **7.6** cutover (or thin 7.5 polish if latency/scale fails).  
+**Parallel later:** 5.4 + 6.4 + human ops.
 
 ---
 
@@ -134,10 +134,10 @@ Entry criteria and A/B/C scores: [`../ops/ndi-path-evaluation.md`](../ops/ndi-pa
 | --- | --- | --- | --- |
 | 7.1 | Spike: third-party NDI from capture/window | OUT+human | **Done / fail for production** (`DSP-OUT-20260731-03`) — [`../ops/ndi-c-spike-runbook.md`](../ops/ndi-c-spike-runbook.md) |
 | 7.2 | Spike: **native NDI helper** sidecar | OUT | **Deferred** — skip unless A blocked |
-| 7.3 | Spike: **Electron + our NDI sender** (**A** + alpha) | OUT+PLT | **7.3a done** (`DSP-OUT-20260731-04` shell+contract); **7.3b active** (`DSP-OUT-20260731-05` transparent + NDI send) |
-| 7.4 | Choose production NDI path (BW + studio) | BW | **Pre-chosen:** A + alpha (confirm after 7.3/7.5 evidence) |
-| 7.5 | Production NDI out of active POV camera | OUT | Alpha frames + timecode; named source |
-| 7.6 | vMix NDI input runbook + cutover | OUT+BW | Unity NDI parallel until OK |
+| 7.3 | Spike: **Electron + our NDI sender** (**A** + alpha) | OUT+PLT | **Done** — 7.3a shell (`04`); 7.3b transparent + `grandi` send (`05`); name `broadcast-web` |
+| 7.4 | Choose production NDI path (BW + studio) | BW | **A + alpha** locked; confirm after human alpha Pass |
+| 7.5 | Production NDI out of active POV camera | OUT | **Spike met** via 7.3b; polish only if human finds latency/scale issues |
+| 7.6 | vMix NDI input runbook + cutover | OUT+BW | Runbook drafted; **awaiting human Results** → then cutover DSP |
 
 **Exit (Milestone G):** Studio receives AR camera view as **NDI with alpha**; chroma remains fallback.
 

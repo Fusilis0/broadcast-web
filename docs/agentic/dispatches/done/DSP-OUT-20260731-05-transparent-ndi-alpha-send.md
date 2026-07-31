@@ -1,5 +1,7 @@
 # Dispatch DSP-OUT-20260731-05-transparent-ndi-alpha-send
 
+**Status:** Done / archived (2026-07-31) — accepted; human vMix alpha Results pending → then 7.6
+
 ## Meta
 - From orchestrator: OUT (BW: Phase **7.3b** → toward **7.5**)
 - Worker role: WORKER(DSP-OUT-20260731-05-transparent-ndi-alpha-send)

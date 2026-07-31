@@ -41,7 +41,7 @@ export type AppConfig = {
   takeoffAltitudeMSL: number
   /**
    * Canvas clear mode for OUT (architecture §5.5).
-   * Phase 3.1: `preview` \| `chroma`. Unknown → treated as `preview` by OUT.
+   * `preview` \| `chroma` \| `transparent`. Unknown → treated as `preview` by OUT.
    */
   outputMode: string
   /**

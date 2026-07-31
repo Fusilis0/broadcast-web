@@ -2,6 +2,7 @@ export {
   DEFAULT_CHROMA_KEY,
   PREVIEW_CLEAR_COLOR,
   SUPPORTED_OUTPUT_MODES,
+  TRANSPARENT_CLEAR_COLOR,
   type ApplyOutputModeOptions,
   type ClearAppearance,
   type ClearColorTarget,
@@ -51,3 +52,16 @@ export {
   type WhepUnderlayHandle,
   type WhepUnderlayOptions,
 } from './whepUnderlay.ts'
+
+export {
+  getStudioBridge,
+  type BroadcastStudioBridge,
+  type StudioNdiBridge,
+  type StudioNdiStatus,
+} from './studioBridge.ts'
+
+export {
+  startNdiFramePump,
+  type NdiFramePumpHandle,
+  type NdiFramePumpOptions,
+} from './ndiFramePump.ts'

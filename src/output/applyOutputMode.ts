@@ -1,6 +1,7 @@
 import {
   DEFAULT_CHROMA_KEY,
   PREVIEW_CLEAR_COLOR,
+  TRANSPARENT_CLEAR_COLOR,
   type ApplyOutputModeOptions,
   type ClearAppearance,
   type ClearColorTarget,
@@ -9,10 +10,11 @@ import {
 
 /**
  * Normalize config / UI mode string.
- * Unknown, empty, or future modes (`transparent`, `webrtc-underlay`, …) → `preview`.
+ * Unknown, empty, or future modes → `preview`.
  */
 export function normalizeOutputMode(raw: unknown): OutputMode {
   if (raw === 'chroma') return 'chroma'
+  if (raw === 'transparent') return 'transparent'
   if (raw === 'preview') return 'preview'
   return 'preview'
 }
@@ -46,6 +48,9 @@ export function resolveClearAppearance(
       color: parseChromaKey(options?.chromaKey),
       alpha: 1,
     }
+  }
+  if (resolved === 'transparent') {
+    return { color: TRANSPARENT_CLEAR_COLOR, alpha: 0 }
   }
   return { color: PREVIEW_CLEAR_COLOR, alpha: 1 }
 }

@@ -26,9 +26,11 @@ import {
   applyOutputMode,
   normalizeOutputMode,
   resolveClearAppearance,
+  startNdiFramePump,
   startOutputModeControl,
   startVisualTimecode,
   startWhepUnderlay,
+  type NdiFramePumpHandle,
   type OutputModeControlHandle,
   type TimecodeCorner,
   type VisualTimecodeHandle,
@@ -63,6 +65,7 @@ let ingest: IngestHandle | null = null
 let outputControl: OutputModeControlHandle | null = null
 let visualTimecode: VisualTimecodeHandle | null = null
 let whepUnderlay: WhepUnderlayHandle | null = null
+let ndiPump: NdiFramePumpHandle | null = null
 let mapEditor: MapFeatureEditorHandle | null = null
 let unsubLiveStatus: (() => void) | null = null
 let bootConfig: AppConfig | null = null
@@ -85,6 +88,14 @@ function editorQueryOpen(): boolean {
   } catch {
     return false
   }
+}
+
+/** Transparent NDI plate: clear page chrome so only WebGL alpha matters for ops view. */
+function applyOutputModeChrome(mode: string): void {
+  const on = mode === 'transparent'
+  document.documentElement.classList.toggle('output-transparent', on)
+  document.body.classList.toggle('output-transparent', on)
+  document.getElementById('app')?.classList.toggle('output-transparent', on)
 }
 
 function clearLiveStatusSub(): void {
@@ -360,9 +371,10 @@ void (async () => {
   const clear = resolveClearAppearance(outputMode, {
     chromaKey: chromaKey || undefined,
   })
+  applyOutputModeChrome(outputMode)
 
   // Scene after config so boatIds / povIds allow-lists are known before first poses.
-  // Clear color from OUT (preview dark / chroma green).
+  // Clear color from OUT (preview / chroma / transparent).
   scene = startScene({
     container: app,
     boatIds: config.boatIds,
@@ -384,6 +396,7 @@ void (async () => {
       applyOutputMode(scene.renderer, mode, {
         chromaKey: chromaKey || undefined,
       })
+      applyOutputModeChrome(mode)
       whepUnderlay?.setMode(mode)
     },
   })
@@ -405,6 +418,9 @@ void (async () => {
       sizePx: config.timecodeSizePx,
     })
   }
+
+  // Electron studio only — after timecode wrap so barcode is in readback.
+  ndiPump = startNdiFramePump({ renderer: scene.renderer })
 
   // Name/colour catalogue — before TEL so first boat spawn can resolve tags.
   await scene.loadBoatNamesFromUrl(boatNamesUrl)
@@ -473,6 +489,8 @@ void (async () => {
     stopPosePipeline()
     clearLiveStatusSub()
     ingest?.stop()
+    ndiPump?.stop()
+    ndiPump = null
     visualTimecode?.stop()
     visualTimecode = null
     whepUnderlay?.stop()

@@ -10,7 +10,11 @@ const TELEMETRY_MODES = new Set<DeeplinkTelemetryMode>([
   'live',
 ])
 
-const OUTPUT_MODES = new Set<DeeplinkOutputMode>(['preview', 'chroma'])
+const OUTPUT_MODES = new Set<DeeplinkOutputMode>([
+  'preview',
+  'chroma',
+  'transparent',
+])
 
 function asSearchParams(search: string | URLSearchParams): URLSearchParams {
   if (search instanceof URLSearchParams) return search

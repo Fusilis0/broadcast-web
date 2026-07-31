@@ -8,16 +8,17 @@ import {
 import {
   DEFAULT_CHROMA_KEY,
   PREVIEW_CLEAR_COLOR,
+  TRANSPARENT_CLEAR_COLOR,
 } from './types.ts'
 
 describe('normalizeOutputMode', () => {
-  it('keeps preview and chroma', () => {
+  it('keeps preview, chroma, and transparent', () => {
     expect(normalizeOutputMode('preview')).toBe('preview')
     expect(normalizeOutputMode('chroma')).toBe('chroma')
+    expect(normalizeOutputMode('transparent')).toBe('transparent')
   })
 
   it('maps unknown / future modes to preview', () => {
-    expect(normalizeOutputMode('transparent')).toBe('preview')
     expect(normalizeOutputMode('webrtc-underlay')).toBe('preview')
     expect(normalizeOutputMode('egress')).toBe('preview')
     expect(normalizeOutputMode('')).toBe('preview')
@@ -66,8 +67,15 @@ describe('resolveClearAppearance', () => {
     ).toEqual({ color: 0xff00ff, alpha: 1 })
   })
 
-  it('unknown mode → preview dark', () => {
+  it('transparent → black clear with alpha 0', () => {
     expect(resolveClearAppearance('transparent')).toEqual({
+      color: TRANSPARENT_CLEAR_COLOR,
+      alpha: 0,
+    })
+  })
+
+  it('unknown mode → preview dark', () => {
+    expect(resolveClearAppearance('egress')).toEqual({
       color: PREVIEW_CLEAR_COLOR,
       alpha: 1,
     })
@@ -90,5 +98,11 @@ describe('applyOutputMode', () => {
     const setClearColor = vi.fn()
     applyOutputMode({ setClearColor }, 'preview')
     expect(setClearColor).toHaveBeenCalledWith(PREVIEW_CLEAR_COLOR, 1)
+  })
+
+  it('transparent maps to alpha 0', () => {
+    const setClearColor = vi.fn()
+    applyOutputMode({ setClearColor }, 'transparent')
+    expect(setClearColor).toHaveBeenCalledWith(TRANSPARENT_CLEAR_COLOR, 0)
   })
 })

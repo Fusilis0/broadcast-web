@@ -27,6 +27,9 @@ describe('shouldRunWhepUnderlay', () => {
     expect(
       shouldRunWhepUnderlay('http://127.0.0.1:8889/cam1/whep', 'chroma'),
     ).toBe(false)
+    expect(
+      shouldRunWhepUnderlay('http://127.0.0.1:8889/cam1/whep', 'transparent'),
+    ).toBe(false)
     expect(shouldRunWhepUnderlay('', 'preview')).toBe(false)
     expect(shouldRunWhepUnderlay('  ', 'preview')).toBe(false)
   })
@@ -42,7 +45,7 @@ describe('formatWhepStatusLabel', () => {
 })
 
 describe('resolveUnderlayClearAlpha', () => {
-  it('is transparent only for active underlay in preview', () => {
+  it('is transparent for active underlay in preview, or always in transparent mode', () => {
     expect(
       resolveUnderlayClearAlpha({ mode: 'preview', underlayActive: true }),
     ).toBe(0)
@@ -52,5 +55,11 @@ describe('resolveUnderlayClearAlpha', () => {
     expect(
       resolveUnderlayClearAlpha({ mode: 'chroma', underlayActive: true }),
     ).toBe(1)
+    expect(
+      resolveUnderlayClearAlpha({
+        mode: 'transparent',
+        underlayActive: false,
+      }),
+    ).toBe(0)
   })
 })

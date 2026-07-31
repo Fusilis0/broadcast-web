@@ -172,6 +172,12 @@ describe('normalizeConfig outputMode / chromaKey', () => {
     expect(cfg.outputMode).toBe('chroma')
     expect(cfg.chromaKey).toBe('#00ff00')
   })
+
+  it('keeps transparent outputMode string (OUT normalizes)', () => {
+    expect(normalizeConfig({ outputMode: 'transparent' }).outputMode).toBe(
+      'transparent',
+    )
+  })
 })
 
 describe('normalizeConfig whepUrl', () => {

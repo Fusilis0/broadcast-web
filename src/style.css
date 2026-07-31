@@ -14,6 +14,13 @@ body,
   background: #1a1a1a;
 }
 
+/* NDI alpha plate — page chrome transparent; WebGL clear alpha 0 */
+html.output-transparent,
+body.output-transparent,
+#app.output-transparent {
+  background: transparent;
+}
+
 #app {
   position: relative;
 }

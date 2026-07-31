@@ -1,9 +1,8 @@
 /**
- * Output clear modes (architecture §5.5).
- * Phase 3.1 implements `preview` | `chroma` only.
- * Unknown / future modes normalize to `preview`.
+ * Output clear modes (architecture §5.5 / NDI alpha contract).
+ * Unknown modes normalize to `preview`.
  */
-export type OutputMode = 'preview' | 'chroma'
+export type OutputMode = 'preview' | 'chroma' | 'transparent'
 
 /** Resolved WebGL clear appearance. */
 export type ClearAppearance = {
@@ -31,8 +30,15 @@ export const PREVIEW_CLEAR_COLOR = 0x1a1a1a
 /** Default vMix key green `(0, 255, 0)`. */
 export const DEFAULT_CHROMA_KEY = 0x00ff00
 
-/** Modes implemented in Phase 3.1. */
+/**
+ * Transparent NDI plate clear RGB (alpha 0). Color is irrelevant when alpha is 0;
+ * black keeps any accidental opaque composite dark.
+ */
+export const TRANSPARENT_CLEAR_COLOR = 0x000000
+
+/** Modes exposed in OUT control + normalize. */
 export const SUPPORTED_OUTPUT_MODES: readonly OutputMode[] = [
   'preview',
   'chroma',
+  'transparent',
 ] as const

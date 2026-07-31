@@ -22,7 +22,7 @@ Deep-link overrides are **runtime only** — they are never written back to `con
 ## Canonical URL template
 
 ```
-https://<host>/overlay?race=<raceId>&token=<opaque>&mode=mock|replay|live&originLat=<deg>&originLon=<deg>&originAltMsl=<m>&outputMode=preview|chroma
+https://<host>/overlay?race=<raceId>&token=<opaque>&mode=mock|replay|live&originLat=<deg>&originLon=<deg>&originAltMsl=<m>&outputMode=preview|chroma|transparent
 ```
 
 | Path | Notes |
@@ -51,7 +51,7 @@ Boot merge order: `config.json` → race pack (if `race` set) → other query ov
 | `originLat` | optional | number (degrees) | finite float | **URL wins** over `config.json` `origin.lat` when present |
 | `originLon` | optional | number (degrees) | finite float | **URL wins** over `config.json` `origin.lon` when present |
 | `originAltMsl` | optional (reserved) | number (meters) | finite float | AMSL; applied when present. Otherwise reserved for later |
-| `outputMode` | optional (reserved / negotiable) | enum | `preview` \| `chroma` | Applied when present and already supported by OUT. Other values ignored |
+| `outputMode` | optional (reserved / negotiable) | enum | `preview` \| `chroma` \| `transparent` | Applied when present and already supported by OUT. Other values ignored. `transparent` = NDI alpha plate (Electron studio) |
 
 ### Precedence
 

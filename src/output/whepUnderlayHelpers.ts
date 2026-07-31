@@ -12,7 +12,8 @@ export function normalizeWhepUrl(raw: unknown): string {
 
 /**
  * Underlay runs only with a non-empty URL in **preview**.
- * Chroma always suppresses underlay so the green key stays clean.
+ * Chroma and transparent suppress underlay so the plate stays clean
+ * (green key / alpha NDI).
  */
 export function shouldRunWhepUnderlay(
   whepUrl: unknown,
@@ -29,14 +30,15 @@ export function formatWhepStatusLabel(status: WhepStatus): string {
 }
 
 /**
- * Preview clear alpha when underlay is trying to / is showing video.
- * Opaque (1) otherwise so dark ops preview / chroma stay solid.
+ * Clear alpha for underlay compositing.
+ * Transparent mode always alpha 0; preview goes transparent only while underlay is active.
  */
 export function resolveUnderlayClearAlpha(options: {
   mode: unknown
   underlayActive: boolean
 }): number {
   const mode = normalizeOutputMode(options.mode)
+  if (mode === 'transparent') return 0
   if (mode === 'preview' && options.underlayActive) return 0
   return 1
 }

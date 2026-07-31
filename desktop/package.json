@@ -2,7 +2,7 @@
   "name": "broadcast-web-desktop",
   "private": true,
   "version": "0.0.0",
-  "description": "Studio Electron shell for broadcast-web (path A). No NDI SDK in this slice.",
+  "description": "Studio Electron shell for broadcast-web (path A) with named alpha NDI via grandi.",
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
@@ -11,5 +11,8 @@
   },
   "devDependencies": {
     "electron": "^37.2.6"
+  },
+  "dependencies": {
+    "grandi": "^2.0.2"
   }
 }

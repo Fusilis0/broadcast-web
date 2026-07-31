@@ -1,27 +1,33 @@
 # output
 
-Owned by **OUT**. Canvas clear modes, visual timecode, WebRTC WHEP underlay / later egress.
+Owned by **OUT**. Canvas clear modes, visual timecode, WebRTC WHEP underlay / later egress, Electron NDI frame pump.
 
-## Phase 3.1 — preview / chroma clear
+## Clear modes
 
 | Symbol | Role |
 | --- | --- |
-| `normalizeOutputMode(raw)` | `preview` \| `chroma`; unknown → `preview` |
+| `normalizeOutputMode(raw)` | `preview` \| `chroma` \| `transparent`; unknown → `preview` |
 | `resolveClearAppearance(mode, options?)` | Mode → `{ color, alpha }` |
 | `applyOutputMode(renderer, mode, options?)` | `renderer.setClearColor` |
-| `parseChromaKey(raw)` | `#00ff00` / `00ff00` / number → hex |
 | `startOutputModeControl(options)` | Runtime HUD toggle (not persisted) |
 | `PREVIEW_CLEAR_COLOR` | `0x1a1a1a` (dark ops) |
 | `DEFAULT_CHROMA_KEY` | `0x00ff00` — RGB `(0, 255, 0)` |
+| `TRANSPARENT_CLEAR_COLOR` | `0x000000` with **alpha 0** (NDI plate) |
 
 ### Config
 
-- `outputMode`: `"preview"` (committed default) or `"chroma"`.
+- `outputMode`: `"preview"` (committed default), `"chroma"`, or `"transparent"`.
 - Optional `chromaKey`: `"#00ff00"` (or equivalent) when mode is chroma.
 
-## Phase 3.2 — visual timecode
+| Mode | Clear | Studio use |
+| --- | --- | --- |
+| `preview` | Dark opaque | Ops; optional WHEP underlay |
+| `chroma` | Green opaque | Interim Chrome window capture + key |
+| `transparent` | Alpha 0 | Electron → named alpha NDI |
 
-Unity-compatible **8×8 LSB** black/white barcode burned into the **same WebGL canvas** (orthographic overlay after the main scene). Canvas-only capture includes it; no sibling DOM canvas.
+## Visual timecode
+
+Unity-compatible **8×8 LSB** black/white barcode burned into the **same WebGL canvas** (orthographic overlay after the main scene). Canvas-only capture and NDI readback include it; no sibling DOM canvas.
 
 | Symbol | Role |
 | --- | --- |
@@ -47,13 +53,9 @@ Unity-compatible **8×8 LSB** black/white barcode burned into the **same WebGL c
 - `timecodeCorner`: `"bottom-right"` (default, clear of OUT mode control) \| `"bottom-left"`
 - `timecodeSizePx`: on-screen size (default `96`, clamped 32–256)
 
-### Studio note
+## WHEP underlay
 
-Barcode is sync burn-in for telemetry ↔ video timing. Capture the WebGL canvas / window in **OBS or vMix**; key chroma as before (3.1). **No in-browser NDI.** Interim air: [`docs/ops/air-runbook.md`](../../docs/ops/air-runbook.md). Full-product lock: Electron **A** + **NDI with alpha** (Phase 7.3+) — contract [`docs/architecture/ndi-alpha-electron.md`](../../docs/architecture/ndi-alpha-electron.md), shell [`desktop/`](../../desktop/), eval [`docs/ops/ndi-path-evaluation.md`](../../docs/ops/ndi-path-evaluation.md). C trial (closed): [`docs/ops/ndi-c-spike-runbook.md`](../../docs/ops/ndi-c-spike-runbook.md). Historical 3.5: [`docs/ops/vmix-chroma-runbook.md`](../../docs/ops/vmix-chroma-runbook.md).
-
-## Phase 3.3 — WHEP underlay
-
-Browser **MediaMTX WHEP** video under the Three canvas in **preview** (DOM `<video>` + native `RTCPeerConnection`, no extra deps). Soft-fails when URL empty or server unreachable.
+Browser **MediaMTX WHEP** video under the Three canvas in **preview** only. Soft-fails when URL empty or server unreachable. **Stopped** in `chroma` and `transparent`.
 
 | Symbol | Role |
 | --- | --- |
@@ -64,35 +66,23 @@ Browser **MediaMTX WHEP** video under the Three canvas in **preview** (DOM `<vid
 
 ### Config
 
-- `whepUrl`: full WHEP POST URL. Default `""` (idle, no errors). Non-empty enables underlay in preview.
-- Example shapes (placeholders — use your MediaMTX host/path):
-  - `http://127.0.0.1:8889/cam1/whep`
-  - `http://mediamtx:8889/read:cam1:pub1:token/whep` (Unity-style path)
-  - Some MediaMTX setups also use `/whep/<path>` — set the **exact** endpoint your server exposes.
+- `whepUrl`: full WHEP POST URL. Default `""` (idle). Non-empty enables underlay in preview only.
 
-Leave empty in git. Override locally in `public/config.json` (or a local copy). No secrets required for typical LAN WHEP; see `.env.example` note.
+## Electron NDI frame pump (path A)
 
-### Compositing / chroma
-
-| Mode | Underlay |
+| Symbol | Role |
 | --- | --- |
-| `preview` | Connect when `whepUrl` set; video behind canvas; clear alpha → `0` while connecting/live so video shows through |
-| `chroma` | **Stopped and hidden** by default — green key must stay clean (no video bleed) |
+| `getStudioBridge()` | `window.broadcastStudio` when preload injected |
+| `startNdiFramePump({ renderer })` | After timecode: `readPixels` → IPC → main `grandi` BGRA send |
 
-Timecode + AR canvas stay on top. Status chip lives on the OUT mode control: `whep=off|connecting|live|error`.
+No-ops in Chrome (no bridge). Shell + run notes: [`desktop/README.md`](../../desktop/README.md). vMix: [`docs/ops/vmix-ndi-alpha-runbook.md`](../../docs/ops/vmix-ndi-alpha-runbook.md). Contract: [`docs/architecture/ndi-alpha-electron.md`](../../docs/architecture/ndi-alpha-electron.md).
 
-### Manual check (no MediaMTX in CI)
-
-1. Empty `whepUrl` → boot with `whep=off`; `npm test` / `npm run build` green.
-2. Point `whepUrl` at a live MediaMTX WHEP endpoint → preview shows video under AR; status `live`.
-3. Toggle to chroma → underlay stops; solid green clear.
-
-**No in-browser NDI.** Production NDI = Electron + alpha (7.3+) — [`docs/architecture/ndi-alpha-electron.md`](../../docs/architecture/ndi-alpha-electron.md). Helper path B deferred. C trial record: [`docs/ops/ndi-c-spike-runbook.md`](../../docs/ops/ndi-c-spike-runbook.md).
+**No in-browser NDI** without the Electron bridge. Chroma + window capture remains interim air ([`docs/ops/air-runbook.md`](../../docs/ops/air-runbook.md)). Path B deferred.
 
 ## Out of scope (later)
 
-- `transparent` alpha capture (dedicated mode) — required for NDI path A; see alpha contract
 - NTP / `stream_anchor` status TMP line
 - Decoder / CV reader (use `getVideoElement()` when ready)
-- Egress / NDI SDK sender in Electron (after shell scaffold)
+- Egress
 - Native NDI helper (path B — only if A blocked)
+- GPU zero-copy NDI

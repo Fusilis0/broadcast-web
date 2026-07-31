@@ -5,7 +5,7 @@
 
 export type DeeplinkTelemetryMode = 'mock' | 'replay' | 'live'
 
-export type DeeplinkOutputMode = 'preview' | 'chroma'
+export type DeeplinkOutputMode = 'preview' | 'chroma' | 'transparent'
 
 /**
  * Parsed query fields that were present and valid.

@@ -4,11 +4,12 @@
 **Session role:** BW
 
 ## Current phase
-**7.3b active** — transparent plate + named **alpha** NDI (`DSP-OUT-20260731-05`).  
-7.3a accepted: Electron shell + contract (`desktop/`, `ndi-alpha-electron.md`).  
-Lock: **A + alpha**; skip B; chroma = interim air.  
+**7.3b accepted** — transparent + named alpha NDI (`grandi`).  
+**Blocked on human** vMix/OBS alpha Results (`vmix-ndi-alpha-runbook.md`).  
+On Pass → open **7.6** cutover. On Fail latency/scale → thin **7.5** polish.  
+Lock: **A + alpha**; skip B; chroma interim.  
 Remote: https://github.com/Fusilis0/broadcast-web  
 **Standing order:** land accepted slices with commit/push.
 
 ## Compaction recovery
-`BOOTSTRAP_BW.md` → this memo → `docs/architecture/ndi-alpha-electron.md` → active DSP-05
+`BOOTSTRAP_BW.md` → this memo → `docs/ops/vmix-ndi-alpha-runbook.md`
