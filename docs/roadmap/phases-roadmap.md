@@ -24,10 +24,9 @@
 
 ## Current phase pointer
 
-**Active:** **Human gate** — vMix/OBS alpha check for `HOSTNAME (broadcast-web)` ([`vmix-ndi-alpha-runbook.md`](../ops/vmix-ndi-alpha-runbook.md)).  
-**Last gate:** 7.3b done — transparent + Electron alpha NDI (`grandi` / SDK 6.3.2), `DSP-OUT-20260731-05`.  
-**Next DSP after human Pass:** **7.6** cutover (or thin 7.5 polish if latency/scale fails).  
-**Parallel later:** 5.4 + 6.4 + human ops.
+**Active:** **Phase 7.6** NDI alpha cutover docs — `DSP-OUT-20260731-06`.  
+**Last gate:** Human **Pass** on alpha NDI (2026-07-31) — 1080p lock, park-on-minimize, `broadcast-web` source.  
+**After 7.6:** **5.4 + 6.4 + human ops** (Hetzner/WSS) pack.
 
 ---
 
@@ -135,9 +134,9 @@ Entry criteria and A/B/C scores: [`../ops/ndi-path-evaluation.md`](../ops/ndi-pa
 | 7.1 | Spike: third-party NDI from capture/window | OUT+human | **Done / fail for production** (`DSP-OUT-20260731-03`) — [`../ops/ndi-c-spike-runbook.md`](../ops/ndi-c-spike-runbook.md) |
 | 7.2 | Spike: **native NDI helper** sidecar | OUT | **Deferred** — skip unless A blocked |
 | 7.3 | Spike: **Electron + our NDI sender** (**A** + alpha) | OUT+PLT | **Done** — 7.3a shell (`04`); 7.3b transparent + `grandi` send (`05`); name `broadcast-web` |
-| 7.4 | Choose production NDI path (BW + studio) | BW | **A + alpha** locked; confirm after human alpha Pass |
-| 7.5 | Production NDI out of active POV camera | OUT | **Spike met** via 7.3b; polish only if human finds latency/scale issues |
-| 7.6 | vMix NDI input runbook + cutover | OUT+BW | Runbook drafted; **awaiting human Results** → then cutover DSP |
+| 7.4 | Choose production NDI path (BW + studio) | BW | **Done** — A + alpha (human Pass 2026-07-31) |
+| 7.5 | Production NDI out of active POV camera | OUT | **Done** via 7.3b (+ 1080p / park-minimize polish) |
+| 7.6 | vMix NDI input runbook + cutover | OUT+BW | **Active** — `DSP-OUT-20260731-06` |
 
 **Exit (Milestone G):** Studio receives AR camera view as **NDI with alpha**; chroma remains fallback.
 

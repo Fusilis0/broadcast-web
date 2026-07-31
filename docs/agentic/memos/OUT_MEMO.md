@@ -1,21 +1,18 @@
 # OUT_MEMO
 
 **Last updated:** 2026-07-31  
-**Status:** Active — **human gate** (vMix alpha check)
+**Status:** Active — **7.6** alpha NDI cutover docs
 
 ## Focus
-Human: [`docs/ops/vmix-ndi-alpha-runbook.md`](../../ops/vmix-ndi-alpha-runbook.md) → fill Results
+`DSP-OUT-20260731-06` — air-runbook preferred path + cutover checklist
 
 ## Decisions
-- 7.3b **accepted**: `transparent` + Electron alpha NDI (`grandi` / SDK 6.3.2)
-- Named source: `broadcast-web` → `HOSTNAME (broadcast-web)`
-- Chroma still interim air; skip B
-- Next DSP: **7.6** on Pass, or thin 7.5 polish on Fail
+- Human **Pass** on Electron alpha NDI (`vmix-ndi-alpha-runbook.md`)
+- Preferred studio air = Electron + transparent + NDI alpha; chroma = fallback
+- Skip B; 7.5 spike met
 
 ## Issued dispatches
-- DSP-OUT-20260731-05 — done (archived)
-- None active — awaiting human
+- **DSP-OUT-20260731-06** — active
 
-## Run
-`npm run dev` then  
-`$env:BROADCAST_WEB_URL="http://127.0.0.1:5173/?race=demo-istanbul&outputMode=transparent"; npm run desktop:dev`
+## After 7.6
+BW opens **5.4 + 6.4 + human ops** pack

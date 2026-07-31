@@ -1,6 +1,6 @@
 # vMix — alpha NDI ingest (path A)
 
-**Status:** 7.3b code landed — **human alpha Results pending**  
+**Status:** **Human Pass** (2026-07-31) — alpha NDI + 1080p lock + park-on-minimize OK  
 **Related:** [`ndi-alpha-electron.md`](../architecture/ndi-alpha-electron.md), [`air-runbook.md`](./air-runbook.md), [`desktop/README.md`](../../desktop/README.md)  
 **Observed send name (dev):** `DESKTOP-264DNL1 (broadcast-web)`
 
@@ -65,13 +65,13 @@ Chroma remains supported; it is **not** the production NDI mode.
 
 | Field | Value |
 | --- | --- |
-| Date | |
-| Operator | |
-| NDI name seen in vMix/OBS | |
-| Alpha OK (see-through empty, no green)? | Y/N |
-| 8×8 timecode sharp? | Y/N |
-| Latency vs chroma capture | |
-| Pass / fail | |
-| Notes / blockers | |
+| Date | 2026-07-31 |
+| Operator | studio (product owner) |
+| NDI name seen in vMix/OBS | `DESKTOP-264DNL1 (broadcast-web)` |
+| Alpha OK (see-through empty, no green)? | **Y** |
+| 8×8 timecode sharp? | **Y** (fixed buffer + no CSS scale) |
+| Latency vs chroma capture | Acceptable for spike / show trial |
+| Pass / fail | **Pass** |
+| Notes / blockers | Minimize must **park** (tray), not OS-minimize; 1920×1080 locked |
 
-**After Pass:** BW opens **7.6** cutover DSP. **After Fail** on latency/scale: thin **7.5** polish first.
+**After Pass:** BW opens **7.6** cutover DSP.
