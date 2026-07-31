@@ -4,7 +4,7 @@ Enable **live** telemetry when `broadcast-web` is served over **HTTPS**. Browser
 
 **Non-goals:** logging into a customer VPS from this repo, changing TEL subscribe protocol / multi-URL maps, NDI, RaceProject DB, CI soak against a real race server.
 
-Related: static SPA deploy — [`hetzner-static-deploy.md`](./hetzner-static-deploy.md). Client URL resolution — [`src/telemetry/README.md`](../../src/telemetry/README.md).
+Related: static SPA deploy — [`hetzner-static-deploy.md`](./hetzner-static-deploy.md). On-air chroma path — [`air-runbook.md`](./air-runbook.md). Client URL resolution — [`src/telemetry/README.md`](../../src/telemetry/README.md).
 
 ## Why mixed content fails
 
@@ -184,5 +184,6 @@ No live VPS soak is required in CI. Unit tests use a fake `WebSocket` and assert
 ## Related
 
 - Phase 5.1 static host — [`hetzner-static-deploy.md`](./hetzner-static-deploy.md)
+- Phase 5.3 air runbook — [`air-runbook.md`](./air-runbook.md)
 - TEL live client — [`src/telemetry/README.md`](../../src/telemetry/README.md)
 - Roadmap 5.2 — [`docs/roadmap/phases-roadmap.md`](../roadmap/phases-roadmap.md)

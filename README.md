@@ -60,6 +60,13 @@ Production is a **static SPA**: `npm run build` → upload `dist/` to a web root
 
 Mock/replay work on the static host without WebSockets. Live on HTTPS requires `wss://` (direct or same-origin proxy).
 
+## On air
+
+Chrome → chroma → OBS/vMix (local or hosted URL). **NDI not required** today (Phase 7 later).
+
+- Canonical checklist: [`docs/ops/air-runbook.md`](./docs/ops/air-runbook.md)
+- Phase 3.5 chroma experiment record: [`docs/ops/vmix-chroma-runbook.md`](./docs/ops/vmix-chroma-runbook.md)
+
 ## Status
 
-Private GitHub repo; Vite + TypeScript + Three.js app with domain modules under `src/`. Phase 5.1–5.2 deploy/WSS docs are in place; human upload and VPS/proxy TLS remain outside the repo.
+Private GitHub repo; Vite + TypeScript + Three.js app with domain modules under `src/`. Phase 5.1–5.3 deploy/WSS/air docs are in place; human upload and VPS/proxy TLS remain outside the repo.

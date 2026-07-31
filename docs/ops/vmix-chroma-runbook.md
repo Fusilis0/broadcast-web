@@ -1,5 +1,7 @@
 # Phase 3.5 — Local vMix chroma experiment
 
+> **Superseded for day-to-day air ops** by [`air-runbook.md`](./air-runbook.md) (Phase 5.3). Keep this file as the Milestone **C** experiment record and original 3.5 checklist.
+
 Studio runbook to prove the web-on-air chroma path: fullscreen Chrome, `outputMode=chroma`, vMix window capture, key on clear green, AR content and the 8×8 visual timecode readable over the keyed plate.
 
 **Non-goals for this run:** WebRTC WHEP underlay, native NDI helper / in-browser NDI, Hetzner deploy, live VPS soak. Capture is **window / screen of Chrome** only.
@@ -100,6 +102,7 @@ Committed config keeps `"outputMode": "preview"` unless the studio sets chroma f
 
 ## Related
 
+- Canonical air path (5.3): [`air-runbook.md`](./air-runbook.md)
 - Output module notes: [`src/output/README.md`](../../src/output/README.md)
 - Dispatch: `DSP-OUT-20260727-03-vmix-chroma-experiment`
-- Later: Phase **5.3** air runbook may absorb this checklist
+- Absorbed by Phase **5.3** — [`DSP-OUT-20260731-01-air-runbook`](../agentic/dispatches/done/DSP-OUT-20260731-01-air-runbook.md)

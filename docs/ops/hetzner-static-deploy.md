@@ -138,7 +138,7 @@ Run after first deploy and after each upload:
 | 6 | Hard refresh / open a non-file path that should SPA-fallback → still `index.html` (not nginx 404) | ☐ |
 | 7 | (Optional) Live mode: follow [`wss-live-telemetry.md`](./wss-live-telemetry.md) — `wss://` connects; plain `ws://` from HTTPS must fail | ☐ |
 
-Studio chroma capture details: [`vmix-chroma-runbook.md`](./vmix-chroma-runbook.md). Hosted URL can replace `npm run dev` once smoke 1–5 pass.
+Studio on-air (Chrome + chroma + OBS/vMix): [`air-runbook.md`](./air-runbook.md). Historical 3.5 record: [`vmix-chroma-runbook.md`](./vmix-chroma-runbook.md). Hosted URL can replace `npm run dev` once smoke 1–5 pass.
 
 ## Optional CI sketch (placeholders)
 
@@ -158,4 +158,5 @@ Use repository secrets for `DEPLOY_USER` / `DEPLOY_HOST` / SSH key. This repo do
 - Roadmap Phase 5.1–5.2 — [`docs/roadmap/phases-roadmap.md`](../roadmap/phases-roadmap.md)
 - Env keys — [`.env.example`](../../.env.example)
 - Example upload script — [`scripts/deploy-static.example.sh`](../../scripts/deploy-static.example.sh)
-- vMix chroma — [`docs/ops/vmix-chroma-runbook.md`](./vmix-chroma-runbook.md)
+- Air runbook (Chrome + chroma) — [`air-runbook.md`](./air-runbook.md)
+- vMix / OBS chroma experiment (3.5) — [`vmix-chroma-runbook.md`](./vmix-chroma-runbook.md)

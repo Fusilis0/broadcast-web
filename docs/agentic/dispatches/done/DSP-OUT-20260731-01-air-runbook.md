@@ -7,6 +7,14 @@
 - Phase: Phase 5.3 — Air runbook (Chrome + chroma; hosted or local)
 - Related: `docs/ops/vmix-chroma-runbook.md` (3.5 Pass), hetzner + wss ops docs
 - BW ask: one ops air runbook that folds chroma (OBS/vMix), optional hosted URL, mock/replay default, live/WSS pointers; no NDI impl
+- **Status: DONE** (worker report accepted by BW 2026-07-31)
+- **Status: DONE** (worker 2026-07-31) — docs only; no deploy / no NDI code
+
+## Worker report (summary)
+
+- Added `docs/ops/air-runbook.md` (local vs hosted, chroma OBS/vMix, timecode, `?race=`, WSS pointer, NDI = Phase 7, Milestone C note + Results)
+- Linked from root README, `src/output/README.md`, Hetzner deploy; 3.5 runbook marked superseded for day-to-day ops
+- Docs-only — `npm test` / `npm run build` not required
 
 ## Goal
 
@@ -28,10 +36,10 @@ Write **`docs/ops/air-runbook.md`**: end-to-end checklist for putting broadcast-
 
 ## Acceptance criteria
 
-- [ ] Air runbook exists and is linked
-- [ ] Covers local + hosted + chroma + timecode + optional live/WSS pointer
-- [ ] Explicit: NDI not required for current air path
-- [ ] `npm test` + `npm run build` still green if any code touched (docs-only OK)
+- [x] Air runbook exists and is linked
+- [x] Covers local + hosted + chroma + timecode + optional live/WSS pointer
+- [x] Explicit: NDI not required for current air path
+- [x] `npm test` + `npm run build` still green if any code touched (docs-only OK)
 
 ## Report back
 

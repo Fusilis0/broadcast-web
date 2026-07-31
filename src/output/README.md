@@ -49,7 +49,7 @@ Unity-compatible **8×8 LSB** black/white barcode burned into the **same WebGL c
 
 ### Studio note
 
-Barcode is sync burn-in for telemetry ↔ video timing. Capture the WebGL canvas / window in **vMix**; key chroma as before (3.1). **No in-browser NDI.** Studio steps + pass/fail: [docs/ops/vmix-chroma-runbook.md](../../docs/ops/vmix-chroma-runbook.md) (Phase 3.5).
+Barcode is sync burn-in for telemetry ↔ video timing. Capture the WebGL canvas / window in **OBS or vMix**; key chroma as before (3.1). **No in-browser NDI** (Phase 7 later). Canonical air path: [`docs/ops/air-runbook.md`](../../docs/ops/air-runbook.md) (Phase 5.3). Historical 3.5 experiment: [`docs/ops/vmix-chroma-runbook.md`](../../docs/ops/vmix-chroma-runbook.md).
 
 ## Phase 3.3 — WHEP underlay
 

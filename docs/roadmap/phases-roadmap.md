@@ -24,8 +24,8 @@
 
 ## Current phase pointer
 
-**Active:** **5.1 + 5.2 done** (static host + WSS docs). Next **5.3** air runbook. Human: Hetzner upload + real WSS/proxy when ready.  
-**Last gate:** DSP-PLT-20260731-02 WSS live proxy accepted (2026-07-31).
+**Active:** **5.1–5.3 done** (deploy + WSS docs + air runbook). Next **5.5** NDI evaluation.  
+**Last gate:** DSP-OUT-20260731-01 air runbook accepted (2026-07-31).
 
 ---
 
@@ -98,9 +98,9 @@
 | --- | --- | --- | --- |
 | 5.1 | Hetzner static deploy | PLT | **Done** (`DSP-PLT-20260731-01`); human upload pending |
 | 5.2 | WSS or proxy for live TEL | PLT+TEL | **Done** (`DSP-PLT-20260731-02`); human TLS/proxy pending |
-| 5.3 | Air runbook (Chrome + chroma) | OUT+BW | **DSP issued** (`DSP-OUT-20260731-01`) |
+| 5.3 | Air runbook (Chrome + chroma) | OUT+BW | **Done** (`DSP-OUT-20260731-01`) — `docs/ops/air-runbook.md` |
 | 5.4 | Evaluate WebRTC/SRT egress | OUT | |
-| 5.5 | **NDI path evaluation** (third-party vs helper vs Electron) | OUT+PLT+BW | |
+| 5.5 | **NDI path evaluation** (third-party vs helper vs Electron) | OUT+PLT+BW | **DSP issued** (`DSP-OUT-20260731-02`) |
 | 5.6 | Parallel air vs Unity; cutover criteria | BW | |
 
 **Exit (Milestone D):** Documented chroma air path; NDI options scored; Unity decommission only after explicit OK.
