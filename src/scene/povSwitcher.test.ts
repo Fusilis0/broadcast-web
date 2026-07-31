@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_POV_IDS,
+  clampActivePovId,
   formatPovStatus,
   isAllowedPovId,
+  orphanPovCacheIds,
   povIdAllowSet,
   resolveInitialPovId,
   resolvePovIdList,
@@ -52,6 +54,31 @@ describe('resolveInitialPovId', () => {
   it('prefers deprecated droneId when allowed', () => {
     expect(resolveInitialPovId(['1', '2'], '2')).toBe('2')
     expect(resolveInitialPovId(['1', '2'], '9')).toBe('1')
+  })
+})
+
+describe('clampActivePovId', () => {
+  it('keeps active when still allowed', () => {
+    expect(clampActivePovId('2', ['1', '2'])).toBe('2')
+  })
+
+  it('clamps to first id when active leaves the list', () => {
+    expect(clampActivePovId('2', ['1', '11'])).toBe('1')
+    expect(clampActivePovId('11', ['2'])).toBe('2')
+  })
+
+  it('falls back to default drone id on empty list', () => {
+    expect(clampActivePovId('1', [])).toBe('1')
+  })
+})
+
+describe('orphanPovCacheIds', () => {
+  it('lists cached ids outside the allow-set', () => {
+    const allow = povIdAllowSet(['1'])
+    expect(orphanPovCacheIds(['1', '2', '11'], allow).sort()).toEqual([
+      '11',
+      '2',
+    ])
   })
 })
 

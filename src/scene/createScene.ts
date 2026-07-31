@@ -25,10 +25,16 @@ import {
 import type { WorldFeature } from './features/types.ts'
 import { clearLayoutFeatures } from './features/layoutStore.ts'
 import { createDroneCamera, TEMP_HFOV_DEG } from './droneCamera.ts'
-import { boatIdAllowSet, isAllowedBoatId } from './fleetRegistry.ts'
+import {
+  boatIdAllowSet,
+  isAllowedBoatId,
+  orphanBoatIds,
+} from './fleetRegistry.ts'
 import {
   DEFAULT_DRONE_ID,
+  clampActivePovId,
   isAllowedPovId,
+  orphanPovCacheIds,
   povIdAllowSet,
   resolveInitialPovId,
   resolvePovIdList,
@@ -74,14 +80,19 @@ export type SceneOptions = {
   clearColor?: number
 }
 
+export type FleetAllowLists = {
+  boatIds: readonly string[]
+  povIds: readonly string[]
+}
+
 export type SceneHandle = {
   scene: THREE.Scene
   camera: THREE.PerspectiveCamera
   renderer: THREE.WebGLRenderer
   /** Live fleet registry (boats with at least one applied pose). */
   boats: ReadonlyMap<string, BoatEntityHandle>
-  /** Configured POV ids (ordered). */
-  povIds: readonly string[]
+  /** Configured POV ids (ordered). Live — updates after `setFleetAllowLists`. */
+  readonly povIds: readonly string[]
   /** Currently selected render camera POV id. */
   getActivePovId: () => string
   /**
@@ -89,6 +100,11 @@ export type SceneHandle = {
    * Returns false if `id` is not in the allow-list.
    */
   setActivePovId: (id: string) => boolean
+  /**
+   * Replace boat + POV allow-lists (soft race switch). Drops orphan boats,
+   * prunes POV pose cache, clamps active POV. Returns the active POV id.
+   */
+  setFleetAllowLists: (lists: FleetAllowLists) => string
   /**
    * Load static course after GEO origin + EGM96 are ready.
    * Returns map points (marks + gate ends) for the 2D overlay.
@@ -134,12 +150,12 @@ export type SceneHandle = {
  * Course/sponsors/flags lat/lon → ENU goes through GEO via loaders (after origin).
  */
 export function startScene(options: SceneOptions): SceneHandle {
-  const allow =
+  let allow =
     options.boatIds !== undefined
       ? boatIdAllowSet(options.boatIds)
       : boatIdAllowSet(options.boatId !== undefined ? [options.boatId] : undefined)
-  const povIds = resolvePovIdList(options.povIds, options.droneId)
-  const povAllow = povIdAllowSet(povIds)
+  let povIds = resolvePovIdList(options.povIds, options.droneId)
+  let povAllow = povIdAllowSet(povIds)
   let activePovId = resolveInitialPovId(povIds, options.droneId)
   const lastPoseByPovId = new Map<string, PoseEvent>()
   const clearColor = options.clearColor ?? 0x1a1a1a
@@ -252,6 +268,33 @@ export function startScene(options: SceneOptions): SceneHandle {
     return true
   }
 
+  function setFleetAllowLists(lists: FleetAllowLists): string {
+    if (stopped) return activePovId
+
+    allow = boatIdAllowSet(lists.boatIds)
+    for (const id of orphanBoatIds(boats.keys(), allow)) {
+      const boat = boats.get(id)
+      if (!boat) continue
+      scene.remove(boat.root)
+      boat.dispose()
+      boats.delete(id)
+    }
+
+    povIds = resolvePovIdList(lists.povIds)
+    povAllow = povIdAllowSet(povIds)
+    for (const id of orphanPovCacheIds(lastPoseByPovId.keys(), povAllow)) {
+      lastPoseByPovId.delete(id)
+    }
+
+    const nextActive = clampActivePovId(activePovId, povIds)
+    if (nextActive !== activePovId) {
+      activePovId = nextActive
+      const cached = lastPoseByPovId.get(activePovId)
+      if (cached) drone.applyPose(cached)
+    }
+    return activePovId
+  }
+
   function frame(): void {
     if (stopped) return
     rafId = requestAnimationFrame(frame)
@@ -278,9 +321,12 @@ export function startScene(options: SceneOptions): SceneHandle {
     camera: drone.camera,
     renderer,
     boats,
-    povIds,
+    get povIds() {
+      return povIds
+    },
     getActivePovId: () => activePovId,
     setActivePovId,
+    setFleetAllowLists,
     async loadCourseFromUrl(url?: string): Promise<CourseHandle | null> {
       if (stopped) return null
       course?.dispose()

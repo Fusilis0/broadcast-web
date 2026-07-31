@@ -24,8 +24,8 @@
 
 ## Current phase pointer
 
-**Active:** **6.2 done**; follow-up **fleet allow-lists on race switch** (`DSP-SCN-20260731-02`).  
-**Last gate:** DSP-SCN-20260731-01 race save/picker accepted (2026-07-31).
+**Active:** Soft race-switch gap **closed**; next **4.4** GeoJSON (`DSP-SCN-20260731-03`).  
+**Last gate:** DSP-SCN-20260731-02 fleet allow-lists accepted (2026-07-31).
 
 ---
 
@@ -83,7 +83,7 @@
 | 4.2a | **Shared feature layout** | SCN+GEO | **Done** (`DSP-SCN-20260730-01`) |
 | 4.2b | Stream / larger 2D map graphic | SCN+OUT | Optional on-air 2D from same features |
 | 4.3 | Optional tiles/basemap under editor | SCN+GEO | Not required for air meshes |
-| 4.4 | World modeling + **GeoJSON import/export** | SCN | geojson.io compatibility |
+| 4.4 | World modeling + **GeoJSON import/export** | SCN | **DSP issued** (`DSP-SCN-20260731-03`) |
 | 4.5 | CV research spike plan — **Done** | CAL | [`docs/research/cv-calibration-spike.md`](../research/cv-calibration-spike.md) |
 | 4.6 | Hull + map-dot colours from categories | SCN | QoL from boat catalogue |
 | 4.7 | Feature validation + editor QoL | SCN | Orphan gates, snap, bearing readout |
@@ -112,7 +112,7 @@
 | # | Work | Owner | Notes |
 | --- | --- | --- | --- |
 | 6.1 | **RaceProject schema** + folder/JSON pack | PLT+SCN | **Done** (`DSP-PLT-20260730-01`) |
-| 6.2 | Local pack CRUD UI (create/duplicate/save) | SCN+PLT | **Done** (`DSP-SCN-20260731-01`); fleet-switch follow-up `DSP-SCN-20260731-02` |
+| 6.2 | Local pack CRUD UI (create/duplicate/save) | SCN+PLT | **Done** (`DSP-SCN-20260731-01` + `DSP-SCN-20260731-02` fleet switch) |
 | 6.3 | `?race=` / console loads pack | CON+PLT | **Done** for local static (in 6.1); far-PC needs host |
 | 6.4 | **Project API + database** | PLT | Persist JSON; revision metadata |
 | 6.5 | Auth roles (editor vs air-only) | PLT+CON | With console team |

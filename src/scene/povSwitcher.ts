@@ -55,6 +55,32 @@ export function resolveInitialPovId(
 }
 
 /**
+ * Keep active POV if still allowed; otherwise clamp to `povIds[0]` / default.
+ * Used on soft race switch when pack `povIds` change.
+ */
+export function clampActivePovId(
+  activePovId: string,
+  povIds: readonly string[],
+): string {
+  if (povIds.includes(activePovId)) return activePovId
+  return povIds[0] ?? DEFAULT_DRONE_ID
+}
+
+/**
+ * Cached POV pose ids outside the new allow-set (drop on soft race switch).
+ */
+export function orphanPovCacheIds(
+  cachedIds: Iterable<string>,
+  allow: ReadonlySet<string>,
+): string[] {
+  const orphans: string[] = []
+  for (const id of cachedIds) {
+    if (!allow.has(id)) orphans.push(id)
+  }
+  return orphans
+}
+
+/**
  * Compact POV status for stub HUD.
  * Example: `pov=1  seen=1,2`
  */

@@ -234,8 +234,13 @@ async function switchRace(id: string): Promise<void> {
 
     mapEditor?.setProjectMeta(project.id, project.name)
     hud.setActiveRaceId(project.id)
-    hud.setPovIds(config.povIds, scene.getActivePovId())
-    calib.setPovIds(config.povIds, scene.getActivePovId())
+    // Scene allow-lists are boot-time unless refreshed here (soft switch).
+    const activePov = scene.setFleetAllowLists({
+      boatIds: config.boatIds,
+      povIds: config.povIds,
+    })
+    hud.setPovIds(config.povIds, activePov)
+    calib.setPovIds(config.povIds, activePov)
     syncRaceQuery(project.id)
 
     clearLiveStatusSub()

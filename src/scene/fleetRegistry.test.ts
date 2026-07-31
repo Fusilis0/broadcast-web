@@ -3,6 +3,7 @@ import {
   boatIdAllowSet,
   formatBoatEnuStatus,
   isAllowedBoatId,
+  orphanBoatIds,
 } from './fleetRegistry.ts'
 
 describe('boatIdAllowSet', () => {
@@ -26,6 +27,21 @@ describe('isAllowedBoatId', () => {
     expect(isAllowedBoatId('22', allow)).toBe(true)
     expect(isAllowedBoatId('23', allow)).toBe(false)
     expect(isAllowedBoatId('81', allow)).toBe(false)
+  })
+})
+
+describe('orphanBoatIds', () => {
+  it('lists registered ids outside the allow-set', () => {
+    const allow = boatIdAllowSet(['21', '22'])
+    expect(orphanBoatIds(['21', '22', '23', '24'], allow).sort()).toEqual([
+      '23',
+      '24',
+    ])
+  })
+
+  it('returns empty when all registered ids remain allowed', () => {
+    const allow = boatIdAllowSet(['21', '22'])
+    expect(orphanBoatIds(['21', '22'], allow)).toEqual([])
   })
 })
 

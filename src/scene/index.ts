@@ -1,6 +1,7 @@
 export {
   startScene,
   DEFAULT_DRONE_ID,
+  type FleetAllowLists,
   type SceneHandle,
   type SceneOptions,
 } from './createScene.ts'
@@ -8,11 +9,14 @@ export {
   boatIdAllowSet,
   formatBoatEnuStatus,
   isAllowedBoatId,
+  orphanBoatIds,
 } from './fleetRegistry.ts'
 export {
   DEFAULT_POV_IDS,
+  clampActivePovId,
   formatPovStatus,
   isAllowedPovId,
+  orphanPovCacheIds,
   povIdAllowSet,
   resolveInitialPovId,
   resolvePovIdList,

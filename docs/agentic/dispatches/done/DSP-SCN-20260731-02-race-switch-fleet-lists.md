@@ -7,6 +7,7 @@
 - Phase: Phase 6.2 follow-up — fleet/POV allow-lists on soft race switch
 - Related: DSP-SCN-20260731-01 report-back follow-up
 - BW ask: when Load/`?race=` applies a pack with different `boatIds`/`povIds`, scene + HUD + calib + ingest must pick up the new lists without full page reload
+- **Status: DONE** (worker report accepted by BW 2026-07-31)
 
 ## Goal
 

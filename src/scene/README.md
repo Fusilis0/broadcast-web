@@ -16,6 +16,8 @@ Do **not** call `gpsToEnu` for boats, subscribe to `telemetryBus` for positions,
 
 `main.ts` loads config → `startScene({ boatIds, povIds })` → **`loadBoatNamesFromUrl(boatNamesUrl)`** → EGM96 → origin → **`loadCourseFromUrl(courseUrl)`** → **`loadSponsorsFromUrl(sponsorsUrl)`** → **`loadCountdownFlagsFromUrl(flagsUrl)`** → TEL ingest → `startPosePipeline` → HUD mode + POV select. HUD boots early for status; scene waits on `loadConfig()` so allow-lists are known.
 
+**Soft race switch** (`switchRace` / Load / `?race=` after boot): `scene.setFleetAllowLists({ boatIds, povIds })` replaces allow-lists without recreating WebGL — orphan boats leave the registry, POV pose cache is pruned, active POV is clamped; then HUD/calib `setPovIds` + ingest restart with the same lists. First-boot `?race=` still passes pack lists into `startScene` directly.
+
 Mock ids: POVs from `povIds` (default `1`,`2`), boats from `boatIds` (default `21–24`). Temporary hFOV default `66.8832` (also on `PoseEvent.fovHDeg` from CAL).
 
 ## Public API
@@ -23,6 +25,7 @@ Mock ids: POVs from `povIds` (default `1`,`2`), boats from `boatIds` (default `2
 | Symbol | Role |
 | --- | --- |
 | `startScene(options)` | Scene + lights + renderer + RAF + pose subscribe + fleet `Map` + POV switch + course/sponsors/flags/boatNames loaders |
+| `setFleetAllowLists({ boatIds, povIds })` | Soft race switch: replace allow-lists, drop orphan boats, prune/clamp POV |
 | `loadCourse` / `mountCourse` | Fetch/normalize course JSON → GEO ENU → boundary/gates/buoys |
 | `loadSponsors` / `mountSponsors` | Fetch/normalize sponsors JSON → GEO ENU → fixed world panels |
 | `loadCountdownFlags` / `mountCountdownFlags` | Fetch/normalize flags JSON → GEO ENU → poles + phase timer |
@@ -72,6 +75,7 @@ Clear color stays dark preview; OUT owns chroma later. Ambient + directional lig
 
 - `startScene({ boatIds })` maintains `Map<string, BoatEntityHandle>`.
 - On `poseBus` boat pose: ignore ids not in `boatIds`; otherwise create (clone 2.1 template + tag) then `applyPose`.
+- Soft race switch: `setFleetAllowLists` rebuilds the allow-set and disposes ids that leave the pack; new ids spawn on the next allowed pose.
 - Each RAF: `updateTag` for every active boat (drone camera).
 - `stop()` disposes all entities and clears the map.
 - Names/colours: **2.7** catalogue via `boatNamesUrl` (see below).
@@ -89,6 +93,7 @@ Clear color stays dark preview; OUT owns chroma later. Ambient + directional lig
 - `startScene({ povIds })` caches last `poseBus` drone pose per id ∈ `povIds`.
 - Only **`activePovId`** (default `povIds[0]`) drives the Three `PerspectiveCamera`.
 - `setActivePovId(id)` switches immediately using the cached pose when available (no wait for next packet).
+- Soft race switch: `setFleetAllowLists` updates `povIds`, drops cached poses for removed ids, and clamps `activePovId` into the new list (HUD/calib sync via `setPovIds`).
 - Deprecated `droneId` remains as a single-id / initial-active alias when needed.
 - Cam ids `11`/`12` use the same `kind: 'drone'` path when listed in `povIds` — no second pipeline.
 - HUD: POV select (labels = raw id; **not** 2.7 names) + status `pov=<id>  seen=…`; optional digit keys `1`–`4`.

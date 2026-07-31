@@ -22,6 +22,21 @@ export function isAllowedBoatId(
 }
 
 /**
+ * Registered boat ids that are no longer in the allow-set (soft race switch).
+ * Callers dispose/remove those entities from the fleet map.
+ */
+export function orphanBoatIds(
+  registeredIds: Iterable<string>,
+  allow: ReadonlySet<string>,
+): string[] {
+  const orphans: string[] = []
+  for (const id of registeredIds) {
+    if (!allow.has(id)) orphans.push(id)
+  }
+  return orphans
+}
+
+/**
  * Compact multi-boat ENU status for stub HUD.
  * Example: `boats=2  21=(1.0, 0.0, 2.0) 22=(3.0, 0.0, 4.0)`
  */
