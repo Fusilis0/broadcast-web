@@ -1,21 +1,15 @@
 # PLT_MEMO
 
 **Last updated:** 2026-07-31  
-**Status:** Idle — 6.1 local RaceProject packs done
+**Status:** Idle — 6.1 + 6.2 helpers done
 
 ## Focus
-None active. Static packs under `public/races/<id>/project.json`.
+None active.
 
 ## Decisions
-- Vite + TS + Three SPA; Hetzner static later
-- **6.1 DONE:** `src/projects` load/parse/apply; contract `docs/contracts/race-project.md`
-- Boot: config → race pack → deeplink overrides; miss → warn + config boot
-- Demo: `demo-istanbul` (fixture URL pointers)
-
-## Issued dispatches
-- DSP-PLT-20260722-01 scaffold — DONE
-- **DSP-PLT-20260730-01-race-project-local-pack** — **DONE**
+- **6.1** load/apply/`?race=` DONE
+- **6.2** `buildRaceProject` / `downloadRaceProject` / `listLocalRaceIds` + `public/races/index.json` DONE
+- Save = browser download; git drop for persistence until API
 
 ## Next
-1. BW: 6.2 CRUD UI / save pack from editor, or 6.4 API later
-2. Hetzner deploy when Phase 5 opens
+- Phase 5 Hetzner or 6.4 API when BW opens

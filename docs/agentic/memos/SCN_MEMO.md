@@ -1,24 +1,20 @@
 # SCN_MEMO
 
-**Last updated:** 2026-07-30  
-**Status:** Idle — 4.2 editor V1 done; awaiting BW next slice
+**Last updated:** 2026-07-31  
+**Status:** Active — 6.2 done; fleet-switch follow-up DSP issued
 
 ## Focus
-Phase 4 world authoring — editor landed; ready for packs / GeoJSON / PiP as BW routes.
+Race pack UX — save/load local; fix allow-lists on soft switch.
 
 ## Decisions
-- **4.2a + 4.2 DONE**
-- Editor: HUD checkbox or `?editor=1`; place/select/delete/export `world-features.json`
-- Pipeline: editable `WorldFeature[]` → `layoutFeatures` → map + `remountWorldFromFeatures`
-- GEO: `enuToGps` / `enuToGpsAmsl` for map clicks
-- Start/finish/arrow: map stubs only (no 3D meshes yet)
+- **6.2 DONE:** HUD race Load/Save; editor Save project → `project.json` download
+- Persist = drop under `public/races/<id>/` + `index.json`
+- Soft switch gap: boat/POV allow-lists boot-frozen → **DSP-SCN-20260731-02**
 
 ## Issued dispatches
-- **DSP-SCN-20260730-01** — DONE (shared layout)
-- **DSP-SCN-20260730-02** — DONE (map editor V1)
-
-## Blockers
-- None
+- DSP-SCN-20260731-01 — **DONE**
+- DSP-SCN-20260731-02-race-switch-fleet-lists — **active**
 
 ## Next
-BW pick: Phase 6 local RaceProject pack / 4.4 GeoJSON / 4.2b stream PiP
+1. Worker: fleet-lists DSP
+2. Then BW: GeoJSON 4.4 / Hetzner 5.1 / DB 6.4

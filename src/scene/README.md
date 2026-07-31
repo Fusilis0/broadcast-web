@@ -27,11 +27,11 @@ Mock ids: POVs from `povIds` (default `1`,`2`), boats from `boatIds` (default `2
 | `loadSponsors` / `mountSponsors` | Fetch/normalize sponsors JSON → GEO ENU → fixed world panels |
 | `loadCountdownFlags` / `mountCountdownFlags` | Fetch/normalize flags JSON → GEO ENU → poles + phase timer |
 | `loadBoatNames` / `normalizeBoatNames` | Fetch/normalize Unity category→id→name JSON → tag identity map |
-| `startStubHud(options)` | Ops overlay: mode + POV select + countdown + editor toggle + WS + status + 2D map |
+| `startStubHud(options)` | Ops overlay: mode + POV + countdown + editor + race Load/Save + WS + status + 2D map |
 | `formatConnectionStatus` | Compact `ws=…` / `ws=n/a (mock|replay)` string for HUD status |
 | `createMap2d()` | Top-down ENU East/North fleet panel (canvas 2D) + shared layout features |
 | `layoutFeatures` / `getLayoutFeatures` | Shared GPS→ENU world features (course/sponsors/flags adapters) |
-| `startMapFeatureEditor` | V1 world editor: place/select/delete/export; remounts 3D via scene |
+| `startMapFeatureEditor` | V1 world editor: place/select/delete/export + **Save project** download; remounts 3D |
 | `remountWorldFromFeatures` | Rebuild course/sponsors/flags from editable `WorldFeature[]` |
 | `createBoatEntity()` | Pose root + glTF/procedural visual + billboard tag |
 | `createBoatTag()` | Canvas sprite label (catalogue name + category tint, or `Boat {id}` stub) |

@@ -47,7 +47,17 @@ Enable with HUD **editor** checkbox or URL `?editor=1`.
 | Tools | select, mark, gate L/R, gate pair (A–B), sponsor (A–B), flags, start/finish/arrow stubs |
 | Place | Click enlarged map (ENU → lat/lon via GEO `enuToGpsAmsl`) |
 | Edit | Select → name / label / heightM / color; **Delete** |
-| Export | **Export JSON** → `world-features.json` `{ features: [...] }` |
+| Export | **Export JSON** → `world-features.json` `{ features: [...] }` (features only) |
+| Save project | **Save project** → `project.json` (full RaceProject: origin, fleet, povIds, features, URLs) |
+
+### Persist a pack in git (Phase 6.2)
+
+Browser cannot write into `public/`. Download → drop file:
+
+1. Edit features (optional) → set **project id** / **name** → **Save project** (or HUD **Save**)
+2. Copy downloaded `project.json` to `public/races/<id>/project.json`
+3. Add `<id>` to `public/races/index.json` `{ "ids": [...] }`
+4. HUD **race** picker → Load, or open `?race=<id>`
 
 No DB persist, no GeoJSON import. Boot without editor unchanged.
 
@@ -63,4 +73,4 @@ No DB persist, no GeoJSON import. Boot without editor unchanged.
 | `serializeWorldFeaturesExport` | Pure JSON string for download |
 | `featuresToCourseData` / `featuresToSponsorsData` / `featuresToFlagsData` | Editor → remount fixtures |
 
-Out of scope here: RaceProject pack/DB, GeoJSON import, NDI, stream PiP map.
+Out of scope here: RaceProject DB/API (download-only save), GeoJSON import, NDI, stream PiP map.

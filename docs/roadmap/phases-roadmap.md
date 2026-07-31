@@ -24,8 +24,8 @@
 
 ## Current phase pointer
 
-**Active:** **6.1 done**; **6.2** save/picker DSP issued (`DSP-SCN-20260731-01`).  
-**Last gate:** DSP-PLT-20260730-01 local RaceProject pack accepted (2026-07-31).
+**Active:** **6.2 done**; follow-up **fleet allow-lists on race switch** (`DSP-SCN-20260731-02`).  
+**Last gate:** DSP-SCN-20260731-01 race save/picker accepted (2026-07-31).
 
 ---
 
@@ -112,7 +112,7 @@
 | # | Work | Owner | Notes |
 | --- | --- | --- | --- |
 | 6.1 | **RaceProject schema** + folder/JSON pack | PLT+SCN | **Done** (`DSP-PLT-20260730-01`) |
-| 6.2 | Local pack CRUD UI (create/duplicate/save) | SCN+PLT | **DSP issued** (`DSP-SCN-20260731-01`) — download save + picker; no DB |
+| 6.2 | Local pack CRUD UI (create/duplicate/save) | SCN+PLT | **Done** (`DSP-SCN-20260731-01`); fleet-switch follow-up `DSP-SCN-20260731-02` |
 | 6.3 | `?race=` / console loads pack | CON+PLT | **Done** for local static (in 6.1); far-PC needs host |
 | 6.4 | **Project API + database** | PLT | Persist JSON; revision metadata |
 | 6.5 | Auth roles (editor vs air-only) | PLT+CON | With console team |

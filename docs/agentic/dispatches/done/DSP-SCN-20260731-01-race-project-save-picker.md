@@ -7,6 +7,7 @@
 - Phase: Phase 6.2 — Local pack CRUD UX (save + picker; no DB)
 - Related: `docs/contracts/race-project.md`, PLT `src/projects/*`, map editor export
 - BW ask: close the loop — save current scene as RaceProject JSON download; pick among known local races; no database
+- **Status: DONE** (worker report accepted by BW 2026-07-31)
 
 ## Goal
 

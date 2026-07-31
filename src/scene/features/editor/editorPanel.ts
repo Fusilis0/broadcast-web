@@ -34,12 +34,30 @@ export type MapFeatureEditorOptions = {
   onApply: (features: readonly WorldFeature[]) => void | Promise<void>
   /** Start with editor chrome open. */
   initiallyOpen?: boolean
+  /**
+   * Save full RaceProject download (Phase 6.2).
+   * Caller builds from features + config; id/name from panel fields.
+   */
+  onSaveProject?: (meta: { id: string; name: string }) => void
+  /** Defaults for Save project id / name fields. */
+  initialProjectId?: string
+  initialProjectName?: string
 }
 
 export type MapFeatureEditorHandle = {
   setOpen: (open: boolean) => void
   isOpen: () => boolean
   getFeatures: () => readonly WorldFeature[]
+  /**
+   * Replace editable GPS list (race pack switch); re-layouts map.
+   * When `apply3d` is true (default), also schedules `onApply` remount.
+   */
+  replaceFeatures: (
+    features: readonly WorldFeature[],
+    apply3d?: boolean,
+  ) => void
+  /** Sync Save project id/name fields (no download). */
+  setProjectMeta: (id: string, name: string) => void
   dispose: () => void
 }
 
@@ -136,6 +154,33 @@ export function startMapFeatureEditor(
   colorLabel.appendChild(colorInput)
   props.appendChild(colorLabel)
 
+  const projectMeta = document.createElement('div')
+  projectMeta.className = 'ops-editor__props'
+  panel.appendChild(projectMeta)
+
+  const projectIdLabel = document.createElement('label')
+  projectIdLabel.className = 'ops-editor__field'
+  projectIdLabel.textContent = 'project id'
+  const projectIdInput = document.createElement('input')
+  projectIdInput.className = 'ops-editor__input'
+  projectIdInput.type = 'text'
+  projectIdInput.spellcheck = false
+  projectIdInput.value = options.initialProjectId ?? ''
+  projectIdInput.placeholder = 'edited-…'
+  projectIdLabel.appendChild(projectIdInput)
+  projectMeta.appendChild(projectIdLabel)
+
+  const projectNameLabel = document.createElement('label')
+  projectNameLabel.className = 'ops-editor__field'
+  projectNameLabel.textContent = 'project name'
+  const projectNameInput = document.createElement('input')
+  projectNameInput.className = 'ops-editor__input'
+  projectNameInput.type = 'text'
+  projectNameInput.value = options.initialProjectName ?? ''
+  projectNameInput.placeholder = 'Display name'
+  projectNameLabel.appendChild(projectNameInput)
+  projectMeta.appendChild(projectNameLabel)
+
   const actions = document.createElement('div')
   actions.className = 'ops-editor__actions'
   panel.appendChild(actions)
@@ -159,11 +204,25 @@ export function startMapFeatureEditor(
   exportBtn.type = 'button'
   exportBtn.className = 'ops-hud__btn'
   exportBtn.textContent = 'Export JSON'
-  exportBtn.title = 'Download world-features.json'
+  exportBtn.title = 'Download world-features.json (features only)'
   exportBtn.addEventListener('click', () => {
     downloadWorldFeaturesJson(features)
   })
   actions.appendChild(exportBtn)
+
+  const saveProjectBtn = document.createElement('button')
+  saveProjectBtn.type = 'button'
+  saveProjectBtn.className = 'ops-hud__btn'
+  saveProjectBtn.textContent = 'Save project'
+  saveProjectBtn.title =
+    'Download project.json (RaceProject). Put under public/races/<id>/ to persist in git.'
+  saveProjectBtn.addEventListener('click', () => {
+    options.onSaveProject?.({
+      id: projectIdInput.value.trim(),
+      name: projectNameInput.value.trim(),
+    })
+  })
+  actions.appendChild(saveProjectBtn)
 
   options.container.appendChild(panel)
 
@@ -346,6 +405,19 @@ export function startMapFeatureEditor(
     },
     isOpen: () => open,
     getFeatures: () => features,
+    replaceFeatures(next: readonly WorldFeature[], apply3d = true): void {
+      features = next.map(cloneFeature)
+      idCounter.n = maxNumericSuffix(features)
+      selectedId = null
+      pendingA = null
+      pushLayout()
+      if (apply3d) scheduleApply()
+      refreshProps()
+    },
+    setProjectMeta(id: string, name: string): void {
+      projectIdInput.value = id
+      projectNameInput.value = name
+    },
     dispose(): void {
       if (applyTimer !== null) window.clearTimeout(applyTimer)
       unsubClick()

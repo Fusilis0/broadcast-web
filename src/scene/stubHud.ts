@@ -52,6 +52,17 @@ export type StubHudOptions = {
   editorInitiallyOpen?: boolean
   /** Invoked when ops toggles the world editor checkbox. */
   onEditorToggle?: (open: boolean) => void
+  /**
+   * Local RaceProject pack ids for the race picker (Phase 6.2).
+   * Always includes at least `demo-istanbul` after boot fills from manifest.
+   */
+  raceIds?: readonly string[]
+  /** Active / last-loaded pack id (select + custom field). */
+  activeRaceId?: string
+  /** Load a local pack by id (manifest pick or typed). */
+  onRaceLoad?: (raceId: string) => void
+  /** Download current scene as RaceProject `project.json`. */
+  onSaveProject?: () => void
 }
 
 export type StubHudHandle = {
@@ -74,6 +85,10 @@ export type StubHudHandle = {
   setEditorOpen: (open: boolean, notify?: boolean) => void
   /** Telemetry WS / non-live connection line (Phase 3.4). */
   setConnectionStatus: (status: ConnectionStatusUi) => void
+  /** Replace race picker options; optionally set active id. */
+  setRaceIds: (raceIds: readonly string[], activeRaceId?: string) => void
+  /** Sync active race id in select + custom field (no load). */
+  setActiveRaceId: (raceId: string) => void
   stop: () => void
 }
 
@@ -206,6 +221,50 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   editorHint.textContent = '?editor=1'
   editorRow.appendChild(editorHint)
 
+  const raceRow = document.createElement('div')
+  raceRow.className = 'ops-hud__mode-row'
+  hud.appendChild(raceRow)
+
+  const raceLabel = document.createElement('label')
+  raceLabel.className = 'ops-hud__mode-label'
+  raceLabel.htmlFor = 'ops-race-id'
+  raceLabel.textContent = 'race'
+  raceRow.appendChild(raceLabel)
+
+  const raceSelect = document.createElement('select')
+  raceSelect.id = 'ops-race-id'
+  raceSelect.className = 'ops-hud__mode-select'
+  raceSelect.title = 'Local RaceProject packs under /races/'
+  raceRow.appendChild(raceSelect)
+
+  const raceCustom = document.createElement('input')
+  raceCustom.className = 'ops-hud__input'
+  raceCustom.type = 'text'
+  raceCustom.placeholder = 'id…'
+  raceCustom.title = 'Type a pack id (public/races/<id>/) then Load'
+  raceCustom.spellcheck = false
+  raceRow.appendChild(raceCustom)
+
+  const raceLoadBtn = document.createElement('button')
+  raceLoadBtn.type = 'button'
+  raceLoadBtn.className = 'ops-hud__btn'
+  raceLoadBtn.textContent = 'Load'
+  raceLoadBtn.title = 'Load local RaceProject pack'
+  raceRow.appendChild(raceLoadBtn)
+
+  const raceSaveBtn = document.createElement('button')
+  raceSaveBtn.type = 'button'
+  raceSaveBtn.className = 'ops-hud__btn'
+  raceSaveBtn.textContent = 'Save'
+  raceSaveBtn.title =
+    'Download project.json (RaceProject). Drop into public/races/<id>/ to persist.'
+  raceRow.appendChild(raceSaveBtn)
+
+  const raceHint = document.createElement('span')
+  raceHint.className = 'ops-hud__mode-hint'
+  raceHint.textContent = 'local pack'
+  raceRow.appendChild(raceHint)
+
   const statusEl = document.createElement('pre')
   statusEl.className = 'ops-hud__status'
   hud.appendChild(statusEl)
@@ -215,6 +274,57 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
 
   editorCheck.addEventListener('change', () => {
     options.onEditorToggle?.(editorCheck.checked)
+  })
+
+  let raceIds = [...(options.raceIds ?? ['demo-istanbul'])]
+  let activeRaceId = options.activeRaceId?.trim() || raceIds[0] || 'demo-istanbul'
+
+  function rebuildRaceSelect(): void {
+    raceSelect.replaceChildren()
+    for (const id of raceIds) {
+      const opt = document.createElement('option')
+      opt.value = id
+      opt.textContent = id
+      raceSelect.appendChild(opt)
+    }
+    if (raceIds.includes(activeRaceId)) {
+      raceSelect.value = activeRaceId
+    } else if (raceIds.length > 0) {
+      raceSelect.value = raceIds[0]!
+    }
+    raceCustom.value = activeRaceId
+  }
+
+  function resolveRacePick(): string {
+    const typed = raceCustom.value.trim()
+    if (typed !== '') return typed
+    return raceSelect.value.trim()
+  }
+
+  function requestRaceLoad(): void {
+    const id = resolveRacePick()
+    if (!id) return
+    activeRaceId = id
+    raceCustom.value = id
+    if (raceIds.includes(id)) raceSelect.value = id
+    options.onRaceLoad?.(id)
+  }
+
+  raceSelect.addEventListener('change', () => {
+    activeRaceId = raceSelect.value
+    raceCustom.value = activeRaceId
+  })
+  raceLoadBtn.addEventListener('click', () => {
+    requestRaceLoad()
+  })
+  raceCustom.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') {
+      ev.preventDefault()
+      requestRaceLoad()
+    }
+  })
+  raceSaveBtn.addEventListener('click', () => {
+    options.onSaveProject?.()
   })
 
   const counts = { drone: 0, boat: 0, stream_anchor: 0 }
@@ -330,6 +440,7 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   }, 200)
 
   rebuildPovSelect()
+  rebuildRaceSelect()
   renderStatus()
 
   return {
@@ -375,6 +486,22 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
     setConnectionStatus(status: ConnectionStatusUi): void {
       connectionStatus = status
       renderStatus()
+    },
+    setRaceIds(nextIds, nextActive): void {
+      raceIds = nextIds.length > 0 ? [...nextIds] : ['demo-istanbul']
+      if (nextActive !== undefined && nextActive.trim() !== '') {
+        activeRaceId = nextActive.trim()
+      } else if (!raceIds.includes(activeRaceId)) {
+        activeRaceId = raceIds[0]!
+      }
+      rebuildRaceSelect()
+    },
+    setActiveRaceId(raceId: string): void {
+      const id = raceId.trim()
+      if (!id) return
+      activeRaceId = id
+      raceCustom.value = id
+      if (raceIds.includes(id)) raceSelect.value = id
     },
     stop(): void {
       window.clearInterval(refreshId)
