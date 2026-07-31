@@ -1,19 +1,20 @@
 # OUT_MEMO
 
 **Last updated:** 2026-07-31  
-**Status:** Active — **7.1** docs done; **awaiting human Results**
+**Status:** Active — **7.3** Electron + alpha NDI (first slice)
 
 ## Focus
-Human executes `docs/ops/ndi-c-spike-runbook.md` → fill Results → OUT/BW close 7.1
+`DSP-OUT-20260731-04` — Electron shell + alpha NDI contract (no SDK yet)
 
 ## Decisions
-- 7.1 docs landed: `ndi-c-spike-runbook.md` + links
-- Chroma remains production; C spike does not change default air
-- DSP stays **active** until Results (like 3.5)
+- 7.1 C **closed / fail for production NDI** (screen capture only)
+- Full product: **A + alpha NDI** (not green-key NDI)
+- **Skip B** unless A blocked
+- Chroma remains interim air
 
 ## Issued dispatches
-- **DSP-OUT-20260731-03** — docs DONE; human Results pending
+- DSP-OUT-20260731-03 — done (archived)
+- **DSP-OUT-20260731-04** — active
 
-## Next
-1. Human: studio C spike → paste Results
-2. Then BW: 5.4 + 6.4 + human ops (Hetzner/WSS) together
+## Next after 7.3 shell
+NDI SDK + alpha frame send → 7.5/7.6; parallel 5.4 + 6.4 when BW opens

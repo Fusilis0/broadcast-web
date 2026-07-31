@@ -2,10 +2,10 @@
 
 Studio trial runbook for sending the **broadcast-web** Chrome window into **vMix as NDI** via a **third-party** bridge (OBS-NDI, vMix NDI, NDI Tools, or window→NDI utility). No product NDI code, Electron shell, or NDI SDK work in this phase.
 
-**Status:** Docs ready — **human Results pending**  
+**Status:** **Closed** (2026-07-31) — C works as screen→NDI only; **rejected for production NDI**  
 **Owner:** OUT + studio operator  
 **Dispatch:** `DSP-OUT-20260731-03-ndi-third-party-spike`  
-**Scores / order:** [`ndi-path-evaluation.md`](./ndi-path-evaluation.md) (BW ack **C → B → A**)
+**Scores / order:** [`ndi-path-evaluation.md`](./ndi-path-evaluation.md) — BW revised: end-state **A + alpha** (skip **B** unless A blocked)
 
 ## Hard constraints
 
@@ -87,42 +87,44 @@ Optional A/B judgment: briefly compare latency/feel vs **direct** window capture
 
 ## Pass / fail
 
-- [ ] NDI source appears with a stable, recognizable name
-- [ ] Latency acceptable vs direct window capture (operator judgment; soft target ≤ ~1–2 frames worse)
-- [ ] Resolution sharp; **8×8 timecode** readable (not smeared)
-- [ ] Chroma key (if sending green plate) still clean after NDI hop
-- [ ] Survives ≥ 10 minutes without freeze / name flip
-- [ ] Ops steps good enough for a show? (note in Results)
+- [x] NDI source appears with a stable, recognizable name *(Screen Capture → OBS NDI list)*
+- [ ] Latency acceptable vs direct window capture (operator judgment; soft target ≤ ~1–2 frames worse) — *not scored; product gate failed first*
+- [ ] Resolution sharp; **8×8 timecode** readable (not smeared) — *not fully scored*
+- [ ] Chroma key (if sending green plate) still clean after NDI hop — *n/a for end-state (want alpha, not green)*
+- [ ] Survives ≥ 10 minutes without freeze / name flip — *not fully scored*
+- [x] Ops steps good enough for a show? — **No** for production NDI (screen capture only; not app-native)
 
 ## Results (human fills)
 
 | Field | Value |
 | --- | --- |
-| Date | |
-| Operator | |
-| URL used (local / hosted) | |
-| `outputMode` used | chroma / preview |
-| Tool chain (C variant) | OBS-NDI / vMix NDI / NDI Tools / other — versions if known |
-| NDI source name observed | |
-| Receive host | same PC / second LAN PC |
-| Pass / fail | |
-| Latency vs direct window capture | |
-| Timecode readable after NDI? | Y/N + notes |
-| Chroma key after NDI? | Y/N / n/a |
-| ≥10 min soak | pass / fail |
-| Blockers vs Unity NDI | |
-| Good enough for a show? | Y/N + why |
-| Recommend start **B** (helper) / **A** (Electron)? | Y/N + why |
-| Screenshot paths (optional) | |
-| `git log -1` on studio PC (optional) | |
+| Date | 2026-07-31 |
+| Operator | studio (product owner) |
+| URL used (local / hosted) | local `http://localhost:5173/?race=demo-istanbul&outputMode=chroma` |
+| `outputMode` used | chroma |
+| Tool chain (C variant) | NDI Tools **Screen Capture** 5.5.1 → OBS **NDI Source** (Bridge tried first — wrong tool; does not capture windows) |
+| NDI source name observed | Screen Capture source visible in OBS NDI list |
+| Receive host | same PC |
+| Pass / fail | **Fail for production NDI** — C is screen/window capture over NDI, not app-native out |
+| Latency vs direct window capture | n/a (stopped at product fit) |
+| Timecode readable after NDI? | n/a |
+| Chroma key after NDI? | n/a — full product must use **alpha**, not green-key NDI |
+| ≥10 min soak | n/a |
+| Blockers vs Unity NDI | No named app sender; no alpha; depends on external Screen Capture; ops wants Unity-like direct NDI |
+| Good enough for a show? | **N** as production NDI path (chroma window capture remains interim air) |
+| Recommend start **B** (helper) / **A** (Electron)? | **A** — full version = Electron + NDI **with alpha** (not green remove). Skip B unless A blocked. |
+| Screenshot paths (optional) | — |
+| `git log -1` on studio PC (optional) | — |
 
 ### Decision guide (after Results)
 
 | Outcome | Next |
 | --- | --- |
 | **Pass** for the show format | May **defer A/B**; keep chroma as production; document C as optional air variant; BW revisits if Unity cutover needs owned NDI |
-| **Fail** named-source / latency / resolution / ops gates, **or** ops requires Unity-like owned NDI | BW/OUT open **7.2** (**B** preferred) and/or **7.3** (**A**) |
+| **Fail** named-source / latency / resolution / ops gates, **or** ops requires Unity-like owned NDI | BW/OUT open **7.2** (**B**) and/or **7.3** (**A**) |
 | Explicit BW “skip C / force owned” | May open 7.2/7.3 without waiting on this table |
+
+**BW decision (2026-07-31):** C closed as **fail for product**. End-state locked to **A + alpha NDI**. **Skip 7.2 (B)** unless A is blocked. Next: **7.3** Electron shell + alpha contract (then NDI SDK).
 
 Do **not** declare production NDI cutover from this spike alone.
 

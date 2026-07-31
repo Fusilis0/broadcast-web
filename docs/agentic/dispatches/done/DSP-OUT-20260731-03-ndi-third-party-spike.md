@@ -1,5 +1,7 @@
 # Dispatch DSP-OUT-20260731-03-ndi-third-party-spike
 
+**Status:** Done / archived (2026-07-31) — Results: fail for production NDI; BW opened 7.3 (A + alpha)
+
 ## Meta
 - From orchestrator: OUT (BW: open Phase **7.1** — trial **C**)
 - Worker role: WORKER(DSP-OUT-20260731-03-ndi-third-party-spike)

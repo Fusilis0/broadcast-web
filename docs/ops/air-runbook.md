@@ -4,7 +4,9 @@ End-to-end checklist for putting **broadcast-web on air today**: fullscreen Chro
 
 This is the **canonical air path**. It absorbs the Phase **3.5** studio chroma checklist ([`vmix-chroma-runbook.md`](./vmix-chroma-runbook.md)). Milestone **C** already passed (2026-07-30); keep this doc as the durable ops procedure.
 
-**NDI is not required** for the current air path. Native NDI / Electron helper remain **Phase 7** (future). Do not block on-air on NDI. Path scores (A/B/C): [`ndi-path-evaluation.md`](./ndi-path-evaluation.md). Optional third-party NDI trial (7.1 path **C**): [`ndi-c-spike-runbook.md`](./ndi-c-spike-runbook.md) — does **not** replace this chroma path.
+**NDI is not required** for the current air path. Do not block on-air on NDI.  
+**Interim air:** this chroma + window capture path. **Full-product air (locked):** Electron (**A**) + **NDI with alpha** (Phase 7.3+) — not green-key NDI.  
+Path scores / revision: [`ndi-path-evaluation.md`](./ndi-path-evaluation.md). C trial record: [`ndi-c-spike-runbook.md`](./ndi-c-spike-runbook.md).
 
 ## Non-goals
 

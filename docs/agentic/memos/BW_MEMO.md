@@ -4,12 +4,12 @@
 **Session role:** BW
 
 ## Current phase
-**7.1 docs ready** — `docs/ops/ndi-c-spike-runbook.md`.  
-**Blocked on human** studio C-spike Results.  
-After Results: **5.4 + 6.4 + human ops** together.  
-NDI order: **C → B → A**; chroma stays production.  
+**7.3 active** — Electron + **alpha** NDI (path **A**).  
+`DSP-OUT-20260731-04` = shell + alpha contract (no SDK yet).  
+7.1 C closed fail for production; **skip B**.  
+Chroma = interim air until A ships.  
 Remote: https://github.com/Fusilis0/broadcast-web  
 **Standing order:** land accepted slices with commit/push.
 
 ## Compaction recovery
-`BOOTSTRAP_BW.md` → this memo → `docs/ops/ndi-c-spike-runbook.md`
+`BOOTSTRAP_BW.md` → this memo → `docs/architecture/ndi-alpha-electron.md` (after worker) → active DSP-04

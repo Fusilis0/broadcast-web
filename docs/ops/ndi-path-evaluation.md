@@ -1,8 +1,8 @@
 # Phase 5.5 — NDI path evaluation (A / B / C)
 
-**Status:** Evaluation complete (2026-07-31) — **BW acked** recommendation **C → B → A**  
-**Owner:** OUT (+ PLT packaging when A/B start; BW for production choice)  
-**Related:** [`air-runbook.md`](./air-runbook.md), [`ndi-c-spike-runbook.md`](./ndi-c-spike-runbook.md) (Phase 7.1 C trial), [`../architecture/race-projects-and-world-authoring.md`](../architecture/race-projects-and-world-authoring.md) §7, roadmap Phase 5.5 / 7
+**Status:** Evaluation complete — **BW revised (2026-07-31):** C trial closed; **end-state = A + alpha NDI** (skip B unless A blocked)  
+**Owner:** OUT (+ PLT packaging when A starts; BW for production choice)  
+**Related:** [`air-runbook.md`](./air-runbook.md), [`ndi-c-spike-runbook.md`](./ndi-c-spike-runbook.md) (Phase 7.1 C trial — closed), [`../architecture/race-projects-and-world-authoring.md`](../architecture/race-projects-and-world-authoring.md) §7, roadmap Phase 5.5 / 7
 
 ## Hard constraints
 
@@ -25,7 +25,7 @@ Score options for sending the **AR camera view** (WebGL plate + visual timecode)
 | **Resolution** | Match active WebGL output (typically 1080p-class studio; preserve pixel sharpness for 8×8 timecode barcode — nearest/no soft scale). |
 | **Named source** | Prefer a stable NDI name ops can pick in vMix (Unity-like: one input, no hunting Chrome windows). |
 | **Studio ops** | Same-PC studio; vMix primary compositor; OBS acceptable for trials. Minimal extra clicks vs current chroma. |
-| **Alpha / key** | Either pre-keyed AR-over-video **or** AR-on-chroma plate keyed in vMix — must be explicit per path. Chroma plate via NDI is OK for C; owned A/B should aim for a clean camera-view source. |
+| **Alpha / key** | **Production NDI end-state:** straight **alpha** (transparent clear + AR; vMix uses alpha — **not** green-key remove). Chroma plate via NDI is OK only for C trials / fallback. Chroma + window capture remains interim air until A ships. |
 | **Timecode** | Visual 8×8 barcode must remain sharp on the NDI frames (same burn-in as canvas). |
 | **Reliability** | Survive fullscreen Chrome, outputMode switches, and typical show duration without silent freeze. |
 
@@ -90,30 +90,19 @@ Owned paths **A** and **B** require the **NDI SDK** (native sender) and complian
 
 ## Recommendation (for BW ack)
 
-**Order (matches design preference):**
+### Original eval order (historical)
 
-1. **Keep chroma** as the production air path now ([`air-runbook.md`](./air-runbook.md)) — already proven (Milestone C / Phase 5.3).
-2. **Trial C next** (Phase **7.1**) — human studio spike; document pass/fail against requirements above.
-3. **If C is insufficient** for named source, latency, or timecode fidelity → invest in **owned NDI**.
-4. **Preferred owned path: B** (native helper) — preserves browser SPA as the default product; Electron remains optional studio shell.
-5. **A** if studio ops reject a two-process helper or demand a single packaged app after B spike (or in parallel only if BW prioritizes packaging).
+Trial **C** → owned **B** preferred → **A** alternate. See scoring matrix above.
 
-**Near-term recommended option:** **C** (trial only).  
-**Long-term recommended owned option (if needed):** **B**, with **A** as alternate.
+### BW revision (2026-07-31) — binding
 
-Do **not** start A/B implementation until Phase 7 entry criteria below are met and BW/OUT open the matching DSP.
+1. **Keep chroma + window capture** as interim production air ([`air-runbook.md`](./air-runbook.md)) until Electron NDI ships.
+2. **7.1 C trial closed** — Results: Screen Capture → OBS works technically but is **not** app-native NDI; **fail for production NDI** ([`ndi-c-spike-runbook.md`](./ndi-c-spike-runbook.md)).
+3. **Full-version end-state locked:** path **A** (Electron + our NDI sender) with **alpha channel** (no green-key as the production NDI mode).
+4. **Skip 7.2 (B)** unless A is blocked (SDK/packaging/capture dead-end); do not build helper first.
+5. **Next:** Phase **7.3** — Electron shell + alpha NDI contract, then NDI SDK sender.
 
-## Phase 7 entry criteria
-
-| When | Action |
-| --- | --- |
-| Chroma air path documented and usable | **Met** (5.3) — prerequisite for any NDI work |
-| Human studio time available for third-party trial | Start **7.1** (C spike) using [`ndi-c-spike-runbook.md`](./ndi-c-spike-runbook.md) (checklist below is the source extract) |
-| C trial **fails** named-source / latency / resolution / ops gates **or** ops explicitly requires Unity-like owned NDI | BW opens **7.2** (B) and/or **7.3** (A); prefer **B** first unless packaging forces **A** |
-| C trial **passes** for a given show format | May defer A/B; keep chroma + C as documented air variants; revisit if Unity cutover needs owned NDI |
-| Production NDI chosen (7.4) | Only after spike evidence; then 7.5–7.6 runbook + parallel with Unity until cutover OK |
-
-**Do not enter 7.2 / 7.3** solely because 5.5 docs exist — wait for C spike results or an explicit BW “skip C / force owned” decision.
+**Near-term air:** chroma. **Optimum / full product air:** Electron NDI **with alpha**.
 
 ## Spike checklist — human trial of C (Phase 7.1)
 
@@ -141,15 +130,7 @@ Do **not** start A/B implementation until Phase 7 entry criteria below are met a
 
 ### Results (human fills)
 
-| Field | Value |
-| --- | --- |
-| Date | |
-| Operator | |
-| Tool chain (C variant) | |
-| NDI source name observed | |
-| Pass / fail | |
-| Blockers vs Unity NDI | |
-| Recommend start B / A? (Y/N + why) | |
+Canonical filled table: [`ndi-c-spike-runbook.md`](./ndi-c-spike-runbook.md) § Results (2026-07-31). Summary: **Fail for production NDI** → end-state **A + alpha**; skip B.
 
 ## Related
 

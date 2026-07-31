@@ -24,9 +24,10 @@
 
 ## Current phase pointer
 
-**Active:** **Phase 7.1** third-party NDI spike (**C**) — `DSP-OUT-20260731-03`. After Results: 5.4 + 6.4 + human ops.  
-**Last gate:** DSP-OUT-20260731-02 NDI eval + BW ack **C → B → A** (2026-07-31).  
-**Milestone D:** Chroma air documented ✓; NDI options scored ✓ — cutover vs Unity still explicit BW+studio OK.
+**Active:** **Phase 7.3** Electron + alpha NDI (path **A**) — `DSP-OUT-20260731-04`.  
+**Last gate:** 7.1 C closed **fail for production NDI** (2026-07-31); BW lock **A + alpha**; skip **B** unless A blocked.  
+**Milestone D:** Chroma air documented ✓; NDI options scored ✓ — cutover vs Unity still explicit BW+studio OK.  
+**Parallel later:** 5.4 + 6.4 + human ops (do not block 7.3 start).
 
 ---
 
@@ -126,18 +127,19 @@
 
 ## Phase 7 — Optimum air: NDI camera view
 
-Entry criteria and A/B/C scores: [`../ops/ndi-path-evaluation.md`](../ops/ndi-path-evaluation.md). Do not start 7.2/7.3 until C spike fails ops gates or BW forces owned NDI. Chroma remains the required air path until then.
+Entry criteria and A/B/C scores: [`../ops/ndi-path-evaluation.md`](../ops/ndi-path-evaluation.md).  
+**BW lock (2026-07-31):** full product = **A (Electron) + NDI with alpha** (not green-key NDI). Chroma + window capture remains interim air until A ships. Skip **7.2 (B)** unless A is blocked.
 
 | # | Work | Owner | Notes |
 | --- | --- | --- | --- |
-| 7.1 | Spike: third-party NDI from capture/window | OUT+human | **DSP issued** (`DSP-OUT-20260731-03`) — [`../ops/ndi-c-spike-runbook.md`](../ops/ndi-c-spike-runbook.md); human Results pending |
-| 7.2 | Spike: **native NDI helper** sidecar | OUT | Browser SPA stays (**B** — preferred owned) |
-| 7.3 | Spike: **Electron + our NDI sender** | OUT+PLT | Owned named source (**A** — alternate) |
-| 7.4 | Choose production NDI path (BW + studio) | BW | Prefer owned A/B if C insufficient |
-| 7.5 | Production NDI out of active POV camera | OUT | Sync with timecode |
+| 7.1 | Spike: third-party NDI from capture/window | OUT+human | **Done / fail for production** (`DSP-OUT-20260731-03`) — [`../ops/ndi-c-spike-runbook.md`](../ops/ndi-c-spike-runbook.md) |
+| 7.2 | Spike: **native NDI helper** sidecar | OUT | **Deferred** — skip unless A blocked |
+| 7.3 | Spike: **Electron + our NDI sender** (**A** + alpha) | OUT+PLT | **Active** — `DSP-OUT-20260731-04` first slice (shell + alpha contract); SDK follows |
+| 7.4 | Choose production NDI path (BW + studio) | BW | **Pre-chosen:** A + alpha (confirm after 7.3/7.5 evidence) |
+| 7.5 | Production NDI out of active POV camera | OUT | Alpha frames + timecode; named source |
 | 7.6 | vMix NDI input runbook + cutover | OUT+BW | Unity NDI parallel until OK |
 
-**Exit (Milestone G):** Studio receives AR camera view as **NDI** (or documented equivalent); chroma remains fallback.
+**Exit (Milestone G):** Studio receives AR camera view as **NDI with alpha**; chroma remains fallback.
 
 ---
 

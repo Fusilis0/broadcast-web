@@ -125,11 +125,11 @@ DB does **not** render Three.js. It only stores packs + revisions. Render stays 
 | **B. Native NDI helper** | Tiny sidecar reads frames/stream from SPA | Keeps SPA browser-only | Two processes |
 | **C. Third-party NDI** | e.g. screen/window → NDI tool, or OBS NDI, or vMix NDI from capture | Fast to trial | Less integrated; quality depends on tool |
 
-**BW preference order for optimum:** prove chroma → trial **C** for speed → invest in **A or B** if ops requires first-class NDI named source like Unity.
+**BW lock (2026-07-31):** full product optimum = **A (Electron) + NDI with alpha** (vMix uses alpha — not green-key remove). Chroma + window capture remains interim air. Path **C** trial closed (screen→NDI only). Path **B** deferred unless A blocked.
 
-**Scored evaluation (Phase 5.5):** [`../ops/ndi-path-evaluation.md`](../ops/ndi-path-evaluation.md) — recommend trial **C**, then owned **B** (preferred) / **A** (alternate) if C insufficient. NDI not required while chroma air path is production.
+**Scored evaluation (Phase 5.5):** [`../ops/ndi-path-evaluation.md`](../ops/ndi-path-evaluation.md) — historical C→B→A scores retained; binding revision is A + alpha.
 
-Browser SPA alone still **cannot** speak NDI; Electron or a native helper is required for owned NDI out.
+Browser SPA alone still **cannot** speak NDI; Electron (or a deferred native helper) is required for owned NDI out.
 
 ---
 
