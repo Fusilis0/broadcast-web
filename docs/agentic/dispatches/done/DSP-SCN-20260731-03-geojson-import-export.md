@@ -7,6 +7,7 @@
 - Phase: Phase 4.4 — GeoJSON import/export (geojson.io compatibility)
 - Related: `docs/architecture/race-projects-and-world-authoring.md` §4–5; map editor; RaceProject features
 - BW ask: round-trip GeoJSON ↔ `WorldFeature[]` for external authoring; wire Import/Export in editor; no DB/NDI
+- **Status: DONE** (worker report accepted by BW 2026-07-31)
 
 ## Goal
 

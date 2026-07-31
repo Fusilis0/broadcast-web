@@ -4,6 +4,14 @@ export {
   adaptFlagsToFeatures,
 } from './adapters.ts'
 export {
+  geojsonToWorldFeatures,
+  worldFeaturesToGeojson,
+  serializeWorldFeaturesGeojson,
+  downloadWorldFeaturesGeojson,
+  type GeoJsonFeatureCollection,
+  type GeojsonImportResult,
+} from './geojson.ts'
+export {
   layoutFeatures,
   pairLayoutGates,
   FEATURE_WATER_Y,

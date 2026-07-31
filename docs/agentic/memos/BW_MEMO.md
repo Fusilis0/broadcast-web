@@ -4,11 +4,11 @@
 **Session role:** BW
 
 ## Current phase
-**Local race packs complete** (6.1 + 6.2 + fleet soft-switch).  
-**Next:** **4.4** GeoJSON import/export (`DSP-SCN-20260731-03`).  
-Then: 5.1 Hetzner / 6.4 DB / 7 NDI.  
+**Authoring complete for local packs:** editor, RaceProject save/load, GeoJSON interchange, soft race switch.  
+**Next:** **5.1** Hetzner static deploy (`DSP-PLT-20260731-01`).  
+Then: 5.2 WSS, 6.4 DB, 7 NDI.  
 Remote: https://github.com/Fusilis0/broadcast-web  
 **Standing order:** land accepted slices with commit/push.
 
 ## Compaction recovery
-`BOOTSTRAP_BW.md` → this memo → roadmap + race-projects design
+`BOOTSTRAP_BW.md` → this memo → roadmap

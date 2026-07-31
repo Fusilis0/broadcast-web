@@ -48,6 +48,7 @@ Enable with HUD **editor** checkbox or URL `?editor=1`.
 | Place | Click enlarged map (ENU → lat/lon via GEO `enuToGpsAmsl`) |
 | Edit | Select → name / label / heightM / color; **Delete** |
 | Export | **Export JSON** → `world-features.json` `{ features: [...] }` (features only) |
+| GeoJSON | **Export GeoJSON** → `.geojson` FeatureCollection; **Import GeoJSON** → replace or merge (confirm), then layout + 3D remount |
 | Save project | **Save project** → `project.json` (full RaceProject: origin, fleet, povIds, features, URLs) |
 
 ### Persist a pack in git (Phase 6.2)
@@ -59,18 +60,24 @@ Browser cannot write into `public/`. Download → drop file:
 3. Add `<id>` to `public/races/index.json` `{ "ids": [...] }`
 4. HUD **race** picker → Load, or open `?race=<id>`
 
-No DB persist, no GeoJSON import. Boot without editor unchanged.
+No DB persist. Boot without editor unchanged.
+
+### GeoJSON (Phase 4.4)
+
+Interchange for geojson.io — see [`geojson.md`](./geojson.md) for property keys and Point vs LineString rules. RaceProject JSON stays the native pack format.
 
 ## API
 
 | Symbol | Role |
 | --- | --- |
 | `adaptCourseToFeatures` / `adaptSponsorsToFeatures` / `adaptFlagsToFeatures` | Fixture → GPS features |
+| `geojsonToWorldFeatures` / `worldFeaturesToGeojson` | GeoJSON FeatureCollection ↔ `WorldFeature[]` |
+| `serializeWorldFeaturesGeojson` / `downloadWorldFeaturesGeojson` | `.geojson` download |
 | `layoutFeatures` | GPS → ENU (`FEATURE_WATER_Y`) |
 | `pairLayoutGates` | Pair gate ends for map segments |
 | `getLayoutFeatures` / `setLayoutFeatures` | Shared store |
-| `startMapFeatureEditor` | Ops UI + place/select/export |
+| `startMapFeatureEditor` | Ops UI + place/select/export + GeoJSON I/O |
 | `serializeWorldFeaturesExport` | Pure JSON string for download |
 | `featuresToCourseData` / `featuresToSponsorsData` / `featuresToFlagsData` | Editor → remount fixtures |
 
-Out of scope here: RaceProject DB/API (download-only save), GeoJSON import, NDI, stream PiP map.
+Out of scope here: RaceProject DB/API (download-only save), NDI, stream PiP map.

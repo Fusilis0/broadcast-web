@@ -17,6 +17,10 @@ import {
 } from './tools.ts'
 import type { GpsToEnuAmslFn, LayoutFeature, WorldFeature } from '../types.ts'
 import type { Map2dHandle } from '../../map2d.ts'
+import {
+  downloadWorldFeaturesGeojson,
+  geojsonToWorldFeatures,
+} from '../geojson.ts'
 import { layoutFeatures } from '../layoutFeatures.ts'
 import { setLayoutFeatures } from '../layoutStore.ts'
 
@@ -209,6 +213,74 @@ export function startMapFeatureEditor(
     downloadWorldFeaturesJson(features)
   })
   actions.appendChild(exportBtn)
+
+  const exportGeoBtn = document.createElement('button')
+  exportGeoBtn.type = 'button'
+  exportGeoBtn.className = 'ops-hud__btn'
+  exportGeoBtn.textContent = 'Export GeoJSON'
+  exportGeoBtn.title =
+    'Download world-features.geojson (geojson.io FeatureCollection)'
+  exportGeoBtn.addEventListener('click', () => {
+    downloadWorldFeaturesGeojson(features)
+  })
+  actions.appendChild(exportGeoBtn)
+
+  const importGeoInput = document.createElement('input')
+  importGeoInput.type = 'file'
+  importGeoInput.accept = '.geojson,.json,application/geo+json,application/json'
+  importGeoInput.hidden = true
+  importGeoInput.addEventListener('change', () => {
+    const file = importGeoInput.files?.[0]
+    importGeoInput.value = ''
+    if (!file) return
+    void file.text().then((text) => {
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(text) as unknown
+      } catch (err) {
+        console.warn('[geojson] import: invalid JSON', err)
+        hint.textContent = 'Import failed: invalid JSON'
+        return
+      }
+      const { features: imported, skipped } = geojsonToWorldFeatures(parsed)
+      if (imported.length === 0) {
+        hint.textContent =
+          skipped > 0
+            ? `Import: no valid features (${skipped} skipped)`
+            : 'Import: empty FeatureCollection'
+        return
+      }
+      const replace = window.confirm(
+        `Import ${imported.length} feature(s)` +
+          (skipped > 0 ? ` (${skipped} skipped)` : '') +
+          '.\n\nOK = replace current features\nCancel = merge with current',
+      )
+      features = replace
+        ? imported.map(cloneFeature)
+        : [...features, ...imported.map(cloneFeature)]
+      idCounter.n = maxNumericSuffix(features)
+      selectedId = null
+      pendingA = null
+      pushLayout()
+      scheduleApply()
+      refreshProps()
+      hint.textContent = replace
+        ? `Replaced with ${imported.length} GeoJSON feature(s)`
+        : `Merged ${imported.length} GeoJSON feature(s)`
+    })
+  })
+  actions.appendChild(importGeoInput)
+
+  const importGeoBtn = document.createElement('button')
+  importGeoBtn.type = 'button'
+  importGeoBtn.className = 'ops-hud__btn'
+  importGeoBtn.textContent = 'Import GeoJSON'
+  importGeoBtn.title =
+    'Load FeatureCollection (.geojson). OK=replace, Cancel=merge.'
+  importGeoBtn.addEventListener('click', () => {
+    importGeoInput.click()
+  })
+  actions.appendChild(importGeoBtn)
 
   const saveProjectBtn = document.createElement('button')
   saveProjectBtn.type = 'button'

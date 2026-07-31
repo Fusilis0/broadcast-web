@@ -97,7 +97,7 @@ Committed: `public/races/demo-istanbul/project.json`
 - Database / CRUD API
 - Project list UI
 - Auth / token validation
-- GeoJSON import
+- GeoJSON as pack schema (interchange via SCN editor adapter only — see `src/scene/features/geojson.md`)
 - NDI
 
 ---

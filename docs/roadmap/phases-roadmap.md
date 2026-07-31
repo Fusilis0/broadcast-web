@@ -24,8 +24,8 @@
 
 ## Current phase pointer
 
-**Active:** Soft race-switch gap **closed**; next **4.4** GeoJSON (`DSP-SCN-20260731-03`).  
-**Last gate:** DSP-SCN-20260731-02 fleet allow-lists accepted (2026-07-31).
+**Active:** **4.4 GeoJSON done**; next **5.1** Hetzner static deploy (`DSP-PLT-20260731-01`).  
+**Last gate:** DSP-SCN-20260731-03 GeoJSON accepted (2026-07-31).
 
 ---
 
@@ -83,7 +83,7 @@
 | 4.2a | **Shared feature layout** | SCN+GEO | **Done** (`DSP-SCN-20260730-01`) |
 | 4.2b | Stream / larger 2D map graphic | SCN+OUT | Optional on-air 2D from same features |
 | 4.3 | Optional tiles/basemap under editor | SCN+GEO | Not required for air meshes |
-| 4.4 | World modeling + **GeoJSON import/export** | SCN | **DSP issued** (`DSP-SCN-20260731-03`) |
+| 4.4 | World modeling + **GeoJSON import/export** | SCN | **Done** (`DSP-SCN-20260731-03`) |
 | 4.5 | CV research spike plan — **Done** | CAL | [`docs/research/cv-calibration-spike.md`](../research/cv-calibration-spike.md) |
 | 4.6 | Hull + map-dot colours from categories | SCN | QoL from boat catalogue |
 | 4.7 | Feature validation + editor QoL | SCN | Orphan gates, snap, bearing readout |
@@ -96,7 +96,7 @@
 
 | # | Work | Owner |
 | --- | --- | --- |
-| 5.1 | Hetzner static deploy | PLT |
+| 5.1 | Hetzner static deploy | PLT | **DSP issued** (`DSP-PLT-20260731-01`) |
 | 5.2 | WSS or proxy for live TEL | PLT+TEL |
 | 5.3 | Air runbook (Chrome + chroma) | OUT+BW |
 | 5.4 | Evaluate WebRTC/SRT egress | OUT |

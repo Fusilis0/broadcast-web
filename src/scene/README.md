@@ -34,7 +34,7 @@ Mock ids: POVs from `povIds` (default `1`,`2`), boats from `boatIds` (default `2
 | `formatConnectionStatus` | Compact `ws=…` / `ws=n/a (mock|replay)` string for HUD status |
 | `createMap2d()` | Top-down ENU East/North fleet panel (canvas 2D) + shared layout features |
 | `layoutFeatures` / `getLayoutFeatures` | Shared GPS→ENU world features (course/sponsors/flags adapters) |
-| `startMapFeatureEditor` | V1 world editor: place/select/delete/export + **Save project** download; remounts 3D |
+| `startMapFeatureEditor` | V1 world editor: place/select/delete/export + GeoJSON I/O + **Save project** download; remounts 3D |
 | `remountWorldFromFeatures` | Rebuild course/sponsors/flags from editable `WorldFeature[]` |
 | `createBoatEntity()` | Pose root + glTF/procedural visual + billboard tag |
 | `createBoatTag()` | Canvas sprite label (catalogue name + category tint, or `Boat {id}` stub) |
@@ -109,7 +109,7 @@ Clear color stays dark preview; OUT owns chroma later. Ambient + directional lig
 
 - **HUD:** mode select (`mock` / `replay` / `live`) restarts TEL ingest via `onModeChange`. POV select lists `povIds` and calls `onPovChange` → scene `setActivePovId` (and calib device sync in `main`). Countdown Start / Pause / Reset / Restart → `onCountdownControl` → scene `controlCountdown`. **Editor** checkbox (or `?editor=1`) opens the world feature editor. Status shows mode, TEL counts, **connection line** (`ws drone=… boat=…` in live via `setConnectionStatus`, or `ws=n/a (mock|replay)` — never fake `open`), `pov=<active>  seen=…`, last active-drone ENU, and a multi-boat ENU line (`boats=N  21=(…) 22=(…)` truncated if long).
 - **Map:** plots `position.x` (East) vs `position.z` (North), north-up; auto-fits bounds to recent points + shared layout features (marks, gates, sponsors, flags).
-- **World editor (4.2):** see `src/scene/features/README.md` — place/edit/delete features on the map; ENU→GPS via GEO `enuToGpsAmsl`; export `world-features.json`; remounts 3D course/sponsors/flags. No DB / GeoJSON import.
+- **World editor (4.2 / 4.4):** see `src/scene/features/README.md` — place/edit/delete features on the map; ENU→GPS via GEO `enuToGpsAmsl`; export `world-features.json`; **Import/Export GeoJSON** (geojson.io); remounts 3D course/sponsors/flags. No DB.
 
 ## Camera convention
 

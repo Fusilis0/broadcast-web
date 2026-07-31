@@ -1,18 +1,18 @@
 # SCN_MEMO
 
 **Last updated:** 2026-07-31  
-**Status:** Idle — 6.2 soft-switch gap closed
+**Status:** Idle — 4.4 GeoJSON done
 
 ## Focus
-None active. World authoring + local packs usable.
+None active. Authoring stack: editor + RaceProject save/load + GeoJSON interchange.
 
 ## Decisions
-- **4.2 / 6.1 / 6.2 DONE**
-- Soft race switch: `setFleetAllowLists` — orphan boats disposed; POV cache pruned; active POV clamped; HUD/calib/ingest synced
-- Persist packs: download `project.json` → `public/races/<id>/` + `index.json`
+- **4.4 DONE:** FeatureCollection ↔ `WorldFeature[]`; editor Import/Export; `src/scene/features/geojson.md`
+- Gates: export two Points; import may use `gate`/`gatePair` LineString
+- RaceProject = native pack; GeoJSON = interchange only
 
 ## Issued dispatches
-- Through **DSP-SCN-20260731-02** — **DONE**
+- Through **DSP-SCN-20260731-03** — **DONE**
 
 ## Next
-BW: 4.4 GeoJSON / 5.1 Hetzner / 6.4 DB
+BW: 5.1 Hetzner / 6.4 DB / 4.2b PiP / 4.6 colours
