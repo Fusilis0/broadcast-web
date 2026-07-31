@@ -78,6 +78,16 @@ export type SceneOptions = {
    * / `applyOutputMode`; pass the resolved color at boot.
    */
   clearColor?: number
+  /**
+   * Lock drawing-buffer size (e.g. studio NDI 1920×1080). CSS may still
+   * scale the canvas in the window; resize events do not change the buffer.
+   */
+  outputSize?: { width: number; height: number }
+  /**
+   * Keep rendering when the document is hidden / window minimized (Electron
+   * studio). Uses a setInterval clock so NDI does not stall when rAF pauses.
+   */
+  keepRenderingWhenHidden?: boolean
 }
 
 export type FleetAllowLists = {
@@ -215,14 +225,28 @@ export function startScene(options: SceneOptions): SceneHandle {
   // alpha:true so OUT WHEP underlay can show through transparent preview clear.
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
   renderer.setClearColor(clearColor, 1)
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  const lockedOut = options.outputSize
+  const keepWhenHidden = options.keepRenderingWhenHidden === true
+  // Studio NDI needs exact buffer pixels — do not multiply by devicePixelRatio.
+  renderer.setPixelRatio(
+    lockedOut ? 1 : Math.min(window.devicePixelRatio, 2),
+  )
   options.container.appendChild(renderer.domElement)
 
   let rafId = 0
+  let intervalId: ReturnType<typeof setInterval> | 0 = 0
   let stopped = false
   let viewH = 1
 
   function resize(): void {
+    if (lockedOut) {
+      const width = Math.max(1, lockedOut.width | 0)
+      const height = Math.max(1, lockedOut.height | 0)
+      viewH = height
+      drone.setAspect(width / height)
+      renderer.setSize(width, height, false)
+      return
+    }
     const width = window.innerWidth
     const height = Math.max(window.innerHeight, 1)
     viewH = height
@@ -295,9 +319,8 @@ export function startScene(options: SceneOptions): SceneHandle {
     return activePovId
   }
 
-  function frame(): void {
+  function tick(): void {
     if (stopped) return
-    rafId = requestAnimationFrame(frame)
     try {
       const dt = Math.min(clock.getDelta(), 0.1)
       for (const boat of boats.values()) {
@@ -311,10 +334,27 @@ export function startScene(options: SceneOptions): SceneHandle {
     }
   }
 
+  function frame(): void {
+    if (stopped) return
+    rafId = requestAnimationFrame(frame)
+    // When using the hidden-safe interval, skip rAF ticks while hidden so we
+    // do not double-render; interval owns the clock then.
+    if (keepWhenHidden && document.hidden) return
+    tick()
+  }
+
   const unsubPose = poseBus.on('pose', onPose)
   window.addEventListener('resize', resize)
   resize()
   rafId = requestAnimationFrame(frame)
+  if (keepWhenHidden) {
+    // ~30 fps backup — Chromium often pauses rAF when the window is minimized.
+    intervalId = setInterval(() => {
+      if (stopped) return
+      if (!document.hidden) return
+      tick()
+    }, 1000 / 30)
+  }
 
   return {
     scene,
@@ -434,6 +474,10 @@ export function startScene(options: SceneOptions): SceneHandle {
       if (stopped) return
       stopped = true
       cancelAnimationFrame(rafId)
+      if (intervalId) {
+        clearInterval(intervalId)
+        intervalId = 0
+      }
       window.removeEventListener('resize', resize)
       unsubPose()
       course?.dispose()

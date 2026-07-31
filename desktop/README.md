@@ -21,6 +21,8 @@ Default product remains the browser SPA. Electron is the **studio** path.
 | Binding | [`grandi`](https://www.npmjs.com/package/grandi) ^2 (NDI SDK 6, Node-API) |
 | Default source name | `broadcast-web` → appears as `HOSTNAME (broadcast-web)` |
 | Pixel path | WebGL `readPixels` RGBA → main converts to top-down **BGRA** (straight alpha) |
+| Output size | **1920×1080** locked in the SPA (window may resize; NDI stays 1080p) |
+| Minimized | Stream **continues** (no background throttle; hidden-safe render clock) |
 | Clear mode | Prefer `outputMode=transparent` (alpha 0 plate; opaque AR + timecode) |
 
 ### Overrides

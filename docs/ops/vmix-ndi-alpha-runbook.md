@@ -18,7 +18,8 @@ Ingest the Electron studio **named NDI** source as an **alpha** layer in vMix (o
 4. NDI runtime available (bundled with `grandi` / NDI Tools on the studio PC)
 
 Default NDI source name: **`broadcast-web`** (full name looks like `HOSTNAME (broadcast-web)`).  
-Override: `BROADCAST_NDI_NAME` or `--ndi-name=…`. Disable: `--no-ndi`.
+Override: `BROADCAST_NDI_NAME` or `--ndi-name=…`. Disable: `--no-ndi`.  
+Output is always **1920×1080**; resizing or minimizing the Electron window must **not** stop the stream.
 
 ## vMix steps
 

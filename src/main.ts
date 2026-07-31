@@ -24,12 +24,15 @@ import {
 } from './projects/index.ts'
 import {
   applyOutputMode,
+  getStudioBridge,
   normalizeOutputMode,
   resolveClearAppearance,
   startNdiFramePump,
   startOutputModeControl,
   startVisualTimecode,
   startWhepUnderlay,
+  STUDIO_OUTPUT_HEIGHT,
+  STUDIO_OUTPUT_WIDTH,
   type NdiFramePumpHandle,
   type OutputModeControlHandle,
   type TimecodeCorner,
@@ -375,12 +378,28 @@ void (async () => {
 
   // Scene after config so boatIds / povIds allow-lists are known before first poses.
   // Clear color from OUT (preview / chroma / transparent).
+  // Electron studio: lock WebGL/NDI to 1920×1080; keep ticking when minimized.
+  const studioShell = getStudioBridge() !== null
   scene = startScene({
     container: app,
     boatIds: config.boatIds,
     povIds: config.povIds,
     clearColor: clear.color,
+    ...(studioShell
+      ? {
+          outputSize: {
+            width: STUDIO_OUTPUT_WIDTH,
+            height: STUDIO_OUTPUT_HEIGHT,
+          },
+          keepRenderingWhenHidden: true,
+        }
+      : {}),
   })
+  if (studioShell) {
+    console.info(
+      `[boot] studio shell: output locked ${STUDIO_OUTPUT_WIDTH}×${STUDIO_OUTPUT_HEIGHT}; render continues when minimized`,
+    )
+  }
   applyOutputMode(scene.renderer, outputMode, {
     chromaKey: chromaKey || undefined,
   })

@@ -60,6 +60,8 @@ Timecode stays burned into the **same** WebGL canvas (NearestFilter) so NDI fram
 | --- | --- |
 | Binding | [`grandi`](https://www.npmjs.com/package/grandi) ^2.0 (NDI SDK 6.x via Node-API) |
 | Format | Progressive **BGRA**, ~30 fps (CPU readback; drop-if-busy) |
+| Resolution | **1920×1080** locked drawing buffer (independent of window size) |
+| Minimized | NDI must keep sending (Electron background-throttle off + interval clock) |
 | Alpha | Straight (WebGL clear α=0; opaque draws α=1) |
 | Bridge | `window.broadcastStudio` (preload) |
 
