@@ -2,7 +2,7 @@
 
 **Status:** Evaluation complete (2026-07-31) — **BW acked** recommendation **C → B → A**  
 **Owner:** OUT (+ PLT packaging when A/B start; BW for production choice)  
-**Related:** [`air-runbook.md`](./air-runbook.md), [`../architecture/race-projects-and-world-authoring.md`](../architecture/race-projects-and-world-authoring.md) §7, roadmap Phase 5.5 / 7
+**Related:** [`air-runbook.md`](./air-runbook.md), [`ndi-c-spike-runbook.md`](./ndi-c-spike-runbook.md) (Phase 7.1 C trial), [`../architecture/race-projects-and-world-authoring.md`](../architecture/race-projects-and-world-authoring.md) §7, roadmap Phase 5.5 / 7
 
 ## Hard constraints
 
@@ -108,7 +108,7 @@ Do **not** start A/B implementation until Phase 7 entry criteria below are met a
 | When | Action |
 | --- | --- |
 | Chroma air path documented and usable | **Met** (5.3) — prerequisite for any NDI work |
-| Human studio time available for third-party trial | Start **7.1** (C spike) using checklist below |
+| Human studio time available for third-party trial | Start **7.1** (C spike) using [`ndi-c-spike-runbook.md`](./ndi-c-spike-runbook.md) (checklist below is the source extract) |
 | C trial **fails** named-source / latency / resolution / ops gates **or** ops explicitly requires Unity-like owned NDI | BW opens **7.2** (B) and/or **7.3** (A); prefer **B** first unless packaging forces **A** |
 | C trial **passes** for a given show format | May defer A/B; keep chroma + C as documented air variants; revisit if Unity cutover needs owned NDI |
 | Production NDI chosen (7.4) | Only after spike evidence; then 7.5–7.6 runbook + parallel with Unity until cutover OK |
@@ -117,7 +117,7 @@ Do **not** start A/B implementation until Phase 7 entry criteria below are met a
 
 ## Spike checklist — human trial of C (Phase 7.1)
 
-Optional ops section; fill Results after the trial.
+**Canonical 7.1 runbook:** [`ndi-c-spike-runbook.md`](./ndi-c-spike-runbook.md) (setup variants, pass/fail, Results). Summary retained below for eval context; prefer the dedicated runbook when executing the trial.
 
 ### Setup
 
@@ -156,6 +156,7 @@ Optional ops section; fill Results after the trial.
 | Doc | Role |
 | --- | --- |
 | [`air-runbook.md`](./air-runbook.md) | Canonical chroma air path — NDI not required |
+| [`ndi-c-spike-runbook.md`](./ndi-c-spike-runbook.md) | Phase 7.1 third-party NDI trial (path C) |
 | [`vmix-chroma-runbook.md`](./vmix-chroma-runbook.md) | Milestone C historical record |
 | [`../architecture/race-projects-and-world-authoring.md`](../architecture/race-projects-and-world-authoring.md) §7 | Output ladder + A/B/C options |
 | [`../roadmap/phases-roadmap.md`](../roadmap/phases-roadmap.md) | Phase 5.5 eval · Phase 7 spikes |

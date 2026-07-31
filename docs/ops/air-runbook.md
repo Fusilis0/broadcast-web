@@ -4,7 +4,7 @@ End-to-end checklist for putting **broadcast-web on air today**: fullscreen Chro
 
 This is the **canonical air path**. It absorbs the Phase **3.5** studio chroma checklist ([`vmix-chroma-runbook.md`](./vmix-chroma-runbook.md)). Milestone **C** already passed (2026-07-30); keep this doc as the durable ops procedure.
 
-**NDI is not required** for the current air path. Native NDI / Electron helper remain **Phase 7** (future). Do not block on-air on NDI. Path scores (A/B/C): [`ndi-path-evaluation.md`](./ndi-path-evaluation.md).
+**NDI is not required** for the current air path. Native NDI / Electron helper remain **Phase 7** (future). Do not block on-air on NDI. Path scores (A/B/C): [`ndi-path-evaluation.md`](./ndi-path-evaluation.md). Optional third-party NDI trial (7.1 path **C**): [`ndi-c-spike-runbook.md`](./ndi-c-spike-runbook.md) — does **not** replace this chroma path.
 
 ## Non-goals
 
@@ -148,6 +148,7 @@ WS URLs come from host `config.json` / `VITE_WS_*`, not from deeplink query para
 | --- | --- |
 | [`vmix-chroma-runbook.md`](./vmix-chroma-runbook.md) | Phase 3.5 experiment record (absorbed here as canonical air path) |
 | [`ndi-path-evaluation.md`](./ndi-path-evaluation.md) | Phase 5.5 NDI options A/B/C (optimum air; not required today) |
+| [`ndi-c-spike-runbook.md`](./ndi-c-spike-runbook.md) | Phase 7.1 third-party NDI trial (path C); chroma stays production |
 | [`hetzner-static-deploy.md`](./hetzner-static-deploy.md) | Static SPA build / upload / TLS / smoke |
 | [`wss-live-telemetry.md`](./wss-live-telemetry.md) | Live mode over `wss://` on HTTPS |
 | [`src/output/README.md`](../../src/output/README.md) | OUT clear modes, timecode, WHEP |

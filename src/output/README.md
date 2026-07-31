@@ -49,7 +49,7 @@ Unity-compatible **8×8 LSB** black/white barcode burned into the **same WebGL c
 
 ### Studio note
 
-Barcode is sync burn-in for telemetry ↔ video timing. Capture the WebGL canvas / window in **OBS or vMix**; key chroma as before (3.1). **No in-browser NDI** (Phase 7 later). Canonical air path: [`docs/ops/air-runbook.md`](../../docs/ops/air-runbook.md) (Phase 5.3). Historical 3.5 experiment: [`docs/ops/vmix-chroma-runbook.md`](../../docs/ops/vmix-chroma-runbook.md).
+Barcode is sync burn-in for telemetry ↔ video timing. Capture the WebGL canvas / window in **OBS or vMix**; key chroma as before (3.1). **No in-browser NDI** (Phase 7 later). Canonical air path: [`docs/ops/air-runbook.md`](../../docs/ops/air-runbook.md) (Phase 5.3). Optional third-party NDI trial: [`docs/ops/ndi-c-spike-runbook.md`](../../docs/ops/ndi-c-spike-runbook.md) (Phase 7.1 path C). Scores: [`docs/ops/ndi-path-evaluation.md`](../../docs/ops/ndi-path-evaluation.md). Historical 3.5 experiment: [`docs/ops/vmix-chroma-runbook.md`](../../docs/ops/vmix-chroma-runbook.md).
 
 ## Phase 3.3 — WHEP underlay
 
@@ -87,7 +87,7 @@ Timecode + AR canvas stay on top. Status chip lives on the OUT mode control: `wh
 2. Point `whepUrl` at a live MediaMTX WHEP endpoint → preview shows video under AR; status `live`.
 3. Toggle to chroma → underlay stops; solid green clear.
 
-**No in-browser NDI.** Egress / native NDI helper remain later phases.
+**No in-browser NDI.** Egress / native NDI helper remain later phases. Third-party NDI studio trial (docs only): [`docs/ops/ndi-c-spike-runbook.md`](../../docs/ops/ndi-c-spike-runbook.md).
 
 ## Out of scope (later)
 

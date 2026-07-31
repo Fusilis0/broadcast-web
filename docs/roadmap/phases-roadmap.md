@@ -130,7 +130,7 @@ Entry criteria and A/B/C scores: [`../ops/ndi-path-evaluation.md`](../ops/ndi-pa
 
 | # | Work | Owner | Notes |
 | --- | --- | --- | --- |
-| 7.1 | Spike: third-party NDI from capture/window | OUT+human | **DSP issued** (`DSP-OUT-20260731-03`) — checklist → `ndi-c-spike-runbook` |
+| 7.1 | Spike: third-party NDI from capture/window | OUT+human | **DSP issued** (`DSP-OUT-20260731-03`) — [`../ops/ndi-c-spike-runbook.md`](../ops/ndi-c-spike-runbook.md); human Results pending |
 | 7.2 | Spike: **native NDI helper** sidecar | OUT | Browser SPA stays (**B** — preferred owned) |
 | 7.3 | Spike: **Electron + our NDI sender** | OUT+PLT | Owned named source (**A** — alternate) |
 | 7.4 | Choose production NDI path (BW + studio) | BW | Prefer owned A/B if C insufficient |
