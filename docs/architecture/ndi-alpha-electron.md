@@ -1,9 +1,9 @@
 # Electron + alpha NDI — product contract (path A)
 
-**Status:** Phase **7.3b done** (code) — human vMix/OBS alpha check pending  
+**Status:** Phase **7.6** — cutover docs ready (preferred studio air = Electron + alpha NDI; chroma = fallback)  
 **Owner:** OUT (+ PLT packaging later)  
-**Dispatch:** `DSP-OUT-20260731-05` (archived)  
-**Locks:** [`../ops/ndi-path-evaluation.md`](../ops/ndi-path-evaluation.md) (BW: end-state **A + alpha**); C closed [`../ops/ndi-c-spike-runbook.md`](../ops/ndi-c-spike-runbook.md)
+**Dispatch:** `DSP-OUT-20260731-06` (cutover); code via `05` (archived)  
+**Locks:** [`../ops/ndi-path-evaluation.md`](../ops/ndi-path-evaluation.md) (BW: end-state **A + alpha**); human Pass [`../ops/vmix-ndi-alpha-runbook.md`](../ops/vmix-ndi-alpha-runbook.md); C closed [`../ops/ndi-c-spike-runbook.md`](../ops/ndi-c-spike-runbook.md)
 
 ## 1. End-state (full product air)
 
@@ -14,21 +14,21 @@
 | Keying | **Alpha channel** — transparent clear + opaque AR; vMix ingests as alpha source |
 | Not production NDI | Green-key / chroma plate over NDI |
 | Default product | Browser SPA remains default (Hetzner / Chrome). Electron is the **studio** path |
-| Interim air | Chrome + `outputMode=chroma` + window capture ([`../ops/air-runbook.md`](../ops/air-runbook.md)) until production cutover |
+| Fallback air | Chrome + `outputMode=chroma` + window capture ([`../ops/air-runbook.md`](../ops/air-runbook.md) § Fallback) |
 
 ### vMix
 
 - Add **NDI** input → select the published studio name (default **`broadcast-web`** → `HOSTNAME (broadcast-web)`).
 - Use the source as an **alpha** layer (straight alpha from BGRA send).
 - **Do not** apply Chroma Key green-remove on the production NDI input.
-- Chroma key remains only for interim Chrome window capture.
+- Chroma key remains only for the Chrome window-capture **fallback**.
 - Checklist: [`../ops/vmix-ndi-alpha-runbook.md`](../ops/vmix-ndi-alpha-runbook.md).
 
 ## 2. Clear / compositing modes
 
 | Path | Clear | Alpha | Studio use |
 | --- | --- | --- | --- |
-| Chrome air (interim) | Solid green `#00ff00` (`outputMode=chroma`) | Opaque plate | Window capture → chroma key in OBS/vMix |
+| Chrome air (fallback) | Solid green `#00ff00` (`outputMode=chroma`) | Opaque plate | Window capture → chroma key in OBS/vMix |
 | Ops preview | Dark `#1a1a1a` (`outputMode=preview`) | Opaque | Local ops; optional WHEP underlay |
 | **NDI production (A)** | Transparent plate (`outputMode=transparent`) | **Alpha out** | Electron → NDI BGRA |
 
@@ -65,7 +65,7 @@ Timecode stays burned into the **same** WebGL canvas (NearestFilter) so NDI fram
 | Alpha | Straight (WebGL clear α=0; opaque draws α=1) |
 | Bridge | `window.broadcastStudio` (preload) |
 
-Latency soft target vs window capture remains an ops judgment for cutover (7.6).
+Latency soft target vs window capture: ops judgment recorded **Pass** (2026-07-31); see cutover checklist in air-runbook.
 
 ## 4. Studio shell
 
@@ -82,18 +82,23 @@ Run details: [`../../desktop/README.md`](../../desktop/README.md).
 | Out of scope | Why |
 | --- | --- |
 | Path **B** helper | Skip unless A blocked |
-| Changing default Chrome air away from chroma | Interim air unchanged until cutover |
+| Removing Chrome chroma path | Fallback stays documented and supported |
 | Full electron-builder release channel | Spike shell + send only |
 | GPU zero-copy | CPU readback acceptable for 7.3b |
 | 5.4 egress, 6.4 DB | Separate tracks |
 
-## 6. Acceptance for production cutover (7.6 — not this slice)
+## 6. Production cutover (7.6)
 
-- Named NDI source stable in vMix
-- Alpha composite (no green key on NDI input)
-- 8×8 timecode sharp after NDI
-- Latency acceptable vs chroma window capture
-- Chroma + Chrome remains documented fallback
+Cutover docs ready — ops checklist in [`../ops/air-runbook.md`](../ops/air-runbook.md) (preferred path + cutover + chroma fallback).
+
+| Criterion | Status |
+| --- | --- |
+| Named NDI source stable in vMix | **Pass** (human, 2026-07-31) |
+| Alpha composite (no green key on NDI input) | **Pass** |
+| 8×8 timecode sharp after NDI | **Pass** |
+| Latency acceptable vs chroma window capture | **Pass** (ops judgment) |
+| Chroma + Chrome remains documented fallback | **Yes** (air-runbook § Fallback) |
+| Drop Unity from show template | **Open** — BW + studio (Phase 5.6) |
 
 ## Related
 
@@ -101,8 +106,8 @@ Run details: [`../../desktop/README.md`](../../desktop/README.md).
 | --- | --- |
 | [`../ops/ndi-path-evaluation.md`](../ops/ndi-path-evaluation.md) | A/B/C scores; BW lock A + alpha |
 | [`../ops/ndi-c-spike-runbook.md`](../ops/ndi-c-spike-runbook.md) | 7.1 C closed — fail for production NDI |
-| [`../ops/vmix-ndi-alpha-runbook.md`](../ops/vmix-ndi-alpha-runbook.md) | Alpha ingest checklist |
-| [`../ops/air-runbook.md`](../ops/air-runbook.md) | Interim chroma air |
+| [`../ops/vmix-ndi-alpha-runbook.md`](../ops/vmix-ndi-alpha-runbook.md) | Alpha ingest checklist + human Pass |
+| [`../ops/air-runbook.md`](../ops/air-runbook.md) | Preferred Electron NDI + cutover + chroma fallback |
 | [`../../desktop/README.md`](../../desktop/README.md) | How to run the studio shell + NDI |
 | [`../../src/output/README.md`](../../src/output/README.md) | Clear modes, timecode, WHEP, frame pump |
-| [`../roadmap/phases-roadmap.md`](../roadmap/phases-roadmap.md) | Phase 7.3 |
+| [`../roadmap/phases-roadmap.md`](../roadmap/phases-roadmap.md) | Phase 7.3 / 7.6 |

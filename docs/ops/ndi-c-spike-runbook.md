@@ -11,7 +11,7 @@ Studio trial runbook for sending the **broadcast-web** Chrome window into **vMix
 
 | Rule | Notes |
 | --- | --- |
-| **Chroma remains production air** | Canonical path is still Chrome → chroma → OBS/vMix window capture ([`air-runbook.md`](./air-runbook.md)). This spike does **not** change the default air path. |
+| **Chroma remains fallback air** | Preferred studio path is Electron alpha NDI ([`air-runbook.md`](./air-runbook.md)). This spike did **not** become production NDI. |
 | NDI not required for shows | Do not block on-air on this trial. |
 | Same-PC capture | Chrome + the capture/publish tool run on the **same studio PC** (same rule as air runbook). Receiving vMix may be same PC or another LAN machine. |
 | No product NDI code | Do not add Electron, native helper, or NDI SDK integration here. Use existing third-party tools only. |
@@ -111,7 +111,7 @@ Optional A/B judgment: briefly compare latency/feel vs **direct** window capture
 | Chroma key after NDI? | n/a — full product must use **alpha**, not green-key NDI |
 | ≥10 min soak | n/a |
 | Blockers vs Unity NDI | No named app sender; no alpha; depends on external Screen Capture; ops wants Unity-like direct NDI |
-| Good enough for a show? | **N** as production NDI path (chroma window capture remains interim air) |
+| Good enough for a show? | **N** as production NDI path (chroma window capture remains fallback) |
 | Recommend start **B** (helper) / **A** (Electron)? | **A** — full version = Electron + NDI **with alpha** (not green remove). Skip B unless A blocked. |
 | Screenshot paths (optional) | — |
 | `git log -1` on studio PC (optional) | — |
@@ -140,7 +140,7 @@ Do **not** declare production NDI cutover from this spike alone.
 
 | Doc | Role |
 | --- | --- |
-| [`air-runbook.md`](./air-runbook.md) | Canonical chroma air path — unchanged by this spike |
+| [`air-runbook.md`](./air-runbook.md) | Preferred Electron alpha NDI + chroma fallback |
 | [`ndi-path-evaluation.md`](./ndi-path-evaluation.md) | A/B/C scores, BW ack C→B→A, Phase 7 entry criteria |
 | [`vmix-chroma-runbook.md`](./vmix-chroma-runbook.md) | Milestone C historical record |
 | [`../roadmap/phases-roadmap.md`](../roadmap/phases-roadmap.md) | Phase 7.1 |

@@ -62,9 +62,12 @@ Mock/replay work on the static host without WebSockets. Live on HTTPS requires `
 
 ## On air
 
-Chrome → chroma → OBS/vMix (local or hosted URL). **NDI not required** today (Phase 7 later).
+**Preferred studio:** Electron + `outputMode=transparent` + named alpha NDI → vMix/OBS.  
+**Fallback:** Chrome → chroma → OBS/vMix window capture.
 
-- Canonical checklist: [`docs/ops/air-runbook.md`](./docs/ops/air-runbook.md)
+- Air runbook (preferred + cutover + fallback): [`docs/ops/air-runbook.md`](./docs/ops/air-runbook.md)
+- Desktop shell: [`desktop/README.md`](./desktop/README.md)
+- vMix alpha ingest: [`docs/ops/vmix-ndi-alpha-runbook.md`](./docs/ops/vmix-ndi-alpha-runbook.md)
 - NDI path evaluation (A/B/C): [`docs/ops/ndi-path-evaluation.md`](./docs/ops/ndi-path-evaluation.md)
 - Phase 3.5 chroma experiment record: [`docs/ops/vmix-chroma-runbook.md`](./docs/ops/vmix-chroma-runbook.md)
 

@@ -44,14 +44,15 @@ Output is always **1920×1080**; resizing or minimizing the Electron window must
 3. No Chroma Key filter on that source
 4. Same alpha / barcode checks as above
 
-## Fallback (interim air)
+## Fallback (chroma)
 
 If NDI is unavailable or alpha looks wrong in the switcher:
 
 - Use Chrome + `outputMode=chroma` + window capture + green key  
-- Canonical steps: [`air-runbook.md`](./air-runbook.md)
+- Steps: [`air-runbook.md`](./air-runbook.md) § Fallback  
+- Show cutover / rollback: same air-runbook § Cutover checklist
 
-Chroma remains supported; it is **not** the production NDI mode.
+Chroma remains supported as **fallback**; it is **not** the production NDI mode.
 
 ## Binding / SDK (this slice)
 
@@ -74,4 +75,4 @@ Chroma remains supported; it is **not** the production NDI mode.
 | Pass / fail | **Pass** |
 | Notes / blockers | Minimize must **park** (tray), not OS-minimize; 1920×1080 locked |
 
-**After Pass:** BW opens **7.6** cutover DSP.
+**After Pass:** 7.6 cutover docs in [`air-runbook.md`](./air-runbook.md) (`DSP-OUT-20260731-06`).

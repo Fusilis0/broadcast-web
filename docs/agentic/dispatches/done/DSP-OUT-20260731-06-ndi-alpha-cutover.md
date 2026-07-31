@@ -1,5 +1,7 @@
 # Dispatch DSP-OUT-20260731-06-ndi-alpha-cutover
 
+**Status:** Done / archived (2026-07-31) — accepted; next pack 5.4 + 6.4 + human ops
+
 ## Meta
 - From orchestrator: OUT (BW: Phase **7.6** — alpha NDI cutover docs)
 - Worker role: WORKER(DSP-OUT-20260731-06-ndi-alpha-cutover)

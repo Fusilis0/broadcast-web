@@ -24,9 +24,8 @@
 
 ## Current phase pointer
 
-**Active:** **Phase 7.6** NDI alpha cutover docs — `DSP-OUT-20260731-06`.  
-**Last gate:** Human **Pass** on alpha NDI (2026-07-31) — 1080p lock, park-on-minimize, `broadcast-web` source.  
-**After 7.6:** **5.4 + 6.4 + human ops** (Hetzner/WSS) pack.
+**Active pack:** **5.4** egress eval (`DSP-OUT-20260731-07`) + **6.4** project API design (`DSP-PLT-20260731-03`) + **human** Hetzner/WSS ([`../ops/human-hetzner-wss-checklist.md`](../ops/human-hetzner-wss-checklist.md)).  
+**Last gate:** Phase **7.6 Done** — preferred air = Electron alpha NDI; chroma fallback (`DSP-OUT-20260731-06`).
 
 ---
 
@@ -99,8 +98,8 @@
 | --- | --- | --- | --- |
 | 5.1 | Hetzner static deploy | PLT | **Done** (`DSP-PLT-20260731-01`); human upload pending |
 | 5.2 | WSS or proxy for live TEL | PLT+TEL | **Done** (`DSP-PLT-20260731-02`); human TLS/proxy pending |
-| 5.3 | Air runbook (Chrome + chroma) | OUT+BW | **Done** (`DSP-OUT-20260731-01`) — `docs/ops/air-runbook.md` |
-| 5.4 | Evaluate WebRTC/SRT egress | OUT | |
+| 5.3 | Air runbook (now preferred NDI + chroma fallback) | OUT+BW | **Done** (`DSP-OUT-20260731-01`); updated 7.6 — `docs/ops/air-runbook.md` |
+| 5.4 | Evaluate WebRTC/SRT egress | OUT | **DSP issued** (`DSP-OUT-20260731-07`) |
 | 5.5 | **NDI path evaluation** (third-party vs helper vs Electron) | OUT+PLT+BW | **Done** (`DSP-OUT-20260731-02`) — BW ack **C → B → A**; [`../ops/ndi-path-evaluation.md`](../ops/ndi-path-evaluation.md) |
 | 5.6 | Parallel air vs Unity; cutover criteria | BW | |
 
@@ -115,7 +114,7 @@
 | 6.1 | **RaceProject schema** + folder/JSON pack | PLT+SCN | **Done** (`DSP-PLT-20260730-01`) |
 | 6.2 | Local pack CRUD UI (create/duplicate/save) | SCN+PLT | **Done** (`DSP-SCN-20260731-01` + `DSP-SCN-20260731-02` fleet switch) |
 | 6.3 | `?race=` / console loads pack | CON+PLT | **Done** for local static (in 6.1); far-PC needs host |
-| 6.4 | **Project API + database** | PLT | Persist JSON; revision metadata |
+| 6.4 | **Project API + database** | PLT | **Design DSP issued** (`DSP-PLT-20260731-03`); impl follows |
 | 6.5 | Auth roles (editor vs air-only) | PLT+CON | With console team |
 | 6.6 | Offline pack download / venue mode | PLT | QoL |
 | 6.7 | Calib profiles stored on project | CAL+PLT | Per POV |
@@ -127,7 +126,7 @@
 ## Phase 7 — Optimum air: NDI camera view
 
 Entry criteria and A/B/C scores: [`../ops/ndi-path-evaluation.md`](../ops/ndi-path-evaluation.md).  
-**BW lock (2026-07-31):** full product = **A (Electron) + NDI with alpha** (not green-key NDI). Chroma + window capture remains interim air until A ships. Skip **7.2 (B)** unless A is blocked.
+**BW lock (2026-07-31):** full product = **A (Electron) + NDI with alpha** (not green-key NDI). Preferred studio air = Electron alpha NDI; chroma = fallback ([`../ops/air-runbook.md`](../ops/air-runbook.md)). Skip **7.2 (B)** unless A is blocked.
 
 | # | Work | Owner | Notes |
 | --- | --- | --- | --- |
@@ -136,7 +135,7 @@ Entry criteria and A/B/C scores: [`../ops/ndi-path-evaluation.md`](../ops/ndi-pa
 | 7.3 | Spike: **Electron + our NDI sender** (**A** + alpha) | OUT+PLT | **Done** — 7.3a shell (`04`); 7.3b transparent + `grandi` send (`05`); name `broadcast-web` |
 | 7.4 | Choose production NDI path (BW + studio) | BW | **Done** — A + alpha (human Pass 2026-07-31) |
 | 7.5 | Production NDI out of active POV camera | OUT | **Done** via 7.3b (+ 1080p / park-minimize polish) |
-| 7.6 | vMix NDI input runbook + cutover | OUT+BW | **Active** — `DSP-OUT-20260731-06` |
+| 7.6 | vMix NDI input runbook + cutover | OUT+BW | **Done** (`DSP-OUT-20260731-06`) — [`../ops/air-runbook.md`](../ops/air-runbook.md) |
 
 **Exit (Milestone G):** Studio receives AR camera view as **NDI with alpha**; chroma remains fallback.
 

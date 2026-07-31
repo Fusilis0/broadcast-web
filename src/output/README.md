@@ -22,7 +22,7 @@ Owned by **OUT**. Canvas clear modes, visual timecode, WebRTC WHEP underlay / la
 | Mode | Clear | Studio use |
 | --- | --- | --- |
 | `preview` | Dark opaque | Ops; optional WHEP underlay |
-| `chroma` | Green opaque | Interim Chrome window capture + key |
+| `chroma` | Green opaque | Fallback Chrome window capture + key |
 | `transparent` | Alpha 0 | Electron → named alpha NDI |
 
 ## Visual timecode
@@ -80,7 +80,7 @@ Browser **MediaMTX WHEP** video under the Three canvas in **preview** only. Soft
 
 No-ops in Chrome (no bridge). Shell + run notes: [`desktop/README.md`](../../desktop/README.md). vMix: [`docs/ops/vmix-ndi-alpha-runbook.md`](../../docs/ops/vmix-ndi-alpha-runbook.md). Contract: [`docs/architecture/ndi-alpha-electron.md`](../../docs/architecture/ndi-alpha-electron.md).
 
-**No in-browser NDI** without the Electron bridge. Chroma + window capture remains interim air ([`docs/ops/air-runbook.md`](../../docs/ops/air-runbook.md)). Path B deferred.
+**No in-browser NDI** without the Electron bridge. Preferred studio air = Electron alpha NDI; Chrome chroma = fallback ([`docs/ops/air-runbook.md`](../../docs/ops/air-runbook.md)). Path B deferred.
 
 ## Out of scope (later)
 

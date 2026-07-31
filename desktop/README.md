@@ -9,10 +9,10 @@ vMix ingest: [`../docs/ops/vmix-ndi-alpha-runbook.md`](../docs/ops/vmix-ndi-alph
 
 | Path | When | How |
 | --- | --- | --- |
-| **Chrome + chroma** (interim air) | Shows today | [`../docs/ops/air-runbook.md`](../docs/ops/air-runbook.md) — `npm run dev` in Chrome, `outputMode=chroma`, OBS/vMix window capture + green key |
-| **Electron + alpha NDI** (this folder) | Studio path A | SPA in Electron; WebGL readback → BGRA → NDI (`grandi`) |
+| **Electron + alpha NDI** (this folder) | **Preferred** studio air (path A) | SPA in Electron; WebGL readback → BGRA → NDI (`grandi`); [`../docs/ops/air-runbook.md`](../docs/ops/air-runbook.md) |
+| **Chrome + chroma** | **Fallback** | Same air-runbook § Fallback — Chrome, `outputMode=chroma`, OBS/vMix window capture + green key |
 
-Default product remains the browser SPA. Electron is the **studio** path.
+Default product remains the browser SPA (Hetzner / preview). Electron is the **preferred studio** path.
 
 ## NDI
 
@@ -116,5 +116,5 @@ npm run desktop:file
 
 - electron-builder release pipeline / asar unpack polish
 - Path B helper
-- Killing Chrome chroma as interim air
+- Killing Chrome chroma as fallback air
 - GPU zero-copy (CPU readback is intentional for the spike)

@@ -8,8 +8,8 @@
 
 | Rule | Notes |
 | --- | --- |
-| **NDI is not required for current air** | Canonical path remains Chrome → chroma → OBS/vMix ([`air-runbook.md`](./air-runbook.md)). Do not block shows on NDI. |
-| Chroma stays fallback | Even after a production NDI path, green-key window capture remains supported. |
+| **Preferred studio air** | Electron + alpha NDI ([`air-runbook.md`](./air-runbook.md)). Do not block a show if NDI fails — roll back to chroma. |
+| Chroma stays fallback | Green-key Chrome window capture remains supported ([`air-runbook.md`](./air-runbook.md) § Fallback). |
 | No in-browser NDI | Browser SPA alone cannot emit NDI; a native bridge (third-party, helper, or Electron) is required for owned or bridged NDI. |
 | This doc is docs-only | No Electron app, NDI SDK integration, or helper code in Phase 5.5. |
 
@@ -25,7 +25,7 @@ Score options for sending the **AR camera view** (WebGL plate + visual timecode)
 | **Resolution** | Match active WebGL output (typically 1080p-class studio; preserve pixel sharpness for 8×8 timecode barcode — nearest/no soft scale). |
 | **Named source** | Prefer a stable NDI name ops can pick in vMix (Unity-like: one input, no hunting Chrome windows). |
 | **Studio ops** | Same-PC studio; vMix primary compositor; OBS acceptable for trials. Minimal extra clicks vs current chroma. |
-| **Alpha / key** | **Production NDI end-state:** straight **alpha** (transparent clear + AR; vMix uses alpha — **not** green-key remove). Chroma plate via NDI is OK only for C trials / fallback. Chroma + window capture remains interim air until A ships. |
+| **Alpha / key** | **Production NDI:** straight **alpha** (transparent clear + AR; vMix uses alpha — **not** green-key remove). Chroma plate via NDI is OK only for C trials. Chrome + window capture is the documented **fallback**. |
 | **Timecode** | Visual 8×8 barcode must remain sharp on the NDI frames (same burn-in as canvas). |
 | **Reliability** | Survive fullscreen Chrome, outputMode switches, and typical show duration without silent freeze. |
 
@@ -96,15 +96,15 @@ Trial **C** → owned **B** preferred → **A** alternate. See scoring matrix ab
 
 ### BW revision (2026-07-31) — binding
 
-1. **Keep chroma + window capture** as interim production air ([`air-runbook.md`](./air-runbook.md)) until Electron NDI ships.
+1. **Preferred studio air:** Electron + alpha NDI ([`air-runbook.md`](./air-runbook.md)); chroma + window capture = **fallback**.
 2. **7.1 C trial closed** — Results: Screen Capture → OBS works technically but is **not** app-native NDI; **fail for production NDI** ([`ndi-c-spike-runbook.md`](./ndi-c-spike-runbook.md)).
 3. **Full-version end-state locked:** path **A** (Electron + our NDI sender) with **alpha channel** (no green-key as the production NDI mode).
 4. **Skip 7.2 (B)** unless A is blocked (SDK/packaging/capture dead-end); do not build helper first.
-5. **Next:** Phase **7.3** — Electron shell + alpha NDI contract, then NDI SDK sender.
+5. **7.3–7.5 done;** **7.6** cutover docs in air-runbook (human Pass 2026-07-31).
 
-**Near-term air:** chroma. **Optimum / full product air:** Electron NDI **with alpha**.
+**Preferred studio air:** Electron NDI **with alpha**. **Fallback:** Chrome chroma.
 
-**7.3:** alpha contract [`../architecture/ndi-alpha-electron.md`](../architecture/ndi-alpha-electron.md); Electron shell + `outputMode=transparent` + named BGRA send via `grandi` ([`../../desktop/`](../../desktop/), [`vmix-ndi-alpha-runbook.md`](./vmix-ndi-alpha-runbook.md)).
+**7.3+:** alpha contract [`../architecture/ndi-alpha-electron.md`](../architecture/ndi-alpha-electron.md); Electron shell + `outputMode=transparent` + named BGRA send via `grandi` ([`../../desktop/`](../../desktop/), [`vmix-ndi-alpha-runbook.md`](./vmix-ndi-alpha-runbook.md)).
 
 ## Spike checklist — human trial of C (Phase 7.1)
 
@@ -138,7 +138,7 @@ Canonical filled table: [`ndi-c-spike-runbook.md`](./ndi-c-spike-runbook.md) § 
 
 | Doc | Role |
 | --- | --- |
-| [`air-runbook.md`](./air-runbook.md) | Canonical chroma air path — NDI not required |
+| [`air-runbook.md`](./air-runbook.md) | Preferred Electron alpha NDI + cutover + chroma fallback |
 | [`ndi-c-spike-runbook.md`](./ndi-c-spike-runbook.md) | Phase 7.1 third-party NDI trial (path C) |
 | [`../architecture/ndi-alpha-electron.md`](../architecture/ndi-alpha-electron.md) | Phase 7.3 — alpha NDI + Electron product contract |
 | [`../../desktop/README.md`](../../desktop/README.md) | Studio Electron shell + alpha NDI send |

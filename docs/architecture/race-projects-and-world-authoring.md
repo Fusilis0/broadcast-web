@@ -125,7 +125,7 @@ DB does **not** render Three.js. It only stores packs + revisions. Render stays 
 | **B. Native NDI helper** | Tiny sidecar reads frames/stream from SPA | Keeps SPA browser-only | Two processes |
 | **C. Third-party NDI** | e.g. screen/window → NDI tool, or OBS NDI, or vMix NDI from capture | Fast to trial | Less integrated; quality depends on tool |
 
-**BW lock (2026-07-31):** full product optimum = **A (Electron) + NDI with alpha** (vMix uses alpha — not green-key remove). Chroma + window capture remains interim air. Path **C** trial closed (screen→NDI only). Path **B** deferred unless A blocked.
+**BW lock (2026-07-31):** full product optimum = **A (Electron) + NDI with alpha** (vMix uses alpha — not green-key remove). Preferred studio air = Electron alpha NDI; chroma = fallback ([`../ops/air-runbook.md`](../ops/air-runbook.md)). Path **C** trial closed (screen→NDI only). Path **B** deferred unless A blocked.
 
 **Scored evaluation (Phase 5.5):** [`../ops/ndi-path-evaluation.md`](../ops/ndi-path-evaluation.md) — historical C→B→A scores retained; binding revision is A + alpha.
 
@@ -178,5 +178,5 @@ Browser SPA alone still **cannot** speak NDI; Electron (or a deferred native hel
 3. Saves → JSON in DB.  
 4. Any studio opens console → **Open overlay** → same project loads.  
 5. **3D AR** and **2D map** (ops + optional on-air) match.  
-6. Air: chroma first; later **NDI camera view** into vMix (Electron or helper / third-party).  
-7. Unity remains backup until NDI/chroma cutover criteria met.
+6. Air: **Electron + alpha NDI** preferred; Chrome chroma fallback ([`../ops/air-runbook.md`](../ops/air-runbook.md)).  
+7. Unity remains parallel backup until BW + studio OK to drop it (Phase **5.6**).
