@@ -124,12 +124,19 @@ Browsers block **mixed content**: an **HTTPS** page cannot open `ws://` endpoint
 
 | Page origin | Use |
 | --- | --- |
-| `https://…` (e.g. future Hetzner static host) | **`wss://`** WebSocket URLs |
+| `https://…` (Hetzner / static host) | **`wss://`** WebSocket URLs |
 | `http://localhost` (Vite dev) | `ws://` or `wss://` both OK |
 
-Phase **5.2** (PLT) may add reverse-proxy WSS termination in front of the VPS; this module only requires the **browser client** to use a scheme the page origin allows. Placeholder example shape (not a committed default):
+`LiveTelemetrySource` passes the resolved URL string through to `WebSocket` unchanged — `wss://` works when TLS terminates correctly. Empty URLs stay `idle` (no fake open).
 
-`wss://example.invalid/stream?client=web&id=…`
+Ops runbook (native WSS on telemetry host, or SPA-host nginx/Caddy reverse proxy → upstream `ws://`, `config.json` examples): [`docs/ops/wss-live-telemetry.md`](../../docs/ops/wss-live-telemetry.md).
+
+Placeholder shapes (not committed defaults):
+
+```text
+wss://example.invalid/stream?client=web&id=drone1
+wss://YOUR_SPA_DOMAIN/ws/drone
+```
 
 ### Optional real-VPS soak (human-gated)
 
@@ -206,4 +213,4 @@ Must succeed with no TypeScript errors; Vitest covers fixture parse/playback and
 
 ## Out of this module (other orchestrators)
 
-No ECEF/ENU (GEO), no Three boat/drone meshes / fleet registry / POV camera switch (SCN), no fixture recorder, no live multi-URL (multi-drone or multi-boat), no PLT reverse-proxy WSS (5.2).
+No ECEF/ENU (GEO), no Three boat/drone meshes / fleet registry / POV camera switch (SCN), no fixture recorder, no live multi-URL (multi-drone or multi-boat). WSS/proxy ops live under PLT [`docs/ops/wss-live-telemetry.md`](../../docs/ops/wss-live-telemetry.md) — this module only consumes URL strings.

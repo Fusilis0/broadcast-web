@@ -54,11 +54,12 @@ Runtime placeholders live in `public/config.json`. Optional env keys are listed 
 
 Production is a **static SPA**: `npm run build` → upload `dist/` to a web root with SPA fallback (`try_files` → `index.html`).
 
-- Runbook (Hetzner / nginx / Caddy, TLS, smoke, WSS follow-up): [`docs/ops/hetzner-static-deploy.md`](./docs/ops/hetzner-static-deploy.md)
+- Static host (Hetzner / nginx / Caddy, TLS, smoke): [`docs/ops/hetzner-static-deploy.md`](./docs/ops/hetzner-static-deploy.md)
+- Live telemetry WSS / reverse proxy (HTTPS → `wss://`): [`docs/ops/wss-live-telemetry.md`](./docs/ops/wss-live-telemetry.md)
 - Optional rsync helper (placeholders only): [`scripts/deploy-static.example.sh`](./scripts/deploy-static.example.sh)
 
-Live telemetry over HTTPS needs **wss://** or a same-origin proxy (Phase 5.2) — mock/replay work on the static host without WebSockets.
+Mock/replay work on the static host without WebSockets. Live on HTTPS requires `wss://` (direct or same-origin proxy).
 
 ## Status
 
-Private GitHub repo; Vite + TypeScript + Three.js app with domain modules under `src/`. Phase 5.1 static deploy docs are in place; human upload to Hetzner is outside the repo.
+Private GitHub repo; Vite + TypeScript + Three.js app with domain modules under `src/`. Phase 5.1–5.2 deploy/WSS docs are in place; human upload and VPS/proxy TLS remain outside the repo.

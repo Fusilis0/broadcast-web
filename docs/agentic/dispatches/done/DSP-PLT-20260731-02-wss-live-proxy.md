@@ -7,6 +7,14 @@
 - Phase: Phase 5.2 — WSS or proxy for live TEL on HTTPS SPA
 - Related: `docs/ops/hetzner-static-deploy.md`; TEL `wsUrl` / `wsBoatUrl`
 - BW ask: document + verify path so hosted HTTPS page can use **live** mode; prefer reverse-proxy or direct `wss://`; no NDI/DB; no mandatory live VPS soak
+- **Status: DONE** (worker 2026-07-31) — human still owns VPS cert / proxy install + live smoke
+
+## Worker report (summary)
+
+- Added `docs/ops/wss-live-telemetry.md` (mixed content, Option A native WSS, Option B SPA proxy, nginx/Caddy, config + deeplink notes)
+- Linked from Hetzner deploy runbook, root README, TEL README; `.env.example` placeholder shapes
+- Client verify: `wss://` passed through unchanged; empty URL stays idle (tests in `live.test.ts`)
+- `npm test` 214 + `npm run build` green; no secrets / no VPS login
 
 ## Goal
 
@@ -40,11 +48,11 @@ Unblock **live** telemetry when the SPA is served over **HTTPS**: browsers block
 
 ## Acceptance criteria
 
-- [ ] WSS runbook exists with proxy + direct options
-- [ ] Linked from deploy runbook + TEL README
-- [ ] Client accepts / documents `wss://` (test if needed)
-- [ ] No secrets committed
-- [ ] `npm test` + `npm run build` green
+- [x] WSS runbook exists with proxy + direct options
+- [x] Linked from deploy runbook + TEL README
+- [x] Client accepts / documents `wss://` (test if needed)
+- [x] No secrets committed
+- [x] `npm test` + `npm run build` green
 
 ## Report back
 

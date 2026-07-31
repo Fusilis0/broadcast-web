@@ -2,7 +2,7 @@
 
 Deploy `broadcast-web` as a **static SPA** on Hetzner (or any static host): build → upload `dist/` → TLS → smoke. No application server, no DB, no NDI.
 
-**Non-goals:** live WSS proxy (Phase **5.2**), project API (6.4), NDI, SSHing from CI with committed secrets.
+**Non-goals:** implementing WSS on the VPS from this runbook (see Phase **5.2** [`wss-live-telemetry.md`](./wss-live-telemetry.md)), project API (6.4), NDI, SSHing from CI with committed secrets.
 
 ## Prerequisites
 
@@ -43,16 +43,16 @@ npm run preview
 
 Open the printed URL (usually `http://localhost:4173`). Confirm canvas loads and `/?race=demo-istanbul` resolves the pack.
 
-Optional production WS bake-in (HTTPS hosts need **wss://** — see [Live telemetry / WSS](#live-telemetry--wss-phase-52)):
+Optional production WS bake-in (HTTPS hosts need **wss://** — see [`wss-live-telemetry.md`](./wss-live-telemetry.md)):
 
 ```bash
 # On the build machine only — do not commit real values
-export VITE_WS_URL='wss://YOUR_PROXY_HOST/stream?client=web&id=drone1'
-export VITE_WS_BOAT_URL='wss://YOUR_PROXY_HOST/stream?client=web&id=boat21'
+export VITE_WS_URL='wss://YOUR_SPA_DOMAIN/ws/drone'
+export VITE_WS_BOAT_URL='wss://YOUR_SPA_DOMAIN/ws/boat'
 npm run build
 ```
 
-Prefer leaving these empty and using `public/config.json` / query overrides until 5.2 is ready. Replay/mock modes do not need WebSockets.
+Prefer leaving these empty and setting `public/config.json` on the host (or env at build) when going live. Replay/mock modes do not need WebSockets.
 
 ## Upload `dist/`
 
@@ -120,9 +120,9 @@ Caddy obtains and renews TLS automatically for a public DNS name.
 | Mode | On HTTPS static host |
 | --- | --- |
 | `mock` / `replay` | Works — no WebSocket |
-| `live` | **Blocked** if `wsUrl` is `ws://…` (mixed content) |
+| `live` | Needs **`wss://`** — plain `ws://` is blocked (mixed content) |
 
-Until 5.2: use mock/replay on the hosted SPA, or run live only against `http://localhost` / LAN HTTP. Follow-up DSP: terminate TLS and proxy WebSocket (same-origin `wss://YOUR_DOMAIN/…` → upstream TEL), or expose a dedicated WSS endpoint and set `VITE_WS_URL` / `config.json` `wsUrl` to `wss://…`.
+Full runbook (native WSS on telemetry host, or SPA-host reverse proxy to upstream `ws://`, nginx/Caddy snippets, `config.json` examples): **[`wss-live-telemetry.md`](./wss-live-telemetry.md)**.
 
 ## Smoke checklist
 
@@ -136,7 +136,7 @@ Run after first deploy and after each upload:
 | 4 | `/races/index.json` and `/races/demo-istanbul/project.json` → 200 JSON | ☐ |
 | 5 | Chroma: OUT control or `?outputMode=chroma` → clear green `#00ff00` behind AR | ☐ |
 | 6 | Hard refresh / open a non-file path that should SPA-fallback → still `index.html` (not nginx 404) | ☐ |
-| 7 | (Optional) Live mode: only after 5.2 — `wss://` connects; plain `ws://` from HTTPS must fail | ☐ |
+| 7 | (Optional) Live mode: follow [`wss-live-telemetry.md`](./wss-live-telemetry.md) — `wss://` connects; plain `ws://` from HTTPS must fail | ☐ |
 
 Studio chroma capture details: [`vmix-chroma-runbook.md`](./vmix-chroma-runbook.md). Hosted URL can replace `npm run dev` once smoke 1–5 pass.
 
@@ -154,6 +154,7 @@ Use repository secrets for `DEPLOY_USER` / `DEPLOY_HOST` / SSH key. This repo do
 
 ## Related
 
+- Live WSS / proxy (5.2) — [`wss-live-telemetry.md`](./wss-live-telemetry.md)
 - Roadmap Phase 5.1–5.2 — [`docs/roadmap/phases-roadmap.md`](../roadmap/phases-roadmap.md)
 - Env keys — [`.env.example`](../../.env.example)
 - Example upload script — [`scripts/deploy-static.example.sh`](../../scripts/deploy-static.example.sh)

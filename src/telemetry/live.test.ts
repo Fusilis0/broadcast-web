@@ -194,8 +194,46 @@ describe('LiveTelemetrySource', () => {
     })
     source.start()
     expect(source.getStatus()).toEqual({ drone: 'idle', boat: 'idle' })
+    expect(FakeWebSocket.instances).toHaveLength(0)
     source.stop()
     warn.mockRestore()
+  })
+
+  it('passes wss:// URLs through to WebSocket unchanged', async () => {
+    const droneUrl =
+      'wss://example.invalid/ws/drone?client=web&id=drone1'
+    const boatUrl =
+      'wss://example.invalid/stream?client=web&id=boat21'
+    const source = new LiveTelemetrySource({
+      droneUrl,
+      boatUrl,
+      WebSocketImpl: FakeWebSocket as unknown as typeof WebSocket,
+    })
+    source.start()
+    await Promise.resolve()
+
+    expect(FakeWebSocket.instances).toHaveLength(2)
+    expect(FakeWebSocket.instances.map((w) => w.url).sort()).toEqual(
+      [boatUrl, droneUrl].sort(),
+    )
+    expect(source.getStatus()).toEqual({ drone: 'open', boat: 'open' })
+    source.stop()
+  })
+
+  it('trims wss:// URLs but does not alter scheme or path', async () => {
+    const source = new LiveTelemetrySource({
+      droneUrl: '  wss://example.invalid/ws/drone  ',
+      boatUrl: '',
+      WebSocketImpl: FakeWebSocket as unknown as typeof WebSocket,
+    })
+    source.start()
+    await Promise.resolve()
+
+    expect(FakeWebSocket.instances).toHaveLength(1)
+    expect(FakeWebSocket.instances[0]?.url).toBe(
+      'wss://example.invalid/ws/drone',
+    )
+    source.stop()
   })
 })
 
@@ -289,6 +327,26 @@ describe('live ingest → bus', () => {
     expect(handle.getLiveStatus?.()).toEqual({ drone: 'idle', boat: 'idle' })
     handle.stop()
     warn.mockRestore()
+  })
+
+  it('live ingest passes wss:// through (no rewrite to ws://)', async () => {
+    const bus = new TelemetryBus()
+    const wsUrl = 'wss://example.invalid/ws/drone'
+    const wsBoatUrl = 'wss://example.invalid/ws/boat'
+    const handle = await startTelemetryIngest({
+      mode: 'live',
+      wsUrl,
+      wsBoatUrl,
+      bus,
+      WebSocketImpl: FakeWebSocket as unknown as typeof WebSocket,
+    })
+    await Promise.resolve()
+
+    expect(FakeWebSocket.instances.map((w) => w.url).sort()).toEqual(
+      [wsBoatUrl, wsUrl].sort(),
+    )
+    expect(handle.getLiveStatus?.()).toEqual({ drone: 'open', boat: 'open' })
+    handle.stop()
   })
 
   it('exposes getLiveStatus / onLiveStatus for live sockets', async () => {

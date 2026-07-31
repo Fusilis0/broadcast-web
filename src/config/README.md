@@ -51,6 +51,6 @@ Mock-centered default origin is Istanbul near TEL mock tracks (`41.0082, 28.9784
 
 ### Live URLs
 
-Leave `wsUrl` / `wsBoatUrl` empty in git. Override locally via config or Vite env (`VITE_WS_URL`, `VITE_WS_BOAT_URL` — see `.env.example`). Full resolution order and **`ws://` vs `wss://`** (HTTPS mixed content) are documented in [`src/telemetry/README.md`](../telemetry/README.md). Live remains a **single** primary `wsUrl` — multi-drone / multi-cam WebSockets are a TEL follow-up.
+Leave `wsUrl` / `wsBoatUrl` empty in git. Override locally via config or Vite env (`VITE_WS_URL`, `VITE_WS_BOAT_URL` — see `.env.example`). Full resolution order and **`ws://` vs `wss://`** (HTTPS mixed content) are documented in [`src/telemetry/README.md`](../telemetry/README.md); ops proxy/WSS: [`docs/ops/wss-live-telemetry.md`](../../docs/ops/wss-live-telemetry.md). Live remains a **single** primary `wsUrl` — multi-drone / multi-cam WebSockets are a TEL follow-up.
 
 To try replay locally: set `"telemetryMode": "replay"` in `public/config.json` (do not commit that change as the default). For multi-boat replay, point `replayUrl` at `/fixtures/telemetry/spine-fleet.json`. For multi-POV replay, point at `/fixtures/telemetry/spine-pov.json`.
