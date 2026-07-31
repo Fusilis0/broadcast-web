@@ -65,6 +65,7 @@ Mock/replay work on the static host without WebSockets. Live on HTTPS requires `
 Chrome → chroma → OBS/vMix (local or hosted URL). **NDI not required** today (Phase 7 later).
 
 - Canonical checklist: [`docs/ops/air-runbook.md`](./docs/ops/air-runbook.md)
+- NDI path evaluation (A/B/C): [`docs/ops/ndi-path-evaluation.md`](./docs/ops/ndi-path-evaluation.md)
 - Phase 3.5 chroma experiment record: [`docs/ops/vmix-chroma-runbook.md`](./docs/ops/vmix-chroma-runbook.md)
 
 ## Status

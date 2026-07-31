@@ -24,8 +24,9 @@
 
 ## Current phase pointer
 
-**Active:** **5.1–5.3 done** (deploy + WSS docs + air runbook). Next **5.5** NDI evaluation.  
-**Last gate:** DSP-OUT-20260731-01 air runbook accepted (2026-07-31).
+**Active:** **5.1–5.3 + 5.5 done.** BW acked NDI order **C → B → A**. Next: human **7.1** C spike; optional **5.4** egress.  
+**Last gate:** DSP-OUT-20260731-02 NDI path evaluation accepted + BW ack (2026-07-31).  
+**Milestone D:** Chroma air path documented ✓; NDI options scored ✓ — cutover vs Unity still explicit BW+studio OK.
 
 ---
 
@@ -100,7 +101,7 @@
 | 5.2 | WSS or proxy for live TEL | PLT+TEL | **Done** (`DSP-PLT-20260731-02`); human TLS/proxy pending |
 | 5.3 | Air runbook (Chrome + chroma) | OUT+BW | **Done** (`DSP-OUT-20260731-01`) — `docs/ops/air-runbook.md` |
 | 5.4 | Evaluate WebRTC/SRT egress | OUT | |
-| 5.5 | **NDI path evaluation** (third-party vs helper vs Electron) | OUT+PLT+BW | **DSP issued** (`DSP-OUT-20260731-02`) |
+| 5.5 | **NDI path evaluation** (third-party vs helper vs Electron) | OUT+PLT+BW | **Done** (`DSP-OUT-20260731-02`) — BW ack **C → B → A**; [`../ops/ndi-path-evaluation.md`](../ops/ndi-path-evaluation.md) |
 | 5.6 | Parallel air vs Unity; cutover criteria | BW | |
 
 **Exit (Milestone D):** Documented chroma air path; NDI options scored; Unity decommission only after explicit OK.
@@ -125,11 +126,13 @@
 
 ## Phase 7 — Optimum air: NDI camera view
 
+Entry criteria and A/B/C scores: [`../ops/ndi-path-evaluation.md`](../ops/ndi-path-evaluation.md). Do not start 7.2/7.3 until C spike fails ops gates or BW forces owned NDI. Chroma remains the required air path until then.
+
 | # | Work | Owner | Notes |
 | --- | --- | --- | --- |
-| 7.1 | Spike: third-party NDI from capture/window | OUT+human | Fast trial |
-| 7.2 | Spike: **native NDI helper** sidecar | OUT | Browser SPA stays |
-| 7.3 | Spike: **Electron + our NDI sender** | OUT+PLT | Owned named source |
+| 7.1 | Spike: third-party NDI from capture/window | OUT+human | Fast trial (**C**) — checklist in eval doc |
+| 7.2 | Spike: **native NDI helper** sidecar | OUT | Browser SPA stays (**B** — preferred owned) |
+| 7.3 | Spike: **Electron + our NDI sender** | OUT+PLT | Owned named source (**A** — alternate) |
 | 7.4 | Choose production NDI path (BW + studio) | BW | Prefer owned A/B if C insufficient |
 | 7.5 | Production NDI out of active POV camera | OUT | Sync with timecode |
 | 7.6 | vMix NDI input runbook + cutover | OUT+BW | Unity NDI parallel until OK |

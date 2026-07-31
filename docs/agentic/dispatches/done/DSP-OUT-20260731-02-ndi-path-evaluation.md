@@ -6,7 +6,14 @@
 - Priority: P1
 - Phase: Phase 5.5 — NDI path evaluation (docs / decision matrix)
 - Related: `docs/architecture/race-projects-and-world-authoring.md` §7; roadmap Phase 7
-- BW ask: score third-party vs native helper vs Electron+NDI; recommend a path; **no implementation** this DSP
+- **Status: DONE** (worker 2026-07-31) — **BW acked** recommendation **C → B → A** (2026-07-31)
+- **Status: DONE** (worker 2026-07-31) — docs only; no Electron/NDI code; **BW ack pending**
+
+## Worker report (summary)
+
+- Added `docs/ops/ndi-path-evaluation.md` (requirements, A/B/C scores, recommend trial **C** then owned **B** / alternate **A**, C spike checklist, Phase 7 entry criteria)
+- Linked from air-runbook, race-projects §7, roadmap 5.5/7, root README On air
+- Explicit: NDI not required for current chroma air path
 
 ## Goal
 
@@ -36,10 +43,10 @@ Produce **`docs/ops/ndi-path-evaluation.md`**: compare options for sending the A
 
 ## Acceptance criteria
 
-- [ ] `docs/ops/ndi-path-evaluation.md` exists with scored A/B/C + recommendation
-- [ ] Linked from air runbook
-- [ ] Explicit: no NDI required for current air (chroma)
-- [ ] Docs-only (or trivial link edits)
+- [x] `docs/ops/ndi-path-evaluation.md` exists with scored A/B/C + recommendation
+- [x] Linked from air runbook
+- [x] Explicit: no NDI required for current air (chroma)
+- [x] Docs-only (or trivial link edits)
 
 ## Report back
 

@@ -127,6 +127,8 @@ DB does **not** render Three.js. It only stores packs + revisions. Render stays 
 
 **BW preference order for optimum:** prove chroma → trial **C** for speed → invest in **A or B** if ops requires first-class NDI named source like Unity.
 
+**Scored evaluation (Phase 5.5):** [`../ops/ndi-path-evaluation.md`](../ops/ndi-path-evaluation.md) — recommend trial **C**, then owned **B** (preferred) / **A** (alternate) if C insufficient. NDI not required while chroma air path is production.
+
 Browser SPA alone still **cannot** speak NDI; Electron or a native helper is required for owned NDI out.
 
 ---
