@@ -12,6 +12,11 @@ import {
   gpsToEnuAmsl,
 } from './geodesy/index.ts'
 import {
+  applyRaceProjectToConfig,
+  loadRaceProject,
+  type RaceProject,
+} from './projects/index.ts'
+import {
   applyOutputMode,
   normalizeOutputMode,
   resolveClearAppearance,
@@ -133,8 +138,27 @@ function applyIngestConnectionStatus(handle: IngestHandle): void {
 }
 void (async () => {
   const config = await loadConfig()
-  // CON: query overrides after config.json; before origin / ingest (token not validated).
-  applyDeeplinkToBoot(config, parseConsoleDeeplink(window.location.search))
+  const deeplink = parseConsoleDeeplink(window.location.search)
+
+  // PLT+CON: ?race=<id> → local pack under /races/<id>/; miss → config.json (warn).
+  let raceProject: RaceProject | null = null
+  if (deeplink.race) {
+    try {
+      raceProject = await loadRaceProject(deeplink.race)
+      applyRaceProjectToConfig(config, raceProject)
+      console.info('[projects] loaded race pack', { id: raceProject.id })
+      hud.setBootMessage(`project: ${raceProject.id}`)
+    } catch (err) {
+      console.warn(
+        '[projects] race pack load failed; continuing with config.json',
+        err,
+      )
+      raceProject = null
+    }
+  }
+
+  // CON: query overrides after config + pack; before origin / ingest (token not validated).
+  applyDeeplinkToBoot(config, deeplink)
   replayUrl = config.replayUrl
   courseUrl = config.courseUrl
   sponsorsUrl = config.sponsorsUrl
@@ -197,28 +221,45 @@ void (async () => {
   // Name/colour catalogue — before TEL so first boat spawn can resolve tags.
   await scene.loadBoatNamesFromUrl(boatNamesUrl)
 
-  hud.setBootMessage('boot: EGM96…')
+  hud.setBootMessage(
+    raceProject ? `project: ${raceProject.id} · EGM96…` : 'boot: EGM96…',
+  )
   await ensureEgm96Loaded()
   applyConfigOrigin(config.origin)
 
-  // Course + sponsors + flags need origin + EGM96 (gpsToEnuAmsl). Static — not poseBus-driven.
-  const course = await scene.loadCourseFromUrl(courseUrl)
-  const sponsors = await scene.loadSponsorsFromUrl(sponsorsUrl)
-  const flags = await scene.loadCountdownFlagsFromUrl(flagsUrl)
-
-  // Shared GPS→ENU layout: one list for 2D map + editor. 3D mounts from loaders above.
+  // Shared GPS→ENU layout: one list for 2D map + editor.
   const gpsToEnu = (lat: number, lon: number, alt: number) => {
     const v = gpsToEnuAmsl(lat, lon, alt)
     return { x: v.x, y: v.y, z: v.z }
   }
-  const world: WorldFeature[] = [
-    ...(course?.worldFeatures ?? []),
-    ...(sponsors?.worldFeatures ?? []),
-    ...(flags?.worldFeatures ?? []),
-  ]
+
+  let world: WorldFeature[]
+  const packFeatures = raceProject?.features
+  if (packFeatures && packFeatures.length > 0) {
+    // Pack embeds editor-compatible features → remount 3D from that list.
+    world = packFeatures.map((f) => ({
+      ...f,
+      points: f.points.map((p) => ({ ...p })),
+    }))
+    await scene.remountWorldFromFeatures(world)
+  } else {
+    // Course + sponsors + flags need origin + EGM96. Static — not poseBus-driven.
+    const course = await scene.loadCourseFromUrl(courseUrl)
+    const sponsors = await scene.loadSponsorsFromUrl(sponsorsUrl)
+    const flags = await scene.loadCountdownFlagsFromUrl(flagsUrl)
+    world = [
+      ...(course?.worldFeatures ?? []),
+      ...(sponsors?.worldFeatures ?? []),
+      ...(flags?.worldFeatures ?? []),
+    ]
+  }
+
   const layout = layoutFeatures(world, gpsToEnu)
   setLayoutFeatures(layout)
   hud.setLayoutFeatures(layout)
+  if (raceProject) {
+    hud.setBootMessage(`project: ${raceProject.id}`)
+  }
 
   // V1 map feature editor — seeded from adapters; edits re-layout + remount 3D.
   mapEditor = startMapFeatureEditor({

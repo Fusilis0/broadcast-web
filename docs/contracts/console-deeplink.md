@@ -30,11 +30,14 @@ https://<host>/overlay?race=<raceId>&token=<opaque>&mode=mock|replay|live&origin
 | `/overlay` | Canonical path for production / console redirects (architecture §5.4) |
 | `/` or `/index.html` | Accepted by the SPA parser today (Vite single-page app). Host routing for a real `/overlay` document is a separate PLT concern — V1 only needs the query string |
 
-Local Vite example:
+Local Vite examples:
 
 ```
+http://127.0.0.1:5173/?race=demo-istanbul
 http://127.0.0.1:5173/?mode=replay&originLat=41.0082&originLon=28.9784
 ```
+
+Boot merge order: `config.json` → race pack (if `race` set) → other query overrides (URL wins).
 
 ---
 
@@ -42,7 +45,7 @@ http://127.0.0.1:5173/?mode=replay&originLat=41.0082&originLon=28.9784
 
 | Param | Required | Type | Allowed / default | Notes |
 | --- | --- | --- | --- | --- |
-| `race` | optional (recommended) | string | any non-empty string after trim | Race / event id. SPA stores read-only; config-pack selection later |
+| `race` | optional (recommended) | string | safe id (`[A-Za-z0-9][A-Za-z0-9_-]{0,63}`) | Loads local pack `/races/<id>/project.json` (see [`race-project.md`](./race-project.md)). Miss → warn + `config.json` boot |
 | `token` | optional | string | opaque string | Auth handoff. **Never decoded or validated in V1** — format/expiry TBD with console team |
 | `mode` | optional | enum | `mock` \| `replay` \| `live`; default = `config.json` `telemetryMode` (else mock) | Invalid values are ignored (warn); boot does not crash |
 | `originLat` | optional | number (degrees) | finite float | **URL wins** over `config.json` `origin.lat` when present |
@@ -52,9 +55,11 @@ http://127.0.0.1:5173/?mode=replay&originLat=41.0082&originLon=28.9784
 
 ### Precedence
 
-1. Query params that parse successfully override the matching `AppConfig` fields after `loadConfig()`.
-2. Missing / invalid query params leave config unchanged.
-3. Overrides are not persisted to disk.
+1. `loadConfig()` (`config.json`)
+2. If `race` present → merge RaceProject pack (see [`race-project.md`](./race-project.md)); on failure warn and keep config
+3. Other query params that parse successfully override matching `AppConfig` fields (**URL wins**)
+4. Missing / invalid query params leave config unchanged
+5. Overrides are not persisted to disk
 
 ### Token handling (V1)
 

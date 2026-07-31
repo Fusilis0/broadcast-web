@@ -7,6 +7,7 @@
 - Phase: Phase 6.1 — RaceProject schema + local static pack (no DB yet)
 - Related: `docs/architecture/race-projects-and-world-authoring.md` §3; CON deeplink `race`
 - BW ask: load a race pack from `public/races/<id>/` via `?race=`; merge into boot; SCN/CON thin wire OK; no database, no NDI
+- **Status: DONE** (worker report accepted by BW 2026-07-31)
 
 ## Goal
 

@@ -1,28 +1,21 @@
 # PLT_MEMO
 
-**Last updated:** 2026-07-22  
-**Status:** Scaffold complete — awaiting next BW route
+**Last updated:** 2026-07-31  
+**Status:** Idle — 6.1 local RaceProject packs done
 
 ## Focus
-Phase 0.3 / 0.4 / 0.7 **done**
+None active. Static packs under `public/races/<id>/project.json`.
 
 ## Decisions
-- npm + Vite + TS + Three (BW default)
-- Vanilla TS scaffold (no React)
-- GitHub remote later (fusilis, private)
-- No LFS until assets demand it
-- Chroma clear deferred to OUT; scaffold uses dark preview clear
+- Vite + TS + Three SPA; Hetzner static later
+- **6.1 DONE:** `src/projects` load/parse/apply; contract `docs/contracts/race-project.md`
+- Boot: config → race pack → deeplink overrides; miss → warn + config boot
+- Demo: `demo-istanbul` (fixture URL pointers)
 
 ## Issued dispatches
-- **DSP-PLT-20260722-01-scaffold-vite-three** — **DONE** → `docs/agentic/dispatches/done/`
-
-## Handoffs
-- FYI BW: scaffold green; Phase 0.3/0.4/0.7 advanced
-
-## Blockers
-- None
+- DSP-PLT-20260722-01 scaffold — DONE
+- **DSP-PLT-20260730-01-race-project-local-pack** — **DONE**
 
 ## Next
-- Optional: commit when human asks
-- Stub HUD (0.5) later with SCN
-- Support GEO EGM96 copy path when GEO issues DSP
+1. BW: 6.2 CRUD UI / save pack from editor, or 6.4 API later
+2. Hetzner deploy when Phase 5 opens

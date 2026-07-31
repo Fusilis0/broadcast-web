@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "demo-istanbul",
+  "name": "Demo Istanbul",
+  "updatedAt": "2026-07-30T00:00:00.000Z",
+  "revision": 1,
+  "origin": {
+    "lat": 41.0082,
+    "lon": 28.9784,
+    "altMsl": 0
+  },
+  "takeoffAltitudeMSL": 0,
+  "fleet": {
+    "boatIds": ["21", "22", "23", "24"],
+    "boatNamesUrl": "/fixtures/boats/demo-istanbul-names.json"
+  },
+  "povIds": ["1", "2"],
+  "replayUrl": "/fixtures/telemetry/spine-demo.json",
+  "courseUrl": "/fixtures/course/demo-istanbul.json",
+  "sponsorsUrl": "/fixtures/sponsors/demo-istanbul.json",
+  "flagsUrl": "/fixtures/flags/demo-istanbul-countdown.json",
+  "output": {
+    "outputMode": "preview"
+  }
+}

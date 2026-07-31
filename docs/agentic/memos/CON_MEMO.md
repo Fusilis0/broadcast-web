@@ -1,27 +1,20 @@
 # CON_MEMO
 
-**Last updated:** 2026-07-28  
-**Status:** Idle — 3.6 SPA gate done; awaiting console-team ack
+**Last updated:** 2026-07-31  
+**Status:** Idle — `?race=` pack load live (PLT 6.1)
 
 ## Focus
-None active. Contract proposed + SPA parser live.
+None active. Console-team ack of deeplink contract still pending.
 
 ## Decisions
-- Console repo: no pull; contract + our SPA only
-- Path `/overlay?...` canonical; local Vite `/?...` OK
-- Boot: `loadConfig` → `parseConsoleDeeplink` / `applyDeeplinkToBoot` → origin → ingest
-- URL wins for `mode` / origin / `outputMode`; `race`/`token` pass-through; token never validated
-- Status remains **Draft / proposed** until console team acks open questions in `docs/contracts/console-deeplink.md`
+- Parser + boot apply: mode/origin/outputMode
+- **`race`:** loads `/races/<id>/project.json` before other deeplink overrides (PLT); miss → config boot
+- Contract: `docs/contracts/console-deeplink.md` + `race-project.md`
 
-## Issued dispatches
-- **DSP-CON-20260728-01-deeplink-contract-parser** — **DONE** → `dispatches/done/`
-
-## Handoffs
-—
-
-## Blockers
-- Human negotiation with console team (token, race namespace, tab behaviour, `/overlay` hosting)
+## Done
+- DSP-CON-20260728-01 deeplink parser — DONE
+- PLT 6.1 wire for `?race=` — DONE (PLT-owned load)
 
 ## Next
-1. Send contract to console team when ready
-2. Optional later: postMessage protocol DSP; PLT `/overlay` host route
+1. Human: send contract to console team
+2. Later: auth token validation with console
