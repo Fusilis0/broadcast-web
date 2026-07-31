@@ -23,7 +23,7 @@ Default product remains the browser SPA. Electron is the **studio** path.
 | Pixel path | WebGL `readPixels` RGBA → main converts to top-down **BGRA** (straight alpha) |
 | Output size | **1920×1080** locked in the SPA (window may resize; NDI stays 1080p) |
 | Timecode size | Fixed — canvas displayed at native **1920×1080** CSS px (window scroll/letterbox, no scale) |
-| Minimized | Stream **continues ~30 fps** via **main-process** `studio:tick` clock |
+| Minimize / close | **Parks off-screen** (OS minimize freezes WebGL). NDI stays ~30 fps. **Tray → Show studio** to restore; **Tray → Quit** to exit |
 | Clear mode | Prefer `outputMode=transparent` (alpha 0 plate; opaque AR + timecode) |
 
 ### Overrides
@@ -76,6 +76,14 @@ $env:BROADCAST_WEB_URL="http://127.0.0.1:5173/?race=demo-istanbul&outputMode=tra
 ```
 
 Confirm the source in NDI Studio Monitor / vMix NDI input (see vMix runbook). Timecode corner should stay sharp (nearest; avoid soft scale on the input).
+
+### Minimize / background
+
+Windows **OS minimize freezes WebGL** (~0.2 fps) even with JS ticking. This shell **parks** the window off-screen instead:
+
+1. Click minimize (or the window ✕) → window disappears; NDI keeps running  
+2. System tray icon → **Show studio** (or double-click) to bring it back  
+3. Tray → **Quit** to fully exit (✕ alone does not quit while NDI is on)
 
 ## Run — production build in Electron
 
