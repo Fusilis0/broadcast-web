@@ -30,6 +30,9 @@ app.commandLine.appendSwitch('disable-background-timer-throttling')
 
 /** @type {number | null} */
 let powerBlockerId = null
+/** @type {ReturnType<typeof setInterval> | null} */
+let studioTickTimer = null
+const STUDIO_TICK_FPS = 30
 
 function hasFlag(name) {
   return process.argv.includes(name)
@@ -164,6 +167,25 @@ function stopPowerBlocker() {
   powerBlockerId = null
 }
 
+/** Main-process render clock — renderer timers are throttled when minimized. */
+function startStudioClock() {
+  if (studioTickTimer !== null) return
+  const intervalMs = 1000 / STUDIO_TICK_FPS
+  studioTickTimer = setInterval(() => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (win.isDestroyed()) continue
+      win.webContents.send('studio:tick')
+    }
+  }, intervalMs)
+  console.info(`[desktop] studio tick clock ${STUDIO_TICK_FPS} fps (main process)`)
+}
+
+function stopStudioClock() {
+  if (studioTickTimer === null) return
+  clearInterval(studioTickTimer)
+  studioTickTimer = null
+}
+
 app.whenReady().then(() => {
   registerNdiIpc()
   if (ndiEnabled) {
@@ -177,6 +199,8 @@ app.whenReady().then(() => {
   } else {
     console.info('[desktop] NDI disabled (--no-ndi)')
   }
+  // Always drive SPA frames from main so minimize does not throttle to ~0.2 fps.
+  startStudioClock()
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -184,12 +208,14 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
+  stopStudioClock()
   stopPowerBlocker()
   ndiSender.shutdown()
   if (process.platform !== 'darwin') app.quit()
 })
 
 app.on('before-quit', () => {
+  stopStudioClock()
   stopPowerBlocker()
   ndiSender.shutdown()
 })

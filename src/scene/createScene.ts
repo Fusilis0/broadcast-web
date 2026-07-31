@@ -85,9 +85,16 @@ export type SceneOptions = {
   outputSize?: { width: number; height: number }
   /**
    * Keep rendering when the document is hidden / window minimized (Electron
-   * studio). Uses a setInterval clock so NDI does not stall when rAF pauses.
+   * studio). Fallback setInterval only — prefer `frameClock` from main process.
    */
   keepRenderingWhenHidden?: boolean
+  /**
+   * External frame clock (Electron main `studio:tick`). When set, this drives
+   * rendering instead of rAF so minimize does not throttle NDI.
+   */
+  frameClock?: {
+    subscribe: (onTick: () => void) => () => void
+  }
 }
 
 export type FleetAllowLists = {
@@ -227,6 +234,7 @@ export function startScene(options: SceneOptions): SceneHandle {
   renderer.setClearColor(clearColor, 1)
   const lockedOut = options.outputSize
   const keepWhenHidden = options.keepRenderingWhenHidden === true
+  const frameClock = options.frameClock
   // Studio NDI needs exact buffer pixels — do not multiply by devicePixelRatio.
   renderer.setPixelRatio(
     lockedOut ? 1 : Math.min(window.devicePixelRatio, 2),
@@ -235,6 +243,7 @@ export function startScene(options: SceneOptions): SceneHandle {
 
   let rafId = 0
   let intervalId: ReturnType<typeof setInterval> | 0 = 0
+  let unsubFrameClock: (() => void) | null = null
   let stopped = false
   let viewH = 1
 
@@ -337,23 +346,28 @@ export function startScene(options: SceneOptions): SceneHandle {
   function frame(): void {
     if (stopped) return
     rafId = requestAnimationFrame(frame)
-    // When using the hidden-safe interval, skip rAF ticks while hidden so we
-    // do not double-render; interval owns the clock then.
-    if (keepWhenHidden && document.hidden) return
     tick()
   }
 
   const unsubPose = poseBus.on('pose', onPose)
   window.addEventListener('resize', resize)
   resize()
-  rafId = requestAnimationFrame(frame)
-  if (keepWhenHidden) {
-    // ~30 fps backup — Chromium often pauses rAF when the window is minimized.
-    intervalId = setInterval(() => {
+  if (frameClock) {
+    // Main-process clock — not throttled when the Electron window is minimized.
+    unsubFrameClock = frameClock.subscribe(() => {
       if (stopped) return
-      if (!document.hidden) return
       tick()
-    }, 1000 / 30)
+    })
+  } else {
+    rafId = requestAnimationFrame(frame)
+    if (keepWhenHidden) {
+      // Legacy fallback only (renderer timers are still Chromium-throttled).
+      intervalId = setInterval(() => {
+        if (stopped) return
+        if (!document.hidden) return
+        tick()
+      }, 1000 / 30)
+    }
   }
 
   return {
@@ -477,6 +491,10 @@ export function startScene(options: SceneOptions): SceneHandle {
       if (intervalId) {
         clearInterval(intervalId)
         intervalId = 0
+      }
+      if (unsubFrameClock) {
+        unsubFrameClock()
+        unsubFrameClock = null
       }
       window.removeEventListener('resize', resize)
       unsubPose()

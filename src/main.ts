@@ -378,26 +378,28 @@ void (async () => {
 
   // Scene after config so boatIds / povIds allow-lists are known before first poses.
   // Clear color from OUT (preview / chroma / transparent).
-  // Electron studio: lock WebGL/NDI to 1920×1080; keep ticking when minimized.
-  const studioShell = getStudioBridge() !== null
+  // Electron studio: lock WebGL/NDI to 1920×1080; main-process clock when minimized.
+  const studioBridge = getStudioBridge()
   scene = startScene({
     container: app,
     boatIds: config.boatIds,
     povIds: config.povIds,
     clearColor: clear.color,
-    ...(studioShell
+    ...(studioBridge
       ? {
           outputSize: {
             width: STUDIO_OUTPUT_WIDTH,
             height: STUDIO_OUTPUT_HEIGHT,
           },
-          keepRenderingWhenHidden: true,
+          frameClock: {
+            subscribe: (onTick) => studioBridge.onStudioTick(onTick),
+          },
         }
       : {}),
   })
-  if (studioShell) {
+  if (studioBridge) {
     console.info(
-      `[boot] studio shell: output locked ${STUDIO_OUTPUT_WIDTH}×${STUDIO_OUTPUT_HEIGHT}; render continues when minimized`,
+      `[boot] studio shell: output locked ${STUDIO_OUTPUT_WIDTH}×${STUDIO_OUTPUT_HEIGHT}; main-process tick clock (minimize-safe)`,
     )
   }
   applyOutputMode(scene.renderer, outputMode, {

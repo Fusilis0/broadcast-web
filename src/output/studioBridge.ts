@@ -34,6 +34,11 @@ export type StudioNdiBridge = {
 export type BroadcastStudioBridge = {
   isStudio: true
   ndi: StudioNdiBridge
+  /**
+   * Main-process ~30 fps clock (not throttled when minimized).
+   * Returns an unsubscribe function.
+   */
+  onStudioTick: (cb: () => void) => () => void
 }
 
 declare global {
@@ -45,6 +50,12 @@ declare global {
 /** True when running inside the Electron studio shell with preload bridge. */
 export function getStudioBridge(): BroadcastStudioBridge | null {
   const bridge = window.broadcastStudio
-  if (bridge?.isStudio === true && bridge.ndi) return bridge
+  if (
+    bridge?.isStudio === true &&
+    bridge.ndi &&
+    typeof bridge.onStudioTick === 'function'
+  ) {
+    return bridge
+  }
   return null
 }

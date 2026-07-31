@@ -74,7 +74,9 @@ Browser **MediaMTX WHEP** video under the Three canvas in **preview** only. Soft
 | --- | --- |
 | `getStudioBridge()` | `window.broadcastStudio` when preload injected |
 | `startNdiFramePump({ renderer })` | After timecode: `readPixels` → IPC → main `grandi` BGRA send |
-| `STUDIO_OUTPUT_WIDTH/HEIGHT` | Electron lock **1920×1080**; minimize-safe render via `keepRenderingWhenHidden` |
+| `STUDIO_OUTPUT_WIDTH/HEIGHT` | Electron lock **1920×1080** |
+| Visual timecode layout | Drawing-buffer space (size stable when window CSS scales) |
+| Studio frame clock | Main-process `studio:tick` (~30 fps; not throttled when minimized) |
 
 No-ops in Chrome (no bridge). Shell + run notes: [`desktop/README.md`](../../desktop/README.md). vMix: [`docs/ops/vmix-ndi-alpha-runbook.md`](../../docs/ops/vmix-ndi-alpha-runbook.md). Contract: [`docs/architecture/ndi-alpha-electron.md`](../../docs/architecture/ndi-alpha-electron.md).
 

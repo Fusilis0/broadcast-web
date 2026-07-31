@@ -22,7 +22,8 @@ Default product remains the browser SPA. Electron is the **studio** path.
 | Default source name | `broadcast-web` → appears as `HOSTNAME (broadcast-web)` |
 | Pixel path | WebGL `readPixels` RGBA → main converts to top-down **BGRA** (straight alpha) |
 | Output size | **1920×1080** locked in the SPA (window may resize; NDI stays 1080p) |
-| Minimized | Stream **continues** (no background throttle; hidden-safe render clock) |
+| Timecode size | Fixed in **drawing-buffer** pixels (independent of window CSS size) |
+| Minimized | Stream **continues ~30 fps** via **main-process** `studio:tick` clock |
 | Clear mode | Prefer `outputMode=transparent` (alpha 0 plate; opaque AR + timecode) |
 
 ### Overrides

@@ -22,11 +22,13 @@ export type VisualTimecodeOptions = {
   /** Screen corner for the barcode. Default `bottom-right` (away from OUT mode control). */
   corner?: TimecodeCorner
   /**
-   * On-screen size in CSS pixels (8×8 logical scaled up).
+   * Barcode size in **CSS reference pixels** (8×8 logical scaled up).
+   * Applied in drawing-buffer space as `sizePx * devicePixelRatio` so the
+   * burn-in stays fixed when the canvas is CSS-scaled (Electron studio).
    * Clamped to 32–256; default 96.
    */
   sizePx?: number
-  /** Margin from viewport edges in CSS pixels. Default 12. */
+  /** Margin from edges in CSS reference pixels. Default 12. */
   marginPx?: number
 }
 
@@ -117,21 +119,27 @@ export function startVisualTimecode(
 
   function layout(): void {
     const el = renderer.domElement
-    const width = el.clientWidth || 1
-    const height = el.clientHeight || 1
+    // Drawing buffer (not CSS client size) — keeps barcode static on NDI when
+    // the Electron window is resized / letterboxed via object-fit.
+    const width = el.width || 1
+    const height = el.height || 1
+    const dpr = Math.max(renderer.getPixelRatio(), 1)
+    const sizeBuf = sizePx * dpr
+    const marginBuf = marginPx * dpr
+
     overlayCam.left = 0
     overlayCam.right = width
     overlayCam.top = height
     overlayCam.bottom = 0
     overlayCam.updateProjectionMatrix()
 
-    mesh.scale.set(sizePx, sizePx, 1)
-    const half = sizePx / 2
+    mesh.scale.set(sizeBuf, sizeBuf, 1)
+    const half = sizeBuf / 2
     const x =
       corner === 'bottom-left'
-        ? marginPx + half
-        : width - marginPx - half
-    const y = marginPx + half
+        ? marginBuf + half
+        : width - marginBuf - half
+    const y = marginBuf + half
     mesh.position.set(x, y, 0)
   }
 
@@ -173,6 +181,8 @@ export function startVisualTimecode(
     // Skip recursive overlay→overlay if somehow called with our scene.
     if (scene === overlayScene) return
     syncEncode()
+    // Re-layout against drawing buffer each frame (stable under CSS resize).
+    layout()
     const prevAutoClear = renderer.autoClear
     renderer.autoClear = false
     try {
