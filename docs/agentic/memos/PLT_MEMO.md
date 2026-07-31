@@ -1,15 +1,20 @@
 # PLT_MEMO
 
 **Last updated:** 2026-07-31  
-**Status:** Idle — 6.1 + 6.2 helpers done
+**Status:** Active — 5.1 done; 5.2 WSS DSP issued
 
 ## Focus
-None active.
+HTTPS live telemetry path (docs + client verify).
 
 ## Decisions
-- **6.1** load/apply/`?race=` DONE
-- **6.2** `buildRaceProject` / `downloadRaceProject` / `listLocalRaceIds` + `public/races/index.json` DONE
-- Save = browser download; git drop for persistence until API
+- **5.1 DONE:** `docs/ops/hetzner-static-deploy.md`; `base: '/'`; example rsync script; `dist/` has races + EGM96
+- Human owns first Hetzner upload / smoke
+- Live on HTTPS needs **5.2** — DSP issued
+
+## Issued dispatches
+- DSP-PLT-20260731-01 — **DONE**
+- **DSP-PLT-20260731-02-wss-live-proxy** — active
 
 ## Next
-- Phase 5 Hetzner or 6.4 API when BW opens
+1. Worker: 5.2
+2. Human: upload `dist/` when ready

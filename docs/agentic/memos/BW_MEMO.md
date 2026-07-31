@@ -4,11 +4,11 @@
 **Session role:** BW
 
 ## Current phase
-**Authoring complete for local packs:** editor, RaceProject save/load, GeoJSON interchange, soft race switch.  
-**Next:** **5.1** Hetzner static deploy (`DSP-PLT-20260731-01`).  
-Then: 5.2 WSS, 6.4 DB, 7 NDI.  
+**5.1 done** (static deploy runbook). Human may upload `dist/` anytime.  
+**Next:** **5.2** WSS/proxy for live on HTTPS (`DSP-PLT-20260731-02`).  
+Then: 5.3 air runbook polish, 6.4 DB, 7 NDI.  
 Remote: https://github.com/Fusilis0/broadcast-web  
 **Standing order:** land accepted slices with commit/push.
 
 ## Compaction recovery
-`BOOTSTRAP_BW.md` → this memo → roadmap
+`BOOTSTRAP_BW.md` → this memo → roadmap + `docs/ops/hetzner-static-deploy.md`

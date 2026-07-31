@@ -24,8 +24,8 @@
 
 ## Current phase pointer
 
-**Active:** **4.4 GeoJSON done**; next **5.1** Hetzner static deploy (`DSP-PLT-20260731-01`).  
-**Last gate:** DSP-SCN-20260731-03 GeoJSON accepted (2026-07-31).
+**Active:** **5.1 done**; **5.2** WSS DSP issued (`DSP-PLT-20260731-02`). Human: optional Hetzner upload smoke.  
+**Last gate:** DSP-PLT-20260731-01 Hetzner static deploy accepted (2026-07-31).
 
 ---
 

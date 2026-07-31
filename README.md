@@ -8,7 +8,7 @@ Browser-based Three.js AR overlay for maritime race broadcast. Runs **beside** t
 | **Stack** | Vite · TypeScript · Three.js |
 | **Air path** | Chroma → vMix first; **NDI camera view = optimum** (Electron / native helper / third-party); WHEP underlay + SRT/WebRTC as needed |
 | **Projects (planned)** | Race packs (JSON → DB): boats, course, billboards, S/F, arrows — load on any PC via `?race=` |
-| **Host (later)** | Hetzner static/SPA + project API; render on studio GPU |
+| **Host** | Hetzner (or any) static SPA — see [Deploy](#deploy); project API later (6.4) |
 | **Unity sibling** | `../broadcast` (telemetry contracts, assets, analysis) |
 
 ## Start here (humans & agents)
@@ -50,6 +50,15 @@ Also available:
 
 Runtime placeholders live in `public/config.json`. Optional env keys are listed in `.env.example` (copy to `.env` locally; `.env` is gitignored).
 
+## Deploy
+
+Production is a **static SPA**: `npm run build` → upload `dist/` to a web root with SPA fallback (`try_files` → `index.html`).
+
+- Runbook (Hetzner / nginx / Caddy, TLS, smoke, WSS follow-up): [`docs/ops/hetzner-static-deploy.md`](./docs/ops/hetzner-static-deploy.md)
+- Optional rsync helper (placeholders only): [`scripts/deploy-static.example.sh`](./scripts/deploy-static.example.sh)
+
+Live telemetry over HTTPS needs **wss://** or a same-origin proxy (Phase 5.2) — mock/replay work on the static host without WebSockets.
+
 ## Status
 
-Local folder only. GitHub remote (`fusilis/broadcast-web`, private) not created yet. Vite + TypeScript + Three.js scaffold is runnable (`npm run dev`); domain modules under `src/` are empty stubs pending orchestrator dispatches.
+Private GitHub repo; Vite + TypeScript + Three.js app with domain modules under `src/`. Phase 5.1 static deploy docs are in place; human upload to Hetzner is outside the repo.

@@ -7,6 +7,7 @@
 - Phase: Phase 5.1 — Hetzner static deploy
 - Related: roadmap 5.1–5.2; race packs under `public/races/`
 - BW ask: production static build + deploy docs/scripts for Hetzner (or generic static host); note WSS for live TEL; no NDI, no DB API yet
+- **Status: DONE** (worker report accepted by BW 2026-07-31) — human still owns first Hetzner upload smoke
 
 ## Goal
 
