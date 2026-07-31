@@ -24,9 +24,9 @@
 
 ## Current phase pointer
 
-**Active:** **5.1–5.3 + 5.5 done.** BW acked NDI order **C → B → A**. Next: human **7.1** C spike; optional **5.4** egress.  
-**Last gate:** DSP-OUT-20260731-02 NDI path evaluation accepted + BW ack (2026-07-31).  
-**Milestone D:** Chroma air path documented ✓; NDI options scored ✓ — cutover vs Unity still explicit BW+studio OK.
+**Active:** **Phase 7.1** third-party NDI spike (**C**) — `DSP-OUT-20260731-03`. After Results: 5.4 + 6.4 + human ops.  
+**Last gate:** DSP-OUT-20260731-02 NDI eval + BW ack **C → B → A** (2026-07-31).  
+**Milestone D:** Chroma air documented ✓; NDI options scored ✓ — cutover vs Unity still explicit BW+studio OK.
 
 ---
 
@@ -130,7 +130,7 @@ Entry criteria and A/B/C scores: [`../ops/ndi-path-evaluation.md`](../ops/ndi-pa
 
 | # | Work | Owner | Notes |
 | --- | --- | --- | --- |
-| 7.1 | Spike: third-party NDI from capture/window | OUT+human | Fast trial (**C**) — checklist in eval doc |
+| 7.1 | Spike: third-party NDI from capture/window | OUT+human | **DSP issued** (`DSP-OUT-20260731-03`) — checklist → `ndi-c-spike-runbook` |
 | 7.2 | Spike: **native NDI helper** sidecar | OUT | Browser SPA stays (**B** — preferred owned) |
 | 7.3 | Spike: **Electron + our NDI sender** | OUT+PLT | Owned named source (**A** — alternate) |
 | 7.4 | Choose production NDI path (BW + studio) | BW | Prefer owned A/B if C insufficient |
