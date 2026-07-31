@@ -1,5 +1,7 @@
 # Dispatch DSP-OUT-20260731-04-electron-alpha-ndi-shell
 
+**Status:** Done / archived (2026-07-31) — accepted; next `DSP-OUT-20260731-05`
+
 ## Meta
 - From orchestrator: OUT (BW: open Phase **7.3** first slice — path **A**)
 - Worker role: WORKER(DSP-OUT-20260731-04-electron-alpha-ndi-shell)

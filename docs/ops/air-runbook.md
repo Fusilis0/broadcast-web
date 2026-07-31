@@ -150,6 +150,8 @@ WS URLs come from host `config.json` / `VITE_WS_*`, not from deeplink query para
 | --- | --- |
 | [`vmix-chroma-runbook.md`](./vmix-chroma-runbook.md) | Phase 3.5 experiment record (absorbed here as canonical air path) |
 | [`ndi-path-evaluation.md`](./ndi-path-evaluation.md) | Phase 5.5 NDI options A/B/C (optimum air; not required today) |
+| [`../architecture/ndi-alpha-electron.md`](../architecture/ndi-alpha-electron.md) | Phase 7.3 — Electron + alpha NDI contract (studio path) |
+| [`../../desktop/README.md`](../../desktop/README.md) | Studio Electron shell vs this chroma air path |
 | [`ndi-c-spike-runbook.md`](./ndi-c-spike-runbook.md) | Phase 7.1 third-party NDI trial (path C); chroma stays production |
 | [`hetzner-static-deploy.md`](./hetzner-static-deploy.md) | Static SPA build / upload / TLS / smoke |
 | [`wss-live-telemetry.md`](./wss-live-telemetry.md) | Live mode over `wss://` on HTTPS |

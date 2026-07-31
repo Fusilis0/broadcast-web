@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "desktop:dev": "npm run start:dev --prefix desktop",
+    "desktop:file": "npm run start:file --prefix desktop"
   },
   "devDependencies": {
     "@types/three": "^0.178.0",

@@ -49,7 +49,7 @@ Unity-compatible **8×8 LSB** black/white barcode burned into the **same WebGL c
 
 ### Studio note
 
-Barcode is sync burn-in for telemetry ↔ video timing. Capture the WebGL canvas / window in **OBS or vMix**; key chroma as before (3.1). **No in-browser NDI.** Interim air: [`docs/ops/air-runbook.md`](../../docs/ops/air-runbook.md). Full-product lock: Electron **A** + **NDI with alpha** (Phase 7.3+) — [`docs/ops/ndi-path-evaluation.md`](../../docs/ops/ndi-path-evaluation.md). C trial (closed): [`docs/ops/ndi-c-spike-runbook.md`](../../docs/ops/ndi-c-spike-runbook.md). Historical 3.5: [`docs/ops/vmix-chroma-runbook.md`](../../docs/ops/vmix-chroma-runbook.md).
+Barcode is sync burn-in for telemetry ↔ video timing. Capture the WebGL canvas / window in **OBS or vMix**; key chroma as before (3.1). **No in-browser NDI.** Interim air: [`docs/ops/air-runbook.md`](../../docs/ops/air-runbook.md). Full-product lock: Electron **A** + **NDI with alpha** (Phase 7.3+) — contract [`docs/architecture/ndi-alpha-electron.md`](../../docs/architecture/ndi-alpha-electron.md), shell [`desktop/`](../../desktop/), eval [`docs/ops/ndi-path-evaluation.md`](../../docs/ops/ndi-path-evaluation.md). C trial (closed): [`docs/ops/ndi-c-spike-runbook.md`](../../docs/ops/ndi-c-spike-runbook.md). Historical 3.5: [`docs/ops/vmix-chroma-runbook.md`](../../docs/ops/vmix-chroma-runbook.md).
 
 ## Phase 3.3 — WHEP underlay
 
@@ -87,11 +87,12 @@ Timecode + AR canvas stay on top. Status chip lives on the OUT mode control: `wh
 2. Point `whepUrl` at a live MediaMTX WHEP endpoint → preview shows video under AR; status `live`.
 3. Toggle to chroma → underlay stops; solid green clear.
 
-**No in-browser NDI.** Production NDI = Electron + alpha (7.3+). Helper path B deferred. C trial record: [`docs/ops/ndi-c-spike-runbook.md`](../../docs/ops/ndi-c-spike-runbook.md).
+**No in-browser NDI.** Production NDI = Electron + alpha (7.3+) — [`docs/architecture/ndi-alpha-electron.md`](../../docs/architecture/ndi-alpha-electron.md). Helper path B deferred. C trial record: [`docs/ops/ndi-c-spike-runbook.md`](../../docs/ops/ndi-c-spike-runbook.md).
 
 ## Out of scope (later)
 
-- `transparent` alpha capture (dedicated mode)
+- `transparent` alpha capture (dedicated mode) — required for NDI path A; see alpha contract
 - NTP / `stream_anchor` status TMP line
 - Decoder / CV reader (use `getVideoElement()` when ready)
-- Egress / native NDI helper
+- Egress / NDI SDK sender in Electron (after shell scaffold)
+- Native NDI helper (path B — only if A blocked)
