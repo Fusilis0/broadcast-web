@@ -24,9 +24,9 @@
 
 ## Current phase pointer
 
-**Active:** **6.4 stub done** — awaiting BW/PLT ack; next **6.5** auth when needed + human VPS deploy.  
-**Human parallel:** Hetzner/WSS — [`../ops/human-hetzner-wss-checklist.md`](../ops/human-hetzner-wss-checklist.md); projects API — [`../ops/projects-api.md`](../ops/projects-api.md).  
-**Last gate:** 5.4 **BW ack E0** defer app egress; 6.4 design accepted (`DSP-PLT-20260731-03`).
+**Active:** **Human ops** — Hetzner SPA + WSS + optional projects API ([`../ops/human-hetzner-wss-checklist.md`](../ops/human-hetzner-wss-checklist.md)).  
+**Last gate:** Phase **6.4 stub Done** (`DSP-PLT-20260801-01`) — `server/` + SPA try-API-then-static.  
+**Next worker when needed:** **6.5** auth roles (bearer stub enough for LAN until then).
 
 ---
 
