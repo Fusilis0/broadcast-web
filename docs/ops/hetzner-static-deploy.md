@@ -156,6 +156,7 @@ Use repository secrets for `DEPLOY_USER` / `DEPLOY_HOST` / SSH key. This repo do
 
 - Human upload + WSS checklist — [`human-hetzner-wss-checklist.md`](./human-hetzner-wss-checklist.md)
 - Live WSS / proxy (5.2) — [`wss-live-telemetry.md`](./wss-live-telemetry.md)
+- Project API + DB design (6.4) — [`../architecture/project-api-and-database.md`](../architecture/project-api-and-database.md) (additive `/api`; static `races/` unchanged)
 - Roadmap Phase 5.1–5.2 — [`docs/roadmap/phases-roadmap.md`](../roadmap/phases-roadmap.md)
 - Env keys — [`.env.example`](../../.env.example)
 - Example upload script — [`scripts/deploy-static.example.sh`](../../scripts/deploy-static.example.sh)

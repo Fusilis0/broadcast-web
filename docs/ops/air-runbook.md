@@ -250,9 +250,10 @@ WS URLs come from host `config.json` / `VITE_WS_*`, not from deeplink query para
 | [`vmix-ndi-alpha-runbook.md`](./vmix-ndi-alpha-runbook.md) | vMix/OBS alpha NDI ingest (human Pass) |
 | [`../architecture/ndi-alpha-electron.md`](../architecture/ndi-alpha-electron.md) | Path A product contract |
 | [`ndi-path-evaluation.md`](./ndi-path-evaluation.md) | A/B/C scores; BW lock A + alpha |
+| [`egress-webrtc-srt-evaluation.md`](./egress-webrtc-srt-evaluation.md) | Phase 5.4 — WebRTC/SRT egress scores; defer app egress; prefer compositor program out |
 | [`vmix-chroma-runbook.md`](./vmix-chroma-runbook.md) | Phase 3.5 experiment record (chroma) |
 | [`ndi-c-spike-runbook.md`](./ndi-c-spike-runbook.md) | Phase 7.1 path C trial (closed; not production NDI) |
 | [`hetzner-static-deploy.md`](./hetzner-static-deploy.md) | Static SPA build / upload / TLS / smoke |
 | [`wss-live-telemetry.md`](./wss-live-telemetry.md) | Live mode over `wss://` on HTTPS |
 | [`../../src/output/README.md`](../../src/output/README.md) | OUT clear modes, timecode, WHEP, frame pump |
-| Roadmap Phase 5.3 / 7.6 | [`docs/roadmap/phases-roadmap.md`](../roadmap/phases-roadmap.md) |
+| Roadmap Phase 5.3 / 5.4 / 7.6 | [`docs/roadmap/phases-roadmap.md`](../roadmap/phases-roadmap.md) |

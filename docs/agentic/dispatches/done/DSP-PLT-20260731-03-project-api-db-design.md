@@ -1,5 +1,7 @@
 # Dispatch DSP-PLT-20260731-03-project-api-db-design
 
+**Status:** Done / archived (2026-08-01) — accepted; next `DSP-PLT-20260801-01` stub
+
 ## Meta
 - From orchestrator: PLT (BW: Phase **6.4** first slice — design + API contract)
 - Worker role: WORKER(DSP-PLT-20260731-03-project-api-db-design)

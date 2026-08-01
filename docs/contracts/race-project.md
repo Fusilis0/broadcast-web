@@ -1,16 +1,16 @@
-# RaceProject contract (V1 local pack)
+# RaceProject contract (V1 local pack + API draft)
 
 | | |
 | --- | --- |
-| **Status** | **Draft** — Phase 6.1 local static packs |
-| **Owners** | PLT (I/O), SCN (features), CON (`?race=` load) |
-| **Related** | [`race-projects-and-world-authoring.md`](../architecture/race-projects-and-world-authoring.md) §3; editor export `WorldFeature[]` |
+| **Status** | **API draft** — Phase 6.1 local packs + Phase 6.4 persistable API design |
+| **Owners** | PLT (I/O + API), SCN (features), CON (`?race=` load) |
+| **Related** | [`race-projects-and-world-authoring.md`](../architecture/race-projects-and-world-authoring.md) §3 · [`project-api-and-database.md`](../architecture/project-api-and-database.md) · editor export `WorldFeature[]` |
 
 ---
 
 ## Intent
 
-A **RaceProject** is one race pack: origin, fleet, POV ids, world features (or fixture URL pointers), and optional output defaults. V1 ships as static files under Vite `public/`; API/DB is a later phase.
+A **RaceProject** is one race pack: origin, fleet, POV ids, world features (or fixture URL pointers), and optional output defaults. V1 ships as static files under Vite `public/`. Phase **6.4** adds an optional HTTPS API + database with the **same document body**; static packs remain supported.
 
 Deep link:
 
@@ -25,6 +25,11 @@ Boot order:
 3. `applyDeeplinkToBoot` — remaining query params still **win** over pack/config
 4. On pack miss / invalid → warn and continue with `config.json` (no crash)
 
+Fetch resolution (when API is implemented):
+
+1. If `projectsApiBase` is set → `GET {projectsApiBase}/races/<id>`
+2. Else, or on API miss → `GET /races/<id>/project.json` (static; **required fallback**, never removed)
+
 ---
 
 ## On-disk layout
@@ -38,6 +43,8 @@ Optional siblings (not required when `project.json` points at shared fixtures):
 - `world-features.json` — editor-compatible `{ "features": WorldFeature[] }`
 - course / sponsors / flags JSON (or reuse `/fixtures/...`)
 
+Manifest (picker): `public/races/index.json` → `{ "ids": ["demo-istanbul", ...] }`.
+
 ---
 
 ## Document fields
@@ -45,10 +52,10 @@ Optional siblings (not required when `project.json` points at shared fixtures):
 | Field | Required | Notes |
 | --- | --- | --- |
 | `schemaVersion` | yes | Number ≥ 1 (V1 uses `1`) |
-| `id` | yes | Pack id; should match folder name |
+| `id` | yes | Pack id; should match folder name / API row id |
 | `name` | yes | Display name |
-| `updatedAt` | no | ISO-8601 string |
-| `revision` | no | Monotonic int |
+| `updatedAt` | no* | ISO-8601 string (* server-set on API writes) |
+| `revision` | no* | Monotonic int (* required for API optimistic concurrency after create) |
 | `origin` | yes | `{ lat, lon, altMsl }` finite numbers |
 | `takeoffAltitudeMSL` | no | GEO takeoff bridge |
 | `fleet.boatIds` | yes | Arch band `21–52` (normalized like config) |
@@ -82,6 +89,48 @@ Allowed `type`: `mark` | `gateLeft` | `gateRight` | `sponsor` | `flagP1` | `flag
 
 ---
 
+## API (draft — Phase 6.4)
+
+Full design: [`project-api-and-database.md`](../architecture/project-api-and-database.md).
+
+| | |
+| --- | --- |
+| **Transport** | HTTPS REST under `/api` (same-origin proxy preferred) |
+| **Storage** | SQLite on VPS (recommended); one row per project |
+| **Document** | Same RaceProject JSON as on-disk `project.json` |
+| **Metadata** | `revision`, `updatedAt`, optional `labels: string[]` |
+
+### Endpoints
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| `GET` | `/api/races` | List `{ id, name, revision, updatedAt, labels }[]` |
+| `GET` | `/api/races/:id` | Full RaceProject |
+| `POST` | `/api/races` | Create (`revision` starts at 1); 409 if id exists |
+| `PUT` | `/api/races/:id` | Replace; `If-Match: "<revision>"` or body `revision` must match; else 409 |
+| `DELETE` | `/api/races/:id` | Remove |
+
+### Concurrency
+
+- Successful `PUT` increments `revision` and refreshes `updatedAt` (server authoritative).
+- Clients must send the revision they last read; conflicts return `409` with `currentRevision`.
+
+### Auth (placeholder)
+
+- Reads: open (studio overlay load).
+- Writes: no public anonymous write in production — shared bearer token stub until Phase **6.5** roles.
+- Local/LAN stub may leave writes open for convenience.
+
+### Config hook (impl)
+
+| Key | Meaning |
+| --- | --- |
+| `projectsApiBase` | Empty → static packs only. Set to `"/api"` (or absolute origin) → try API then static fallback |
+
+Static `public/races/` and `?race=` behaviour **must not** break when the API is absent.
+
+---
+
 ## Demo pack
 
 Committed: `public/races/demo-istanbul/project.json`
@@ -94,11 +143,12 @@ Committed: `public/races/demo-istanbul/project.json`
 
 ## Non-goals (this revision)
 
-- Database / CRUD API
-- Project list UI
-- Auth / token validation
+- Full auth roles / multi-tenant (6.5)
+- Production Hetzner API deploy automation
+- Project list UI beyond local picker (QoL)
 - GeoJSON as pack schema (interchange via SCN editor adapter only — see `src/scene/features/geojson.md`)
 - NDI
+- Dropping static pack support
 
 ---
 
@@ -106,5 +156,6 @@ Committed: `public/races/demo-istanbul/project.json`
 
 | Stage | Meaning |
 | --- | --- |
-| **draft** (current) | Local packs only; schema may tighten with SCN/PLT |
+| **draft** | Local packs only (historical 6.1) |
+| **API draft** (current) | Local packs + documented persistable API; schema may tighten with SCN/PLT |
 | **stable** | After BW + PLT + SCN ack; breaking field renames need a new `schemaVersion` |

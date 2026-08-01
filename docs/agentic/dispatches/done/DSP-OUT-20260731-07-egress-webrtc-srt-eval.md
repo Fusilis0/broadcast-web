@@ -1,5 +1,7 @@
 # Dispatch DSP-OUT-20260731-07-egress-webrtc-srt-eval
 
+**Status:** Done / archived (2026-08-01) — **BW ack E0** defer app egress
+
 ## Meta
 - From orchestrator: OUT (BW: Phase **5.4** — egress evaluation)
 - Worker role: WORKER(DSP-OUT-20260731-07-egress-webrtc-srt-eval)
@@ -38,9 +40,9 @@ Evaluate options for sending broadcast-web video **out** of the studio (remote /
 
 ## Acceptance criteria
 
-- [ ] Evaluation doc exists with scored options + BW-facing recommendation
-- [ ] Linked from air-runbook / OUT README / roadmap note
-- [ ] No product egress code (docs-only unless a one-line clarify)
+- [x] Evaluation doc exists with scored options + BW-facing recommendation
+- [x] Linked from air-runbook / OUT README / roadmap note
+- [x] No product egress code (docs-only unless a one-line clarify)
 
 ## Report back
 

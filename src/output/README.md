@@ -86,6 +86,6 @@ No-ops in Chrome (no bridge). Shell + run notes: [`desktop/README.md`](../../des
 
 - NTP / `stream_anchor` status TMP line
 - Decoder / CV reader (use `getVideoElement()` when ready)
-- Egress
+- App WebRTC/SRT **egress** (Phase 5.4 eval: defer; use vMix/OBS program out for remote) — [`docs/ops/egress-webrtc-srt-evaluation.md`](../../docs/ops/egress-webrtc-srt-evaluation.md)
 - Native NDI helper (path B — only if A blocked)
 - GPU zero-copy NDI

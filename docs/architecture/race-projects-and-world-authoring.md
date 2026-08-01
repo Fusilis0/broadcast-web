@@ -28,7 +28,7 @@ Web target: **in-app map editor** (and optional GeoJSON import) → one pack →
 | Single `config.json` pack pointers | Yes | Many `*Url` fields, one race at a time |
 | Deeplink `?race=` | Parsed only | Does **not** load a pack yet |
 | GeoJSON import / map editor | No | Phase 4.2+ |
-| Project DB / multi-machine sync | No | Phase 6 |
+| Project DB / multi-machine sync | Design | Phase 6.4 — [`project-api-and-database.md`](./project-api-and-database.md) |
 | NDI out of WebGL camera | No | Phase 5.5+ (optimum air path) |
 
 ---
@@ -101,8 +101,10 @@ Ops 2D map today stays; editor may be a mode (`?editor=1` or console “World ed
 | Stage | Storage | Who |
 | --- | --- | --- |
 | Now | Static JSON in repo / `public/` | SCN/PLT |
-| Next | Project API on Hetzner/VPS (CRUD + auth later) | PLT (+ CON token) |
-| Far PC | Load `https://…/overlay?race=<id>` | Browser only for preview/chroma |
+| Next (6.4) | Project API on Hetzner/VPS (CRUD; auth stub → 6.5) | PLT (+ CON load path) |
+| Far PC | Load `https://…/?race=<id>` (SPA + optional `/api`) | Browser only for preview/chroma |
+
+**Design (6.4):** [`project-api-and-database.md`](./project-api-and-database.md) — SQLite + REST under `/api`, same RaceProject JSON body, static `/races/<id>/project.json` fallback. Contract API section: [`../contracts/race-project.md`](../contracts/race-project.md).
 
 DB does **not** render Three.js. It only stores packs + revisions. Render stays on studio GPU.
 
@@ -114,7 +116,7 @@ DB does **not** render Three.js. It only stores packs + revisions. Render stays 
 | --- | --- | --- |
 | 1 | **Chroma + window/window capture** | First air proof (Phase 3.5) |
 | 2 | WHEP underlay | Preview + CV |
-| 3 | SRT / WebRTC egress | Remote / cleaner ingest |
+| 3 | SRT / WebRTC egress | Remote / cleaner ingest — **Phase 5.4:** defer app egress; prefer vMix/OBS program out ([`../ops/egress-webrtc-srt-evaluation.md`](../ops/egress-webrtc-srt-evaluation.md)) |
 | 4 | **NDI out of camera view (optimum)** | Drop-in Unity-like vMix source |
 
 ### NDI options (evaluate in Phase 5.5 / Phase 7)

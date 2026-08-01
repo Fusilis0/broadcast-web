@@ -24,8 +24,9 @@
 
 ## Current phase pointer
 
-**Active pack:** **5.4** egress eval (`DSP-OUT-20260731-07`) + **6.4** project API design (`DSP-PLT-20260731-03`) + **human** Hetzner/WSS ([`../ops/human-hetzner-wss-checklist.md`](../ops/human-hetzner-wss-checklist.md)).  
-**Last gate:** Phase **7.6 Done** — preferred air = Electron alpha NDI; chroma fallback (`DSP-OUT-20260731-06`).
+**Active:** **6.4 stub** — `DSP-PLT-20260801-01` (Node + SQLite projects API).  
+**Human parallel:** Hetzner/WSS — [`../ops/human-hetzner-wss-checklist.md`](../ops/human-hetzner-wss-checklist.md).  
+**Last gate:** 5.4 **BW ack E0** defer app egress; 6.4 design accepted (`DSP-PLT-20260731-03`).
 
 ---
 
@@ -99,7 +100,7 @@
 | 5.1 | Hetzner static deploy | PLT | **Done** (`DSP-PLT-20260731-01`); human upload pending |
 | 5.2 | WSS or proxy for live TEL | PLT+TEL | **Done** (`DSP-PLT-20260731-02`); human TLS/proxy pending |
 | 5.3 | Air runbook (now preferred NDI + chroma fallback) | OUT+BW | **Done** (`DSP-OUT-20260731-01`); updated 7.6 — `docs/ops/air-runbook.md` |
-| 5.4 | Evaluate WebRTC/SRT egress | OUT | **DSP issued** (`DSP-OUT-20260731-07`) |
+| 5.4 | Evaluate WebRTC/SRT egress | OUT | **Done** (`DSP-OUT-20260731-07`) — defer app egress; E3 compositor out for remote; [`../ops/egress-webrtc-srt-evaluation.md`](../ops/egress-webrtc-srt-evaluation.md) |
 | 5.5 | **NDI path evaluation** (third-party vs helper vs Electron) | OUT+PLT+BW | **Done** (`DSP-OUT-20260731-02`) — BW ack **C → B → A**; [`../ops/ndi-path-evaluation.md`](../ops/ndi-path-evaluation.md) |
 | 5.6 | Parallel air vs Unity; cutover criteria | BW | |
 
@@ -114,7 +115,7 @@
 | 6.1 | **RaceProject schema** + folder/JSON pack | PLT+SCN | **Done** (`DSP-PLT-20260730-01`) |
 | 6.2 | Local pack CRUD UI (create/duplicate/save) | SCN+PLT | **Done** (`DSP-SCN-20260731-01` + `DSP-SCN-20260731-02` fleet switch) |
 | 6.3 | `?race=` / console loads pack | CON+PLT | **Done** for local static (in 6.1); far-PC needs host |
-| 6.4 | **Project API + database** | PLT | **Design DSP issued** (`DSP-PLT-20260731-03`); impl follows |
+| 6.4 | **Project API + database** | PLT | Design done (`DSP-PLT-20260731-03`); **stub active** (`DSP-PLT-20260801-01`) — [`../architecture/project-api-and-database.md`](../architecture/project-api-and-database.md) |
 | 6.5 | Auth roles (editor vs air-only) | PLT+CON | With console team |
 | 6.6 | Offline pack download / venue mode | PLT | QoL |
 | 6.7 | Calib profiles stored on project | CAL+PLT | Per POV |
@@ -158,8 +159,8 @@ Entry criteria and A/B/C scores: [`../ops/ndi-path-evaluation.md`](../ops/ndi-pa
 
 1. **Chroma + window/screen capture** — first air path (now)  
 2. **WebRTC underlay (WHEP)** — preview + CV  
-3. **SRT/WebRTC egress** — when remote matters  
-4. **NDI out of AR camera view** — **optimum** studio path (Electron and/or native helper and/or third-party; decide after spikes)  
+3. **SRT/WebRTC egress** — when remote matters (Phase **5.4:** defer app sender; use compositor program out — [`../ops/egress-webrtc-srt-evaluation.md`](../ops/egress-webrtc-srt-evaluation.md))  
+4. **NDI out of AR camera view** — **optimum** studio path (Electron + alpha; locked)  
 
 Browser-only SPA cannot emit NDI; Electron or a native/third-party bridge is required for optimum.
 
