@@ -67,6 +67,12 @@ export type AppConfig = {
    * Example: `"http://127.0.0.1:8889/cam1/whep"`.
    */
   whepUrl: string
+  /**
+   * Optional RaceProject API base (Phase 6.4). Empty → static packs only.
+   * Example: `"/api"` (same-origin proxy) or `"http://127.0.0.1:8787/api"`.
+   * When set, load/list try the API first, then fall back to `/races/…`.
+   */
+  projectsApiBase: string
 }
 
 /** @deprecated Prefer `AppConfig`. */

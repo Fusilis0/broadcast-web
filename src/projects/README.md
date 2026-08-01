@@ -5,12 +5,13 @@ Owned by **PLT** (pack I/O) with **SCN** feature shape / editor UX and **CON** `
 ## Responsibility
 
 - RaceProject types + light parse/validate
-- Fetch local packs from `/races/<id>/project.json`
+- Fetch packs: optional API (`projectsApiBase`) then static `/races/<id>/project.json`
 - Merge pack into `AppConfig` before deeplink overrides
 - Build / download a RaceProject from runtime editor + config (Phase 6.2)
-- List known local pack ids from `/races/index.json`
+- List pack ids: API list when reachable, else `/races/index.json`
 
-Contract: [`docs/contracts/race-project.md`](../../docs/contracts/race-project.md).
+Contract: [`docs/contracts/race-project.md`](../../docs/contracts/race-project.md).  
+API stub: [`server/README.md`](../../server/README.md) · ops: [`docs/ops/projects-api.md`](../../docs/ops/projects-api.md).
 
 ## Usage
 
@@ -23,7 +24,9 @@ import {
 const config = await loadConfig()
 if (deeplink.race) {
   try {
-    const project = await loadRaceProject(deeplink.race)
+    const project = await loadRaceProject(deeplink.race, {
+      projectsApiBase: config.projectsApiBase,
+    })
     applyRaceProjectToConfig(config, project)
   } catch (err) {
     console.warn('[projects] race pack load failed; continuing with config.json', err)
@@ -31,6 +34,8 @@ if (deeplink.race) {
 }
 applyDeeplinkToBoot(config, deeplink)
 ```
+
+With `projectsApiBase` empty/unset → static only (unchanged). When set (e.g. `"/api"`), get/list try the API first and fall back to static packs on miss or failure.
 
 Local example:
 

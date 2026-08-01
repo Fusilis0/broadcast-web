@@ -1,8 +1,10 @@
 # Phase 6.4 — Project API + database (design)
 
-**Status:** Design **accepted** (2026-08-01) — next: stub server `DSP-PLT-20260801-01`  
+**Status:** Design **accepted** + **stub implemented** (`server/`, SPA `projectsApiBase`) — 2026-08-01  
+**Ops:** [`docs/ops/projects-api.md`](../ops/projects-api.md) · [`server/README.md`](../../server/README.md)  
+
 **Owners:** PLT (API/DB), CON (`?race=` load path), SCN (document body / features)  
-**Related:** [`race-project.md`](../contracts/race-project.md) · [`race-projects-and-world-authoring.md`](./race-projects-and-world-authoring.md) §6 · [`hetzner-static-deploy.md`](../ops/hetzner-static-deploy.md)  
+**Related:** [`race-project.md`](../contracts/race-project.md) · [`race-projects-and-world-authoring.md`](./race-projects-and-world-authoring.md) §6 · [`projects-api.md`](../ops/projects-api.md) · [`hetzner-static-deploy.md`](../ops/hetzner-static-deploy.md)  
 **Prior:** `DSP-PLT-20260731-03` (done)
 
 ---

@@ -7,6 +7,14 @@
 - Phase: Phase 6.4 — Project API + database (stub)
 - Related: `docs/architecture/project-api-and-database.md` (accepted design)
 - Prior: `DSP-PLT-20260731-03` design done
+- **Status: DONE** (worker 2026-08-01) — human still owns VPS deploy; 6.5 auth later
+
+## Worker report (summary)
+
+- Added `server/` Node ESM + `node:sqlite` stub: seed from `public/races/`, REST CRUD, optimistic revision, bearer stub on writes
+- SPA: `projectsApiBase` in config; `loadRaceProject` / `listLocalRaceIds` try-API-then-static
+- Ops: `docs/ops/projects-api.md` (nginx/Caddy `/api` proxy); Vite dev proxy; `.env.example`
+- Verified: `npm test` 227 SPA + 8 server; `npm run build` green; local seed lists `demo-istanbul`
 
 ## Goal
 
@@ -44,11 +52,11 @@ Implement a **minimal Node + SQLite** projects API matching the accepted design:
 
 ## Acceptance criteria
 
-- [ ] Stub server runs locally; seed shows demo race(s)
-- [ ] CRUD + revision conflict behavior matches design
-- [ ] SPA with `projectsApiBase` loads via API; without it / on API down → static still works
-- [ ] Proxy snippet documented
-- [ ] `npm test` + `npm run build` green
+- [x] Stub server runs locally; seed shows demo race(s)
+- [x] CRUD + revision conflict behavior matches design
+- [x] SPA with `projectsApiBase` loads via API; without it / on API down → static still works
+- [x] Proxy snippet documented
+- [x] `npm test` + `npm run build` green
 
 ## Report back
 

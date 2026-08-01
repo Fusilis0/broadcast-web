@@ -24,8 +24,8 @@
 
 ## Current phase pointer
 
-**Active:** **6.4 stub** — `DSP-PLT-20260801-01` (Node + SQLite projects API).  
-**Human parallel:** Hetzner/WSS — [`../ops/human-hetzner-wss-checklist.md`](../ops/human-hetzner-wss-checklist.md).  
+**Active:** **6.4 stub done** — awaiting BW/PLT ack; next **6.5** auth when needed + human VPS deploy.  
+**Human parallel:** Hetzner/WSS — [`../ops/human-hetzner-wss-checklist.md`](../ops/human-hetzner-wss-checklist.md); projects API — [`../ops/projects-api.md`](../ops/projects-api.md).  
 **Last gate:** 5.4 **BW ack E0** defer app egress; 6.4 design accepted (`DSP-PLT-20260731-03`).
 
 ---
@@ -115,7 +115,7 @@
 | 6.1 | **RaceProject schema** + folder/JSON pack | PLT+SCN | **Done** (`DSP-PLT-20260730-01`) |
 | 6.2 | Local pack CRUD UI (create/duplicate/save) | SCN+PLT | **Done** (`DSP-SCN-20260731-01` + `DSP-SCN-20260731-02` fleet switch) |
 | 6.3 | `?race=` / console loads pack | CON+PLT | **Done** for local static (in 6.1); far-PC needs host |
-| 6.4 | **Project API + database** | PLT | Design done (`DSP-PLT-20260731-03`); **stub active** (`DSP-PLT-20260801-01`) — [`../architecture/project-api-and-database.md`](../architecture/project-api-and-database.md) |
+| 6.4 | **Project API + database** | PLT | Design + **stub done** (`DSP-PLT-20260801-01`) — [`../architecture/project-api-and-database.md`](../architecture/project-api-and-database.md) · [`../ops/projects-api.md`](../ops/projects-api.md) · `server/` |
 | 6.5 | Auth roles (editor vs air-only) | PLT+CON | With console team |
 | 6.6 | Offline pack download / venue mode | PLT | QoL |
 | 6.7 | Calib profiles stored on project | CAL+PLT | Per POV |

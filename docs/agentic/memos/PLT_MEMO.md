@@ -1,19 +1,18 @@
 # PLT_MEMO
 
 **Last updated:** 2026-08-01  
-**Status:** Active — **6.4 stub**
+**Status:** Idle on code — **6.4 stub accepted**; human VPS pending
 
 ## Focus
-`DSP-PLT-20260801-01` — Node + SQLite projects API stub + SPA `projectsApiBase`
+None active. Open **6.5** only when studio needs write auth beyond bearer stub.
 
 ## Decisions
-- 6.4 design **accepted** (`project-api-and-database.md`)
-- Stack: SQLite + Node; `/api` proxy; static packs remain
-- Bearer stub for writes; auth roles = 6.5
+- Stub at `server/` (Node 22+ `node:sqlite`); SPA `projectsApiBase` try-API-then-static
+- Ops: `docs/ops/projects-api.md`
+- Static packs remain default when API unset/down
 
 ## Issued dispatches
-- DSP-PLT-20260731-03 — done
-- **DSP-PLT-20260801-01** — active
+- DSP-PLT-20260801-01 — done
 
-## Human parallel
-[`docs/ops/human-hetzner-wss-checklist.md`](../../ops/human-hetzner-wss-checklist.md)
+## Human
+[`docs/ops/human-hetzner-wss-checklist.md`](../../ops/human-hetzner-wss-checklist.md) §C

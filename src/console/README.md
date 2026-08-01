@@ -21,7 +21,12 @@ const config = await loadConfig()
 const deeplink = parseConsoleDeeplink(window.location.search)
 if (deeplink.race) {
   try {
-    applyRaceProjectToConfig(config, await loadRaceProject(deeplink.race))
+    applyRaceProjectToConfig(
+      config,
+      await loadRaceProject(deeplink.race, {
+        projectsApiBase: config.projectsApiBase,
+      }),
+    )
   } catch (err) {
     console.warn(
       '[projects] race pack load failed; continuing with config.json',

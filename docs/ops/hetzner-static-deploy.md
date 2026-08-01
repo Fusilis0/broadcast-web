@@ -2,7 +2,7 @@
 
 Deploy `broadcast-web` as a **static SPA** on Hetzner (or any static host): build → upload `dist/` → TLS → smoke. No application server, no DB, no NDI.
 
-**Non-goals:** implementing WSS on the VPS from this runbook (see Phase **5.2** [`wss-live-telemetry.md`](./wss-live-telemetry.md)), project API (6.4), NDI, SSHing from CI with committed secrets.
+**Non-goals:** implementing WSS on the VPS from this runbook (see Phase **5.2** [`wss-live-telemetry.md`](./wss-live-telemetry.md)), production project API deploy (see Phase **6.4** stub [`projects-api.md`](./projects-api.md)), NDI, SSHing from CI with committed secrets.
 
 ## Prerequisites
 

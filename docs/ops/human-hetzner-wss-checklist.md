@@ -1,12 +1,11 @@
-# Human ops — Hetzner SPA + WSS (parallel pack)
+# Human ops — Hetzner SPA + WSS + projects API
 
-**Status:** Human-owned (docs already landed in 5.1 / 5.2)  
-**When:** In parallel with worker **5.4** + **6.4** design  
-**Related:** [`hetzner-static-deploy.md`](./hetzner-static-deploy.md), [`wss-live-telemetry.md`](./wss-live-telemetry.md)
+**Status:** Human-owned (worker docs/code landed; VPS install pending)  
+**Related:** [`hetzner-static-deploy.md`](./hetzner-static-deploy.md), [`wss-live-telemetry.md`](./wss-live-telemetry.md), [`projects-api.md`](./projects-api.md)
 
 ## Goal
 
-Put the static SPA on the real host and prove **HTTPS → WSS** live telemetry so far-PC / hosted air is unblocked.
+Put the static SPA on the real host, prove **HTTPS → WSS** live telemetry, and optionally run the **projects API** stub so far-PC can load shared race packs.
 
 ## Checklist
 
@@ -26,7 +25,14 @@ Put the static SPA on the real host and prove **HTTPS → WSS** live telemetry s
 - [ ] From **HTTPS** page: `mode=live` connects (no mixed-content block)
 - [ ] Note any firewall / port issues
 
-### C — Report back to BW
+### C — Projects API stub (6.4) — optional same host
+
+- [ ] `npm run server:install` + run Node stub on VPS (see [`projects-api.md`](./projects-api.md))
+- [ ] nginx/Caddy proxy `/api/` → `127.0.0.1:8787`
+- [ ] Hosted `config.json`: `"projectsApiBase": "/api"` (+ set `PROJECTS_API_TOKEN` for writes)
+- [ ] Smoke: `GET https://<spa>/api/races` lists `demo-istanbul`; `?race=demo-istanbul` still works if API down (static fallback)
+
+### D — Report back to BW
 
 Paste:
 
@@ -35,6 +41,7 @@ Paste:
 | SPA URL | |
 | WSS mode (A/B) | |
 | Live smoke | pass / fail |
+| Projects API | pass / skip / fail |
 | Blockers | |
 
-Studio Electron NDI air does **not** require Hetzner; this pack unblocks remote config + live on hosted SPA.
+Studio Electron NDI air does **not** require Hetzner; this pack unblocks remote config + live + shared projects on hosted SPA.

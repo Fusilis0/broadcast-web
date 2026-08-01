@@ -7,8 +7,8 @@ Browser-based Three.js AR overlay for maritime race broadcast. Runs **beside** t
 | **Runtime** | Browser SPA today; optional **Electron** later for owned NDI |
 | **Stack** | Vite · TypeScript · Three.js |
 | **Air path** | Chroma → vMix first; **NDI camera view = optimum** (Electron / native helper / third-party); WHEP underlay + SRT/WebRTC as needed |
-| **Projects (planned)** | Race packs (JSON → DB): boats, course, billboards, S/F, arrows — load on any PC via `?race=` |
-| **Host** | Hetzner (or any) static SPA — see [Deploy](#deploy); project API later (6.4) |
+| **Projects** | Static packs under `public/races/` + optional API stub (`server/`, `projectsApiBase`) — load via `?race=` |
+| **Host** | Hetzner (or any) static SPA — see [Deploy](#deploy); API ops: [`docs/ops/projects-api.md`](./docs/ops/projects-api.md) |
 | **Unity sibling** | `../broadcast` (telemetry contracts, assets, analysis) |
 
 ## Start here (humans & agents)

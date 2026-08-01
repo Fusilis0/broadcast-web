@@ -229,7 +229,9 @@ async function switchRace(id: string): Promise<void> {
   switchingRace = true
   try {
     hud.setBootMessage(`project: loading ${trimmed}…`)
-    const project = await loadRaceProject(trimmed)
+    const project = await loadRaceProject(trimmed, {
+      projectsApiBase: config.projectsApiBase,
+    })
     applyRaceProjectToConfig(config, project)
     raceProject = project
     replayUrl = config.replayUrl
@@ -345,7 +347,9 @@ void (async () => {
   // PLT+CON: ?race=<id> → local pack under /races/<id>/; miss → config.json (warn).
   if (deeplink.race) {
     try {
-      raceProject = await loadRaceProject(deeplink.race)
+      raceProject = await loadRaceProject(deeplink.race, {
+        projectsApiBase: config.projectsApiBase,
+      })
       applyRaceProjectToConfig(config, raceProject)
       console.info('[projects] loaded race pack', { id: raceProject.id })
       hud.setBootMessage(`project: ${raceProject.id}`)
@@ -490,7 +494,9 @@ void (async () => {
 
   // Local pack picker — manifest under /races/index.json
   try {
-    const ids = await listLocalRaceIds()
+    const ids = await listLocalRaceIds({
+      projectsApiBase: config.projectsApiBase,
+    })
     hud.setRaceIds(ids, raceProject?.id ?? ids[0])
   } catch {
     hud.setRaceIds(['demo-istanbul'], raceProject?.id ?? 'demo-istanbul')

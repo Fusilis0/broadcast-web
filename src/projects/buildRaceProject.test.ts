@@ -100,4 +100,34 @@ describe('listLocalRaceIds', () => {
       'heat-2',
     ])
   })
+
+  it('prefers API list when projectsApiBase is reachable', async () => {
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/races') {
+        return Response.json([
+          { id: 'heat-api', name: 'Heat', revision: 1, updatedAt: '', labels: [] },
+          { id: 'demo-istanbul', name: 'Demo', revision: 1, updatedAt: '', labels: [] },
+        ])
+      }
+      throw new Error(`unexpected ${url}`)
+    }) as unknown as typeof fetch
+    await expect(
+      listLocalRaceIds({ projectsApiBase: '/api', fetchImpl }),
+    ).resolves.toEqual(['heat-api', 'demo-istanbul'])
+  })
+
+  it('falls back to static index when API is down', async () => {
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/races') throw new Error('offline')
+      if (url === '/races/index.json') {
+        return Response.json({ ids: ['demo-istanbul', 'heat-2'] })
+      }
+      throw new Error(`unexpected ${url}`)
+    }) as unknown as typeof fetch
+    await expect(
+      listLocalRaceIds({ projectsApiBase: '/api', fetchImpl }),
+    ).resolves.toEqual(['demo-istanbul', 'heat-2'])
+  })
 })

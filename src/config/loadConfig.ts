@@ -47,6 +47,7 @@ const DEFAULT_CONFIG: AppConfig = {
   timecodeCorner: 'bottom-right',
   timecodeSizePx: 96,
   whepUrl: '',
+  projectsApiBase: '',
 }
 
 function parseTimecodeEnabled(value: unknown): boolean {
@@ -188,6 +189,8 @@ export function normalizeConfig(raw: unknown): AppConfig {
     timecodeCorner: parseTimecodeCorner(o.timecodeCorner),
     timecodeSizePx: parseTimecodeSizePx(o.timecodeSizePx),
     whepUrl: typeof o.whepUrl === 'string' ? o.whepUrl.trim() : '',
+    projectsApiBase:
+      typeof o.projectsApiBase === 'string' ? o.projectsApiBase.trim() : '',
   }
 }
 

@@ -193,6 +193,18 @@ describe('normalizeConfig whepUrl', () => {
   })
 })
 
+describe('normalizeConfig projectsApiBase', () => {
+  it('defaults projectsApiBase to empty', () => {
+    expect(normalizeConfig({}).projectsApiBase).toBe('')
+  })
+
+  it('trims projectsApiBase', () => {
+    expect(
+      normalizeConfig({ projectsApiBase: '  /api  ' }).projectsApiBase,
+    ).toBe('/api')
+  })
+})
+
 describe('normalizeConfig timecode', () => {
   it('defaults timecodeEnabled true, bottom-right, 96px', () => {
     const cfg = normalizeConfig({})
