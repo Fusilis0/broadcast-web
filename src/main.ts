@@ -42,10 +42,13 @@ import {
 import { startPosePipeline, stopPosePipeline } from './pose/index.ts'
 import {
   layoutFeatures,
+  loadFleetLiveFromSession,
   setLayoutFeatures,
+  startFleetLivePanel,
   startMapFeatureEditor,
   startScene,
   startStubHud,
+  type FleetLivePanelHandle,
   type MapFeatureEditorHandle,
   type SceneHandle,
   type WorldFeature,
@@ -81,9 +84,13 @@ let flagsUrl = '/fixtures/flags/demo-istanbul-countdown.json'
 let boatNamesUrl = '/fixtures/boats/demo-istanbul-names.json'
 let boatIds: string[] = ['21', '22', '23', '24']
 let povIds: string[] = ['1', '2']
+/** Live WS URLs — ops Fleet panel / sessionStorage; not written to config.json. */
+let wsUrl = ''
+let wsBoatUrl = ''
 let chromaKey = ''
 let switching = false
 let switchingRace = false
+let fleetPanel: FleetLivePanelHandle | null = null
 
 function editorQueryOpen(): boolean {
   try {
@@ -104,6 +111,30 @@ function applyOutputModeChrome(mode: string): void {
 function clearLiveStatusSub(): void {
   unsubLiveStatus?.()
   unsubLiveStatus = null
+}
+
+function applyFleetToScene(): void {
+  if (!scene) return
+  const active = scene.setFleetAllowLists({ boatIds, povIds })
+  hud.setPovIds(povIds, active)
+  calib.setPovIds(povIds, active)
+  fleetPanel?.setState({ boatIds, povIds, activePovId: active })
+}
+
+async function restartIngest(mode?: 'mock' | 'replay' | 'live'): Promise<void> {
+  clearLiveStatusSub()
+  const nextMode = mode ?? ingest?.mode ?? bootConfig?.telemetryMode ?? 'mock'
+  ingest?.stop()
+  ingest = await startTelemetryIngest({
+    mode: nextMode,
+    replayUrl,
+    boatIds,
+    povIds,
+    wsUrl,
+    wsBoatUrl,
+  })
+  applyIngestConnectionStatus(ingest)
+  hud.setMode(ingest.mode)
 }
 
 function cloneWorldFeatures(
@@ -259,16 +290,17 @@ async function switchRace(id: string): Promise<void> {
     calib.setPovIds(config.povIds, activePov)
     syncRaceQuery(project.id)
 
-    clearLiveStatusSub()
-    ingest?.stop()
-    ingest = await startTelemetryIngest({
-      mode: ingest?.mode ?? config.telemetryMode,
-      replayUrl: config.replayUrl,
+    await restartIngest(ingest?.mode ?? config.telemetryMode)
+    fleetPanel?.setState({
       boatIds: config.boatIds,
       povIds: config.povIds,
+      activePovId: activePov,
+      boats: [...scene.getBoatNamesCatalogue().entries()].map(([id, e]) => ({
+        id,
+        name: e.name,
+        category: e.category,
+      })),
     })
-    applyIngestConnectionStatus(ingest)
-    hud.setMode(ingest.mode)
     hud.setBootMessage(`project: ${project.id}`)
     console.info('[projects] switched race pack', { id: project.id })
   } catch (err) {
@@ -287,16 +319,7 @@ const hud = startStubHud({
       if (switching) return
       switching = true
       try {
-        clearLiveStatusSub()
-        ingest?.stop()
-        ingest = await startTelemetryIngest({
-          mode,
-          replayUrl,
-          boatIds,
-          povIds,
-        })
-        applyIngestConnectionStatus(ingest)
-        hud.setMode(mode)
+        await restartIngest(mode)
       } finally {
         switching = false
       }
@@ -305,6 +328,7 @@ const hud = startStubHud({
   onPovChange: (id) => {
     scene?.setActivePovId(id)
     calib.setDeviceId(id)
+    fleetPanel?.setState({ activePovId: id })
   },
   onCountdownControl: (action) => {
     scene?.controlCountdown(action)
@@ -372,6 +396,19 @@ void (async () => {
   boatNamesUrl = config.boatNamesUrl
   boatIds = config.boatIds
   povIds = config.povIds
+  wsUrl = config.wsUrl
+  wsBoatUrl = config.wsBoatUrl
+
+  // Ops Fleet panel session overlays config (URLs / ids) without editing files.
+  const sessionFleet = loadFleetLiveFromSession()
+  if (sessionFleet) {
+    if (typeof sessionFleet.wsUrl === 'string') wsUrl = sessionFleet.wsUrl
+    if (typeof sessionFleet.wsBoatUrl === 'string') {
+      wsBoatUrl = sessionFleet.wsBoatUrl
+    }
+    if (sessionFleet.boatIds?.length) boatIds = [...sessionFleet.boatIds]
+    if (sessionFleet.povIds?.length) povIds = [...sessionFleet.povIds]
+  }
 
   chromaKey = config.chromaKey
   const outputMode = normalizeOutputMode(config.outputMode)
@@ -386,8 +423,8 @@ void (async () => {
   const studioBridge = getStudioBridge()
   scene = startScene({
     container: app,
-    boatIds: config.boatIds,
-    povIds: config.povIds,
+    boatIds,
+    povIds,
     clearColor: clear.color,
     ...(studioBridge
       ? {
@@ -410,8 +447,8 @@ void (async () => {
     chromaKey: chromaKey || undefined,
   })
   const activePov = scene.getActivePovId()
-  hud.setPovIds(config.povIds, activePov)
-  calib.setPovIds(config.povIds, activePov)
+  hud.setPovIds(povIds, activePov)
+  calib.setPovIds(povIds, activePov)
 
   outputControl = startOutputModeControl({
     container: app,
@@ -446,9 +483,6 @@ void (async () => {
 
   // Electron studio only — after timecode wrap so barcode is in readback.
   ndiPump = startNdiFramePump({ renderer: scene.renderer })
-
-  // Name/colour catalogue — before TEL so first boat spawn can resolve tags.
-  await scene.loadBoatNamesFromUrl(boatNamesUrl)
 
   hud.setBootMessage(
     raceProject ? `project: ${raceProject.id} · EGM96…` : 'boot: EGM96…',
@@ -502,11 +536,88 @@ void (async () => {
     hud.setRaceIds(['demo-istanbul'], raceProject?.id ?? 'demo-istanbul')
   }
 
+  // Name/colour catalogue — before TEL so first boat spawn can resolve tags.
+  await scene.loadBoatNamesFromUrl(boatNamesUrl)
+  if (sessionFleet?.boats?.length) {
+    for (const b of sessionFleet.boats) {
+      scene.upsertBoatName({
+        id: b.id,
+        name: b.name,
+        category: b.category,
+      })
+    }
+  }
+
+  fleetPanel = startFleetLivePanel({
+    container: app,
+    initial: {
+      wsUrl,
+      wsBoatUrl,
+      boatIds: [...boatIds],
+      povIds: [...povIds],
+      boats:
+        sessionFleet?.boats?.length && sessionFleet.boats.length > 0
+          ? sessionFleet.boats.map((b) => ({ ...b }))
+          : [...scene.getBoatNamesCatalogue().entries()].map(([id, e]) => ({
+              id,
+              name: e.name,
+              category: e.category,
+            })),
+      activePovId: scene.getActivePovId(),
+    },
+    onFleetChange: ({ boatIds: nextBoats, povIds: nextPovs, boats }) => {
+      boatIds = nextBoats
+      povIds = nextPovs
+      for (const b of boats) {
+        scene?.upsertBoatName({
+          id: b.id,
+          name: b.name,
+          category: b.category,
+        })
+      }
+      applyFleetToScene()
+    },
+    onPovChange: (id) => {
+      scene?.setActivePovId(id)
+      calib.setDeviceId(id)
+      hud.setActivePovId(id)
+    },
+    onLiveApply: ({
+      wsUrl: nextWs,
+      wsBoatUrl: nextBoatWs,
+      boatIds: nextBoats,
+      povIds: nextPovs,
+      goLive,
+    }) => {
+      void (async () => {
+        if (switching) return
+        switching = true
+        try {
+          wsUrl = nextWs
+          wsBoatUrl = nextBoatWs
+          boatIds = nextBoats
+          povIds = nextPovs
+          applyFleetToScene()
+          await restartIngest(goLive ? 'live' : undefined)
+          fleetPanel?.setStatus(
+            goLive
+              ? `live · boatWS=${wsBoatUrl ? 'set' : 'empty'} droneWS=${wsUrl ? 'set' : 'empty'}`
+              : `reconnected · mode=${ingest?.mode ?? '?'}`,
+          )
+        } finally {
+          switching = false
+        }
+      })()
+    },
+  })
+
   ingest = await startTelemetryIngest({
     mode: config.telemetryMode,
     replayUrl: config.replayUrl,
-    boatIds: config.boatIds,
-    povIds: config.povIds,
+    boatIds,
+    povIds,
+    wsUrl,
+    wsBoatUrl,
   })
   startPosePipeline({ takeoffAltitudeMSL: config.takeoffAltitudeMSL })
   applyIngestConnectionStatus(ingest)
@@ -526,6 +637,8 @@ void (async () => {
     outputControl?.stop()
     mapEditor?.dispose()
     mapEditor = null
+    fleetPanel?.stop()
+    fleetPanel = null
     hud.stop()
     scene?.stop()
   })

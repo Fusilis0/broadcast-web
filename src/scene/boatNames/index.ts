@@ -17,6 +17,11 @@ export {
   loadBoatNames,
   DEFAULT_BOAT_NAMES_URL,
 } from './loadBoatNames.ts'
+export {
+  upsertBoatNameEntry,
+  removeBoatNameEntry,
+  type UpsertBoatNameInput,
+} from './mergeBoatName.ts'
 export type {
   BoatNameColorCss,
   BoatNameEntry,

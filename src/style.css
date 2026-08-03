@@ -73,6 +73,132 @@ body.output-transparent,
   pointer-events: none;
 }
 
+/* Fleet / Live registry — top-right ops panel */
+.fleet-live {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  z-index: 4;
+  width: min(360px, calc(100vw - 16px));
+  max-height: calc(100vh - 16px);
+  overflow: auto;
+  pointer-events: auto;
+  background: rgba(18, 22, 28, 0.92);
+  border: 1px solid #3a4450;
+  border-radius: 4px;
+  color: #d0d6dc;
+  font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.fleet-live__header {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: #1c2430;
+  color: #e8eef4;
+  border: 0;
+  border-bottom: 1px solid #3a4450;
+  padding: 8px 10px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.fleet-live__body {
+  padding: 8px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fleet-live__section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fleet-live__title {
+  color: #8a949e;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.fleet-live__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.fleet-live__input {
+  background: #222830;
+  color: #d0d6dc;
+  border: 1px solid #3a4450;
+  border-radius: 3px;
+  font: inherit;
+  padding: 4px 6px;
+}
+
+.fleet-live__input--wide {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.fleet-live__btn {
+  background: #222830;
+  color: #d0d6dc;
+  border: 1px solid #3a4450;
+  border-radius: 3px;
+  font: inherit;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.fleet-live__btn:hover {
+  border-color: #5a6a7a;
+  color: #e8eef4;
+}
+
+.fleet-live__btn--primary {
+  background: #2a3a4a;
+  border-color: #4a6a8a;
+  color: #e8f0f8;
+}
+
+.fleet-live__btn--tiny {
+  padding: 2px 6px;
+  font-size: 11px;
+}
+
+.fleet-live__btn--active {
+  border-color: #6a9ad0;
+  color: #c8e0ff;
+}
+
+.fleet-live__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 140px;
+  overflow: auto;
+}
+
+.fleet-live__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0;
+  color: #c0c8d0;
+}
+
+.fleet-live__status {
+  color: #6a7888;
+  font-size: 11px;
+}
+
 .ops-hud {
   position: absolute;
   left: 8px;

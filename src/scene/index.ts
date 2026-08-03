@@ -40,9 +40,12 @@ export {
   normalizeBoatNames,
   lookupBoatName,
   parseCategoryColor,
+  upsertBoatNameEntry,
+  removeBoatNameEntry,
   DEFAULT_BOAT_NAMES_URL,
   type BoatNameEntry,
   type BoatNamesCatalogue,
+  type UpsertBoatNameInput,
 } from './boatNames/index.ts'
 export {
   createDroneCamera,
@@ -60,6 +63,15 @@ export {
   type TelemetryModeSwitchable,
   type TelemetryModeUi,
 } from './stubHud.ts'
+export {
+  loadFleetLiveFromSession,
+  saveFleetLiveToSession,
+  startFleetLivePanel,
+  type FleetBoatRow,
+  type FleetLivePanelHandle,
+  type FleetLivePanelOptions,
+  type FleetLivePanelState,
+} from './fleetLivePanel.ts'
 export {
   createMap2d,
   boundsFromPoints,

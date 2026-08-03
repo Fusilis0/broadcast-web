@@ -7,7 +7,10 @@ import {
 import {
   loadBoatNames,
   lookupBoatName,
+  upsertBoatNameEntry,
+  type BoatNameEntry,
   type BoatNamesCatalogue,
+  type UpsertBoatNameInput,
 } from './boatNames/index.ts'
 import {
   DEFAULT_COURSE_APPEARANCE,
@@ -149,6 +152,10 @@ export type SceneHandle = {
    * Safe anytime after `startScene` (before or after boats spawn).
    */
   loadBoatNamesFromUrl: (url?: string) => Promise<BoatNamesCatalogue>
+  /** Snapshot of the in-memory name catalogue (ops Fleet panel). */
+  getBoatNamesCatalogue: () => BoatNamesCatalogue
+  /** Upsert one boat name/category/color and apply to a live entity if present. */
+  upsertBoatName: (input: UpsertBoatNameInput) => BoatNameEntry | null
   /** Start / pause / reset / restart the loaded countdown (no-op if none). */
   controlCountdown: (
     action: 'start' | 'pause' | 'reset' | 'restart',
@@ -482,6 +489,18 @@ export function startScene(options: SceneOptions): SceneHandle {
         applyCatalogueToBoat(boat)
       }
       return catalogue
+    },
+    getBoatNamesCatalogue(): BoatNamesCatalogue {
+      return boatNames
+    },
+    upsertBoatName(input): BoatNameEntry | null {
+      if (stopped) return null
+      const id = input.id.trim()
+      if (id === '') return null
+      boatNames = upsertBoatNameEntry(boatNames, input)
+      const boat = boats.get(id)
+      if (boat) applyCatalogueToBoat(boat)
+      return lookupBoatName(boatNames, id) ?? null
     },
     controlCountdown(action): void {
       if (!countdownFlags) return
