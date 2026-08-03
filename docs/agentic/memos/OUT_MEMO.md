@@ -1,15 +1,12 @@
 # OUT_MEMO
 
-**Last updated:** 2026-08-01  
-**Status:** Idle on product code — egress deferred
+**Last updated:** 2026-08-03  
+**Status:** Idle — DSP-OUT-20260803-01 **accepted**
 
-## Focus
-None active. Show ops / wait for BW **5.6** Unity cutover when studio asks.
+## Latest
+- **NDI = active POV** via dual-render when preview ≠ air (`getAirCamera` / `airCameraLock.ts`).
+- Free cam safe on screen; air-runbook checklist for studio smoke.
+- Archived: `docs/agentic/dispatches/done/DSP-OUT-20260803-01-ndi-active-cam-lock.md`
 
-## Decisions
-- 5.4 **accepted** — BW **E0**: no app WebRTC/SRT egress DSP
-- Remote leave = compositor program out (E3)
-- Preferred air remains Electron alpha NDI
-
-## Issued dispatches
-- DSP-OUT-20260731-07 — done
+## Human smoke
+`view=free` + POV switch while watching NDI in vMix / Studio Monitor.

@@ -6,6 +6,11 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   base: '/',
   server: {
+    // Bind IPv4 so Electron (http://127.0.0.1:5173) can connect.
+    // On some Windows hosts Vite defaults to ::1 only → ERR_CONNECTION_REFUSED.
+    host: '127.0.0.1',
+    port: 5173,
+    strictPort: true,
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:8787',

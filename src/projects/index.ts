@@ -14,6 +14,12 @@ export {
   type BuildRaceProjectInput,
 } from './buildRaceProject.ts'
 export {
+  writeRaceProject,
+  WriteRaceProjectError,
+  type WriteRaceProjectMode,
+  type WriteRaceProjectOptions,
+} from './writeRaceProject.ts'
+export {
   DEFAULT_LOCAL_RACE_IDS,
   LOCAL_RACES_INDEX_URL,
   listLocalRaceIds,

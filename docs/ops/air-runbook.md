@@ -8,6 +8,7 @@ End-to-end ops for putting **broadcast-web on air**.
 | **Chrome + chroma** | **Fallback** | Fullscreen Chrome → green clear → OBS/vMix window capture → chroma key |
 
 **Locks:** end-state **A + alpha** (not green-key NDI). Human **Pass** on alpha ingest: 2026-07-31 — [`vmix-ndi-alpha-runbook.md`](./vmix-ndi-alpha-runbook.md).  
+**Air framing:** NDI / transparent plate = **active POV** only (Fleet **Cam** / keys `1–4`). Ops free cam (`view=free`) may move the on-screen preview; NDI dual-renders active POV and must **not** follow free look.  
 Shell run notes: [`../../desktop/README.md`](../../desktop/README.md). Contract: [`../architecture/ndi-alpha-electron.md`](../architecture/ndi-alpha-electron.md). Path scores: [`ndi-path-evaluation.md`](./ndi-path-evaluation.md).
 
 This doc absorbs the Phase **3.5** studio chroma checklist ([`vmix-chroma-runbook.md`](./vmix-chroma-runbook.md)). Milestone **C** (chroma) passed 2026-07-30; alpha NDI is now the preferred studio path.
@@ -49,8 +50,16 @@ This doc absorbs the Phase **3.5** studio chroma checklist ([`vmix-chroma-runboo
 6. Place on a layer above camera/plate. Compositing must use source **alpha**.
 7. **Do not** enable Chroma Key / Colour Key on this NDI input.
 8. Confirm: empty sky/sea see-through; boats/course/overlays opaque; **8×8** visual timecode sharp (nearest, not soft-scaled).
+9. **Active cam lock:** switch Fleet **Cam** / POV (`1–4`) → NDI framing follows that drone. If ops free cam is on screen, NDI must still match the **active** cam (not the free look).
 
 Full ingest detail: [`vmix-ndi-alpha-runbook.md`](./vmix-ndi-alpha-runbook.md).
+
+### Manual checklist — NDI = active POV
+
+- [ ] Electron studio + `outputMode=transparent`; NDI source live in vMix/OBS
+- [ ] Switch active POV (Fleet **Cam** or `1–4`) → air / NDI perspective changes
+- [ ] HUD **view=free** (orbit) → on-screen preview moves; NDI framing stays on active POV
+- [ ] HUD **view=follow** → screen matches active POV again (same as NDI)
 
 ### Park / tray (do not OS-minimize)
 

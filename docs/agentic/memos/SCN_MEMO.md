@@ -1,18 +1,14 @@
 # SCN_MEMO
 
-**Last updated:** 2026-07-31  
-**Status:** Idle — 4.4 GeoJSON done
+**Last updated:** 2026-08-03  
+**Status:** Idle — free cam + world-anchor **accepted**
 
-## Focus
-None active. Authoring stack: editor + RaceProject save/load + GeoJSON interchange.
+## Latest
+- **Free cam** (`freeCam.ts`): OrbitControls; HUD/Fleet Follow vs Free; does not mutate `activePovId`; `getActivePovCamera()` for OUT NDI.
+- **World anchor HUD:** origin lat/lon/altMsl + Apply → `applyConfigOrigin` + remount; Save embeds origin; deeplink still wins at boot.
+- Archived:
+  - `done/DSP-SCN-20260803-01-free-cam-ops-view.md`
+  - `done/DSP-SCN-20260803-02-world-anchor-ui.md`
 
-## Decisions
-- **4.4 DONE:** FeatureCollection ↔ `WorldFeature[]`; editor Import/Export; `src/scene/features/geojson.md`
-- Gates: export two Points; import may use `gate`/`gatePair` LineString
-- RaceProject = native pack; GeoJSON = interchange only
-
-## Issued dispatches
-- Through **DSP-SCN-20260731-03** — **DONE**
-
-## Next
-BW: 5.1 Hetzner / 6.4 DB / 4.2b PiP / 4.6 colours
+## Follow-up (optional)
+- Boat tags billboard toward preview cam during free look (NDI may still show free-facing tags until polish).

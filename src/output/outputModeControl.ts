@@ -16,7 +16,7 @@ export type OutputModeControlHandle = {
 
 function hintForMode(mode: OutputMode): string {
   if (mode === 'chroma') return 'vMix key'
-  if (mode === 'transparent') return 'NDI alpha'
+  if (mode === 'transparent') return 'NDI=active POV'
   return 'ops view'
 }
 
@@ -43,7 +43,7 @@ export function startOutputModeControl(
   select.id = 'ops-output-mode'
   select.className = 'output-mode-control__select'
   select.title =
-    'preview (dark) | chroma (key green) | transparent (NDI alpha) — runtime only; config.json on reload'
+    'preview (dark) | chroma (key green) | transparent (NDI alpha = active POV) — runtime only; config.json on reload'
   for (const m of SUPPORTED_OUTPUT_MODES) {
     const opt = document.createElement('option')
     opt.value = m

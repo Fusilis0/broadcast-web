@@ -287,7 +287,7 @@ export function startMapFeatureEditor(
   saveProjectBtn.className = 'ops-hud__btn'
   saveProjectBtn.textContent = 'Save project'
   saveProjectBtn.title =
-    'Download project.json (RaceProject). Put under public/races/<id>/ to persist in git.'
+    'Save as: download project.json with id/name below (+ API POST when projectsApiBase is set). Drop under public/races/<id>/ for git.'
   saveProjectBtn.addEventListener('click', () => {
     options.onSaveProject?.({
       id: projectIdInput.value.trim(),

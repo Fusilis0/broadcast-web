@@ -11,6 +11,7 @@ import {
   ensureEgm96Loaded,
   enuToGpsAmsl,
   gpsToEnuAmsl,
+  type ConfigOrigin,
 } from './geodesy/index.ts'
 import {
   applyRaceProjectToConfig,
@@ -20,6 +21,8 @@ import {
   isSafeRaceId,
   listLocalRaceIds,
   loadRaceProject,
+  writeRaceProject,
+  WriteRaceProjectError,
   type RaceProject,
 } from './projects/index.ts'
 import {
@@ -54,9 +57,11 @@ import {
   type WorldFeature,
 } from './scene/index.ts'
 import {
+  DEFAULT_LIVE_WS_BASE,
   startTelemetryIngest,
+  stripLiveWsId,
   type IngestHandle,
-  type LiveWsStatus,
+  type LiveStatusSnapshot,
 } from './telemetry/index.ts'
 
 const app = document.querySelector<HTMLDivElement>('#app')
@@ -84,13 +89,17 @@ let flagsUrl = '/fixtures/flags/demo-istanbul-countdown.json'
 let boatNamesUrl = '/fixtures/boats/demo-istanbul-names.json'
 let boatIds: string[] = ['21', '22', '23', '24']
 let povIds: string[] = ['1', '2']
-/** Live WS URLs — ops Fleet panel / sessionStorage; not written to config.json. */
-let wsUrl = ''
-let wsBoatUrl = ''
+/** Enabled ids for live sockets only (subset of registry; may be empty). */
+let liveBoatIds: string[] = []
+let livePovIds: string[] = []
+/** Live WS bases (no id) — Fleet panel / sessionStorage; not written to config.json. */
+let wsUrl = DEFAULT_LIVE_WS_BASE
+let wsBoatUrl = DEFAULT_LIVE_WS_BASE
 let chromaKey = ''
 let switching = false
 let switchingRace = false
 let fleetPanel: FleetLivePanelHandle | null = null
+let liveStatusPoll: ReturnType<typeof setInterval> | null = null
 
 function editorQueryOpen(): boolean {
   try {
@@ -111,6 +120,10 @@ function applyOutputModeChrome(mode: string): void {
 function clearLiveStatusSub(): void {
   unsubLiveStatus?.()
   unsubLiveStatus = null
+  if (liveStatusPoll !== null) {
+    clearInterval(liveStatusPoll)
+    liveStatusPoll = null
+  }
 }
 
 function applyFleetToScene(): void {
@@ -125,11 +138,14 @@ async function restartIngest(mode?: 'mock' | 'replay' | 'live'): Promise<void> {
   clearLiveStatusSub()
   const nextMode = mode ?? ingest?.mode ?? bootConfig?.telemetryMode ?? 'mock'
   ingest?.stop()
+  // Live uses enabled-id lists only; mock/replay keep full registry.
+  const useBoatIds = nextMode === 'live' ? liveBoatIds : boatIds
+  const usePovIds = nextMode === 'live' ? livePovIds : povIds
   ingest = await startTelemetryIngest({
     mode: nextMode,
     replayUrl,
-    boatIds,
-    povIds,
+    boatIds: useBoatIds,
+    povIds: usePovIds,
     wsUrl,
     wsBoatUrl,
   })
@@ -161,16 +177,173 @@ function syncRaceQuery(id: string): void {
   }
 }
 
-function saveCurrentRaceProject(meta?: { id?: string; name?: string }): void {
+type SaveRaceProjectOptions = {
+  /** Explicit id/name (Save as / editor fields). */
+  meta?: { id?: string; name?: string }
+  /**
+   * `save` = overwrite current id (API PUT when configured).
+   * `saveAs` = new id (API POST when configured).
+   */
+  mode?: 'save' | 'saveAs'
+}
+
+function syncFleetIntoConfig(config: AppConfig): void {
+  config.boatIds = [...boatIds]
+  config.povIds = [...povIds]
+  config.boatNamesUrl = boatNamesUrl
+  config.courseUrl = courseUrl
+  config.sponsorsUrl = sponsorsUrl
+  config.flagsUrl = flagsUrl
+  config.replayUrl = replayUrl
+}
+
+function promptSaveAsMeta(defaults: {
+  id: string
+  name: string
+}): { id: string; name: string } | null {
+  const idRaw = window.prompt('Save as — project id', defaults.id)
+  if (idRaw === null) return null
+  const id = idRaw.trim()
+  if (!isSafeRaceId(id)) {
+    window.alert(
+      'Invalid project id. Use letters, digits, dash, underscore (see RaceProject contract).',
+    )
+    return null
+  }
+  const nameRaw = window.prompt('Save as — display name', defaults.name || id)
+  if (nameRaw === null) return null
+  const name = nameRaw.trim() || id
+  return { id, name }
+}
+
+async function refreshRacePicker(activeId?: string): Promise<void> {
+  const config = bootConfig
+  if (!config) return
+  try {
+    const ids = await listLocalRaceIds({
+      projectsApiBase: config.projectsApiBase,
+    })
+    hud.setRaceIds(ids, activeId ?? raceProject?.id ?? ids[0])
+  } catch {
+    /* keep existing picker */
+  }
+}
+
+async function maybeWriteRaceProjectApi(
+  project: RaceProject,
+  mode: 'save' | 'saveAs',
+): Promise<RaceProject | null> {
+  const config = bootConfig
+  const apiBase = config?.projectsApiBase?.trim()
+  if (!apiBase) return null
+
+  try {
+    if (mode === 'saveAs') {
+      try {
+        return await writeRaceProject(project, {
+          projectsApiBase: apiBase,
+          mode: 'create',
+        })
+      } catch (err) {
+        // Editor Save project may reuse an existing id → fall back to PUT.
+        if (!(err instanceof WriteRaceProjectError) || err.status !== 409) {
+          throw err
+        }
+        let expectedRevision =
+          typeof project.revision === 'number'
+            ? project.revision
+            : typeof raceProject?.revision === 'number'
+              ? raceProject.revision
+              : undefined
+        if (expectedRevision === undefined) {
+          const existing = await loadRaceProject(project.id, {
+            projectsApiBase: apiBase,
+          })
+          expectedRevision = existing.revision
+        }
+        if (expectedRevision === undefined) throw err
+        return await writeRaceProject(project, {
+          projectsApiBase: apiBase,
+          mode: 'update',
+          expectedRevision,
+        })
+      }
+    }
+
+    let expectedRevision =
+      typeof project.revision === 'number'
+        ? project.revision
+        : typeof raceProject?.revision === 'number'
+          ? raceProject.revision
+          : undefined
+
+    if (expectedRevision === undefined) {
+      try {
+        const existing = await loadRaceProject(project.id, {
+          projectsApiBase: apiBase,
+        })
+        expectedRevision = existing.revision
+      } catch {
+        return await writeRaceProject(project, {
+          projectsApiBase: apiBase,
+          mode: 'create',
+        })
+      }
+    }
+
+    if (expectedRevision === undefined) {
+      return await writeRaceProject(project, {
+        projectsApiBase: apiBase,
+        mode: 'create',
+      })
+    }
+
+    try {
+      return await writeRaceProject(project, {
+        projectsApiBase: apiBase,
+        mode: 'update',
+        expectedRevision,
+      })
+    } catch (err) {
+      if (err instanceof WriteRaceProjectError && err.status === 404) {
+        return await writeRaceProject(project, {
+          projectsApiBase: apiBase,
+          mode: 'create',
+        })
+      }
+      throw err
+    }
+  } catch (err) {
+    console.warn('[projects] API write failed (download kept)', err)
+    const detail =
+      err instanceof WriteRaceProjectError
+        ? `API ${err.status}`
+        : 'API write failed'
+    hud.setBootMessage(`saved download · ${detail}`)
+    return null
+  }
+}
+
+async function saveCurrentRaceProject(
+  options: SaveRaceProjectOptions = {},
+): Promise<void> {
   const config = bootConfig
   if (!config) {
     console.warn('[projects] save skipped; config not ready')
     return
   }
-  const features =
-    mapEditor?.getFeatures() ?? currentWorldFeatures
+
+  const mode = options.mode ?? 'save'
+  const fleet = fleetPanel?.getState()
+  if (fleet) {
+    boatIds = [...fleet.boatIds]
+    povIds = [...fleet.povIds]
+  }
+  syncFleetIntoConfig(config)
+
+  const features = mapEditor?.getFeatures() ?? currentWorldFeatures
   const id =
-    meta?.id?.trim() ||
+    options.meta?.id?.trim() ||
     raceProject?.id ||
     defaultEditedRaceId()
   if (!isSafeRaceId(id)) {
@@ -179,24 +352,25 @@ function saveCurrentRaceProject(meta?: { id?: string; name?: string }): void {
     return
   }
   const name =
-    meta?.name?.trim() ||
+    options.meta?.name?.trim() ||
     raceProject?.name ||
     id
+
   try {
     const project = buildRaceProject({
       id,
       name,
-      origin: config.origin,
-      boatIds: config.boatIds,
-      povIds: config.povIds,
+      origin: { ...config.origin },
+      boatIds,
+      povIds,
       features,
       takeoffAltitudeMSL: config.takeoffAltitudeMSL,
-      boatNamesUrl: config.boatNamesUrl,
-      courseUrl: config.courseUrl,
-      sponsorsUrl: config.sponsorsUrl,
-      flagsUrl: config.flagsUrl,
-      replayUrl: config.replayUrl,
-      revision: raceProject?.revision,
+      boatNamesUrl: boatNamesUrl || config.boatNamesUrl,
+      courseUrl: courseUrl || config.courseUrl,
+      sponsorsUrl: sponsorsUrl || config.sponsorsUrl,
+      flagsUrl: flagsUrl || config.flagsUrl,
+      replayUrl: replayUrl || config.replayUrl,
+      revision: mode === 'save' ? raceProject?.revision : undefined,
       output: {
         outputMode: config.outputMode,
         whepUrl: config.whepUrl || undefined,
@@ -206,17 +380,49 @@ function saveCurrentRaceProject(meta?: { id?: string; name?: string }): void {
         timecodeSizePx: config.timecodeSizePx,
       },
     })
+
+    // Primary persist path: browser download (git drop under public/races/<id>/).
     downloadRaceProject(project)
-    mapEditor?.setProjectMeta(project.id, project.name)
-    hud.setActiveRaceId(project.id)
-    console.info('[projects] downloaded RaceProject', {
-      id: project.id,
-      features: project.features?.length ?? 0,
+
+    const stored = await maybeWriteRaceProjectApi(project, mode)
+    const finalProject = stored ?? project
+    raceProject = finalProject
+    mapEditor?.setProjectMeta(finalProject.id, finalProject.name)
+    hud.setActiveRaceId(finalProject.id)
+    syncRaceQuery(finalProject.id)
+    if (stored) {
+      await refreshRacePicker(finalProject.id)
+      hud.setBootMessage(`saved: ${finalProject.id} (download + API)`)
+    } else {
+      hud.setBootMessage(
+        config.projectsApiBase.trim()
+          ? `saved: ${finalProject.id} (download)`
+          : `saved: ${finalProject.id} (download · drop into public/races/)`,
+      )
+    }
+    console.info('[projects] saved RaceProject', {
+      id: finalProject.id,
+      mode,
+      origin: finalProject.origin,
+      boatIds: finalProject.fleet.boatIds,
+      povIds: finalProject.povIds,
+      features: finalProject.features?.length ?? 0,
+      api: Boolean(stored),
     })
   } catch (err) {
     console.warn('[projects] save/download failed', err)
     hud.setBootMessage('save failed')
   }
+}
+
+function saveAsRaceProject(): void {
+  const defaults = {
+    id: defaultEditedRaceId(),
+    name: raceProject?.name ? `${raceProject.name} (copy)` : 'Edited race',
+  }
+  const meta = promptSaveAsMeta(defaults)
+  if (!meta) return
+  void saveCurrentRaceProject({ meta, mode: 'saveAs' })
 }
 
 async function loadWorldForProject(
@@ -248,6 +454,34 @@ async function applyWorldFeatures(world: WorldFeature[]): Promise<void> {
   mapEditor?.replaceFeatures(currentWorldFeatures, false)
 }
 
+/**
+ * Ops world-anchor Apply: update runtime config.origin, GEO cache, remount ENU.
+ * GPS feature points stay; boats/features shift consistently in ENU.
+ */
+async function applyWorldOrigin(origin: ConfigOrigin): Promise<void> {
+  const config = bootConfig
+  if (!config || !scene) {
+    console.warn('[geo] origin apply skipped; boot not ready')
+    return
+  }
+  config.origin = { ...origin }
+  applyConfigOrigin(config.origin)
+  hud.setOrigin(config.origin)
+
+  const features = mapEditor?.getFeatures() ?? currentWorldFeatures
+  currentWorldFeatures = cloneWorldFeatures(features)
+  await scene.remountWorldFromFeatures(currentWorldFeatures)
+  const layout = layoutFeatures(currentWorldFeatures, gpsToEnu)
+  setLayoutFeatures(layout)
+  hud.setLayoutFeatures(layout)
+  mapEditor?.replaceFeatures(currentWorldFeatures, false)
+
+  hud.setBootMessage(
+    `origin: ${config.origin.lat}, ${config.origin.lon}, altMsl=${config.origin.altMsl}`,
+  )
+  console.info('[geo] world anchor applied', config.origin)
+}
+
 async function switchRace(id: string): Promise<void> {
   const config = bootConfig
   if (!scene || !config || switchingRace) return
@@ -274,6 +508,7 @@ async function switchRace(id: string): Promise<void> {
     povIds = config.povIds
 
     applyConfigOrigin(config.origin)
+    hud.setOrigin(config.origin)
     await scene.loadBoatNamesFromUrl(boatNamesUrl)
 
     const world = await loadWorldForProject(project)
@@ -290,10 +525,16 @@ async function switchRace(id: string): Promise<void> {
     calib.setPovIds(config.povIds, activePov)
     syncRaceQuery(project.id)
 
+    // Pack load restores registry; keep live-enabled subsets within new allow-lists.
+    liveBoatIds = liveBoatIds.filter((id) => boatIds.includes(id))
+    livePovIds = livePovIds.filter((id) => povIds.includes(id))
+
     await restartIngest(ingest?.mode ?? config.telemetryMode)
     fleetPanel?.setState({
       boatIds: config.boatIds,
       povIds: config.povIds,
+      enabledBoatIds: [...liveBoatIds],
+      enabledPovIds: [...livePovIds],
       activePovId: activePov,
       boats: [...scene.getBoatNamesCatalogue().entries()].map(([id, e]) => ({
         id,
@@ -330,6 +571,10 @@ const hud = startStubHud({
     calib.setDeviceId(id)
     fleetPanel?.setState({ activePovId: id })
   },
+  onOpsViewChange: (mode) => {
+    scene?.setOpsViewMode(mode)
+    fleetPanel?.setOpsViewMode(mode)
+  },
   onCountdownControl: (action) => {
     scene?.controlCountdown(action)
   },
@@ -340,24 +585,37 @@ const hud = startStubHud({
     void switchRace(id)
   },
   onSaveProject: () => {
-    saveCurrentRaceProject()
+    void saveCurrentRaceProject({ mode: 'save' })
+  },
+  onSaveAsProject: () => {
+    saveAsRaceProject()
+  },
+  onOriginApply: (origin) => {
+    void applyWorldOrigin(origin)
   },
 })
+
+function pushLiveStatus(snapshot: LiveStatusSnapshot): void {
+  hud.setConnectionStatus({ kind: 'live', channels: snapshot })
+  fleetPanel?.setLiveStatus(snapshot)
+}
 
 function applyIngestConnectionStatus(handle: IngestHandle): void {
   clearLiveStatusSub()
   if (handle.mode === 'live' && handle.getLiveStatus && handle.onLiveStatus) {
-    const channels = { ...handle.getLiveStatus() }
-    hud.setConnectionStatus({ kind: 'live', channels })
-    unsubLiveStatus = handle.onLiveStatus((channel, status: LiveWsStatus) => {
-      channels[channel] = status
-      hud.setConnectionStatus({
-        kind: 'live',
-        channels: { drone: channels.drone, boat: channels.boat },
-      })
+    const push = (): void => {
+      const snap = handle.getLiveStatus?.()
+      if (snap) pushLiveStatus(snap)
+    }
+    push()
+    unsubLiveStatus = handle.onLiveStatus(() => {
+      push()
     })
+    // Refresh last-packet ages while live (status events alone miss packets).
+    liveStatusPoll = setInterval(push, 250)
     return
   }
+  fleetPanel?.setLiveStatus(null)
   hud.setConnectionStatus({
     kind: 'non_live',
     mode: handle.mode === 'replay' ? 'replay' : 'mock',
@@ -396,18 +654,33 @@ void (async () => {
   boatNamesUrl = config.boatNamesUrl
   boatIds = config.boatIds
   povIds = config.povIds
-  wsUrl = config.wsUrl
-  wsBoatUrl = config.wsBoatUrl
+  // Bases only — strip any id/type from config; default to VPS if empty.
+  wsUrl = stripLiveWsId(config.wsUrl) || DEFAULT_LIVE_WS_BASE
+  wsBoatUrl = stripLiveWsId(config.wsBoatUrl) || DEFAULT_LIVE_WS_BASE
 
   // Ops Fleet panel session overlays config (URLs / ids) without editing files.
   const sessionFleet = loadFleetLiveFromSession()
   if (sessionFleet) {
-    if (typeof sessionFleet.wsUrl === 'string') wsUrl = sessionFleet.wsUrl
+    if (typeof sessionFleet.wsUrl === 'string') {
+      wsUrl = stripLiveWsId(sessionFleet.wsUrl) || DEFAULT_LIVE_WS_BASE
+    }
     if (typeof sessionFleet.wsBoatUrl === 'string') {
-      wsBoatUrl = sessionFleet.wsBoatUrl
+      wsBoatUrl =
+        stripLiveWsId(sessionFleet.wsBoatUrl) || DEFAULT_LIVE_WS_BASE
     }
     if (sessionFleet.boatIds?.length) boatIds = [...sessionFleet.boatIds]
     if (sessionFleet.povIds?.length) povIds = [...sessionFleet.povIds]
+    // Enabled-for-live subset (may be empty — do not reopen full default fleet).
+    if (Array.isArray(sessionFleet.enabledBoatIds)) {
+      liveBoatIds = sessionFleet.enabledBoatIds.filter((id) =>
+        boatIds.includes(id),
+      )
+    }
+    if (Array.isArray(sessionFleet.enabledPovIds)) {
+      livePovIds = sessionFleet.enabledPovIds.filter((id) =>
+        povIds.includes(id),
+      )
+    }
   }
 
   chromaKey = config.chromaKey
@@ -482,13 +755,18 @@ void (async () => {
   }
 
   // Electron studio only — after timecode wrap so barcode is in readback.
-  ndiPump = startNdiFramePump({ renderer: scene.renderer })
+  // Air lock: NDI always captures active POV (dual-render if preview ≠ air).
+  ndiPump = startNdiFramePump({
+    renderer: scene.renderer,
+    getAirCamera: () => scene?.getActivePovCamera() ?? null,
+  })
 
   hud.setBootMessage(
     raceProject ? `project: ${raceProject.id} · EGM96…` : 'boot: EGM96…',
   )
   await ensureEgm96Loaded()
   applyConfigOrigin(config.origin)
+  hud.setOrigin(config.origin)
 
   // Shared GPS→ENU layout: one list for 2D map + editor.
   const world = await loadWorldForProject(raceProject)
@@ -521,7 +799,8 @@ void (async () => {
       await scene?.remountWorldFromFeatures(features)
     },
     onSaveProject: (meta) => {
-      saveCurrentRaceProject(meta)
+      // Editor id/name fields → Save as semantics (explicit pack identity).
+      void saveCurrentRaceProject({ meta, mode: 'saveAs' })
     },
   })
   hud.setEditorOpen(editorQueryOpen())
@@ -555,6 +834,8 @@ void (async () => {
       wsBoatUrl,
       boatIds: [...boatIds],
       povIds: [...povIds],
+      enabledBoatIds: [...liveBoatIds],
+      enabledPovIds: [...livePovIds],
       boats:
         sessionFleet?.boats?.length && sessionFleet.boats.length > 0
           ? sessionFleet.boats.map((b) => ({ ...b }))
@@ -568,6 +849,12 @@ void (async () => {
     onFleetChange: ({ boatIds: nextBoats, povIds: nextPovs, boats }) => {
       boatIds = nextBoats
       povIds = nextPovs
+      liveBoatIds = liveBoatIds.filter((id) => boatIds.includes(id))
+      livePovIds = livePovIds.filter((id) => povIds.includes(id))
+      if (bootConfig) {
+        bootConfig.boatIds = [...nextBoats]
+        bootConfig.povIds = [...nextPovs]
+      }
       for (const b of boats) {
         scene?.upsertBoatName({
           id: b.id,
@@ -582,11 +869,15 @@ void (async () => {
       calib.setDeviceId(id)
       hud.setActivePovId(id)
     },
+    onOpsViewChange: (mode) => {
+      scene?.setOpsViewMode(mode)
+      hud.setOpsViewMode(mode)
+    },
     onLiveApply: ({
       wsUrl: nextWs,
       wsBoatUrl: nextBoatWs,
-      boatIds: nextBoats,
-      povIds: nextPovs,
+      boatIds: enabledBoats,
+      povIds: enabledPovs,
       goLive,
     }) => {
       void (async () => {
@@ -595,13 +886,13 @@ void (async () => {
         try {
           wsUrl = nextWs
           wsBoatUrl = nextBoatWs
-          boatIds = nextBoats
-          povIds = nextPovs
-          applyFleetToScene()
+          // Connect uses enabled ids only — do not replace scene registry.
+          liveBoatIds = [...enabledBoats]
+          livePovIds = [...enabledPovs]
           await restartIngest(goLive ? 'live' : undefined)
           fleetPanel?.setStatus(
             goLive
-              ? `live · boatWS=${wsBoatUrl ? 'set' : 'empty'} droneWS=${wsUrl ? 'set' : 'empty'}`
+              ? `live · ${liveBoatIds.length} boat + ${livePovIds.length} drone socket(s) · open ≠ packets`
               : `reconnected · mode=${ingest?.mode ?? '?'}`,
           )
         } finally {
@@ -611,11 +902,13 @@ void (async () => {
     },
   })
 
+  // Boot live uses enabled lists (often empty until Connect); mock/replay use registry.
+  const bootLive = config.telemetryMode === 'live'
   ingest = await startTelemetryIngest({
     mode: config.telemetryMode,
     replayUrl: config.replayUrl,
-    boatIds,
-    povIds,
+    boatIds: bootLive ? liveBoatIds : boatIds,
+    povIds: bootLive ? livePovIds : povIds,
     wsUrl,
     wsBoatUrl,
   })

@@ -181,7 +181,7 @@ body.output-transparent,
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-height: 140px;
+  max-height: 160px;
   overflow: auto;
 }
 
@@ -192,6 +192,39 @@ body.output-transparent,
   gap: 8px;
   padding: 2px 0;
   color: #c0c8d0;
+}
+
+.fleet-live__edit-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.fleet-live__enable {
+  margin: 0;
+  accent-color: #6a9ad0;
+  cursor: pointer;
+}
+
+.fleet-live__sock {
+  color: #6a7888;
+  font-size: 10px;
+  min-width: 4.5em;
+}
+
+.fleet-live__hint {
+  color: #6a7888;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.fleet-live__field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: #8a949e;
+  font-size: 10px;
 }
 
 .fleet-live__status {
@@ -239,6 +272,14 @@ body.output-transparent,
   border-radius: 3px;
   font: inherit;
   padding: 2px 6px;
+}
+
+.ops-hud__input--origin {
+  width: 148px;
+}
+
+.ops-hud__input--origin-alt {
+  width: 72px;
 }
 
 .ops-hud__btn {

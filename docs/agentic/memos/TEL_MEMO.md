@@ -1,19 +1,13 @@
 # TEL_MEMO
 
-**Last updated:** 2026-07-31  
-**Status:** Idle — FYI PLT 5.2 WSS docs
+**Last updated:** 2026-08-03  
+**Status:** Idle — DSP-TEL-20260803-01 **accepted**
 
-## Focus
-None active. Live multi-URL still deferred.
+## Latest
+- Live Connect opens **enabled** ids only (Fleet Live checkboxes; session `enabledBoatIds` / `enabledPovIds`).
+- Per-id status + `lastPacketAgeMs`; HUD e.g. `ws b40=open/nopkt` vs packet age; soft warn ~8s open/nopkt.
+- Explicit empty id lists do not fall back to `21–24` / `1–2` for live sockets.
+- Archived: `docs/agentic/dispatches/done/DSP-TEL-20260803-01-live-socket-hygiene.md`
 
-## Decisions
-- Live: single `wsUrl` / `wsBoatUrl` strings — **`wss://` pass-through** verified (PLT 5.2 / `live.test.ts`)
-- HTTPS SPA must not use `ws://` (mixed content) — see `docs/ops/wss-live-telemetry.md`
-- **4.1** replay/reconnect polish DONE
-
-## Done (recent)
-- Through 4.1; multi-POV/boat mock
-- FYI: PLT **5.2** runbook linked from TEL README — no protocol change
-
-## Next
-1. Idle until BW opens live multi-URL, recorder, or live HTTPS soak support
+## Ops
+Enable Live on the id(s) you want → Connect. Handshake ≠ data until age replaces `nopkt`.

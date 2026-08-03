@@ -49,9 +49,18 @@ export {
 } from './replaySource.ts'
 export {
   LiveTelemetrySource,
+  idFromLiveWsUrl,
+  type LiveIdSocketStatus,
   type LiveSourceOptions,
+  type LiveStatusSnapshot,
   type LiveWsStatus,
 } from './liveSource.ts'
+export {
+  DEFAULT_LIVE_WS_BASE,
+  buildLiveWsUrlForId,
+  buildLiveWsUrlsForIds,
+  stripLiveWsId,
+} from './liveWsUrl.ts'
 export {
   ingestPacket,
   startTelemetryIngest,

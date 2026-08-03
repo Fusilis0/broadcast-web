@@ -49,6 +49,27 @@ afterEach(() => {
 })
 
 describe('LiveTelemetrySource', () => {
+  it('opens one socket per droneUrls / boatUrls entry', async () => {
+    const source = new LiveTelemetrySource({
+      droneUrls: [
+        'ws://example.invalid/ws?type=drone&id=1',
+        'ws://example.invalid/ws?type=drone&id=2',
+      ],
+      boatUrls: ['ws://example.invalid/ws?type=drone&id=40'],
+      WebSocketImpl: FakeWebSocket as unknown as typeof WebSocket,
+    })
+    source.start()
+    await Promise.resolve()
+    expect(FakeWebSocket.instances.map((w) => w.url).sort()).toEqual(
+      [
+        'ws://example.invalid/ws?type=drone&id=1',
+        'ws://example.invalid/ws?type=drone&id=2',
+        'ws://example.invalid/ws?type=drone&id=40',
+      ].sort(),
+    )
+    source.stop()
+  })
+
   it('text frame → onPacket with channel context', async () => {
     const packets: MockPacket[] = []
     const source = new LiveTelemetrySource({
@@ -193,10 +214,43 @@ describe('LiveTelemetrySource', () => {
       WebSocketImpl: FakeWebSocket as unknown as typeof WebSocket,
     })
     source.start()
-    expect(source.getStatus()).toEqual({ drone: 'idle', boat: 'idle' })
+    expect(source.getStatus()).toMatchObject({
+      drone: 'idle',
+      boat: 'idle',
+      droneIds: [],
+      boatIds: [],
+    })
     expect(FakeWebSocket.instances).toHaveLength(0)
     source.stop()
     warn.mockRestore()
+  })
+
+  it('tracks lastPacketAgeMs per id (null until first frame)', async () => {
+    const source = new LiveTelemetrySource({
+      droneUrls: ['ws://example.invalid/ws?type=drone&id=1'],
+      boatUrls: [],
+      WebSocketImpl: FakeWebSocket as unknown as typeof WebSocket,
+      noPacketWarnMs: 0,
+    })
+    source.start()
+    await Promise.resolve()
+    const before = source.getStatus()
+    expect(before.drone).toBe('open')
+    expect(before.droneIds).toHaveLength(1)
+    expect(before.droneIds[0]?.id).toBe('1')
+    expect(before.droneIds[0]?.lastPacketAgeMs).toBeNull()
+
+    FakeWebSocket.instances[0]!.emitMessage(
+      JSON.stringify({
+        id: '1',
+        ts: 1,
+        pos: { lat: 1, lon: 2, alt: 3 },
+      }),
+    )
+    const after = source.getStatus()
+    expect(after.droneIds[0]?.lastPacketAgeMs).not.toBeNull()
+    expect(after.droneIds[0]?.lastPacketAgeMs).toBeGreaterThanOrEqual(0)
+    source.stop()
   })
 
   it('passes wss:// URLs through to WebSocket unchanged', async () => {
@@ -216,7 +270,7 @@ describe('LiveTelemetrySource', () => {
     expect(FakeWebSocket.instances.map((w) => w.url).sort()).toEqual(
       [boatUrl, droneUrl].sort(),
     )
-    expect(source.getStatus()).toEqual({ drone: 'open', boat: 'open' })
+    expect(source.getStatus()).toMatchObject({ drone: 'open', boat: 'open' })
     source.stop()
   })
 
@@ -249,18 +303,20 @@ describe('live ingest → bus', () => {
 
     const handle = await startTelemetryIngest({
       mode: 'live',
-      wsUrl: 'ws://example.invalid/drone',
-      wsBoatUrl: 'ws://example.invalid/boat',
+      wsUrl: 'ws://example.invalid/ws',
+      wsBoatUrl: 'ws://example.invalid/ws',
+      boatIds: ['21'],
+      povIds: ['1'],
       bus,
       WebSocketImpl: FakeWebSocket as unknown as typeof WebSocket,
     })
     await Promise.resolve()
 
     const droneWs = FakeWebSocket.instances.find((w) =>
-      w.url.includes('drone'),
+      w.url.includes('id=1'),
     )!
     const boatWs = FakeWebSocket.instances.find((w) =>
-      w.url.includes('boat'),
+      w.url.includes('id=21'),
     )!
 
     droneWs.emitMessage(
@@ -324,9 +380,40 @@ describe('live ingest → bus', () => {
     expect(handle.mode).toBe('live')
     expect(FakeWebSocket.instances).toHaveLength(0)
     expect(handle.getLiveStatus).toBeDefined()
-    expect(handle.getLiveStatus?.()).toEqual({ drone: 'idle', boat: 'idle' })
+    expect(handle.getLiveStatus?.()).toMatchObject({
+      drone: 'idle',
+      boat: 'idle',
+      droneIds: [],
+      boatIds: [],
+    })
     handle.stop()
     warn.mockRestore()
+  })
+
+  it('live opens only enabled ids (boat 40 only → one boat socket)', async () => {
+    const bus = new TelemetryBus()
+    const handle = await startTelemetryIngest({
+      mode: 'live',
+      wsUrl: 'ws://example.invalid/ws',
+      wsBoatUrl: 'ws://example.invalid/ws',
+      boatIds: ['40'],
+      povIds: [],
+      bus,
+      WebSocketImpl: FakeWebSocket as unknown as typeof WebSocket,
+    })
+    await Promise.resolve()
+
+    expect(FakeWebSocket.instances).toHaveLength(1)
+    expect(FakeWebSocket.instances[0]?.url).toBe(
+      'ws://example.invalid/ws?type=drone&id=40',
+    )
+    const status = handle.getLiveStatus?.()
+    expect(status?.boat).toBe('open')
+    expect(status?.drone).toBe('idle')
+    expect(status?.boatIds.map((s) => s.id)).toEqual(['40'])
+    expect(status?.droneIds).toEqual([])
+    expect(status?.boatIds[0]?.lastPacketAgeMs).toBeNull()
+    handle.stop()
   })
 
   it('live ingest passes wss:// through (no rewrite to ws://)', async () => {
@@ -337,15 +424,23 @@ describe('live ingest → bus', () => {
       mode: 'live',
       wsUrl,
       wsBoatUrl,
+      boatIds: ['21'],
+      povIds: ['1'],
       bus,
       WebSocketImpl: FakeWebSocket as unknown as typeof WebSocket,
     })
     await Promise.resolve()
 
     expect(FakeWebSocket.instances.map((w) => w.url).sort()).toEqual(
-      [wsBoatUrl, wsUrl].sort(),
+      [
+        'wss://example.invalid/ws/boat?type=drone&id=21',
+        'wss://example.invalid/ws/drone?type=drone&id=1',
+      ].sort(),
     )
-    expect(handle.getLiveStatus?.()).toEqual({ drone: 'open', boat: 'open' })
+    expect(handle.getLiveStatus?.()).toMatchObject({
+      drone: 'open',
+      boat: 'open',
+    })
     handle.stop()
   })
 
@@ -356,6 +451,8 @@ describe('live ingest → bus', () => {
       mode: 'live',
       wsUrl: 'ws://example.invalid/drone',
       wsBoatUrl: 'ws://example.invalid/boat',
+      boatIds: ['21'],
+      povIds: ['1'],
       bus,
       WebSocketImpl: FakeWebSocket as unknown as typeof WebSocket,
     })
@@ -368,10 +465,15 @@ describe('live ingest → bus', () => {
 
     // FakeWebSocket opens on a microtask; flush then assert snapshot + listener.
     await Promise.resolve()
-    expect(handle.getLiveStatus?.()).toEqual({ drone: 'open', boat: 'open' })
+    expect(handle.getLiveStatus?.()).toMatchObject({
+      drone: 'open',
+      boat: 'open',
+    })
+    expect(handle.getLiveStatus?.().droneIds.map((s) => s.id)).toEqual(['1'])
+    expect(handle.getLiveStatus?.().boatIds.map((s) => s.id)).toEqual(['21'])
 
     const droneWs = FakeWebSocket.instances.find((w) =>
-      w.url.includes('drone'),
+      w.url.includes('id=1'),
     )!
     droneWs.close()
     expect(handle.getLiveStatus?.().drone).toBe('closed')
@@ -381,7 +483,12 @@ describe('live ingest → bus', () => {
 
     unsub()
     handle.stop()
-    expect(handle.getLiveStatus?.()).toEqual({ drone: 'idle', boat: 'idle' })
+    expect(handle.getLiveStatus?.()).toMatchObject({
+      drone: 'idle',
+      boat: 'idle',
+      droneIds: [],
+      boatIds: [],
+    })
   })
 
   it('mock/replay omit live status helpers', async () => {

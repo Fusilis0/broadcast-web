@@ -16,6 +16,8 @@ Do **not** call `gpsToEnu` for boats, subscribe to `telemetryBus` for positions,
 
 `main.ts` loads config → `startScene({ boatIds, povIds })` → **`loadBoatNamesFromUrl(boatNamesUrl)`** → EGM96 → origin → **`loadCourseFromUrl(courseUrl)`** → **`loadSponsorsFromUrl(sponsorsUrl)`** → **`loadCountdownFlagsFromUrl(flagsUrl)`** → TEL ingest → `startPosePipeline` → HUD mode + POV select. HUD boots early for status; scene waits on `loadConfig()` so allow-lists are known.
 
+**World anchor (Unity GeoOrigin):** `config.origin` `{ lat, lon, altMsl }` is ENU `(0,0,0)`. HUD **origin** fields show the active values after boot/deeplink/race load; **Apply** updates runtime config → `applyConfigOrigin` → remounts world features so boats/course shift in ENU together. Save project embeds the current origin via `buildRaceProject`.
+
 **Soft race switch** (`switchRace` / Load / `?race=` after boot): `scene.setFleetAllowLists({ boatIds, povIds })` replaces allow-lists without recreating WebGL — orphan boats leave the registry, POV pose cache is pruned, active POV is clamped; then HUD/calib `setPovIds` + ingest restart with the same lists. First-boot `?race=` still passes pack lists into `startScene` directly.
 
 Mock ids: POVs from `povIds` (default `1`,`2`), boats from `boatIds` (default `21–24`). Temporary hFOV default `66.8832` (also on `PoseEvent.fovHDeg` from CAL).
@@ -24,13 +26,15 @@ Mock ids: POVs from `povIds` (default `1`,`2`), boats from `boatIds` (default `2
 
 | Symbol | Role |
 | --- | --- |
-| `startScene(options)` | Scene + lights + renderer + RAF + pose subscribe + fleet `Map` + POV switch + course/sponsors/flags/boatNames loaders |
+| `startScene(options)` | Scene + lights + renderer + RAF + pose subscribe + fleet `Map` + POV switch + ops free cam + course/sponsors/flags/boatNames loaders |
+| `setOpsViewMode` / `getOpsViewMode` / `getPreviewCamera` | Ops preview: `follow` (active POV) or `free` (orbit/pan/zoom); preview ≠ air |
+| `getActivePovCamera` | Active POV camera — air / NDI source (OUT); never free cam |
 | `setFleetAllowLists({ boatIds, povIds })` | Soft race switch: replace allow-lists, drop orphan boats, prune/clamp POV |
 | `loadCourse` / `mountCourse` | Fetch/normalize course JSON → GEO ENU → boundary/gates/buoys |
 | `loadSponsors` / `mountSponsors` | Fetch/normalize sponsors JSON → GEO ENU → fixed world panels |
 | `loadCountdownFlags` / `mountCountdownFlags` | Fetch/normalize flags JSON → GEO ENU → poles + phase timer |
 | `loadBoatNames` / `normalizeBoatNames` | Fetch/normalize Unity category→id→name JSON → tag identity map |
-| `startStubHud(options)` | Ops overlay: mode + POV + countdown + editor + race Load/Save + WS + status + 2D map |
+| `startStubHud(options)` | Ops overlay: mode + POV + countdown + editor + race Load/Save + **world origin** (lat/lon/altMsl Apply) + WS + status + 2D map |
 | `formatConnectionStatus` | Compact `ws=…` / `ws=n/a (mock|replay)` string for HUD status |
 | `createMap2d()` | Top-down ENU East/North fleet panel (canvas 2D) + shared layout features |
 | `layoutFeatures` / `getLayoutFeatures` | Shared GPS→ENU world features (course/sponsors/flags adapters) |
@@ -39,8 +43,10 @@ Mock ids: POVs from `povIds` (default `1`,`2`), boats from `boatIds` (default `2
 | `createBoatEntity()` | Pose root + glTF/procedural visual + billboard tag |
 | `createBoatTag()` | Canvas sprite label (catalogue name + category tint, or `Boat {id}` stub) |
 | `createDroneCamera()` | PerspectiveCamera + ENU apply |
+| `createFreeCam()` | OrbitControls free look around ENU origin (ops preview only) |
 | `boatIdAllowSet` / `isAllowedBoatId` / `formatBoatEnuStatus` | Fleet allow-list + HUD helpers |
 | `povIdAllowSet` / `isAllowedPovId` / `formatPovStatus` / `resolvePovIdList` | POV allow-list + HUD helpers |
+| `formatOpsViewStatus` / `isOpsViewMode` | HUD helpers for `view=follow\|free` |
 
 Clear color stays dark preview; OUT owns chroma later. Ambient + directional lights are present so `MeshStandard` / glTF materials read.
 
@@ -91,14 +97,23 @@ Clear color stays dark preview; OUT owns chroma later. Ambient + directional lig
 ## Multi-POV switch (Phase 2.4)
 
 - `startScene({ povIds })` caches last `poseBus` drone pose per id ∈ `povIds`.
-- Only **`activePovId`** (default `povIds[0]`) drives the Three `PerspectiveCamera`.
-- `setActivePovId(id)` switches immediately using the cached pose when available (no wait for next packet).
+- Only **`activePovId`** (default `povIds[0]`) drives the **air** Three `PerspectiveCamera` (`getActivePovCamera` / `scene.camera`).
+- `setActivePovId(id)` switches immediately using the cached pose when available (no wait for next packet). Does **not** leave free-cam preview mode.
 - Soft race switch: `setFleetAllowLists` updates `povIds`, drops cached poses for removed ids, and clamps `activePovId` into the new list (HUD/calib sync via `setPovIds`).
 - Deprecated `droneId` remains as a single-id / initial-active alias when needed.
 - Cam ids `11`/`12` use the same `kind: 'drone'` path when listed in `povIds` — no second pipeline.
 - HUD: POV select (labels = raw id; **not** 2.7 names) + status `pov=<id>  seen=…`; optional digit keys `1`–`4`.
-- Boat tags still billboard to the **active** camera. Frustum gizmos for inactive POVs are out of this slice.
+- Boat tags / countdown plates billboard to the **preview** camera (free or follow). Frustum gizmos for inactive POVs are out of this slice.
 - TEL must emit ≥2 POV ids on mock for a visible switch demo (`HO-SCN-TEL-20260727-01`).
+
+## Ops free cam (preview vs air)
+
+- HUD **view** select: **Follow active POV** (default) | **Free cam**.
+- **Free cam:** OrbitControls on the WebGL canvas (drag orbit, right-drag/pan, wheel zoom) around ENU origin — works even when drone telemetry is idle.
+- **Follow:** on-screen preview uses the active POV pose again (`1`–`4` / Fleet **Cam** / POV select).
+- Free cam does **not** mutate `activePovId` — air selection stays with POV switch / Fleet Cam.
+- Status line includes `view=follow` or `view=free`.
+- **OUT / NDI:** `getActivePovCamera()` is the air source; screen may use `getPreviewCamera()`. NDI dual-renders air when preview ≠ air (`startNdiFramePump({ getAirCamera })`). See `src/output/README.md` § Air camera lock.
 
 ## Boat + tag (Phase 2.1 template)
 
@@ -107,7 +122,7 @@ Clear color stays dark preview; OUT owns chroma later. Ambient + directional lig
 
 ## Stub HUD + 2D map
 
-- **HUD:** mode select (`mock` / `replay` / `live`) restarts TEL ingest via `onModeChange`. POV select lists `povIds` and calls `onPovChange` → scene `setActivePovId` (and calib device sync in `main`). Countdown Start / Pause / Reset / Restart → `onCountdownControl` → scene `controlCountdown`. **Editor** checkbox (or `?editor=1`) opens the world feature editor. Status shows mode, TEL counts, **connection line** (`ws drone=… boat=…` in live via `setConnectionStatus`, or `ws=n/a (mock|replay)` — never fake `open`), `pov=<active>  seen=…`, last active-drone ENU, and a multi-boat ENU line (`boats=N  21=(…) 22=(…)` truncated if long).
+- **HUD:** mode select (`mock` / `replay` / `live`) restarts TEL ingest via `onModeChange`. POV select lists `povIds` and calls `onPovChange` → scene `setActivePovId` (and calib device sync in `main`). **View** select: Free cam | Follow active POV → `onOpsViewChange` → `scene.setOpsViewMode` (does not change air POV). Countdown Start / Pause / Reset / Restart → `onCountdownControl` → scene `controlCountdown`. **Editor** checkbox (or `?editor=1`) opens the world feature editor. Status shows mode, TEL counts, **connection line** (`ws drone=… boat=…` in live via `setConnectionStatus`, or `ws=n/a (mock|replay)` — never fake `open`), `pov=<active>  seen=…  view=follow|free`, last active-drone ENU, and a multi-boat ENU line (`boats=N  21=(…) 22=(…)` truncated if long).
 - **Map:** plots `position.x` (East) vs `position.z` (North), north-up; auto-fits bounds to recent points + shared layout features (marks, gates, sponsors, flags).
 - **World editor (4.2 / 4.4):** see `src/scene/features/README.md` — place/edit/delete features on the map; ENU→GPS via GEO `enuToGpsAmsl`; export `world-features.json`; **Import/Export GeoJSON** (geojson.io); remounts 3D course/sponsors/flags. No DB.
 

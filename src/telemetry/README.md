@@ -38,8 +38,8 @@ Boat vs drone for non-anchor pose JSON is decided by **source/channel context**,
 | `telemetryMode` | `"mock"` \| `"replay"` \| `"live"` — **committed default is `mock`** |
 | `replayUrl` | Fixture URL for replay (default `/fixtures/telemetry/spine-demo.json`) |
 | `replayLoop` | Optional boolean override of fixture `loop`. Omit → use fixture. Committed samples use `loop: true` |
-| `wsUrl` | Drone / primary live WebSocket URL (default `""`) |
-| `wsBoatUrl` | Boat live WebSocket URL (default `""` → drone-only live). **Single socket only** |
+| `wsUrl` | Drone **base** live WebSocket (no `id`; default empty → Fleet panel uses VPS base) |
+| `wsBoatUrl` | Boat **base** live WebSocket (no `id`). Live opens one socket per registered id |
 | `boatIds` | `string[]` boat channel ids (default `["21","22","23","24"]`; band `21–52`) |
 | `povIds` | `string[]` POV / drone+cam ids (default `["1","2"]`; bands `1–4` ∪ `11–12`) |
 
@@ -57,13 +57,13 @@ Boat vs drone for non-anchor pose JSON is decided by **source/channel context**,
 - Periodic `stream_anchor` uses **`povIds[0]`** (primary POV; not rotated).
 - Passed into `startTelemetryIngest({ povIds })` like `boatIds`.
 - **No Three camera / HUD POV switch in TEL** — that is SCN (`DSP-SCN-20260727-03`).
-- **Live multi-drone / multi-cam URLs are deferred** — `wsUrl` remains a single primary socket (same spirit as single `wsBoatUrl`).
+- **Live:** Fleet / Live panel stores **base** URLs; ingest builds `base?type=drone&id=<id>` for each **enabled** `povIds` / `boatIds` entry (one socket per enabled id). Registry defaults (`21–24` / `1–2`) stay for mock/scene — they do **not** auto-open live sockets. Empty enabled lists → no sockets for that channel (no legacy base-only fallback).
 
 ### Modes
 
 - **mock** — `MockTelemetrySource` with multi-id POVs from `povIds` + boats from `boatIds`.
 - **replay** — fetch `replayUrl`, validate v1, play via timers onto `ingestPacket` (fixtures may carry multiple drone/boat ids). **Looping** is controlled by fixture `loop` (committed samples: `true`); optional `replayLoop` in config / `startTelemetryIngest` overrides. HUD mock↔replay↔live calls `stop()` then a fresh ingest — timers/sockets do not leak.
-- **live** — open WebSocket(s) when URL(s) resolve; text frames → `ingestPacket` by channel. **Still one `wsUrl` + one `wsBoatUrl`** — multi-URL / subscribe-map is a **follow-up TEL DSP**.
+- **live** — base `wsUrl` / `wsBoatUrl` + **enabled** ids → one WebSocket per enabled id; text frames → `ingestPacket` by channel. Handshake (`open`) ≠ data flowing — see per-id `lastPacketAgeMs`.
 
 If `/config.json` fetch fails, mode defaults to `mock`, `boatIds` to the four-id default, and `povIds` to `["1","2"]`.
 
@@ -105,10 +105,16 @@ Empty drone URL in live mode: console warn, idle handle, app does not crash. Emp
 
 Live `IngestHandle` adds optional:
 
-- `getLiveStatus()` → `{ drone, boat }` as `LiveWsStatus` (`idle` | `connecting` | `open` | `closed`)
-- `onLiveStatus(listener)` → unsubscribe; forwards `LiveTelemetrySource` `onStatus`
+- `getLiveStatus()` → `LiveStatusSnapshot`: aggregate `{ drone, boat }` plus `droneIds[]` / `boatIds[]` each with `id`, `status`, `lastPacketAtMs`, `lastPacketAgeMs` (`null` = no packets yet)
+- `onLiveStatus(listener)` → unsubscribe; forwards channel-level `onStatus` (poll `getLiveStatus` for packet ages)
 
-Mock/replay handles omit these — SCN HUD shows `ws=n/a (mock|replay)` instead of inventing sockets. Empty URLs stay `idle` (no fake `open`).
+HUD compact line example: `ws d1=open/120ms b40=open/nopkt` — distinguishes connected-empty from receiving. Soft console warn if a socket stays `open` with no packets for ~8s.
+
+Mock/replay handles omit these — SCN HUD shows `ws=n/a (mock|replay)` instead of inventing sockets. Empty URLs / empty enabled ids stay `idle` (no fake `open`).
+
+### Fleet Live enable toggles (ops)
+
+Fleet / Live panel: per-row **Live** checkbox. **Connect live** opens sockets only for checked ids. Defaults start unchecked (prefer empty); Add/Save turns Live on for that id. Session persists `enabledBoatIds` / `enabledPovIds`.
 
 ### Replay status expose (optional)
 

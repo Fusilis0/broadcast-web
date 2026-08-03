@@ -29,6 +29,11 @@ import type { WorldFeature } from './features/types.ts'
 import { clearLayoutFeatures } from './features/layoutStore.ts'
 import { createDroneCamera, TEMP_HFOV_DEG } from './droneCamera.ts'
 import {
+  createFreeCam,
+  type FreeCamHandle,
+  type OpsViewMode,
+} from './freeCam.ts'
+import {
   boatIdAllowSet,
   isAllowedBoatId,
   orphanBoatIds,
@@ -107,17 +112,33 @@ export type FleetAllowLists = {
 
 export type SceneHandle = {
   scene: THREE.Scene
+  /** Active POV perspective camera (same as `getActivePovCamera()`). */
   camera: THREE.PerspectiveCamera
   renderer: THREE.WebGLRenderer
   /** Live fleet registry (boats with at least one applied pose). */
   boats: ReadonlyMap<string, BoatEntityHandle>
   /** Configured POV ids (ordered). Live — updates after `setFleetAllowLists`. */
   readonly povIds: readonly string[]
-  /** Currently selected render camera POV id. */
+  /** Currently selected air / active POV id (unaffected by free cam). */
   getActivePovId: () => string
+  /**
+   * Active POV Three camera — air / NDI framing source (OUT air lock).
+   * Ops free cam must not replace this; preview may use a different camera.
+   */
+  getActivePovCamera: () => THREE.PerspectiveCamera
+  /** Camera drawn to the on-screen preview (free orbit or active POV). */
+  getPreviewCamera: () => THREE.PerspectiveCamera
+  /** Ops preview mode: `follow` = active POV; `free` = orbit/pan/zoom. */
+  getOpsViewMode: () => OpsViewMode
+  /**
+   * Switch ops preview between free cam and follow-active-POV.
+   * Free cam does not mutate `activePovId`.
+   */
+  setOpsViewMode: (mode: OpsViewMode) => void
   /**
    * Switch active POV. Applies cached last pose immediately when available.
    * Returns false if `id` is not in the allow-list.
+   * Does not change ops view mode (free cam stays free).
    */
   setActivePovId: (id: string) => boolean
   /**
@@ -200,6 +221,9 @@ export function startScene(options: SceneOptions): SceneHandle {
   scene.add(fill)
 
   const drone = createDroneCamera(1, TEMP_HFOV_DEG)
+  let freeCam: FreeCamHandle | null = null
+  let opsViewMode: OpsViewMode = 'follow'
+  let stopped = false
   const boats = new Map<string, BoatEntityHandle>()
   let boatNames: BoatNamesCatalogue = new Map()
   let course: CourseHandle | null = null
@@ -209,6 +233,18 @@ export function startScene(options: SceneOptions): SceneHandle {
   let flagsMeta: FlagsRemountMeta = {}
   let remountGen = 0
   const clock = new THREE.Clock()
+
+  function previewCamera(): THREE.PerspectiveCamera {
+    return opsViewMode === 'free' && freeCam
+      ? freeCam.camera
+      : drone.camera
+  }
+
+  function setOpsViewMode(mode: OpsViewMode): void {
+    if (stopped) return
+    opsViewMode = mode
+    freeCam?.setEnabled(mode === 'free')
+  }
 
   function captureFlagsMeta(data: CountdownFlagsData): void {
     flagsMeta = {
@@ -247,11 +283,11 @@ export function startScene(options: SceneOptions): SceneHandle {
     lockedOut ? 1 : Math.min(window.devicePixelRatio, 2),
   )
   options.container.appendChild(renderer.domElement)
+  freeCam = createFreeCam(renderer.domElement, 1, TEMP_HFOV_DEG)
 
   let rafId = 0
   let intervalId: ReturnType<typeof setInterval> | 0 = 0
   let unsubFrameClock: (() => void) | null = null
-  let stopped = false
   let viewH = 1
 
   function resize(): void {
@@ -259,7 +295,9 @@ export function startScene(options: SceneOptions): SceneHandle {
       const width = Math.max(1, lockedOut.width | 0)
       const height = Math.max(1, lockedOut.height | 0)
       viewH = height
-      drone.setAspect(width / height)
+      const aspect = width / height
+      drone.setAspect(aspect)
+      freeCam?.setAspect(aspect)
       // updateStyle false — then force 1:1 CSS px so the window cannot
       // scale the bitmap (barcode must stay fixed on screen and on NDI).
       renderer.setSize(width, height, false)
@@ -276,7 +314,9 @@ export function startScene(options: SceneOptions): SceneHandle {
     const width = window.innerWidth
     const height = Math.max(window.innerHeight, 1)
     viewH = height
-    drone.setAspect(width / height)
+    const aspect = width / height
+    drone.setAspect(aspect)
+    freeCam?.setAspect(aspect)
     renderer.setSize(width, height, false)
   }
 
@@ -349,11 +389,14 @@ export function startScene(options: SceneOptions): SceneHandle {
     if (stopped) return
     try {
       const dt = Math.min(clock.getDelta(), 0.1)
+      const cam = previewCamera()
+      if (opsViewMode === 'free') freeCam?.update()
       for (const boat of boats.values()) {
-        boat.updateTag(drone.camera, viewH)
+        boat.updateTag(cam, viewH)
       }
-      countdownFlags?.update(dt, drone.camera, viewH)
-      renderer.render(scene, drone.camera)
+      countdownFlags?.update(dt, cam, viewH)
+      // Screen preview may be free cam; active POV camera keeps tracking for OUT/NDI.
+      renderer.render(scene, cam)
     } catch (err) {
       console.error('[scene] frame error', err)
       stopped = true
@@ -396,6 +439,10 @@ export function startScene(options: SceneOptions): SceneHandle {
       return povIds
     },
     getActivePovId: () => activePovId,
+    getActivePovCamera: () => drone.camera,
+    getPreviewCamera: () => previewCamera(),
+    getOpsViewMode: () => opsViewMode,
+    setOpsViewMode,
     setActivePovId,
     setFleetAllowLists,
     async loadCourseFromUrl(url?: string): Promise<CourseHandle | null> {
@@ -527,6 +574,9 @@ export function startScene(options: SceneOptions): SceneHandle {
       }
       window.removeEventListener('resize', resize)
       unsubPose()
+      freeCam?.dispose()
+      freeCam = null
+      opsViewMode = 'follow'
       course?.dispose()
       course = null
       sponsors?.dispose()
@@ -546,3 +596,5 @@ export function startScene(options: SceneOptions): SceneHandle {
     },
   }
 }
+
+export type { OpsViewMode } from './freeCam.ts'

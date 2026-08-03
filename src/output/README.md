@@ -73,7 +73,9 @@ Browser **MediaMTX WHEP** video under the Three canvas in **preview** only. Soft
 | Symbol | Role |
 | --- | --- |
 | `getStudioBridge()` | `window.broadcastStudio` when preload injected |
-| `startNdiFramePump({ renderer })` | After timecode: `readPixels` → IPC → main `grandi` BGRA send |
+| `startNdiFramePump({ renderer, getAirCamera? })` | After timecode: `readPixels` → IPC → main `grandi` BGRA send |
+| `isAirCameraLocked` / `shouldForceFollowActivePov` | Studio bridge **or** `transparent` → air framing locked |
+| `planNdiCapture` | Same camera → FB readback; preview ≠ air → dual-render FBO |
 | `STUDIO_OUTPUT_WIDTH/HEIGHT` | Electron lock **1920×1080** |
 | Visual timecode layout | Drawing-buffer space (size stable when window CSS scales) |
 | Studio frame clock | Main-process `studio:tick` (~30 fps; not throttled when minimized) |
@@ -81,6 +83,18 @@ Browser **MediaMTX WHEP** video under the Three canvas in **preview** only. Soft
 No-ops in Chrome (no bridge). Shell + run notes: [`desktop/README.md`](../../desktop/README.md). vMix: [`docs/ops/vmix-ndi-alpha-runbook.md`](../../docs/ops/vmix-ndi-alpha-runbook.md). Contract: [`docs/architecture/ndi-alpha-electron.md`](../../docs/architecture/ndi-alpha-electron.md).
 
 **No in-browser NDI** without the Electron bridge. Preferred studio air = Electron alpha NDI; Chrome chroma = fallback ([`docs/ops/air-runbook.md`](../../docs/ops/air-runbook.md)). Path B deferred.
+
+### Air camera lock (NDI = active POV)
+
+**Contract:** NDI (and the transparent studio plate) always frames the **active POV** camera — the operator-selected drone cam via POV switch / Fleet **Cam**. Ops free cam (SCN) may drive the **on-screen** preview only; it must not change NDI framing.
+
+| Situation | Behavior |
+| --- | --- |
+| Screen camera = active POV (`view=follow`) | Single render; NDI readback = framebuffer |
+| Screen camera ≠ active POV (`view=free`) | **Dual-render:** air FBO from `getAirCamera()` → NDI; then preview camera to screen |
+| Studio Electron **or** `outputMode=transparent` | Air locked (`isAirCameraLocked`); free cam may still orbit — NDI stays on active POV |
+
+Wire: `startNdiFramePump({ getAirCamera: () => scene.getActivePovCamera() })`. SCN: `getActivePovCamera()` / `getPreviewCamera()` / `setOpsViewMode`; free cam must not mutate `activePovId`.
 
 ## Out of scope (later)
 

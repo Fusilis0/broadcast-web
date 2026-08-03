@@ -2,9 +2,16 @@ export {
   startScene,
   DEFAULT_DRONE_ID,
   type FleetAllowLists,
+  type OpsViewMode,
   type SceneHandle,
   type SceneOptions,
 } from './createScene.ts'
+export {
+  createFreeCam,
+  formatOpsViewStatus,
+  isOpsViewMode,
+  type FreeCamHandle,
+} from './freeCam.ts'
 export {
   boatIdAllowSet,
   formatBoatEnuStatus,

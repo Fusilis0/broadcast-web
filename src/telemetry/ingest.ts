@@ -1,8 +1,10 @@
 import { telemetryBus, type TelemetryBus } from './bus.ts'
 import {
   LiveTelemetrySource,
+  type LiveStatusSnapshot,
   type LiveWsStatus,
 } from './liveSource.ts'
+import { buildLiveWsUrlsForIds, stripLiveWsId } from './liveWsUrl.ts'
 import {
   DEFAULT_MOCK_BOAT_IDS,
   DEFAULT_MOCK_POV_IDS,
@@ -29,17 +31,18 @@ import type {
   TelemetryMode,
 } from './types.ts'
 
-export type LiveStatusMap = Record<MockChannel, LiveWsStatus>
+/** @deprecated Prefer `LiveStatusSnapshot` (includes per-id + last packet). */
+export type LiveStatusMap = LiveStatusSnapshot
 
 export type IngestHandle = {
   mode: TelemetryMode
   bus: TelemetryBus
   stop: () => void
   /**
-   * Live mode only: snapshot of drone/boat WebSocket status.
+   * Live mode only: snapshot of drone/boat WebSocket status (aggregate + per-id).
    * Absent for mock/replay (HUD should show `ws=n/a (mode)`).
    */
-  getLiveStatus?: () => LiveStatusMap
+  getLiveStatus?: () => LiveStatusSnapshot
   /**
    * Live mode only: subscribe to status transitions.
    * Returns unsubscribe. Absent for mock/replay.
@@ -83,8 +86,8 @@ export type StartTelemetryIngestOptions = {
    */
   boatIds?: readonly string[]
   /**
-   * POV / drone+cam ids for mock multi-emit. If omitted, resolve from config
-   * then default `["1","2"]`. Live remains a single `wsUrl` (no multi-URL).
+   * POV / drone+cam ids for mock multi-emit and live per-id sockets.
+   * If omitted, resolve from config then default `["1","2"]`.
    */
   povIds?: readonly string[]
   bus?: TelemetryBus
@@ -113,9 +116,10 @@ function isBoatTelemetry(value: Record<string, unknown>): value is BoatTelemetry
 }
 
 /**
- * Soft-normalize boat ids for ingest (TEL). Prefer arch band `21–52`;
- * empty / junk → four-id default. Full validation lives in `normalizeBoatIds`
- * (config); this path avoids importing config into every ingest call site.
+ * Soft-normalize boat ids for ingest (TEL). Prefer arch band `21–52`.
+ * Explicit array (including `[]`) is preserved — empty means no boat sockets
+ * in live mode (do not fall back to the four-id default).
+ * Omitted / non-array → four-id default. Full validation: `normalizeBoatIds`.
  */
 function resolveBoatIds(raw: unknown): string[] {
   if (Array.isArray(raw)) {
@@ -128,14 +132,15 @@ function resolveBoatIds(raw: unknown): string[] {
       if (!Number.isInteger(n) || n < 21 || n > 52) continue
       if (!out.includes(id)) out.push(id)
     }
-    if (out.length > 0) return out
+    return out
   }
   return [...DEFAULT_MOCK_BOAT_IDS]
 }
 
 /**
- * Soft-normalize POV ids for ingest (TEL). Prefer bands `1–4` ∪ `11–12`;
- * empty / junk → `["1","2"]`. Full validation lives in `normalizePovIds`.
+ * Soft-normalize POV ids for ingest (TEL). Prefer bands `1–4` ∪ `11–12`.
+ * Explicit array (including `[]`) is preserved — empty means no drone sockets
+ * in live mode. Omitted / non-array → `["1","2"]`. Full validation: `normalizePovIds`.
  */
 function resolvePovIds(raw: unknown): string[] {
   if (Array.isArray(raw)) {
@@ -151,7 +156,7 @@ function resolvePovIds(raw: unknown): string[] {
       if (!inBand) continue
       if (!out.includes(id)) out.push(id)
     }
-    if (out.length > 0) return out
+    return out
   }
   return [...DEFAULT_MOCK_POV_IDS]
 }
@@ -305,9 +310,11 @@ async function resolveConfigSlice(options?: {
 
 /**
  * Starts telemetry ingest for `mock` | `replay` | `live`.
- * Live connects only when mode is `live` and at least one URL resolves.
- * Mock emits one `drone` packet per `povIds` and one `boat` per `boatIds`
- * each pose tick. Live multi-drone / multi-cam URLs are deferred (single `wsUrl`).
+ * Live connects only when mode is `live` and at least one enabled id resolves
+ * to a URL. Mock emits one `drone` packet per `povIds` and one `boat` per
+ * `boatIds` each pose tick. Live: base `wsUrl` / `wsBoatUrl` + one socket per
+ * **enabled** `povIds` / `boatIds` (`?type=drone&id=<id>`). Empty id lists
+ * open **no** sockets for that channel (no legacy base-only fallback).
  */
 export async function startTelemetryIngest(
   options?: StartTelemetryIngestOptions,
@@ -320,9 +327,20 @@ export async function startTelemetryIngest(
     const statusListeners = new Set<
       (channel: MockChannel, status: LiveWsStatus) => void
     >()
+    const droneBase = stripLiveWsId(wsUrl)
+    const boatBase = stripLiveWsId(wsBoatUrl)
+    // Enabled-id sockets only — empty list ⇒ no sockets for that channel.
+    const droneUrls =
+      droneBase !== '' && povIds.length > 0
+        ? buildLiveWsUrlsForIds(droneBase, povIds)
+        : []
+    const boatUrls =
+      boatBase !== '' && boatIds.length > 0
+        ? buildLiveWsUrlsForIds(boatBase, boatIds)
+        : []
     const source = new LiveTelemetrySource({
-      droneUrl: wsUrl,
-      boatUrl: wsBoatUrl,
+      droneUrls,
+      boatUrls,
       onPacket: (packet) => ingestPacket(packet, bus),
       onStatus: (channel, status) => {
         for (const listener of statusListeners) {

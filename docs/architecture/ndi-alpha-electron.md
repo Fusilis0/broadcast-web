@@ -64,6 +64,7 @@ Timecode stays burned into the **same** WebGL canvas (NearestFilter) so NDI fram
 | Minimized | NDI must keep sending (Electron background-throttle off + interval clock) |
 | Alpha | Straight (WebGL clear α=0; opaque draws α=1) |
 | Bridge | `window.broadcastStudio` (preload) |
+| Air camera | **Active POV only** (`getActivePovCamera`). Ops free cam may preview on screen; NDI dual-renders air when cameras differ. |
 
 Latency soft target vs window capture: ops judgment recorded **Pass** (2026-07-31); see cutover checklist in air-runbook.
 

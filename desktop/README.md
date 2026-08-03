@@ -25,6 +25,7 @@ Default product remains the browser SPA (Hetzner / preview). Electron is the **p
 | Timecode size | Fixed — canvas displayed at native **1920×1080** CSS px (window scroll/letterbox, no scale) |
 | Minimize / close | **Parks off-screen** (OS minimize freezes WebGL). NDI stays ~30 fps. **Tray → Show studio** to restore; **Tray → Quit** to exit |
 | Clear mode | Prefer `outputMode=transparent` (alpha 0 plate; opaque AR + timecode) |
+| Air camera | **Active POV** only — NDI does not follow ops free cam (see OUT air lock) |
 
 ### Overrides
 

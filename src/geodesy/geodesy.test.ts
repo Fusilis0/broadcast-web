@@ -10,7 +10,10 @@ import {
   relativeToHae,
   resetForTests as resetEgm96,
 } from './egm96.ts'
-import { applyConfigOrigin } from './applyConfigOrigin.ts'
+import {
+  applyConfigOrigin,
+  parseConfigOriginFields,
+} from './applyConfigOrigin.ts'
 import * as GeoOrigin from './geoOrigin.ts'
 import {
   enuToGps,
@@ -137,6 +140,39 @@ describe('GeoOrigin + GeoUtils ENU', () => {
     applyConfigOrigin({ lat: 41, lon: 29, altMsl: 10 })
     expect(GeoOrigin.isValid).toBe(true)
     expect(GeoOrigin.altitudeHAE).toBeCloseTo(amslToHae(41, 29, 10), 6)
+  })
+
+  it('parseConfigOriginFields accepts finite strings', () => {
+    expect(
+      parseConfigOriginFields(
+        '41.08673822819249',
+        '29.061803205100848',
+        '0',
+      ),
+    ).toEqual({
+      lat: 41.08673822819249,
+      lon: 29.061803205100848,
+      altMsl: 0,
+    })
+  })
+
+  it('world-anchor Apply path: Bosphorus coords become ENU 0,0,0', () => {
+    const origin = parseConfigOriginFields(
+      '41.08673822819249',
+      '29.061803205100848',
+      '0',
+    )!
+    applyConfigOrigin(origin)
+    const enu = gpsToEnuAmsl(origin.lat, origin.lon, origin.altMsl)
+    expect(enu.x).toBeCloseTo(0, 4)
+    expect(enu.y).toBeCloseTo(0, 4)
+    expect(enu.z).toBeCloseTo(0, 4)
+  })
+
+  it('parseConfigOriginFields rejects empty or non-finite', () => {
+    expect(parseConfigOriginFields('', '29', '0')).toBeNull()
+    expect(parseConfigOriginFields('41', 'abc', '0')).toBeNull()
+    expect(parseConfigOriginFields('41', '29', '')).toBeNull()
   })
 
   it('enuToGps / enuToGpsAmsl round-trip gpsToEnu*', () => {

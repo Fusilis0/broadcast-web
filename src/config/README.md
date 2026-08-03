@@ -14,7 +14,7 @@ Owned by **PLT+BW**. Thin `/config.json` loader — no domain logic.
 
 | Field | Notes |
 | --- | --- |
-| `origin` | `{ lat, lon, altMsl }` — AMSL world origin for GEO |
+| `origin` | `{ lat, lon, altMsl }` — AMSL **world anchor** for GEO (= Unity `GeoOrigin` / ENU `0,0,0`). Ops can edit via HUD **origin** row + Apply; deeplink `?originLat=&originLon=&originAltMsl=` still overrides at boot. Persisted into RaceProject on Save. |
 | `takeoffAltitudeMSL` | Drone relative→HAE (default `0`) |
 | `telemetryMode` | `mock` \| `replay` \| `live` (committed default: `mock`) |
 | `replayUrl` | Fixture path for replay mode (default `/fixtures/telemetry/spine-demo.json`) |
@@ -22,8 +22,8 @@ Owned by **PLT+BW**. Thin `/config.json` loader — no domain logic.
 | `sponsorsUrl` | Static sponsor billboards JSON for SCN (default `/fixtures/sponsors/demo-istanbul.json`) |
 | `flagsUrl` | Countdown flags JSON for SCN (default `/fixtures/flags/demo-istanbul-countdown.json`) |
 | `boatNamesUrl` | Boat name/colour catalogue JSON for SCN (default `/fixtures/boats/demo-istanbul-names.json`) |
-| `wsUrl` | Drone / primary live WebSocket URL (default `""`) |
-| `wsBoatUrl` | Boat live WebSocket URL (default `""`) — **single** socket; multi-URL is a TEL follow-up |
+| `wsUrl` | Drone **base** live WebSocket URL (default `""`; no `id` — ids from `povIds` / Fleet panel) |
+| `wsBoatUrl` | Boat **base** live WebSocket URL (default `""`; no `id` — ids from `boatIds` / Fleet panel) |
 | `boatIds` | Boat channel ids for mock + SCN fleet registry (default `["21","22","23","24"]`; arch band `21–52`) |
 | `povIds` | POV / drone+cam ids for mock multi-emit + SCN camera switch (default `["1","2"]`; bands `1–4` ∪ `11–12`) |
 | `outputMode` | OUT clear mode: `preview` (committed default) \| `chroma` \| `transparent` (NDI alpha plate). Unknown → preview |
@@ -48,10 +48,10 @@ Owned by **PLT+BW**. Thin `/config.json` loader — no domain logic.
 - Wire: still `channel: "drone"` + `TelemetryData.id` ∈ `povIds` (cams use the same DTO). SCN reads `loadConfig().povIds` for HUD switch allow-list.
 - Full `1–4` + cams later by extending the array only. Display names remain **2.7**. Camera / HUD POV switch is **SCN**, not config/TEL.
 
-Mock-centered default origin is Istanbul near TEL mock tracks (`41.0082, 28.9784`), not `0,0`.
+Mock-centered default origin is Istanbul near TEL mock tracks (`41.0082, 28.9784`), not `0,0`. Example Bosphorus ops anchor: `41.08673822819249, 29.061803205100848` (set via HUD Apply; not hardcoded).
 
 ### Live URLs
 
-Leave `wsUrl` / `wsBoatUrl` empty in git. Override locally via config or Vite env (`VITE_WS_URL`, `VITE_WS_BOAT_URL` — see `.env.example`). Full resolution order and **`ws://` vs `wss://`** (HTTPS mixed content) are documented in [`src/telemetry/README.md`](../telemetry/README.md); ops proxy/WSS: [`docs/ops/wss-live-telemetry.md`](../../docs/ops/wss-live-telemetry.md). Live remains a **single** primary `wsUrl` — multi-drone / multi-cam WebSockets are a TEL follow-up.
+Leave `wsUrl` / `wsBoatUrl` empty in git (or set a base without `id=`). Fleet / Live panel defaults to the VPS base and appends `?type=drone&id=<id>` per registered boat/drone. Override locally via config or Vite env (`VITE_WS_URL`, `VITE_WS_BOAT_URL` — see `.env.example`). Full resolution order and **`ws://` vs `wss://`** (HTTPS mixed content): [`src/telemetry/README.md`](../telemetry/README.md); ops proxy/WSS: [`docs/ops/wss-live-telemetry.md`](../../docs/ops/wss-live-telemetry.md).
 
 To try replay locally: set `"telemetryMode": "replay"` in `public/config.json` (do not commit that change as the default). For multi-boat replay, point `replayUrl` at `/fixtures/telemetry/spine-fleet.json`. For multi-POV replay, point at `/fixtures/telemetry/spine-pov.json`.

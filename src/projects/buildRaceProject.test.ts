@@ -65,6 +65,32 @@ describe('buildRaceProject', () => {
     const id = defaultEditedRaceId(new Date('2026-07-31T12:34:56.789Z'))
     expect(id).toMatch(/^edited-2026-07-31T12-34-56$/)
   })
+
+  it('captures runtime origin + fleet + povIds for Save as', () => {
+    const origin = { lat: 41.08673822819249, lon: 29.061803205100848, altMsl: 2.5 }
+    const project = buildRaceProject({
+      id: 'bosphorus-heat',
+      name: 'Bosphorus Heat',
+      origin,
+      boatIds: ['21', '25', '30'],
+      povIds: ['1', '3', '11'],
+      boatNamesUrl: '/fixtures/boats/demo-istanbul-names.json',
+      courseUrl: '/fixtures/course/demo-istanbul.json',
+      sponsorsUrl: '/fixtures/sponsors/demo-istanbul.json',
+      flagsUrl: '/fixtures/flags/demo-istanbul-countdown.json',
+      replayUrl: '/fixtures/telemetry/spine-demo.json',
+      updatedAt: '2026-08-03T15:00:00.000Z',
+    })
+
+    expect(project.origin).toEqual(origin)
+    expect(project.fleet.boatIds).toEqual(['21', '25', '30'])
+    expect(project.fleet.boatNamesUrl).toBe(
+      '/fixtures/boats/demo-istanbul-names.json',
+    )
+    expect(project.povIds).toEqual(['1', '3', '11'])
+    expect(project.id).toBe('bosphorus-heat')
+    expect(project.name).toBe('Bosphorus Heat')
+  })
 })
 
 describe('listLocalRaceIds', () => {

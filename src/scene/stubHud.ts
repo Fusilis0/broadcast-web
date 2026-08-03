@@ -1,11 +1,18 @@
-import type { AppConfig } from '../config/types.ts'
+import type { AppConfig, ConfigOrigin } from '../config/types.ts'
+import { parseConfigOriginFields } from '../geodesy/index.ts'
 import { poseBus, type PoseEvent } from '../pose/index.ts'
 import {
   telemetryBus,
+  type LiveIdSocketStatus,
   type LiveWsStatus,
 } from '../telemetry/index.ts'
 import { formatBoatEnuStatus } from './fleetRegistry.ts'
 import type { LayoutFeature } from './features/types.ts'
+import {
+  formatOpsViewStatus,
+  isOpsViewMode,
+  type OpsViewMode,
+} from './freeCam.ts'
 import { createMap2d, type Map2dHandle } from './map2d.ts'
 import { formatPovStatus, resolvePovIdList } from './povSwitcher.ts'
 
@@ -18,6 +25,10 @@ export type TelemetryModeSwitchable = TelemetryModeUi
 export type HudLiveChannelStatus = {
   drone: LiveWsStatus
   boat: LiveWsStatus
+  /** Per-id drone sockets (optional; compact HUD when present). */
+  droneIds?: readonly LiveIdSocketStatus[]
+  /** Per-id boat sockets (optional). */
+  boatIds?: readonly LiveIdSocketStatus[]
 }
 
 /**
@@ -28,6 +39,32 @@ export type HudLiveChannelStatus = {
 export type ConnectionStatusUi =
   | { kind: 'non_live'; mode: 'mock' | 'replay' }
   | { kind: 'live'; channels: HudLiveChannelStatus }
+
+function fmtPktAge(ageMs: number | null): string {
+  if (ageMs === null) return 'nopkt'
+  if (ageMs < 1000) return `${Math.round(ageMs)}ms`
+  return `${(ageMs / 1000).toFixed(1)}s`
+}
+
+/** Compact per-id token: `d1=open/120ms` or `b40=open/nopkt`. */
+function formatIdSocket(prefix: 'd' | 'b', s: LiveIdSocketStatus): string {
+  const id = s.id !== '' ? s.id : '?'
+  return `${prefix}${id}=${s.status}/${fmtPktAge(s.lastPacketAgeMs)}`
+}
+
+function formatChannelCompact(
+  label: 'drone' | 'boat',
+  aggregate: LiveWsStatus,
+  ids: readonly LiveIdSocketStatus[] | undefined,
+): string {
+  if (!ids || ids.length === 0) return `${label}=${aggregate}`
+  const prefix = label === 'drone' ? 'd' : 'b'
+  if (ids.length <= 3) {
+    return ids.map((s) => formatIdSocket(prefix, s)).join(' ')
+  }
+  const withPkt = ids.filter((s) => s.lastPacketAgeMs !== null).length
+  return `${label}=${aggregate}/${ids.length}id·${withPkt}pkt`
+}
 
 export type StubHudOptions = {
   container: HTMLElement
@@ -41,6 +78,13 @@ export type StubHudOptions = {
   povIds?: readonly string[]
   /** Invoked when ops picks a POV id in the HUD select. */
   onPovChange?: (povId: string) => void
+  /**
+   * Ops preview: free orbit vs follow active POV.
+   * Free cam does not change air / active POV selection.
+   */
+  onOpsViewChange?: (mode: OpsViewMode) => void
+  /** Initial ops view mode (default `follow`). */
+  opsViewMode?: OpsViewMode
   /** Countdown flag controls (Phase 2.6). */
   onCountdownControl?: (
     action: 'start' | 'pause' | 'reset' | 'restart',
@@ -61,8 +105,21 @@ export type StubHudOptions = {
   activeRaceId?: string
   /** Load a local pack by id (manifest pick or typed). */
   onRaceLoad?: (raceId: string) => void
-  /** Download current scene as RaceProject `project.json`. */
+  /**
+   * Save = overwrite current pack id (download + optional API PUT).
+   */
   onSaveProject?: () => void
+  /**
+   * Save as = prompt for new id + name (download + optional API POST).
+   */
+  onSaveAsProject?: () => void
+  /**
+   * Initial world anchor (WGS84 lat/lon + altMsl).
+   * Usually empty until boot fills via `setOrigin` after config/deeplink.
+   */
+  initialOrigin?: ConfigOrigin
+  /** Apply edited world anchor → GEO origin + ENU remount (caller). */
+  onOriginApply?: (origin: ConfigOrigin) => void
 }
 
 export type StubHudHandle = {
@@ -73,6 +130,8 @@ export type StubHudHandle = {
   setPovIds: (povIds: readonly string[], activePovId?: string) => void
   /** Sync active POV label without firing `onPovChange`. */
   setActivePovId: (povId: string) => void
+  /** Sync ops view select without firing `onOpsViewChange`. */
+  setOpsViewMode: (mode: OpsViewMode) => void
   /** Static course mark dots on the 2D map (ENU east/north). Legacy. */
   setCourseMarks: (
     marks: readonly { name: string; x: number; z: number }[],
@@ -89,6 +148,8 @@ export type StubHudHandle = {
   setRaceIds: (raceIds: readonly string[], activeRaceId?: string) => void
   /** Sync active race id in select + custom field (no load). */
   setActiveRaceId: (raceId: string) => void
+  /** Sync world-anchor fields (boot / race switch / after Apply). */
+  setOrigin: (origin: ConfigOrigin) => void
   stop: () => void
 }
 
@@ -107,8 +168,10 @@ export function formatConnectionStatus(status: ConnectionStatusUi): string {
   if (status.kind === 'non_live') {
     return `ws=n/a (${status.mode})`
   }
-  const { drone, boat } = status.channels
-  return `ws drone=${drone} boat=${boat}`
+  const { drone, boat, droneIds, boatIds } = status.channels
+  const d = formatChannelCompact('drone', drone, droneIds)
+  const b = formatChannelCompact('boat', boat, boatIds)
+  return `ws ${d} ${b}`
 }
 
 /**
@@ -169,13 +232,47 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   const povSelect = document.createElement('select')
   povSelect.id = 'ops-pov-id'
   povSelect.className = 'ops-hud__mode-select'
-  povSelect.title = 'Active render camera POV (drone/cam id)'
+  povSelect.title =
+    'Active air POV (drone/cam id). Free cam preview does not change this.'
   povRow.appendChild(povSelect)
 
   const povHint = document.createElement('span')
   povHint.className = 'ops-hud__mode-hint'
   povHint.textContent = 'digit keys 1–4'
   povRow.appendChild(povHint)
+
+  const viewRow = document.createElement('div')
+  viewRow.className = 'ops-hud__mode-row'
+  hud.appendChild(viewRow)
+
+  const viewLabel = document.createElement('label')
+  viewLabel.className = 'ops-hud__mode-label'
+  viewLabel.htmlFor = 'ops-view-mode'
+  viewLabel.textContent = 'view'
+  viewRow.appendChild(viewLabel)
+
+  const viewSelect = document.createElement('select')
+  viewSelect.id = 'ops-view-mode'
+  viewSelect.className = 'ops-hud__mode-select'
+  viewSelect.title =
+    'Ops preview: Free cam orbits the world; Follow uses active POV. Air/NDI stays on active POV.'
+  for (const [value, label] of [
+    ['follow', 'Follow active POV'],
+    ['free', 'Free cam'],
+  ] as const) {
+    const opt = document.createElement('option')
+    opt.value = value
+    opt.textContent = label
+    viewSelect.appendChild(opt)
+  }
+  let opsViewMode: OpsViewMode = options.opsViewMode ?? 'follow'
+  viewSelect.value = opsViewMode
+  viewRow.appendChild(viewSelect)
+
+  const viewHint = document.createElement('span')
+  viewHint.className = 'ops-hud__mode-hint'
+  viewHint.textContent = 'orbit · drag canvas'
+  viewRow.appendChild(viewHint)
 
   const countdownRow = document.createElement('div')
   countdownRow.className = 'ops-hud__mode-row'
@@ -257,13 +354,111 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   raceSaveBtn.className = 'ops-hud__btn'
   raceSaveBtn.textContent = 'Save'
   raceSaveBtn.title =
-    'Download project.json (RaceProject). Drop into public/races/<id>/ to persist.'
+    'Overwrite current project id: download project.json (+ API PUT when projectsApiBase is set).'
   raceRow.appendChild(raceSaveBtn)
+
+  const raceSaveAsBtn = document.createElement('button')
+  raceSaveAsBtn.type = 'button'
+  raceSaveAsBtn.className = 'ops-hud__btn'
+  raceSaveAsBtn.textContent = 'Save as'
+  raceSaveAsBtn.title =
+    'New id + name from prompts: download project.json (+ API POST when projectsApiBase is set).'
+  raceRow.appendChild(raceSaveAsBtn)
 
   const raceHint = document.createElement('span')
   raceHint.className = 'ops-hud__mode-hint'
-  raceHint.textContent = 'local pack'
+  raceHint.textContent = 'Save=download · API optional'
   raceRow.appendChild(raceHint)
+
+  // World anchor = Unity GeoOrigin → ENU (0,0,0).
+  const originRow = document.createElement('div')
+  originRow.className = 'ops-hud__mode-row'
+  hud.appendChild(originRow)
+
+  const originLabel = document.createElement('span')
+  originLabel.className = 'ops-hud__mode-label'
+  originLabel.textContent = 'origin'
+  originRow.appendChild(originLabel)
+
+  const originLat = document.createElement('input')
+  originLat.className = 'ops-hud__input ops-hud__input--origin'
+  originLat.type = 'text'
+  originLat.inputMode = 'decimal'
+  originLat.spellcheck = false
+  originLat.placeholder = 'lat'
+  originLat.title = 'World anchor latitude (WGS84). ENU 0,0,0 = Unity GeoOrigin.'
+  originLat.setAttribute('aria-label', 'Origin latitude')
+  originRow.appendChild(originLat)
+
+  const originLon = document.createElement('input')
+  originLon.className = 'ops-hud__input ops-hud__input--origin'
+  originLon.type = 'text'
+  originLon.inputMode = 'decimal'
+  originLon.spellcheck = false
+  originLon.placeholder = 'lon'
+  originLon.title = 'World anchor longitude (WGS84)'
+  originLon.setAttribute('aria-label', 'Origin longitude')
+  originRow.appendChild(originLon)
+
+  const originAlt = document.createElement('input')
+  originAlt.className = 'ops-hud__input ops-hud__input--origin-alt'
+  originAlt.type = 'text'
+  originAlt.inputMode = 'decimal'
+  originAlt.spellcheck = false
+  originAlt.placeholder = 'altMsl'
+  originAlt.title = 'World anchor altitude MSL (meters)'
+  originAlt.setAttribute('aria-label', 'Origin altitude MSL')
+  originRow.appendChild(originAlt)
+
+  const originApplyBtn = document.createElement('button')
+  originApplyBtn.type = 'button'
+  originApplyBtn.className = 'ops-hud__btn'
+  originApplyBtn.textContent = 'Apply'
+  originApplyBtn.title =
+    'Apply world anchor → GEO origin (ENU 0,0,0). Remounts course/features.'
+  originRow.appendChild(originApplyBtn)
+
+  const originHint = document.createElement('span')
+  originHint.className = 'ops-hud__mode-hint'
+  originHint.textContent = 'ENU 0,0,0'
+  originRow.appendChild(originHint)
+
+  function fillOriginFields(origin: ConfigOrigin): void {
+    originLat.value = String(origin.lat)
+    originLon.value = String(origin.lon)
+    originAlt.value = String(origin.altMsl)
+  }
+
+  if (options.initialOrigin) {
+    fillOriginFields(options.initialOrigin)
+  }
+
+  function requestOriginApply(): void {
+    const parsed = parseConfigOriginFields(
+      originLat.value,
+      originLon.value,
+      originAlt.value,
+    )
+    if (!parsed) {
+      originHint.textContent = 'invalid'
+      return
+    }
+    originHint.textContent = 'ENU 0,0,0'
+    fillOriginFields(parsed)
+    options.onOriginApply?.(parsed)
+  }
+
+  originApplyBtn.addEventListener('click', () => {
+    requestOriginApply()
+  })
+  for (const el of [originLat, originLon, originAlt]) {
+    el.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') {
+        ev.preventDefault()
+        requestOriginApply()
+      }
+    })
+  }
 
   const statusEl = document.createElement('pre')
   statusEl.className = 'ops-hud__status'
@@ -326,6 +521,9 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   raceSaveBtn.addEventListener('click', () => {
     options.onSaveProject?.()
   })
+  raceSaveAsBtn.addEventListener('click', () => {
+    options.onSaveAsProject?.()
+  })
 
   const counts = { drone: 0, boat: 0, stream_anchor: 0 }
   let lastDroneEnu = '—'
@@ -361,7 +559,7 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
     statusEl.textContent =
       `mode=${uiMode}  drone=${counts.drone}  boat=${counts.boat}  stream_anchor=${counts.stream_anchor}\n` +
       `${formatConnectionStatus(connectionStatus)}\n` +
-      `${formatPovStatus(activePovId, seenPovIds)}\n` +
+      `${formatPovStatus(activePovId, seenPovIds)}  ${formatOpsViewStatus(opsViewMode)}\n` +
       `ENU m  drone=${lastDroneEnu}  ${formatBoatEnuStatus(lastBoatEnuById)}`
   }
 
@@ -400,6 +598,14 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
 
   povSelect.addEventListener('change', () => {
     applyPovSelection(povSelect.value, true)
+  })
+
+  viewSelect.addEventListener('change', () => {
+    const next = viewSelect.value
+    if (!isOpsViewMode(next) || next === opsViewMode) return
+    opsViewMode = next
+    renderStatus()
+    options.onOpsViewChange?.(next)
   })
 
   function onKeyDown(ev: KeyboardEvent): void {
@@ -470,6 +676,11 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
     setActivePovId(povId: string): void {
       applyPovSelection(povId, false)
     },
+    setOpsViewMode(mode: OpsViewMode): void {
+      opsViewMode = mode
+      viewSelect.value = mode
+      renderStatus()
+    },
     setCourseMarks(marks): void {
       map.setCourseMarks(
         marks.map((m) => ({ name: m.name, east: m.x, north: m.z })),
@@ -502,6 +713,10 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
       activeRaceId = id
       raceCustom.value = id
       if (raceIds.includes(id)) raceSelect.value = id
+    },
+    setOrigin(origin: ConfigOrigin): void {
+      fillOriginFields(origin)
+      originHint.textContent = 'ENU 0,0,0'
     },
     stop(): void {
       window.clearInterval(refreshId)

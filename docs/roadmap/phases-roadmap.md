@@ -113,7 +113,7 @@
 | # | Work | Owner | Notes |
 | --- | --- | --- | --- |
 | 6.1 | **RaceProject schema** + folder/JSON pack | PLT+SCN | **Done** (`DSP-PLT-20260730-01`) |
-| 6.2 | Local pack CRUD UI (create/duplicate/save) | SCN+PLT | **Done** (`DSP-SCN-20260731-01` + `DSP-SCN-20260731-02` fleet switch) |
+| 6.2 | Local pack CRUD UI (create/duplicate/save) | SCN+PLT | **Done** (+ **2026-08-03** Save as / Load + optional API write — `DSP-PLT-20260803-01`) |
 | 6.3 | `?race=` / console loads pack | CON+PLT | **Done** for local static (in 6.1); far-PC needs host |
 | 6.4 | **Project API + database** | PLT | Design + **stub done** (`DSP-PLT-20260801-01`) — [`../architecture/project-api-and-database.md`](../architecture/project-api-and-database.md) · [`../ops/projects-api.md`](../ops/projects-api.md) · `server/` |
 | 6.5 | Auth roles (editor vs air-only) | PLT+CON | With console team |
@@ -135,7 +135,7 @@ Entry criteria and A/B/C scores: [`../ops/ndi-path-evaluation.md`](../ops/ndi-pa
 | 7.2 | Spike: **native NDI helper** sidecar | OUT | **Deferred** — skip unless A blocked |
 | 7.3 | Spike: **Electron + our NDI sender** (**A** + alpha) | OUT+PLT | **Done** — 7.3a shell (`04`); 7.3b transparent + `grandi` send (`05`); name `broadcast-web` |
 | 7.4 | Choose production NDI path (BW + studio) | BW | **Done** — A + alpha (human Pass 2026-07-31) |
-| 7.5 | Production NDI out of active POV camera | OUT | **Done** via 7.3b (+ 1080p / park-minimize polish) |
+| 7.5 | Production NDI out of active POV camera | OUT | **Done** via 7.3b; **2026-08-03** dual-render lock vs free cam (`DSP-OUT-20260803-01`) |
 | 7.6 | vMix NDI input runbook + cutover | OUT+BW | **Done** (`DSP-OUT-20260731-06`) — [`../ops/air-runbook.md`](../ops/air-runbook.md) |
 
 **Exit (Milestone G):** Studio receives AR camera view as **NDI with alpha**; chroma remains fallback.
@@ -174,6 +174,14 @@ Browser-only SPA cannot emit NDI; Electron or a native/third-party bridge is req
 - Snap / bearing while drawing arrows  
 - Validate boat ids vs catalogue  
 - Venue offline pack cache  
-- Live multi-URL TEL (boats/POVs)  
+- Boat tags billboard toward preview cam during free look (SCN polish)  
+
+### Ops polish landed 2026-08-03 (not a numbered phase)
+
+- Live socket hygiene (enabled ids + nopkt/age) — `DSP-TEL-20260803-01`  
+- Free cam ops view — `DSP-SCN-20260803-01`  
+- World-anchor HUD — `DSP-SCN-20260803-02`  
+- NDI active-cam lock — `DSP-OUT-20260803-01`  
+- Project Save as / Load — `DSP-PLT-20260803-01`  
 
 ---

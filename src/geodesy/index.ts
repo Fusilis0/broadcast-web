@@ -32,4 +32,8 @@ export {
   type GpsPoint,
 } from './geoUtils.ts'
 
-export { applyConfigOrigin, type ConfigOrigin } from './applyConfigOrigin.ts'
+export {
+  applyConfigOrigin,
+  parseConfigOriginFields,
+  type ConfigOrigin,
+} from './applyConfigOrigin.ts'

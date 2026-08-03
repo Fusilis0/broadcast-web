@@ -49,18 +49,18 @@ Enable with HUD **editor** checkbox or URL `?editor=1`.
 | Edit | Select → name / label / heightM / color; **Delete** |
 | Export | **Export JSON** → `world-features.json` `{ features: [...] }` (features only) |
 | GeoJSON | **Export GeoJSON** → `.geojson` FeatureCollection; **Import GeoJSON** → replace or merge (confirm), then layout + 3D remount |
-| Save project | **Save project** → `project.json` (full RaceProject: origin, fleet, povIds, features, URLs) |
+| Save project | **Save project** → Save as with id/name fields → `project.json` (origin, fleet, povIds, features, URLs) + optional API |
 
-### Persist a pack in git (Phase 6.2)
+### Persist a pack (Phase 6.2 / 6.4)
 
-Browser cannot write into `public/`. Download → drop file:
+Browser cannot write into `public/`. **Download is primary**; API write is optional when `projectsApiBase` + stub are running.
 
-1. Edit features (optional) → set **project id** / **name** → **Save project** (or HUD **Save**)
-2. Copy downloaded `project.json` to `public/races/<id>/project.json`
+1. Edit features / Fleet / origin (optional) → HUD **Save** (overwrite id) or **Save as** / editor **Save project** (new id)
+2. Copy downloaded `project.json` to `public/races/<id>/project.json` (git / static)
 3. Add `<id>` to `public/races/index.json` `{ "ids": [...] }`
-4. HUD **race** picker → Load, or open `?race=<id>`
+4. HUD **Load**, or open `?race=<id>`
 
-No DB persist. Boot without editor unchanged.
+Boot without editor unchanged.
 
 ### GeoJSON (Phase 4.4)
 

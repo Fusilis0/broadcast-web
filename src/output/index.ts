@@ -67,6 +67,14 @@ export {
 } from './ndiFramePump.ts'
 
 export {
+  isAirCameraLocked,
+  planNdiCapture,
+  shouldForceFollowActivePov,
+  type AirCameraLockInput,
+  type NdiCapturePlan,
+} from './airCameraLock.ts'
+
+export {
   STUDIO_OUTPUT_FPS,
   STUDIO_OUTPUT_HEIGHT,
   STUDIO_OUTPUT_WIDTH,

@@ -24,6 +24,9 @@ Boats use **HAE** altitudes (provisional). Drones: `takeoffAMSL + relativeAlt + 
 | `onOriginChanged` | Optional change subscription |
 | `gpsToEnu` / `gpsToEnuAmsl` / `gpsToEnuRelative` / `gpsToEnuBatch` | GPS → `THREE.Vector3` ENU |
 | `applyConfigOrigin` | Apply `{ lat, lon, altMsl }` from config shape (AMSL) |
+| `parseConfigOriginFields` | Parse HUD/form lat/lon/altMsl strings → `ConfigOrigin` or `null` |
+
+**World anchor:** `origin` is the Unity-style GeoOrigin — that WGS84 point is ENU `(0,0,0)`. Ops edit it in the stub HUD (**origin** lat/lon/altMsl + Apply); `main` updates runtime config, calls `applyConfigOrigin`, then remounts course/sponsors/features so ENU shifts consistently. Deeplink origin params still win at boot.
 
 If origin is unset, `gpsToEnu*` returns `(0,0,0)` and warns (Unity parity). If EGM96 fails to load, undulation is `0`.
 
