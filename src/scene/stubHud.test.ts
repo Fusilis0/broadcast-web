@@ -44,7 +44,7 @@ describe('formatConnectionStatus', () => {
           boatIds: [
             {
               id: '40',
-              url: 'ws://x/ws?type=drone&id=40',
+              url: 'ws://x/ws?type=client&subscribe=40',
               status: 'open',
               lastPacketAtMs: null,
               lastPacketAgeMs: null,
@@ -62,7 +62,7 @@ describe('formatConnectionStatus', () => {
           droneIds: [
             {
               id: '1',
-              url: 'ws://x/ws?type=drone&id=1',
+              url: 'ws://x/ws?type=client&subscribe=1',
               status: 'open',
               lastPacketAtMs: Date.now() - 120,
               lastPacketAgeMs: 120,
@@ -71,7 +71,7 @@ describe('formatConnectionStatus', () => {
           boatIds: [
             {
               id: '40',
-              url: 'ws://x/ws?type=drone&id=40',
+              url: 'ws://x/ws?type=client&subscribe=40',
               status: 'open',
               lastPacketAtMs: Date.now() - 2100,
               lastPacketAgeMs: 2100,

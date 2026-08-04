@@ -1,14 +1,15 @@
 /**
  * Build per-id live WebSocket URLs from a base endpoint.
- * Base must not carry a specific id — registry ids are appended as `id=`.
+ * Base must not carry a specific subscribe/id — registry ids are appended.
  *
- * VPS pattern: `ws://host:8080/ws` → `ws://host:8080/ws?type=drone&id=40`
- * (server uses `type=drone` for boat feeds as well).
+ * VPS client subscribe pattern:
+ *   `ws://host:8080/ws` → `ws://host:8080/ws?type=client&subscribe=40`
+ * (`type=drone&id=` is a producer URL and does not deliver telemetry to us.)
  */
 
 export const DEFAULT_LIVE_WS_BASE = 'ws://49.13.20.49:8080/ws'
 
-/** Strip id/type query params; keep host/path and other params. */
+/** Strip subscribe/id/type query params; keep host/path and other params. */
 export function stripLiveWsId(baseUrl: string): string {
   const trimmed = baseUrl.trim()
   if (trimmed === '') return ''
@@ -16,16 +17,19 @@ export function stripLiveWsId(baseUrl: string): string {
     const u = new URL(trimmed)
     u.searchParams.delete('id')
     u.searchParams.delete('type')
+    u.searchParams.delete('subscribe')
     const q = u.searchParams.toString()
     return q ? `${u.origin}${u.pathname}?${q}` : `${u.origin}${u.pathname}`
   } catch {
-    return trimmed.replace(/([?&])(id|type)=[^&]*/g, '').replace(/[?&]$/, '')
+    return trimmed
+      .replace(/([?&])(id|type|subscribe)=[^&]*/g, '')
+      .replace(/[?&]$/, '')
   }
 }
 
 /**
- * Append `type` + `id` for one registered channel.
- * Always sets `type=drone` (VPS convention for boat and drone streams).
+ * Append `type=client` + `subscribe=<id>` for one registered channel.
+ * Same pattern for boat and drone ids on this VPS.
  */
 export function buildLiveWsUrlForId(baseUrl: string, id: string): string {
   const base = stripLiveWsId(baseUrl)
@@ -33,12 +37,12 @@ export function buildLiveWsUrlForId(baseUrl: string, id: string): string {
   if (base === '' || channelId === '') return ''
   try {
     const u = new URL(base)
-    u.searchParams.set('type', 'drone')
-    u.searchParams.set('id', channelId)
+    u.searchParams.set('type', 'client')
+    u.searchParams.set('subscribe', channelId)
     return u.toString()
   } catch {
     const sep = base.includes('?') ? '&' : '?'
-    return `${base}${sep}type=drone&id=${encodeURIComponent(channelId)}`
+    return `${base}${sep}type=client&subscribe=${encodeURIComponent(channelId)}`
   }
 }
 

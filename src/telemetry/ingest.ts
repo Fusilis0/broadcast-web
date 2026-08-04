@@ -313,7 +313,7 @@ async function resolveConfigSlice(options?: {
  * Live connects only when mode is `live` and at least one enabled id resolves
  * to a URL. Mock emits one `drone` packet per `povIds` and one `boat` per
  * `boatIds` each pose tick. Live: base `wsUrl` / `wsBoatUrl` + one socket per
- * **enabled** `povIds` / `boatIds` (`?type=drone&id=<id>`). Empty id lists
+ * **enabled** `povIds` / `boatIds` (`?type=client&subscribe=<id>`). Empty id lists
  * open **no** sockets for that channel (no legacy base-only fallback).
  */
 export async function startTelemetryIngest(

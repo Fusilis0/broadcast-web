@@ -57,7 +57,7 @@ Boat vs drone for non-anchor pose JSON is decided by **source/channel context**,
 - Periodic `stream_anchor` uses **`povIds[0]`** (primary POV; not rotated).
 - Passed into `startTelemetryIngest({ povIds })` like `boatIds`.
 - **No Three camera / HUD POV switch in TEL** — that is SCN (`DSP-SCN-20260727-03`).
-- **Live:** Fleet / Live panel stores **base** URLs; ingest builds `base?type=drone&id=<id>` for each **enabled** `povIds` / `boatIds` entry (one socket per enabled id). Registry defaults (`21–24` / `1–2`) stay for mock/scene — they do **not** auto-open live sockets. Empty enabled lists → no sockets for that channel (no legacy base-only fallback).
+- **Live:** Fleet / Live panel stores **base** URLs; ingest builds `base?type=client&subscribe=<id>` for each **enabled** `povIds` / `boatIds` entry (one socket per enabled id). Producer URLs (`type=drone&id=`) do **not** deliver telemetry to the SPA. Registry defaults (`21–24` / `1–2`) stay for mock/scene — they do **not** auto-open live sockets. Empty enabled lists → no sockets for that channel (no legacy base-only fallback).
 
 ### Modes
 

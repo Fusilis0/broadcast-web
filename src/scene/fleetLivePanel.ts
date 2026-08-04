@@ -1,6 +1,6 @@
 /**
  * Ops Fleet / Live panel — register/edit boats & drones; base WS URLs.
- * Live connect opens one socket per **enabled** id (`base?type=drone&id=<id>`).
+ * Live connect opens one socket per **enabled** id (`base?type=client&subscribe=<id>`).
  * Runtime-only (sessionStorage); does not write config.json.
  */
 
@@ -184,7 +184,7 @@ export function startFleetLivePanel(
   const hint = document.createElement('div')
   hint.className = 'fleet-live__hint'
   hint.textContent =
-    'Check Live on rows below → Connect opens only those ids (…/ws?type=drone&id=<id>). open ≠ packets.'
+    'Check Live on rows below → Connect opens only those ids (…/ws?type=client&subscribe=<id>). open ≠ packets.'
   liveSec.appendChild(hint)
 
   const droneUrlInput = document.createElement('input')

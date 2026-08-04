@@ -92,14 +92,16 @@ function aggregateStatus(statuses: LiveWsStatus[]): LiveWsStatus {
   return 'idle'
 }
 
-/** Best-effort id from `?id=` (or `#id` fallback). */
+/** Best-effort id from `?subscribe=` / `?id=` (or `#id` fallback). */
 export function idFromLiveWsUrl(url: string): string {
   try {
     const u = new URL(url)
+    const subscribe = u.searchParams.get('subscribe')
+    if (subscribe !== null && subscribe.trim() !== '') return subscribe.trim()
     const id = u.searchParams.get('id')
     if (id !== null && id.trim() !== '') return id.trim()
   } catch {
-    const m = /[?&]id=([^&]*)/.exec(url)
+    const m = /[?&](?:subscribe|id)=([^&]*)/.exec(url)
     if (m?.[1]) {
       try {
         return decodeURIComponent(m[1]).trim()
