@@ -37,7 +37,7 @@ export function horizontalToVerticalFovDeg(
 
 /**
  * Main PerspectiveCamera driven by drone ENU pose from poseBus.
- * Near/far sized for tens–hundreds of meters ENU.
+ * Near/far sized for local ENU; far is race-scale so distant boats stay visible.
  */
 export function createDroneCamera(
   aspect = 1,
@@ -48,7 +48,7 @@ export function createDroneCamera(
     horizontalToVerticalFovDeg(currentHFov, aspect),
     aspect,
     0.5,
-    4000,
+    80_000,
   )
   const _q = new THREE.Quaternion()
 

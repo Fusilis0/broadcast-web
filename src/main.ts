@@ -873,6 +873,16 @@ void (async () => {
       scene?.setOpsViewMode(mode)
       hud.setOpsViewMode(mode)
     },
+    onFrameFleet: () => {
+      const n = scene?.frameFleet() ?? 0
+      hud.setOpsViewMode('free')
+      fleetPanel?.setOpsViewMode('free')
+      fleetPanel?.setStatus(
+        n > 0
+          ? `framed ${n} boat(s) — orbit with free cam`
+          : 'no boat meshes yet — need packets + boat id in fleet (check HUD ENU)',
+      )
+    },
     onLiveApply: ({
       wsUrl: nextWs,
       wsBoatUrl: nextBoatWs,

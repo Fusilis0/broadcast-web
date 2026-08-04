@@ -136,6 +136,11 @@ export type SceneHandle = {
    */
   setOpsViewMode: (mode: OpsViewMode) => void
   /**
+   * Switch preview to free cam and orbit the live boat fleet (ENU centroid).
+   * Returns how many boats were framed (0 = none spawned yet).
+   */
+  frameFleet: () => number
+  /**
    * Switch active POV. Applies cached last pose immediately when available.
    * Returns false if `id` is not in the allow-list.
    * Does not change ops view mode (free cam stays free).
@@ -244,6 +249,22 @@ export function startScene(options: SceneOptions): SceneHandle {
     if (stopped) return
     opsViewMode = mode
     freeCam?.setEnabled(mode === 'free')
+  }
+
+  function frameFleet(): number {
+    if (stopped || !freeCam) return 0
+    if (boats.size === 0) return 0
+    const box = new THREE.Box3()
+    for (const boat of boats.values()) {
+      box.expandByObject(boat.root)
+    }
+    if (box.isEmpty()) return 0
+    const center = box.getCenter(new THREE.Vector3())
+    const size = box.getSize(new THREE.Vector3())
+    const radius = Math.max(size.length() * 0.5, 60)
+    setOpsViewMode('free')
+    freeCam.frameTarget(center, radius)
+    return boats.size
   }
 
   function captureFlagsMeta(data: CountdownFlagsData): void {
@@ -443,6 +464,7 @@ export function startScene(options: SceneOptions): SceneHandle {
     getPreviewCamera: () => previewCamera(),
     getOpsViewMode: () => opsViewMode,
     setOpsViewMode,
+    frameFleet,
     setActivePovId,
     setFleetAllowLists,
     async loadCourseFromUrl(url?: string): Promise<CourseHandle | null> {

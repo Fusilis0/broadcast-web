@@ -40,6 +40,8 @@ export type FleetLivePanelOptions = {
   onPovChange: (povId: string) => void
   /** Ops preview Free cam | Follow — does not change active POV / air. */
   onOpsViewChange?: (mode: OpsViewMode) => void
+  /** Frame free cam on spawned boat meshes (ENU). */
+  onFrameFleet?: () => void
   /** Initial ops view (default follow). */
   opsViewMode?: OpsViewMode
   onLiveApply: (state: {
@@ -265,13 +267,24 @@ export function startFleetLivePanel(
   freeBtn.textContent = 'Free cam'
   freeBtn.title =
     'Orbit/pan/zoom the world. Does not change active POV / NDI air cam.'
-  viewRow.append(followBtn, freeBtn)
+  const frameBtn = document.createElement('button')
+  frameBtn.type = 'button'
+  frameBtn.className = 'fleet-live__btn fleet-live__btn--primary'
+  frameBtn.textContent = 'Frame boats'
+  frameBtn.title =
+    'Free cam → look at live boat meshes. If empty, wait for packets or Apply origin near the boat GPS.'
+  viewRow.append(followBtn, freeBtn, frameBtn)
   viewSec.appendChild(viewRow)
 
   const viewHint = document.createElement('div')
   viewHint.className = 'fleet-live__hint'
-  viewHint.textContent = 'Air/NDI stays on Cam / active POV'
+  viewHint.textContent =
+    'Air/NDI = active POV. Distant boats: Frame boats, or Apply origin near their GPS.'
   viewSec.appendChild(viewHint)
+
+  frameBtn.addEventListener('click', () => {
+    options.onFrameFleet?.()
+  })
 
   function syncOpsViewButtons(): void {
     followBtn.classList.toggle(
