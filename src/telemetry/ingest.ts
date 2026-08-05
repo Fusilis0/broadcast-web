@@ -138,7 +138,7 @@ function resolveBoatIds(raw: unknown): string[] {
 }
 
 /**
- * Soft-normalize POV ids for ingest (TEL). Prefer bands `1–4` ∪ `11–12`.
+ * Soft-normalize POV ids for ingest (TEL). Band `1–12`.
  * Explicit array (including `[]`) is preserved — empty means no drone sockets
  * in live mode. Omitted / non-array → `["1","2"]`. Full validation: `normalizePovIds`.
  */
@@ -150,10 +150,7 @@ function resolvePovIds(raw: unknown): string[] {
       const id = item.trim()
       if (id === '') continue
       const n = Number(id)
-      const inBand =
-        (Number.isInteger(n) && n >= 1 && n <= 4) ||
-        (Number.isInteger(n) && n >= 11 && n <= 12)
-      if (!inBand) continue
+      if (!Number.isInteger(n) || n < 1 || n > 12) continue
       if (!out.includes(id)) out.push(id)
     }
     return out

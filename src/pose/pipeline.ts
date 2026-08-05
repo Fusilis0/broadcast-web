@@ -92,9 +92,19 @@ export function startPosePipeline(
   function onDrone(data: TelemetryData): void {
     const hasGps =
       Math.abs(data.pos.lat) > 0.001 || Math.abs(data.pos.lon) > 0.001
-    if (!hasGps) return
+    // Always apply attitude (gimbal/rot). Without GPS, do not ENU-project
+    // lat/lon 0,0 (would fling the camera) — hold last ENU or park at origin.
     const raw = droneRawPose(data, takeoffAltitudeMSL)
-    upsert('drone', data.id, data.ts, raw.position, raw.rotation, raw.fovHDeg)
+    let position = raw.position
+    if (!hasGps) {
+      const existing = entities.get(data.id)
+      if (existing) {
+        position = { ...existing.lerp.currentPos }
+      } else {
+        position = { x: 0, y: data.pos.alt, z: 0 }
+      }
+    }
+    upsert('drone', data.id, data.ts, position, raw.rotation, raw.fovHDeg)
   }
 
   function onBoat(data: BoatTelemetry): void {

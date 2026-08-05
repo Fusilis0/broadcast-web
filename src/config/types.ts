@@ -32,7 +32,7 @@ export type AppConfig = {
   boatIds: string[]
   /**
    * POV / drone+cam channel ids for mock multi-emit (SCN camera switch).
-   * Arch bands `1–4` (drones) ∪ `11–12` (cams). Default `["1","2"]`.
+   * Arch band `1–12` (drones/cams). Default `["1","2"]`.
    * Wire remains `channel: "drone"` + `TelemetryData.id` ∈ this list.
    */
   povIds: string[]
@@ -73,6 +73,17 @@ export type AppConfig = {
    * When set, load/list try the API first, then fall back to `/races/…`.
    */
   projectsApiBase: string
+  /**
+   * LAN studio role (Phase 9.1): `"editor"` | `"air"`.
+   * `air` = read/load only (Save / API write UI disabled). Default `"editor"`.
+   * Override: `?projectsRole=air` or `?role=air`.
+   */
+  projectsRole: string
+  /**
+   * Bearer for projects API writes (`Authorization: Bearer …`).
+   * Empty in git; set locally on editor PCs only. Never required for reads.
+   */
+  projectsApiToken: string
 }
 
 /** @deprecated Prefer `AppConfig`. */

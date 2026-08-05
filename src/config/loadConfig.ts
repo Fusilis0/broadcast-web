@@ -15,17 +15,15 @@ const DEFAULT_BOAT_NAMES_URL = '/fixtures/boats/demo-istanbul-names.json'
 /** Committed default boat band slice (full `21–52` later via config only). */
 export const DEFAULT_BOAT_IDS: readonly string[] = ['21', '22', '23', '24']
 
-/** Committed default POV ids (drones `1–4` / cams `11–12`; extend array later). */
+/** Committed default POV ids (drones/cams in band `1–12`). */
 export const DEFAULT_POV_IDS: readonly string[] = ['1', '2']
 
 const BOAT_ID_MIN = 21
 const BOAT_ID_MAX = 52
 
+/** Soft POV band: drone/cam ids `1–12` (includes live id `5`). */
 function isPovBandId(n: number): boolean {
-  return (
-    (Number.isInteger(n) && n >= 1 && n <= 4) ||
-    (Number.isInteger(n) && n >= 11 && n <= 12)
-  )
+  return Number.isInteger(n) && n >= 1 && n <= 12
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -48,6 +46,8 @@ const DEFAULT_CONFIG: AppConfig = {
   timecodeSizePx: 96,
   whepUrl: '',
   projectsApiBase: '',
+  projectsRole: 'editor',
+  projectsApiToken: '',
 }
 
 function parseTimecodeEnabled(value: unknown): boolean {
@@ -114,7 +114,7 @@ export function normalizeBoatIds(raw: unknown): string[] {
 }
 
 /**
- * Normalize `povIds`: non-empty strings in arch bands `1–4` ∪ `11–12`.
+ * Normalize `povIds`: non-empty strings in band `1–12`.
  * Missing/empty/all-junk → `["1","2"]` matching committed `config.json`.
  * Out-of-band values (boats/pilots/junk) are filtered with a console warn.
  */
@@ -132,7 +132,7 @@ export function normalizePovIds(raw: unknown): string[] {
     const n = Number(id)
     if (!isPovBandId(n)) {
       console.warn(
-        `[config] povIds: ignoring out-of-band id "${id}" (prefer 1–4 or 11–12)`,
+        `[config] povIds: ignoring out-of-band id "${id}" (prefer 1–12)`,
       )
       continue
     }
@@ -191,7 +191,18 @@ export function normalizeConfig(raw: unknown): AppConfig {
     whepUrl: typeof o.whepUrl === 'string' ? o.whepUrl.trim() : '',
     projectsApiBase:
       typeof o.projectsApiBase === 'string' ? o.projectsApiBase.trim() : '',
+    projectsRole: normalizeProjectsRoleField(o.projectsRole),
+    projectsApiToken:
+      typeof o.projectsApiToken === 'string' ? o.projectsApiToken.trim() : '',
   }
+}
+
+function normalizeProjectsRoleField(raw: unknown): string {
+  if (typeof raw !== 'string') return 'editor'
+  const v = raw.trim().toLowerCase()
+  if (v === 'air' || v === 'air-only' || v === 'aironly') return 'air'
+  if (v === 'editor' || v === 'edit' || v === '') return 'editor'
+  return 'editor'
 }
 
 /**

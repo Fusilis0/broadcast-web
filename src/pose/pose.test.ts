@@ -174,6 +174,38 @@ describe('MidpointLerp', () => {
 })
 
 describe('pose pipeline', () => {
+  it('applies drone attitude when lat/lon are 0 (no GPS)', () => {
+    applyConfigOrigin(ORIGIN)
+    const tel = new TelemetryBus()
+    const poses = new PoseBus()
+    let lastYaw = Number.NaN
+    poses.on('pose', (p) => {
+      if (p.kind === 'drone' && p.id === '5') lastYaw = p.rotation.yawDeg
+    })
+
+    let t = 0
+    const handle = startPosePipeline({
+      telemetryBus: tel,
+      poseBus: poses,
+      takeoffAltitudeMSL: 0,
+      manualTick: true,
+      nowSec: () => t,
+    })
+
+    tel.emit(
+      'drone',
+      makeDrone({
+        id: '5',
+        pos: { lat: 0, lon: 0, alt: 2.2 },
+        gimbal: identityQuat(54.6, -0.2, 1),
+      }),
+    )
+    t = 0.05
+    handle.tick(0.05)
+    expect(lastYaw).toBeCloseTo(54.6, 4)
+    handle.stop()
+  })
+
   it('emits drone/boat poses; ignores stream_anchor', () => {
     applyConfigOrigin(ORIGIN)
     const tel = new TelemetryBus()

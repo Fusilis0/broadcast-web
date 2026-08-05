@@ -20,6 +20,8 @@ No Three meshes / scene graph in this module.
 | Boat | `gpsToEnu(lat, lon, alt)` | **HAE** (not AMSL) |
 | `stream_anchor` | ignored | no ENU |
 
+**No GPS (`lat`/`lon` ≈ 0):** still apply gimbal/rot attitude; hold last ENU (or park at origin + `pos.alt` on first packet). Do not project `0,0` through GEO (would fling the camera).
+
 Declination default `0`. CAL yaw/pitch/roll/alt/FOV come from `src/calibration` store (defaults: angles/alt `0`, FOV `66.8832`) via `applyCalibration` / `applyCalibrationEuler`.
 
 ## Config origin

@@ -48,9 +48,10 @@ describe('normalizePovIds', () => {
   })
 
   it('keeps drone and cam band ids', () => {
-    expect(normalizePovIds(['1', '2', '11', '12'])).toEqual([
+    expect(normalizePovIds(['1', '2', '5', '11', '12'])).toEqual([
       '1',
       '2',
+      '5',
       '11',
       '12',
     ])
@@ -202,6 +203,23 @@ describe('normalizeConfig projectsApiBase', () => {
     expect(
       normalizeConfig({ projectsApiBase: '  /api  ' }).projectsApiBase,
     ).toBe('/api')
+  })
+})
+
+describe('normalizeConfig projectsRole / projectsApiToken', () => {
+  it('defaults role editor and empty token', () => {
+    const cfg = normalizeConfig({})
+    expect(cfg.projectsRole).toBe('editor')
+    expect(cfg.projectsApiToken).toBe('')
+  })
+
+  it('normalizes air role and trims token', () => {
+    const cfg = normalizeConfig({
+      projectsRole: 'AIR-ONLY',
+      projectsApiToken: '  secret  ',
+    })
+    expect(cfg.projectsRole).toBe('air')
+    expect(cfg.projectsApiToken).toBe('secret')
   })
 })
 
