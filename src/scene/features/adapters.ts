@@ -36,6 +36,7 @@ export function adaptSponsorsToFeatures(data: SponsorsData): WorldFeature[] {
     heightM: sp.heightM,
     color: sp.color,
     label: sp.label,
+    textureUrl: sp.textureUrl,
   }))
 }
 

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  createArrowFeature,
+  createBillboardChainFeature,
+  createBuoyFeature,
   createGatePairFeatures,
+  createLineSignFeature,
   createPointFeature,
   createSponsorFeature,
   pointTypeForTool,
@@ -12,6 +16,23 @@ import {
   featuresToFlagsData,
   featuresToSponsorsData,
 } from './reverseAdapters.ts'
+import {
+  formatSegmentReadout,
+  segmentBearingDeg,
+  segmentLengthM,
+  segmentReadout,
+} from './segmentReadout.ts'
+import {
+  applySnap,
+  nearestVertex,
+  snapToGrid,
+  verticesFromLayoutPoints,
+} from './snap.ts'
+import {
+  formatValidationSummary,
+  validateWorldFeatures,
+} from './validateFeatures.ts'
+import { POLYLINE_TOOLS, TWO_CLICK_TOOLS } from './tools.ts'
 import type { WorldFeature } from '../types.ts'
 
 /** Fake inverse: east→lon scale, north→lat scale (matches mockEnu in features.test). */
@@ -24,11 +45,14 @@ const fakeEnuToGps = (east: number, _up: number, north: number) => ({
 describe('featureFactory', () => {
   it('maps place tools to point types', () => {
     expect(pointTypeForTool('mark')).toBe('mark')
+    expect(pointTypeForTool('buoy')).toBe('buoy')
     expect(pointTypeForTool('sponsor')).toBe(null)
+    expect(pointTypeForTool('billboardChain')).toBe(null)
+    expect(pointTypeForTool('start')).toBe(null)
     expect(pointTypeForTool('select')).toBe(null)
   })
 
-  it('creates mark / sponsor / gate pair from ENU clicks', () => {
+  it('creates mark / sponsor / gate pair / arrow from ENU clicks', () => {
     const counter: FeatureIdCounter = { n: 0 }
     const mark = createPointFeature('mark', 100, 200, fakeEnuToGps, counter)!
     expect(mark.type).toBe('mark')
@@ -52,6 +76,213 @@ describe('featureFactory', () => {
     expect(left.name.replace(/-Left$/, '')).toBe(
       right.name.replace(/-Right$/, ''),
     )
+
+    const arrow = createArrowFeature(0, 0, 0, 10, fakeEnuToGps, counter)
+    expect(arrow.type).toBe('arrow')
+    expect(arrow.points).toHaveLength(1)
+    expect(arrow.label).toMatch(/^brg 000°$/)
+    expect(TWO_CLICK_TOOLS.has('arrow')).toBe(true)
+
+    const start = createLineSignFeature(
+      'start',
+      0,
+      0,
+      40,
+      0,
+      fakeEnuToGps,
+      counter,
+    )
+    expect(start.type).toBe('start')
+    expect(start.points).toHaveLength(2)
+    expect(start.label).toBe('START')
+    expect(TWO_CLICK_TOOLS.has('start')).toBe(true)
+    expect(TWO_CLICK_TOOLS.has('finish')).toBe(true)
+    expect(pointTypeForTool('start')).toBe(null)
+  })
+
+  it('creates buoy and billboardChain features', () => {
+    const counter: FeatureIdCounter = { n: 0 }
+    const buoy = createBuoyFeature(10, 20, fakeEnuToGps, counter, {
+      telemetryId: '91',
+    })
+    expect(buoy.type).toBe('buoy')
+    expect(buoy.points).toHaveLength(1)
+    expect(buoy.telemetryId).toBe('91')
+
+    const chain = createBillboardChainFeature(
+      [
+        { east: 0, north: 0 },
+        { east: 30, north: 0 },
+        { east: 30, north: 40 },
+      ],
+      fakeEnuToGps,
+      counter,
+      { spacingM: 15, textureUrl: '/textures/sponsors/rolex.png' },
+    )
+    expect(chain).not.toBeNull()
+    expect(chain!.type).toBe('billboardChain')
+    expect(chain!.points).toHaveLength(3)
+    expect(chain!.spacingM).toBe(15)
+    expect(chain!.textureUrl).toBe('/textures/sponsors/rolex.png')
+    expect(POLYLINE_TOOLS.has('billboardChain')).toBe(true)
+
+    expect(
+      createBillboardChainFeature(
+        [{ east: 0, north: 0 }],
+        fakeEnuToGps,
+        counter,
+      ),
+    ).toBeNull()
+  })
+})
+
+describe('snap', () => {
+  it('snaps to grid and prefers vertex over grid', () => {
+    expect(snapToGrid(2.4, 7.6, 5)).toEqual({ east: 0, north: 10 })
+    const verts = [
+      { east: 10, north: 0 },
+      { east: 0, north: 20 },
+    ]
+    expect(nearestVertex(9.5, 0.2, verts, 3)).toEqual({ east: 10, north: 0 })
+    expect(nearestVertex(50, 50, verts, 3)).toBeNull()
+
+    const vertexWin = applySnap(9.8, 0.1, verts, {
+      vertexEnabled: true,
+      gridEnabled: true,
+      vertexRadiusM: 3,
+      gridStepM: 5,
+    })
+    expect(vertexWin.mode).toBe('vertex')
+    expect(vertexWin.east).toBe(10)
+
+    const gridOnly = applySnap(2.6, 2.4, [], {
+      vertexEnabled: true,
+      gridEnabled: true,
+      gridStepM: 5,
+    })
+    expect(gridOnly.mode).toBe('grid')
+    expect(gridOnly).toEqual({ east: 5, north: 0, mode: 'grid' })
+  })
+
+  it('collects unique layout vertices', () => {
+    const verts = verticesFromLayoutPoints([
+      {
+        points: [
+          { x: 1, z: 2 },
+          { x: 1, z: 2 },
+          { x: 3, z: 4 },
+        ],
+      },
+    ])
+    expect(verts).toHaveLength(2)
+  })
+})
+
+describe('segmentReadout', () => {
+  it('reports north / east bearings and length', () => {
+    expect(segmentBearingDeg(0, 0, 0, 10)).toBeCloseTo(0)
+    expect(segmentBearingDeg(0, 0, 10, 0)).toBeCloseTo(90)
+    expect(segmentLengthM(0, 0, 3, 4)).toBeCloseTo(5)
+    const r = segmentReadout(0, 0, 0, -10)
+    expect(r.bearingDeg).toBeCloseTo(180)
+    expect(formatSegmentReadout(r)).toBe('brg 180° · 10.0 m')
+  })
+})
+
+describe('validateWorldFeatures', () => {
+  it('flags orphan gates and incomplete sponsors', () => {
+    const features: WorldFeature[] = [
+      {
+        id: 'course:Gate1-Left',
+        name: 'Gate1-Left',
+        type: 'gateLeft',
+        points: [{ lat: 41, lon: 29, altMsl: 0 }],
+      },
+      {
+        id: 'sponsor:bad',
+        name: 'bad',
+        type: 'sponsor',
+        points: [{ lat: 41, lon: 29, altMsl: 0 }],
+      },
+      {
+        id: 'empty',
+        name: '   ',
+        type: 'mark',
+        points: [{ lat: 41, lon: 29, altMsl: 0 }],
+      },
+    ]
+    const result = validateWorldFeatures(features)
+    expect(result.ok).toBe(false)
+    expect(result.errors.some((e) => e.code === 'orphan_gate_left')).toBe(true)
+    expect(result.errors.some((e) => e.code === 'sponsor_missing_b')).toBe(true)
+    expect(result.errors.some((e) => e.code === 'empty_name')).toBe(true)
+    expect(formatValidationSummary(result)).toMatch(/^Invalid/)
+  })
+
+  it('accepts paired gates and complete sponsors (warn on empty label)', () => {
+    const features: WorldFeature[] = [
+      {
+        id: 'course:Gate1-Left',
+        name: 'Gate1-Left',
+        type: 'gateLeft',
+        points: [{ lat: 41, lon: 29, altMsl: 0 }],
+      },
+      {
+        id: 'course:Gate1-Right',
+        name: 'Gate1-Right',
+        type: 'gateRight',
+        points: [{ lat: 41, lon: 29.001, altMsl: 0 }],
+      },
+      {
+        id: 'sponsor:sp1',
+        name: 'sp1',
+        type: 'sponsor',
+        points: [
+          { lat: 41, lon: 29, altMsl: 0 },
+          { lat: 41.001, lon: 29, altMsl: 0 },
+        ],
+      },
+    ]
+    const result = validateWorldFeatures(features)
+    expect(result.ok).toBe(true)
+    expect(result.warnings.some((w) => w.code === 'sponsor_empty_label')).toBe(
+      true,
+    )
+  })
+
+  it('validates buoy and billboardChain', () => {
+    const ok: WorldFeature[] = [
+      {
+        id: 'buoy:1',
+        name: 'buoy-1',
+        type: 'buoy',
+        points: [{ lat: 41, lon: 29, altMsl: 0 }],
+      },
+      {
+        id: 'chain:1',
+        name: 'chain-1',
+        type: 'billboardChain',
+        points: [
+          { lat: 41, lon: 29, altMsl: 0 },
+          { lat: 41.001, lon: 29.001, altMsl: 0 },
+        ],
+        spacingM: 12,
+      },
+    ]
+    expect(validateWorldFeatures(ok).ok).toBe(true)
+
+    const short: WorldFeature[] = [
+      {
+        id: 'chain:bad',
+        name: 'chain-bad',
+        type: 'billboardChain',
+        points: [{ lat: 41, lon: 29, altMsl: 0 }],
+        spacingM: 12,
+      },
+    ]
+    const r = validateWorldFeatures(short)
+    expect(r.ok).toBe(false)
+    expect(r.errors.some((e) => e.code === 'chain_too_short')).toBe(true)
   })
 })
 

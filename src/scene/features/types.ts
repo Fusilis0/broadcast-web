@@ -8,6 +8,7 @@ export type GpsToEnuAmslFn = (
 /**
  * Shared world-feature kinds (race-projects §4).
  * Stub-ready types may be map-only until 3D builders exist.
+ * Additive: `buoy` / `billboardChain` (Phase 11.6) — old packs without them still parse.
  */
 export type WorldFeatureType =
   | 'mark'
@@ -20,6 +21,8 @@ export type WorldFeatureType =
   | 'finish'
   | 'arrow'
   | 'rotation'
+  | 'buoy'
+  | 'billboardChain'
 
 /** GPS point before GEO (lat/lon + AMSL meters). */
 export type WorldGpsPoint = {
@@ -30,8 +33,8 @@ export type WorldGpsPoint = {
 
 /**
  * Normalized GPS-space feature (pre-layout).
- * `points` length is 1 (mark/flag/arrow) or 2 (gate ends as separate features,
- * sponsor A–B, start/finish line).
+ * `points` length is 1 (mark/flag/arrow/buoy) or ≥2 (gate ends as separate features,
+ * sponsor A–B, start/finish line, billboardChain polyline).
  */
 export type WorldFeature = {
   id: string
@@ -44,6 +47,29 @@ export type WorldFeature = {
   color?: number
   /** Display label (sponsor text, etc.). */
   label?: string
+  /** Optional texture under `public/` (sponsors / billboardChain). */
+  textureUrl?: string | null
+  /**
+   * Billboard-chain spacing along the polyline (meters).
+   * Only for `type: 'billboardChain'`. Default applied at create time.
+   */
+  spacingM?: number
+  /**
+   * Optional live buoy telemetry id (TEL buoy channel).
+   * When set and a matching buoy pose arrives, SCN-03 may live-bind;
+   * placement remains valid with a static point when unbound.
+   */
+  telemetryId?: string | null
+  /**
+   * Draw in 3D world (default true when omitted). Soft / additive.
+   * Independent of `visible2d` (map chrome).
+   */
+  visible3d?: boolean
+  /**
+   * Draw on 2D ops/stream map (default true when omitted). Soft / additive.
+   * Independent of `visible3d`.
+   */
+  visible2d?: boolean
 }
 
 /** ENU meters after GEO + water-Y force (x=East, y=Up, z=North). */
@@ -65,5 +91,10 @@ export type LayoutFeature = {
   heightM?: number
   color?: number
   label?: string
+  textureUrl?: string | null
+  spacingM?: number
+  telemetryId?: string | null
+  visible3d?: boolean
+  visible2d?: boolean
   rawPoints: WorldGpsPoint[]
 }

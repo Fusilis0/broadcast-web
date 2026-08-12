@@ -15,6 +15,14 @@ export {
   type CourseHandle,
   type LoadCourseOptions,
 } from './loadCourse.ts'
+export {
+  courseWaterCueBounds,
+  createWaterShoreCue,
+  WATER_CUE_DEFAULTS,
+  type WaterCueBounds,
+  type WaterCueOptions,
+  type WaterShoreCueHandle,
+} from './waterCue.ts'
 export type {
   CourseAppearance,
   CourseData,

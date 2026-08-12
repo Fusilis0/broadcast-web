@@ -1,9 +1,11 @@
+import { applyRaceProjectCalibration } from '../calibration/projectCalibration.ts'
 import type { AppConfig } from '../config/types.ts'
 import type { RaceProject } from './types.ts'
 
 /**
  * Merge a loaded RaceProject into `AppConfig` in place.
  * Call after `loadConfig()`, before deeplink overrides (URL still wins).
+ * Soft-hydrates CAL `offsetsStore` when `calibration` is present.
  * Does not persist to disk.
  */
 export function applyRaceProjectToConfig(
@@ -32,6 +34,8 @@ export function applyRaceProjectToConfig(
   if (project.flagsUrl !== undefined) {
     config.flagsUrl = project.flagsUrl
   }
+
+  applyRaceProjectCalibration(project)
 
   const out = project.output
   if (!out) return

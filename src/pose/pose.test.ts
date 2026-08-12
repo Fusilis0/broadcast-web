@@ -206,7 +206,7 @@ describe('pose pipeline', () => {
     handle.stop()
   })
 
-  it('emits drone/boat poses; ignores stream_anchor', () => {
+  it('emits drone/boat/buoy poses; ignores stream_anchor', () => {
     applyConfigOrigin(ORIGIN)
     const tel = new TelemetryBus()
     const poses = new PoseBus()
@@ -235,6 +235,12 @@ describe('pose pipeline', () => {
     handle.tick(0.05)
     expect(received.some((s) => s.startsWith('boat:21'))).toBe(true)
 
+    received.length = 0
+    tel.emit('buoy', makeBoat({ id: '91', lat: ORIGIN.lat + 0.0002 }))
+    t = 0.15
+    handle.tick(0.05)
+    expect(received.some((s) => s.startsWith('buoy:91'))).toBe(true)
+
     const before = received.length
     tel.emit('stream_anchor', {
       type: 'stream_anchor',
@@ -247,7 +253,7 @@ describe('pose pipeline', () => {
     })
     handle.tick(0.01)
     // No new entity from stream_anchor
-    expect(handle.entityIds()).toEqual(expect.arrayContaining(['1', '21']))
+    expect(handle.entityIds()).toEqual(expect.arrayContaining(['1', '21', '91']))
     expect(handle.entityIds()).not.toContain('stream_anchor')
     expect(received.length).toBeGreaterThanOrEqual(before)
 

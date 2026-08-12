@@ -69,11 +69,25 @@ Base path: `/api` (same-origin via reverse proxy preferred).
 
 | Method | Path | Behaviour |
 | --- | --- | --- |
-| `GET` | `/api/races` | List projections; optional `?label=` filter |
+| `GET` | `/api/races` | List projections; optional `?label=` filter; **default excludes `archived`**; `?includeArchived=1` includes all |
 | `GET` | `/api/races/:id` | Full RaceProject JSON (`200`) or `404` |
 | `POST` | `/api/races` | Create; body = RaceProject (+ optional `labels` wrapper — see below) |
-| `PUT` | `/api/races/:id` | Full replace; optimistic concurrency |
+| `PUT` | `/api/races/:id` | Full replace; optimistic concurrency; optional labels wrapper |
 | `DELETE` | `/api/races/:id` | Delete; `204` or `404` |
+| `GET` | `/api/assets` | Universal asset library manifest (array; no auth) |
+| `POST` | `/api/assets` | Multipart library upload (`file`, optional `label`); editor auth |
+
+### Asset library (`GET`/`POST /api/assets`)
+
+Phase 11.3 — git-trackable shared textures/models under `public/assets/library/`.
+
+- Storage: `<kind>/<slug>-<shortHash>.<ext>` where `kind` is `image` | `model`.
+- Manifest: `public/assets/library/index.json` (pretty-printed).
+- Allow-list: `png|jpg|jpeg|webp|glb|gltf`. Default max file size **20 MiB**.
+- Errors: `400` invalid extension / missing file; `401`/`403` auth; `413` oversized;
+  `503` when library dir not configured on the process.
+- Venue packs: `/assets/library/…` is an allow-listed path in
+  `collectVenuePackUrls` / `isVenueAssetPath`.
 
 ### Create (`POST /api/races`)
 
@@ -90,7 +104,10 @@ Rules:
 
 ### Put (`PUT /api/races/:id`)
 
-- Path `:id` must match `body.id`.
+- Path `:id` must match `body.id` (or `body.project.id` when using the labels wrapper).
+- Request body options (either accepted):
+  1. Bare RaceProject JSON (labels unchanged).
+  2. Wrapper: `{ "project": RaceProject, "labels"?: string[] }` — when `labels` is present, replaces stored labels (archive = include `"archived"`).
 - Client sends expected revision via **either**:
   - header `If-Match: "<revision>"`, or
   - field `revision` on the RaceProject body (current known value).
@@ -98,10 +115,14 @@ Rules:
 - On success: `revision := current + 1`, `updatedAt := now`, store body, return `200` + stored document.
 - Missing row → **404** (use POST to create; no silent upsert).
 
+### Archive / rename (Phase 11.4)
+
+- **Archive** is the `archived` label (not a separate column). Default `GET /api/races` excludes it; projects remain loadable by id.
+- **Rename** is client-orchestrated (duplicate under new id, then DELETE old). Schema id immutability is unchanged; do not delete until create succeeds.
+
 ### Delete
 
 - `DELETE /api/races/:id` → `204` if removed, `404` if missing.
-- Optional later: soft-delete / archive — out of scope for 6.4.
 
 ### Errors (common)
 
@@ -185,19 +206,21 @@ Conflict policy for seed: **never overwrite** a DB row that already exists (high
 
 ---
 
-## 7. Security note
+## 7. Security note (LAN roles — Phase 9.1)
 
 | Environment | Read | Write |
 | --- | --- | --- |
-| Local stub / studio LAN | Open | Open **or** shared bearer (`Authorization: Bearer <token>` from env) |
-| Production HTTPS | Open list/get OK for studio overlays | **No public anonymous write** — require bearer (or later 6.5 roles) |
+| Local stub / studio LAN | Open | Editor bearer (`PROJECTS_API_EDITOR_TOKEN` / legacy `PROJECTS_API_TOKEN`); air bearer → **403** |
+| Production HTTPS | Open list/get OK for studio overlays | **No public anonymous write** — editor bearer required |
 
-Placeholder for impl:
+Roles (stub, not IdP):
 
-- Env `PROJECTS_API_TOKEN` — if set, mutating methods require matching `Authorization: Bearer …`.
-- Reads stay open so air PCs can `?race=` without consoles storing secrets in the URL (console deep-link token is a **6.5 / CON** concern).
+| Role | Server | SPA |
+| --- | --- | --- |
+| `editor` | Matching bearer may POST/PUT/DELETE | `projectsRole: "editor"` + `projectsApiToken` |
+| `air` | Reads open; air bearer on write → 403 | `projectsRole: "air"` or `?role=air` — Save UI disabled |
 
-Do not commit tokens. Document in `.env.example` only when the stub lands.
+Ops: [`docs/ops/projects-api.md`](../ops/projects-api.md). Console deep-link token remains a later CON concern. Do not commit tokens.
 
 ---
 

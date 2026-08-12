@@ -18,6 +18,7 @@ No Three meshes / scene graph in this module.
 | --- | --- | --- |
 | Drone | `gpsToEnuRelative(lat, lon, pos.alt, takeoffAltitudeMSL)` | Relative + takeoff AMSL + EGM96 |
 | Boat | `gpsToEnu(lat, lon, alt)` | **HAE** (not AMSL) |
+| Buoy | same as boat (`boatRawPose`) | **HAE** (boat-shaped telemetry) |
 | `stream_anchor` | ignored | no ENU |
 
 **No GPS (`lat`/`lon` ≈ 0):** still apply gimbal/rot attitude; hold last ENU (or park at origin + `pos.alt` on first packet). Do not project `0,0` through GEO (would fling the camera).
@@ -57,16 +58,16 @@ Near TEL mock tracks so ENU stays local meters (not ~10⁶). Optional `takeoffAl
 poseBus.on('pose', (p: PoseEvent) => { /* SCN draw */ })
 
 type PoseEvent = {
-  id: string              // mock drone "1", boat "21"
-  kind: 'drone' | 'boat'
+  id: string              // mock drone "1", boat "21", buoy "91"
+  kind: 'drone' | 'boat' | 'buoy'
   position: { x, y, z }   // ENU meters
   rotation: { yawDeg, pitchDeg, rollDeg }
   fovHDeg: number         // from CAL offsets (default 66.8832)
-  ts: number              // drone ts / boat time
+  ts: number              // drone ts / boat|buoy time
 }
 ```
 
-Drone rotation: gimbal Euler with Unity DJI pitch/roll negation; yaw = gimbal yaw (absolute); then CAL. Boat: yaw = `brg` (+ declination 0); then CAL.
+Drone rotation: gimbal Euler with Unity DJI pitch/roll negation; yaw = gimbal yaw (absolute); then CAL. Boat / buoy: yaw = `brg` (+ declination 0); then CAL. Buoy uses the same convert path as boat (identical wire shape; no separate drag physics).
 
 ## Lerp
 

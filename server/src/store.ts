@@ -35,9 +35,19 @@ function getRow(db: DatabaseSync, id: string): RaceProjectRow | undefined {
     .get(id) as RaceProjectRow | undefined
 }
 
+/** Convention label: archived projects are hidden from the default list. */
+export const ARCHIVED_LABEL = 'archived'
+
+export type ListProjectsFilter = {
+  /** Include only projects that have this label. */
+  label?: string
+  /** Drop projects that have this label (default list uses `archived`). */
+  excludeLabel?: string
+}
+
 export function listProjects(
   db: DatabaseSync,
-  labelFilter?: string,
+  filter?: string | ListProjectsFilter,
 ): ListProjection[] {
   const rows = db
     .prepare(
@@ -47,8 +57,16 @@ export function listProjects(
     .all() as RaceProjectRow[]
 
   const projections = rows.map(rowToProjection)
-  if (!labelFilter) return projections
-  return projections.filter((p) => p.labels.includes(labelFilter))
+  const opts: ListProjectsFilter =
+    typeof filter === 'string' ? { label: filter } : (filter ?? {})
+  let out = projections
+  if (opts.label) {
+    out = out.filter((p) => p.labels.includes(opts.label!))
+  }
+  if (opts.excludeLabel) {
+    out = out.filter((p) => !p.labels.includes(opts.excludeLabel!))
+  }
+  return out
 }
 
 export function getProject(

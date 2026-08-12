@@ -15,6 +15,7 @@ import {
 } from './freeCam.ts'
 import { createMap2d, type Map2dHandle } from './map2d.ts'
 import { formatPovStatus, resolvePovIdList } from './povSwitcher.ts'
+import { createStreamMap2d } from './streamMap.ts'
 
 export type TelemetryModeUi = AppConfig['telemetryMode']
 
@@ -66,8 +67,28 @@ function formatChannelCompact(
   return `${label}=${aggregate}/${ids.length}id·${withPkt}pkt`
 }
 
+/**
+ * Optional hosts when mounting into the unified ops sidebar (Phase 11.1).
+ * When omitted, HUD builds a legacy freestanding `.ops-overlay` under `container`.
+ */
+export type StubHudMountHosts = {
+  /** Race Load/Save/Pack + world-anchor origin. */
+  project: HTMLElement
+  /** Mode / POV / view / countdown / editor + stream toggles / status. */
+  ops: HTMLElement
+  /** Ops 2D map root. */
+  map: HTMLElement
+  /** Stream / PiP map host (outside the sidebar rail). */
+  streamMapHost: HTMLElement
+}
+
 export type StubHudOptions = {
   container: HTMLElement
+  /**
+   * Sidebar section hosts. Splits Project / Ops / Map DOM without changing
+   * handle/callback contracts. Stream PiP stays on `streamMapHost`.
+   */
+  hosts?: StubHudMountHosts
   initialMode?: TelemetryModeUi
   /** Invoked for mock | replay | live; caller restarts TEL ingest. */
   onModeChange?: (mode: TelemetryModeSwitchable) => void
@@ -90,11 +111,11 @@ export type StubHudOptions = {
     action: 'start' | 'pause' | 'reset' | 'restart',
   ) => void
   /**
-   * Start with world editor open (`?editor=1` or explicit).
-   * Checkbox in HUD also toggles; notifies `onEditorToggle`.
+   * Start with World Authoring open (`?editor=1` or editor-role default).
+   * Ops checkbox mirrors workspace open/close; notifies `onEditorToggle`.
    */
   editorInitiallyOpen?: boolean
-  /** Invoked when ops toggles the world editor checkbox. */
+  /** Invoked when ops toggles the authoring mirror checkbox (same state as workspace). */
   onEditorToggle?: (open: boolean) => void
   /**
    * Local RaceProject pack ids for the race picker (Phase 6.2).
@@ -113,6 +134,15 @@ export type StubHudOptions = {
    * Save as = prompt for new id + name (download + optional API POST).
    */
   onSaveAsProject?: () => void
+  /** Download offline venue pack (project + linked fixtures/assets). */
+  onDownloadVenuePack?: () => void
+  /** Load a previously downloaded `*-venue-pack.json` file. */
+  onLoadVenuePackFile?: (file: File) => void
+  /**
+   * When false (air-only LAN role), Save / Save as are disabled.
+   * Default true (editor).
+   */
+  projectWritesEnabled?: boolean
   /**
    * Initial world anchor (WGS84 lat/lon + altMsl).
    * Usually empty until boot fills via `setOrigin` after config/deeplink.
@@ -136,11 +166,15 @@ export type StubHudHandle = {
   setCourseMarks: (
     marks: readonly { name: string; x: number; z: number }[],
   ) => void
-  /** Shared ENU world features for the 2D map (marks/gates/sponsors/flags). */
+  /** Shared ENU world features for ops + stream 2D maps. */
   setLayoutFeatures: (features: readonly LayoutFeature[]) => void
   /** Ops 2D map handle (editor attaches click tools). */
   getMap: () => Map2dHandle
-  /** Sync editor checkbox without notifying (or with notify=true). */
+  /** Stream / on-air PiP map (CSS overlay; default hidden). */
+  getStreamMap: () => Map2dHandle
+  /** Sync stream-map checkbox without notifying. */
+  setStreamMapVisible: (visible: boolean) => void
+  /** Sync authoring mirror checkbox without notifying (or with notify=true). */
   setEditorOpen: (open: boolean, notify?: boolean) => void
   /** Telemetry WS / non-live connection line (Phase 3.4). */
   setConnectionStatus: (status: ConnectionStatusUi) => void
@@ -150,6 +184,8 @@ export type StubHudHandle = {
   setActiveRaceId: (raceId: string) => void
   /** Sync world-anchor fields (boot / race switch / after Apply). */
   setOrigin: (origin: ConfigOrigin) => void
+  /** Enable/disable Save + Save as (air-only → false). */
+  setProjectWritesEnabled: (enabled: boolean) => void
   stop: () => void
 }
 
@@ -177,23 +213,41 @@ export function formatConnectionStatus(status: ConnectionStatusUi): string {
 /**
  * Ops overlay: stub HUD (mode + POV + TEL counts + last ENU) and 2D fleet map.
  * Positions from poseBus only. Mode select restarts ingest via `onModeChange`.
+ * With `hosts`, Project / Ops / Map mount into sidebar sections (11.1).
  */
 export function startStubHud(options: StubHudOptions): StubHudHandle {
   const initialMode = options.initialMode ?? 'mock'
   let povIds = resolvePovIdList(options.povIds)
   let activePovId = povIds[0] ?? '1'
+  const hosts = options.hosts
 
-  const root = document.createElement('div')
-  root.className = 'ops-overlay'
-  options.container.appendChild(root)
+  /** Legacy freestanding overlay; unused when sidebar hosts are provided. */
+  let legacyRoot: HTMLElement | null = null
+  const disposableRoots: HTMLElement[] = []
 
-  const hud = document.createElement('div')
-  hud.className = 'ops-hud'
-  root.appendChild(hud)
+  const opsHud = document.createElement('div')
+  opsHud.className = 'ops-hud ops-hud--ops'
+
+  let projectHud: HTMLElement
+  if (hosts) {
+    projectHud = document.createElement('div')
+    projectHud.className = 'ops-hud ops-hud--project'
+    hosts.project.appendChild(projectHud)
+    hosts.ops.appendChild(opsHud)
+    disposableRoots.push(projectHud, opsHud)
+  } else {
+    // Legacy: one HUD stack under `.ops-overlay` (original order preserved).
+    projectHud = opsHud
+    legacyRoot = document.createElement('div')
+    legacyRoot.className = 'ops-overlay'
+    options.container.appendChild(legacyRoot)
+    legacyRoot.appendChild(opsHud)
+    disposableRoots.push(legacyRoot)
+  }
 
   const modeRow = document.createElement('div')
   modeRow.className = 'ops-hud__mode-row'
-  hud.appendChild(modeRow)
+  opsHud.appendChild(modeRow)
 
   const modeLabel = document.createElement('label')
   modeLabel.className = 'ops-hud__mode-label'
@@ -221,7 +275,7 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
 
   const povRow = document.createElement('div')
   povRow.className = 'ops-hud__mode-row'
-  hud.appendChild(povRow)
+  opsHud.appendChild(povRow)
 
   const povLabel = document.createElement('label')
   povLabel.className = 'ops-hud__mode-label'
@@ -243,7 +297,7 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
 
   const viewRow = document.createElement('div')
   viewRow.className = 'ops-hud__mode-row'
-  hud.appendChild(viewRow)
+  opsHud.appendChild(viewRow)
 
   const viewLabel = document.createElement('label')
   viewLabel.className = 'ops-hud__mode-label'
@@ -276,7 +330,7 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
 
   const countdownRow = document.createElement('div')
   countdownRow.className = 'ops-hud__mode-row'
-  hud.appendChild(countdownRow)
+  opsHud.appendChild(countdownRow)
 
   const countdownLabel = document.createElement('span')
   countdownLabel.className = 'ops-hud__mode-label'
@@ -297,30 +351,55 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
 
   const editorRow = document.createElement('div')
   editorRow.className = 'ops-hud__mode-row'
-  hud.appendChild(editorRow)
+  opsHud.appendChild(editorRow)
 
   const editorLabel = document.createElement('label')
   editorLabel.className = 'ops-hud__mode-label'
-  editorLabel.htmlFor = 'ops-world-editor'
-  editorLabel.textContent = 'editor'
+  editorLabel.htmlFor = 'ops-world-authoring'
+  editorLabel.textContent = 'authoring'
   editorRow.appendChild(editorLabel)
 
   const editorCheck = document.createElement('input')
-  editorCheck.id = 'ops-world-editor'
+  editorCheck.id = 'ops-world-authoring'
   editorCheck.type = 'checkbox'
   editorCheck.className = 'ops-hud__checkbox'
-  editorCheck.title = 'World feature editor (also ?editor=1)'
+  editorCheck.title =
+    'Mirror of World Authoring workspace (primary control: World Map → Open authoring)'
   editorCheck.checked = options.editorInitiallyOpen ?? false
   editorRow.appendChild(editorCheck)
 
   const editorHint = document.createElement('span')
   editorHint.className = 'ops-hud__mode-hint'
-  editorHint.textContent = '?editor=1'
+  editorHint.textContent = 'World Map §'
   editorRow.appendChild(editorHint)
+
+  const streamMapRow = document.createElement('div')
+  streamMapRow.className = 'ops-hud__mode-row'
+  opsHud.appendChild(streamMapRow)
+
+  const streamMapLabel = document.createElement('label')
+  streamMapLabel.className = 'ops-hud__mode-label'
+  streamMapLabel.htmlFor = 'ops-stream-map'
+  streamMapLabel.textContent = 'stream map'
+  streamMapRow.appendChild(streamMapLabel)
+
+  const streamMapCheck = document.createElement('input')
+  streamMapCheck.id = 'ops-stream-map'
+  streamMapCheck.type = 'checkbox'
+  streamMapCheck.className = 'ops-hud__checkbox'
+  streamMapCheck.title =
+    'Viewer-facing broadcast race map PiP (~520px). Default off for air clutter. Does not change NDI camera.'
+  streamMapCheck.checked = false
+  streamMapRow.appendChild(streamMapCheck)
+
+  const streamMapHint = document.createElement('span')
+  streamMapHint.className = 'ops-hud__mode-hint'
+  streamMapHint.textContent = 'broadcast PiP · off'
+  streamMapRow.appendChild(streamMapHint)
 
   const raceRow = document.createElement('div')
   raceRow.className = 'ops-hud__mode-row'
-  hud.appendChild(raceRow)
+  projectHud.appendChild(raceRow)
 
   const raceLabel = document.createElement('label')
   raceLabel.className = 'ops-hud__mode-label'
@@ -365,15 +444,56 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
     'New id + name from prompts: download project.json (+ API POST when projectsApiBase is set).'
   raceRow.appendChild(raceSaveAsBtn)
 
+  const venuePackDownloadBtn = document.createElement('button')
+  venuePackDownloadBtn.type = 'button'
+  venuePackDownloadBtn.className = 'ops-hud__btn'
+  venuePackDownloadBtn.textContent = 'Pack ↓'
+  venuePackDownloadBtn.title =
+    'Download venue pack (project.json + linked fixtures/textures) for offline / air PC'
+  raceRow.appendChild(venuePackDownloadBtn)
+
+  const venuePackFileInput = document.createElement('input')
+  venuePackFileInput.type = 'file'
+  venuePackFileInput.accept = 'application/json,.json'
+  venuePackFileInput.hidden = true
+  raceRow.appendChild(venuePackFileInput)
+
+  const venuePackLoadBtn = document.createElement('button')
+  venuePackLoadBtn.type = 'button'
+  venuePackLoadBtn.className = 'ops-hud__btn'
+  venuePackLoadBtn.textContent = 'Pack ↑'
+  venuePackLoadBtn.title =
+    'Load venue pack file (caches offline; works when /races/ or WAN is down)'
+  raceRow.appendChild(venuePackLoadBtn)
+
   const raceHint = document.createElement('span')
   raceHint.className = 'ops-hud__mode-hint'
   raceHint.textContent = 'Save=download · API optional'
   raceRow.appendChild(raceHint)
 
+  let projectWritesEnabled = options.projectWritesEnabled !== false
+
+  function applyProjectWritesEnabled(): void {
+    raceSaveBtn.disabled = !projectWritesEnabled
+    raceSaveAsBtn.disabled = !projectWritesEnabled
+    if (projectWritesEnabled) {
+      raceSaveBtn.title =
+        'Overwrite current project id: download project.json (+ API PUT when projectsApiBase is set).'
+      raceSaveAsBtn.title =
+        'New id + name from prompts: download project.json (+ API POST when projectsApiBase is set).'
+      raceHint.textContent = 'Save=download · Pack=offline'
+    } else {
+      raceSaveBtn.title = 'Air-only role — Save disabled (read/load only)'
+      raceSaveAsBtn.title = 'Air-only role — Save as disabled (read/load only)'
+      raceHint.textContent = 'air-only · Pack ok'
+    }
+  }
+  applyProjectWritesEnabled()
+
   // World anchor = Unity GeoOrigin → ENU (0,0,0).
   const originRow = document.createElement('div')
   originRow.className = 'ops-hud__mode-row'
-  hud.appendChild(originRow)
+  projectHud.appendChild(originRow)
 
   const originLabel = document.createElement('span')
   originLabel.className = 'ops-hud__mode-label'
@@ -462,13 +582,24 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
 
   const statusEl = document.createElement('pre')
   statusEl.className = 'ops-hud__status'
-  hud.appendChild(statusEl)
+  opsHud.appendChild(statusEl)
 
   const map: Map2dHandle = createMap2d({ sizePx: 240 })
-  root.appendChild(map.root)
+  const streamMap: Map2dHandle = createStreamMap2d()
+  if (hosts) {
+    hosts.map.appendChild(map.root)
+    hosts.streamMapHost.appendChild(streamMap.root)
+  } else {
+    legacyRoot!.appendChild(map.root)
+    legacyRoot!.appendChild(streamMap.root)
+  }
 
   editorCheck.addEventListener('change', () => {
     options.onEditorToggle?.(editorCheck.checked)
+  })
+
+  streamMapCheck.addEventListener('change', () => {
+    streamMap.setVisible(streamMapCheck.checked)
   })
 
   let raceIds = [...(options.raceIds ?? ['demo-istanbul'])]
@@ -519,10 +650,24 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
     }
   })
   raceSaveBtn.addEventListener('click', () => {
+    if (!projectWritesEnabled) return
     options.onSaveProject?.()
   })
   raceSaveAsBtn.addEventListener('click', () => {
+    if (!projectWritesEnabled) return
     options.onSaveAsProject?.()
+  })
+  venuePackDownloadBtn.addEventListener('click', () => {
+    options.onDownloadVenuePack?.()
+  })
+  venuePackLoadBtn.addEventListener('click', () => {
+    venuePackFileInput.value = ''
+    venuePackFileInput.click()
+  })
+  venuePackFileInput.addEventListener('change', () => {
+    const file = venuePackFileInput.files?.[0]
+    if (!file) return
+    options.onLoadVenuePackFile?.(file)
   })
 
   const counts = { drone: 0, boat: 0, stream_anchor: 0 }
@@ -585,6 +730,7 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
       lastBoatEnuById.set(pose.id, s)
     }
     map.updatePose(pose)
+    streamMap.updatePose(pose)
     renderStatus()
   }
 
@@ -682,14 +828,24 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
       renderStatus()
     },
     setCourseMarks(marks): void {
-      map.setCourseMarks(
-        marks.map((m) => ({ name: m.name, east: m.x, north: m.z })),
-      )
+      const mapped = marks.map((m) => ({
+        name: m.name,
+        east: m.x,
+        north: m.z,
+      }))
+      map.setCourseMarks(mapped)
+      streamMap.setCourseMarks(mapped)
     },
     setLayoutFeatures(features): void {
       map.setLayoutFeatures(features)
+      streamMap.setLayoutFeatures(features)
     },
     getMap: () => map,
+    getStreamMap: () => streamMap,
+    setStreamMapVisible(visible: boolean): void {
+      streamMapCheck.checked = visible
+      streamMap.setVisible(visible)
+    },
     setEditorOpen(open, notify = false): void {
       editorCheck.checked = open
       if (notify) options.onEditorToggle?.(open)
@@ -718,13 +874,18 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
       fillOriginFields(origin)
       originHint.textContent = 'ENU 0,0,0'
     },
+    setProjectWritesEnabled(enabled: boolean): void {
+      projectWritesEnabled = enabled
+      applyProjectWritesEnabled()
+    },
     stop(): void {
       window.clearInterval(refreshId)
       window.removeEventListener('keydown', onKeyDown)
       unsubPose()
       for (const u of unsubTel) u()
       map.dispose()
-      root.remove()
+      streamMap.dispose()
+      for (const el of disposableRoots) el.remove()
     },
   }
 }

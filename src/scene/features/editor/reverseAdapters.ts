@@ -94,7 +94,10 @@ export function featuresToSponsorsData(
         a: { lat: a.lat, lon: a.lon, altMsl: a.altMsl },
         b: { lat: b.lat, lon: b.lon, altMsl: b.altMsl },
         heightM: f.heightM ?? DEFAULT_SPONSOR_HEIGHT_M,
-        textureUrl: null as string | null,
+        textureUrl:
+          typeof f.textureUrl === 'string' && f.textureUrl.trim() !== ''
+            ? f.textureUrl.trim()
+            : null,
         color: f.color ?? DEFAULT_SPONSOR_COLOR,
       }
     })

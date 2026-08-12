@@ -1,10 +1,13 @@
 /**
- * RaceProject types (PLT + SCN).
+ * RaceProject types (PLT + SCN + CAL soft calib).
  * Contract: `docs/contracts/race-project.md`.
  * Feature shape matches editor export `WorldFeature` (`src/scene/features`).
  */
 
+import type { RaceProjectCalibration } from '../calibration/projectCalibration.ts'
 import type { WorldFeature } from '../scene/features/types.ts'
+
+export type { RaceProjectCalibration }
 
 export type RaceProjectOrigin = {
   lat: number
@@ -16,6 +19,21 @@ export type RaceProjectFleet = {
   boatIds: string[]
   /** Boat name/colour catalogue JSON URL. */
   boatNamesUrl?: string
+  /**
+   * Soft optional per-boat draw mode (`solid` | `ghost` | `hidden`).
+   * Omitted ids default to solid; unknown mode strings are dropped at parse.
+   */
+  boatVisibility?: Record<string, 'solid' | 'ghost' | 'hidden'>
+  /**
+   * Soft optional per-boat 2D map-dot visibility (SCN 11.7).
+   * `false` = hide map icon; omit / true → show. Independent of boatVisibility.
+   */
+  boatMapVisible?: Record<string, boolean>
+  /**
+   * Soft optional per-POV 2D map-dot visibility (SCN 11.7).
+   * `false` = hide; omit / true → show.
+   */
+  povMapVisible?: Record<string, boolean>
 }
 
 export type RaceProjectOutputDefaults = {
@@ -51,6 +69,11 @@ export type RaceProject = {
   flagsUrl?: string
   replayUrl?: string
   output?: RaceProjectOutputDefaults
+  /**
+   * Soft optional per-POV calibration offsets (CAL).
+   * Omit when empty; old packs without this field still parse.
+   */
+  calibration?: RaceProjectCalibration
 }
 
 export type { WorldFeature }

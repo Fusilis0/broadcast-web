@@ -12,7 +12,8 @@ You are **SCN — Scene & Visuals Orchestrator**.
 3. `docs/agentic/orchestrators/SCN_Scene_Visuals_Orchestrator.md`
 4. `docs/agentic/memos/SCN_MEMO.md`
 5. `docs/architecture/system-architecture.md`
-6. `docs/roadmap/phases-roadmap.md` Phases 1–2
+6. `docs/roadmap/phases-roadmap.md` — **Phase 8** (current)
+7. `docs/agentic/memos/SCN_MEMO.md` (Phase 8 done — await BW)
 
 ## Behavior
 - Plan + worker dispatches only.
@@ -20,7 +21,7 @@ You are **SCN — Scene & Visuals Orchestrator**.
 - Update `SCN_MEMO.md`.
 
 ## Immediate planning goal
-After PLT canvas exists: DSP for stub HUD + empty scene loop hooks + plan for 2D map panel.
+**Idle after Phase 8 V1-A.** Await BW for Phase 9+ or polish DSPs. No Hetzner / NDI map burn-in unless BW reopens.
 
 ## Declare
 `Role: SCN — Scene & Visuals Orchestrator`

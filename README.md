@@ -4,12 +4,13 @@ Browser-based Three.js AR overlay for maritime race broadcast. Runs **beside** t
 
 | | |
 | --- | --- |
-| **Runtime** | Browser SPA today; optional **Electron** later for owned NDI |
+| **Runtime** | Browser SPA + **Electron** studio (alpha NDI) |
 | **Stack** | Vite · TypeScript · Three.js |
-| **Air path** | Chroma → vMix first; **NDI camera view = optimum** (Electron / native helper / third-party); WHEP underlay + SRT/WebRTC as needed |
-| **Projects** | Static packs under `public/races/` + optional API stub (`server/`, `projectsApiBase`) — load via `?race=` |
-| **Host** | Hetzner (or any) static SPA — see [Deploy](#deploy); API ops: [`docs/ops/projects-api.md`](./docs/ops/projects-api.md) |
-| **Unity sibling** | `../broadcast` (telemetry contracts, assets, analysis) |
+| **Air path (v1)** | **Electron alpha NDI** preferred; chroma = fallback; WHEP underlay as needed |
+| **Projects** | Static packs under `public/races/` + local API stub (`server/`) — Save as / `?race=` |
+| **Host (v1)** | **Local studio** (no cloud required). Public host/Hetzner = Phase 12 deferred |
+| **Unity sibling** | `../broadcast` (telemetry contracts, assets) — cutover = Phase 10 |
+| **Roadmap** | [`docs/roadmap/phases-roadmap.md`](./docs/roadmap/phases-roadmap.md) — next: **Phase 8 visuals** |
 
 ## Start here (humans & agents)
 
@@ -18,7 +19,7 @@ Browser-based Three.js AR overlay for maritime race broadcast. Runs **beside** t
 | [`docs/agentic/README.md`](./docs/agentic/README.md) | Agentic operating system overview |
 | [`docs/architecture/system-architecture.md`](./docs/architecture/system-architecture.md) | Full system architecture |
 | [`docs/architecture/race-projects-and-world-authoring.md`](./docs/architecture/race-projects-and-world-authoring.md) | Race projects, map editor, shared 3D/2D, NDI options |
-| [`docs/roadmap/phases-roadmap.md`](./docs/roadmap/phases-roadmap.md) | Phased roadmap (incl. Phase 6 projects, Phase 7 NDI) |
+| [`docs/roadmap/phases-roadmap.md`](./docs/roadmap/phases-roadmap.md) | Living roadmap (v1 = local studio → Phase 8 visuals) |
 | [`docs/agentic/ORCHESTRATORS.md`](./docs/agentic/ORCHESTRATORS.md) | Orchestrator registry (full names) |
 | [`docs/agentic/dispatches/`](./docs/agentic/dispatches/) | Paste-ready session bootstrap dispatches |
 

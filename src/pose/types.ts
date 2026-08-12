@@ -1,6 +1,6 @@
 /** Pose bus DTOs — ENU meters for SCN (no scene graph). */
 
-export type PoseKind = 'drone' | 'boat'
+export type PoseKind = 'drone' | 'boat' | 'buoy'
 
 /** ENU meters: x=East, y=Up, z=North. */
 export type EnuPosition = {

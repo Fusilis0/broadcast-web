@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   DEFAULT_BOAT_IDS,
+  DEFAULT_BUOY_IDS,
   DEFAULT_POV_IDS,
   normalizeBoatIds,
+  normalizeBuoyIds,
   normalizeConfig,
   normalizePovIds,
 } from './loadConfig.ts'
@@ -99,6 +101,48 @@ describe('normalizeConfig povIds', () => {
   it('defaults povIds when absent', () => {
     const cfg = normalizeConfig({})
     expect(cfg.povIds).toEqual([...DEFAULT_POV_IDS])
+  })
+})
+
+describe('normalizeBuoyIds', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('returns empty when missing', () => {
+    expect(normalizeBuoyIds(undefined)).toEqual([...DEFAULT_BUOY_IDS])
+    expect(normalizeBuoyIds(null)).toEqual([])
+  })
+
+  it('keeps free-form ids (no boat band filter)', () => {
+    expect(normalizeBuoyIds(['91', 'mark-a'])).toEqual(['91', 'mark-a'])
+  })
+
+  it('preserves explicit empty array', () => {
+    expect(normalizeBuoyIds([])).toEqual([])
+  })
+
+  it('dedupes and drops empty / non-string', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    expect(normalizeBuoyIds(['91', '', '91', 7 as unknown as string])).toEqual([
+      '91',
+    ])
+    expect(warn).toHaveBeenCalled()
+  })
+})
+
+describe('normalizeConfig buoyIds', () => {
+  it('exposes buoyIds on AppConfig', () => {
+    const cfg = normalizeConfig({
+      telemetryMode: 'mock',
+      buoyIds: ['91'],
+    })
+    expect(cfg.buoyIds).toEqual(['91'])
+  })
+
+  it('defaults buoyIds to empty when absent', () => {
+    const cfg = normalizeConfig({})
+    expect(cfg.buoyIds).toEqual([])
   })
 })
 

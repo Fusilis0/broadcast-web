@@ -7,11 +7,37 @@
 import { DEFAULT_LIVE_WS_BASE, stripLiveWsId } from '../telemetry/liveWsUrl.ts'
 import type { LiveStatusSnapshot } from '../telemetry/liveSource.ts'
 import type { OpsViewMode } from './freeCam.ts'
+import {
+  DEFAULT_BOAT_VISIBILITY_MODE,
+  normalizeBoatVisibilityMode,
+  type BoatVisibilityMode,
+} from './boatVisibility.ts'
 
 export type FleetBoatRow = {
   id: string
   name: string
   category: string
+  /**
+   * Air/ops draw mode — session-persisted; default `solid`.
+   * `ghost` = translucent hull + ring; `hidden` = no 3D hull/tag (map still tracks).
+   */
+  visibility?: BoatVisibilityMode
+  /**
+   * 2D map icon visibility (SCN 11.7). Default true when omitted.
+   * Independent of `visibility` (ghost/hidden still track on map unless false).
+   */
+  mapVisible?: boolean
+  /**
+   * Map-placed approximate GPS until live telemetry overrides (session only).
+   */
+  plannedLat?: number
+  plannedLon?: number
+}
+
+export type FleetPlannedPov = {
+  id: string
+  plannedLat: number
+  plannedLon: number
 }
 
 export type FleetLivePanelState = {
@@ -27,6 +53,8 @@ export type FleetLivePanelState = {
   enabledPovIds: string[]
   boats: FleetBoatRow[]
   activePovId: string
+  /** Map-placed drone/POV GPS hints (session). */
+  plannedPovs?: FleetPlannedPov[]
 }
 
 export type FleetLivePanelOptions = {
@@ -37,6 +65,11 @@ export type FleetLivePanelOptions = {
     povIds: string[]
     boats: FleetBoatRow[]
   }) => void
+  /** Fired when a boat visibility mode changes (immediate, no Save click). */
+  onBoatVisibilityChange?: (
+    id: string,
+    mode: BoatVisibilityMode,
+  ) => void
   onPovChange: (povId: string) => void
   /** Ops preview Free cam | Follow — does not change active POV / air. */
   onOpsViewChange?: (mode: OpsViewMode) => void
@@ -63,6 +96,25 @@ export type FleetLivePanelHandle = {
   setOpsViewMode: (mode: OpsViewMode) => void
   /** Per-id socket + last-packet ages from TEL live ingest. */
   setLiveStatus: (status: LiveStatusSnapshot | null) => void
+  /**
+   * Programmatic add from World Map place-boat tool.
+   * Optional planned GPS seeds the 2D map until live pose arrives.
+   */
+  addBoat: (input: {
+    id: string
+    name?: string
+    category?: string
+    plannedLat?: number
+    plannedLon?: number
+  }) => void
+  /** Programmatic add from World Map place-drone tool. */
+  addDrone: (input: {
+    id: string
+    plannedLat?: number
+    plannedLon?: number
+  }) => void
+  /** Expand panel and flash a boat row (Assets Details deep-link). */
+  highlightBoat: (id: string) => void
   stop: () => void
 }
 
@@ -97,6 +149,7 @@ export function saveFleetLiveToSession(state: FleetLivePanelState): void {
         enabledPovIds: state.enabledPovIds,
         boats: state.boats,
         activePovId: state.activePovId,
+        plannedPovs: state.plannedPovs,
       }),
     )
   } catch {
@@ -126,6 +179,28 @@ function defaultBase(url: string): string {
   return stripped !== '' ? stripped : DEFAULT_LIVE_WS_BASE
 }
 
+function normalizeFleetBoatRow(row: FleetBoatRow): FleetBoatRow {
+  const out: FleetBoatRow = {
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    visibility: normalizeBoatVisibilityMode(
+      row.visibility ?? DEFAULT_BOAT_VISIBILITY_MODE,
+    ),
+  }
+  if (row.mapVisible === false) out.mapVisible = false
+  if (
+    typeof row.plannedLat === 'number' &&
+    Number.isFinite(row.plannedLat) &&
+    typeof row.plannedLon === 'number' &&
+    Number.isFinite(row.plannedLon)
+  ) {
+    out.plannedLat = row.plannedLat
+    out.plannedLon = row.plannedLon
+  }
+  return out
+}
+
 function fmtPktAge(ageMs: number | null): string {
   if (ageMs === null) return 'nopkt'
   if (ageMs < 1000) return `${Math.round(ageMs)}ms`
@@ -152,8 +227,9 @@ export function startFleetLivePanel(
       initBoats,
     ),
     enabledPovIds: clampEnabled(options.initial.enabledPovIds ?? [], initPovs),
-    boats: options.initial.boats.map((b) => ({ ...b })),
+    boats: options.initial.boats.map((b) => normalizeFleetBoatRow(b)),
     activePovId: options.initial.activePovId,
+    plannedPovs: (options.initial.plannedPovs ?? []).map((p) => ({ ...p })),
   }
 
   let liveStatus: LiveStatusSnapshot | null = null
@@ -247,70 +323,39 @@ export function startFleetLivePanel(
   boatAddRow.append(boatIdIn, boatNameIn, boatCatIn, boatAddBtn)
   boatSec.appendChild(boatAddRow)
 
-  // —— Ops view (preview vs air) ——
+  // —— Ops preview helpers (Free/Follow live in Ops sidebar section — 11.1) ——
   let opsViewMode: OpsViewMode = options.opsViewMode ?? 'follow'
   const viewSec = document.createElement('section')
   viewSec.className = 'fleet-live__section'
-  viewSec.appendChild(sectionTitle('Ops view (preview)'))
+  viewSec.appendChild(sectionTitle('Ops preview'))
   body.appendChild(viewSec)
 
   const viewRow = document.createElement('div')
   viewRow.className = 'fleet-live__row'
-  const followBtn = document.createElement('button')
-  followBtn.type = 'button'
-  followBtn.className = 'fleet-live__btn'
-  followBtn.textContent = 'Follow POV'
-  followBtn.title = 'On-screen preview follows active air POV'
-  const freeBtn = document.createElement('button')
-  freeBtn.type = 'button'
-  freeBtn.className = 'fleet-live__btn'
-  freeBtn.textContent = 'Free cam'
-  freeBtn.title =
-    'Orbit/pan/zoom the world. Does not change active POV / NDI air cam.'
   const frameBtn = document.createElement('button')
   frameBtn.type = 'button'
   frameBtn.className = 'fleet-live__btn fleet-live__btn--primary'
   frameBtn.textContent = 'Frame boats'
   frameBtn.title =
     'Free cam → look at live boat meshes. If empty, wait for packets or Apply origin near the boat GPS.'
-  viewRow.append(followBtn, freeBtn, frameBtn)
+  viewRow.append(frameBtn)
   viewSec.appendChild(viewRow)
 
   const viewHint = document.createElement('div')
   viewHint.className = 'fleet-live__hint'
   viewHint.textContent =
-    'Air/NDI = active POV. Distant boats: Frame boats, or Apply origin near their GPS.'
+    'Free/Follow: Ops section. Air/NDI = active POV. Distant boats: Frame boats, or Apply origin near their GPS.'
   viewSec.appendChild(viewHint)
 
   frameBtn.addEventListener('click', () => {
     options.onFrameFleet?.()
   })
 
-  function syncOpsViewButtons(): void {
-    followBtn.classList.toggle(
-      'fleet-live__btn--active',
-      opsViewMode === 'follow',
-    )
-    freeBtn.classList.toggle('fleet-live__btn--active', opsViewMode === 'free')
-  }
-
   function applyOpsView(mode: OpsViewMode, notify: boolean): void {
-    if (mode === opsViewMode) {
-      syncOpsViewButtons()
-      return
-    }
+    if (mode === opsViewMode) return
     opsViewMode = mode
-    syncOpsViewButtons()
     if (notify) options.onOpsViewChange?.(mode)
   }
-
-  followBtn.addEventListener('click', () => {
-    applyOpsView('follow', true)
-  })
-  freeBtn.addEventListener('click', () => {
-    applyOpsView('free', true)
-  })
-  syncOpsViewButtons()
 
   // —— Drones ——
   const povSec = document.createElement('section')
@@ -394,8 +439,15 @@ export function startFleetLivePanel(
   function ensureBoatRow(id: string): FleetBoatRow {
     let row = state.boats.find((b) => b.id === id)
     if (!row) {
-      row = { id, name: id, category: '' }
+      row = {
+        id,
+        name: id,
+        category: '',
+        visibility: DEFAULT_BOAT_VISIBILITY_MODE,
+      }
       state.boats.push(row)
+    } else if (row.visibility === undefined) {
+      row.visibility = DEFAULT_BOAT_VISIBILITY_MODE
     }
     return row
   }
@@ -442,6 +494,7 @@ export function startFleetLivePanel(
       const row = ensureBoatRow(id)
       const el = document.createElement('div')
       el.className = 'fleet-live__edit-row'
+      el.dataset.fleetBoatId = id
 
       const en = document.createElement('input')
       en.type = 'checkbox'
@@ -471,6 +524,26 @@ export function startFleetLivePanel(
       catIn.value = row.category
       catIn.title = 'Category (colour keyword)'
 
+      const visSel = document.createElement('select')
+      visSel.className = 'fleet-live__input fleet-live__vis'
+      visSel.title =
+        'solid = full hull · ghost = translucent + ring · hidden = no 3D (map still tracks)'
+      for (const mode of ['solid', 'ghost', 'hidden'] as const) {
+        const opt = document.createElement('option')
+        opt.value = mode
+        opt.textContent = mode
+        visSel.appendChild(opt)
+      }
+      visSel.value = normalizeBoatVisibilityMode(row.visibility)
+      visSel.addEventListener('change', () => {
+        const mode = normalizeBoatVisibilityMode(visSel.value)
+        row.visibility = mode
+        persist()
+        options.onBoatVisibilityChange?.(id, mode)
+        emitFleet()
+        statusEl.textContent = `Boat ${id} → ${mode}`
+      })
+
       const sock = document.createElement('span')
       sock.className = 'fleet-live__sock'
       sock.textContent = liveHintFor('boat', id)
@@ -486,6 +559,7 @@ export function startFleetLivePanel(
           return
         }
         const oldId = row.id
+        const visibility = normalizeBoatVisibilityMode(visSel.value)
         if (newId !== oldId) {
           if (state.boatIds.includes(newId)) {
             statusEl.textContent = `Boat ${newId} already exists`
@@ -497,11 +571,12 @@ export function startFleetLivePanel(
           )
           state.boats = state.boats.filter((b) => b.id !== oldId)
         }
-        const next = {
+        const next = normalizeFleetBoatRow({
           id: newId,
           name: nameIn.value.trim() || newId,
           category: catIn.value.trim(),
-        }
+          visibility,
+        })
         const idx = state.boats.findIndex((b) => b.id === newId)
         if (idx >= 0) state.boats[idx] = next
         else state.boats.push(next)
@@ -509,6 +584,7 @@ export function startFleetLivePanel(
         setEnabledBoat(newId, true)
         renderBoats()
         emitFleet()
+        options.onBoatVisibilityChange?.(newId, visibility)
         statusEl.textContent = `Boat ${newId} updated (Live on)`
       })
 
@@ -524,7 +600,7 @@ export function startFleetLivePanel(
         emitFleet()
       })
 
-      el.append(en, idIn, nameIn, catIn, sock, saveBtn, rm)
+      el.append(en, idIn, nameIn, catIn, visSel, sock, saveBtn, rm)
       boatList.appendChild(el)
     }
   }
@@ -630,7 +706,12 @@ export function startFleetLivePanel(
     const name = boatNameIn.value.trim() || id
     const category = boatCatIn.value.trim()
     const existing = state.boats.findIndex((b) => b.id === id)
-    const row = { id, name, category }
+    const row = normalizeFleetBoatRow({
+      id,
+      name,
+      category,
+      visibility: state.boats[existing]?.visibility,
+    })
     if (existing >= 0) state.boats[existing] = row
     else state.boats.push(row)
     setEnabledBoat(id, true)
@@ -721,10 +802,13 @@ export function startFleetLivePanel(
         )
       }
       if (partial.boats !== undefined) {
-        state.boats = partial.boats.map((b) => ({ ...b }))
+        state.boats = partial.boats.map((b) => normalizeFleetBoatRow(b))
       }
       if (partial.activePovId !== undefined) {
         state.activePovId = partial.activePovId
+      }
+      if (partial.plannedPovs !== undefined) {
+        state.plannedPovs = partial.plannedPovs.map((p) => ({ ...p }))
       }
       syncInputsFromState()
       renderBoats()
@@ -739,6 +823,7 @@ export function startFleetLivePanel(
       enabledPovIds: [...state.enabledPovIds],
       boats: state.boats.map((b) => ({ ...b })),
       activePovId: state.activePovId,
+      plannedPovs: (state.plannedPovs ?? []).map((p) => ({ ...p })),
     }),
     setStatus(msg): void {
       statusEl.textContent = msg
@@ -750,6 +835,79 @@ export function startFleetLivePanel(
       liveStatus = status
       renderBoats()
       renderPovs()
+    },
+    addBoat(input): void {
+      const id = input.id.trim()
+      if (id === '') {
+        statusEl.textContent = 'Boat id required'
+        return
+      }
+      if (!state.boatIds.includes(id)) state.boatIds.push(id)
+      const existing = state.boats.findIndex((b) => b.id === id)
+      const row = normalizeFleetBoatRow({
+        id,
+        name: input.name?.trim() || state.boats[existing]?.name || id,
+        category:
+          input.category?.trim() || state.boats[existing]?.category || '',
+        visibility: state.boats[existing]?.visibility,
+        plannedLat: input.plannedLat ?? state.boats[existing]?.plannedLat,
+        plannedLon: input.plannedLon ?? state.boats[existing]?.plannedLon,
+      })
+      if (existing >= 0) state.boats[existing] = row
+      else state.boats.push(row)
+      setEnabledBoat(id, true)
+      renderBoats()
+      emitFleet()
+      persist()
+      statusEl.textContent = `Boat ${id} added from map`
+    },
+    addDrone(input): void {
+      const id = input.id.trim()
+      if (id === '') {
+        statusEl.textContent = 'Drone id required'
+        return
+      }
+      if (!state.povIds.includes(id)) state.povIds.push(id)
+      setEnabledPov(id, true)
+      if (
+        typeof input.plannedLat === 'number' &&
+        typeof input.plannedLon === 'number'
+      ) {
+        const list = state.plannedPovs ?? []
+        const idx = list.findIndex((p) => p.id === id)
+        const entry = {
+          id,
+          plannedLat: input.plannedLat,
+          plannedLon: input.plannedLon,
+        }
+        if (idx >= 0) list[idx] = entry
+        else list.push(entry)
+        state.plannedPovs = list
+      }
+      renderPovs()
+      emitFleet()
+      persist()
+      statusEl.textContent = `Drone ${id} added from map`
+    },
+    highlightBoat(id): void {
+      const trimmed = id.trim()
+      if (collapsed) {
+        collapsed = false
+        body.hidden = false
+        header.textContent = 'Fleet / Live ▾'
+      }
+      renderBoats()
+      const row = boatList.querySelector(
+        `[data-fleet-boat-id="${CSS.escape(trimmed)}"]`,
+      ) as HTMLElement | null
+      if (row) {
+        row.classList.add('fleet-live__edit-row--flash')
+        row.scrollIntoView({ block: 'nearest' })
+        window.setTimeout(() => {
+          row.classList.remove('fleet-live__edit-row--flash')
+        }, 1600)
+      }
+      statusEl.textContent = `Boat ${trimmed} — edit name/category here`
     },
     stop(): void {
       root.remove()

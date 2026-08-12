@@ -6,10 +6,10 @@ Owned by **TEL**. WebSocket-shaped ingest: DTOs, JSON router, mock / replay / li
 
 | File | Role |
 | --- | --- |
-| `types.ts` | Wire DTOs (`TelemetryData`, `BoatTelemetry`, `StreamAnchorMessage`) |
+| `types.ts` | Wire DTOs (`TelemetryData`, `BoatTelemetry`, `BuoyTelemetry` (= boat shape), `StreamAnchorMessage`) |
 | `boatToStandardTelemetry.ts` | Boat → standard pose mapping (Unity `ToStandardTelemetry` parity) |
 | `router.ts` | `classify` / `tryParseStreamAnchor` (Unity `TelemetryWsJsonRouter`) |
-| `mockSource.ts` | Interval mock: one drone packet per `povIds`, one boat per `boatIds`, periodic `stream_anchor` (`povIds[0]`) |
+| `mockSource.ts` | Interval mock: one drone per `povIds`, one boat per `boatIds`, one buoy per `buoyIds`, periodic `stream_anchor` (`povIds[0]`) |
 | `replayFixture.ts` | Fixture v1 types + `parseReplayFixture` / `loadReplayFixture` |
 | `replaySource.ts` | Timer playback of a fixture onto `ingestPacket` |
 | `liveSource.ts` | Browser WebSocket client(s) for live mode (drone + optional boat) |
@@ -25,9 +25,21 @@ Subscribe via `telemetryBus.on(event, handler)` or the bus returned by `startTel
 | --- | --- |
 | `drone` | `TelemetryData` |
 | `boat` | `BoatTelemetry` |
+| `buoy` | `BuoyTelemetry` (= `BoatTelemetry` wire shape; own id namespace) |
 | `stream_anchor` | `StreamAnchorMessage` |
 
 Boat vs drone for non-anchor pose JSON is decided by **source/channel context**, not by a `type` field (same as Unity).
+
+### Buoy classification rule
+
+Buoys reuse the **boat GPS packet** — no new wire format and **no drag physics** in TEL (motion is telemetry-driven only).
+
+| Path | How it becomes `buoy` |
+| --- | --- |
+| Mock / replay | `channel: "buoy"` + boat-shaped JSON |
+| Live (boat WS) | Boat-shaped frame on `channel: "boat"` whose `id` ∈ `buoyIds` allow-list |
+
+Empty / absent `buoyIds` → **no buoy channel** (no sockets, no mock emit). Keep buoy ids **disjoint** from `boatIds`.
 
 ## Config
 
@@ -42,6 +54,7 @@ Boat vs drone for non-anchor pose JSON is decided by **source/channel context**,
 | `wsBoatUrl` | Boat **base** live WebSocket (no `id`). Live opens one socket per registered id |
 | `boatIds` | `string[]` boat channel ids (default `["21","22","23","24"]`; band `21–52`) |
 | `povIds` | `string[]` POV / drone+cam ids (default `["1","2"]`; bands `1–4` ∪ `11–12`) |
+| `buoyIds` | `string[]` buoy telemetry ids (default `[]` = off). Demo mock: `["91"]`. No shared band with boats — do not collide with `boatIds` |
 
 ### `boatIds` (SCN consumers)
 
@@ -58,14 +71,23 @@ Boat vs drone for non-anchor pose JSON is decided by **source/channel context**,
 - Passed into `startTelemetryIngest({ povIds })` like `boatIds`.
 - **No Three camera / HUD POV switch in TEL** — that is SCN (`DSP-SCN-20260727-03`).
 - **Live:** Fleet / Live panel stores **base** URLs; ingest builds `base?type=client&subscribe=<id>` for each **enabled** `povIds` / `boatIds` entry (one socket per enabled id). Producer URLs (`type=drone&id=`) do **not** deliver telemetry to the SPA. Registry defaults (`21–24` / `1–2`) stay for mock/scene — they do **not** auto-open live sockets. Empty enabled lists → no sockets for that channel (no legacy base-only fallback).
+- **Buoys (live):** same boat WS base; subscribe ids = `boatIds ∪ buoyIds`. Frames whose `id` ∈ `buoyIds` emit bus `buoy` (not `boat`).
+
+### `buoyIds` (TEL + future SCN bind)
+
+- Mock emits **one `buoy` bus event per id** each pose tick when the list is non-empty (`channel: "buoy"`, `BuoyTelemetry` = boat shape).
+- Empty / omitted → no buoy packets (backward compatible).
+- Local demo: set `"buoyIds": ["91"]` in `public/config.json` (suggested `MOCK_BUOY_ID`).
+- Passed into `startTelemetryIngest({ buoyIds })` like `boatIds`.
+- **No buoy placement UI / live-bind picker in TEL** — that is SCN (`DSP-SCN-20260811-02` / `-03`).
 
 ### Modes
 
-- **mock** — `MockTelemetrySource` with multi-id POVs from `povIds` + boats from `boatIds`.
-- **replay** — fetch `replayUrl`, validate v1, play via timers onto `ingestPacket` (fixtures may carry multiple drone/boat ids). **Looping** is controlled by fixture `loop` (committed samples: `true`); optional `replayLoop` in config / `startTelemetryIngest` overrides. HUD mock↔replay↔live calls `stop()` then a fresh ingest — timers/sockets do not leak.
+- **mock** — `MockTelemetrySource` with multi-id POVs from `povIds` + boats from `boatIds` + optional buoys from `buoyIds`.
+- **replay** — fetch `replayUrl`, validate v1, play via timers onto `ingestPacket` (fixtures may carry multiple drone/boat/buoy ids). **Looping** is controlled by fixture `loop` (committed samples: `true`); optional `replayLoop` in config / `startTelemetryIngest` overrides. HUD mock↔replay↔live calls `stop()` then a fresh ingest — timers/sockets do not leak.
 - **live** — base `wsUrl` / `wsBoatUrl` + **enabled** ids → one WebSocket per enabled id; text frames → `ingestPacket` by channel. Handshake (`open`) ≠ data flowing — see per-id `lastPacketAgeMs`.
 
-If `/config.json` fetch fails, mode defaults to `mock`, `boatIds` to the four-id default, and `povIds` to `["1","2"]`.
+If `/config.json` fetch fails, mode defaults to `mock`, `boatIds` to the four-id default, `povIds` to `["1","2"]`, and `buoyIds` to `[]`.
 
 ### Live reconnect (capped exponential backoff)
 
@@ -179,7 +201,7 @@ JSON only (not binary), served from `public/`. Shape:
 | `loop` | `true` restarts after the last `t_ms`; `false` plays once then `ended`. Committed samples use `true`. Optional config / ingest `replayLoop` overrides this |
 | `packets` | Non-empty array |
 | `t_ms` | ms from replay start; finite ≥ 0; monotonic non-decreasing |
-| `channel` | `"drone"` \| `"boat"` (connection context, same as mock) |
+| `channel` | `"drone"` \| `"boat"` \| `"buoy"` (connection context; buoy = boat-shaped payload) |
 | `payload` | Object matching wire DTOs — drone pose, boat, or `stream_anchor` |
 
 Replay serializes each `payload` → JSON text and feeds `ingestPacket`, so the router / `stream_anchor` path stays real. A live→fixture recorder is **not** implemented here.
@@ -215,6 +237,7 @@ Must succeed with no TypeScript errors; Vitest covers fixture parse/playback and
 
 - POVs / drones+cams: configured `povIds` (default `"1"`, `"2"`; bands `1–4` ∪ `11–12`). Legacy export `MOCK_DRONE_ID === "1"` remains for single-id callers; prefer `povIds[0]` / configured list.
 - Boats: configured `boatIds` (default `"21"`…`"24"`). Legacy export `MOCK_BOAT_ID === "21"` remains for single-id callers; prefer `boatIds[0]` / configured list.
+- Buoys: configured `buoyIds` (default none). Suggested demo `MOCK_BUOY_ID === "91"`. Own namespace — must not collide with race boat ids.
 - Pilots `81–84`: out of scope
 
 ## Out of this module (other orchestrators)

@@ -35,6 +35,8 @@ const WORLD_TYPES = new Set<string>([
   'finish',
   'arrow',
   'rotation',
+  'buoy',
+  'billboardChain',
 ])
 
 const POINT_TYPES = new Set<WorldFeatureType>([
@@ -45,6 +47,7 @@ const POINT_TYPES = new Set<WorldFeatureType>([
   'flagP2',
   'arrow',
   'rotation',
+  'buoy',
 ])
 
 /**
@@ -123,11 +126,14 @@ function worldFeatureToGeoJsonFeature(f: WorldFeature): GeoJsonFeature {
     props.color = `#${f.color.toString(16).padStart(6, '0')}`
   }
   if (f.label !== undefined) props.label = f.label
+  if (f.textureUrl !== undefined) props.textureUrl = f.textureUrl
+  if (f.spacingM !== undefined) props.spacingM = f.spacingM
+  if (f.telemetryId !== undefined) props.telemetryId = f.telemetryId
 
   const coords = f.points.map(pointToPosition)
   let geometry: GeoJsonGeometry
 
-  if (f.type === 'sponsor') {
+  if (f.type === 'sponsor' || f.type === 'billboardChain') {
     geometry = { type: 'LineString', coordinates: coords }
   } else if (
     (f.type === 'start' || f.type === 'finish') &&
@@ -239,15 +245,23 @@ function convertOneFeature(
       return null
     }
     points = [p]
-  } else if (type === 'sponsor') {
+  } else if (type === 'sponsor' || type === 'billboardChain') {
     if (geometry.type !== 'LineString') {
       console.warn(
-        `[geojson] skip #${index}: sponsor requires LineString (A–B)`,
+        `[geojson] skip #${index}: ${type} requires LineString`,
       )
       return null
     }
     const line = readLineStringCoords(geometry.coordinates, defaultAlt)
-    if (!line || line.length !== 2) {
+    const minPts = type === 'billboardChain' ? 2 : 2
+    const maxPts = type === 'billboardChain' ? 64 : 2
+    if (!line || line.length < minPts || line.length > maxPts) {
+      console.warn(
+        `[geojson] skip #${index}: ${type} LineString needs ${minPts}–${maxPts} positions`,
+      )
+      return null
+    }
+    if (type === 'sponsor' && line.length !== 2) {
       console.warn(
         `[geojson] skip #${index}: sponsor LineString must have exactly 2 positions`,
       )
@@ -292,14 +306,34 @@ function convertOneFeature(
 
 function optionalProps(
   props: Record<string, unknown>,
-): Pick<WorldFeature, 'heightM' | 'color' | 'label'> {
-  const out: Pick<WorldFeature, 'heightM' | 'color' | 'label'> = {}
+): Pick<
+  WorldFeature,
+  'heightM' | 'color' | 'label' | 'textureUrl' | 'spacingM' | 'telemetryId'
+> {
+  const out: Pick<
+    WorldFeature,
+    'heightM' | 'color' | 'label' | 'textureUrl' | 'spacingM' | 'telemetryId'
+  > = {}
   const heightM = readNumber(props.heightM)
   if (heightM !== undefined) out.heightM = heightM
   const color = readColor(props.color)
   if (color !== undefined) out.color = color
   const label = readString(props.label)
   if (label !== undefined) out.label = label
+  if (typeof props.textureUrl === 'string') {
+    const t = props.textureUrl.trim()
+    out.textureUrl = t === '' ? null : t
+  } else if (props.textureUrl === null) {
+    out.textureUrl = null
+  }
+  const spacingM = readNumber(props.spacingM)
+  if (spacingM !== undefined && spacingM > 0) out.spacingM = spacingM
+  if (typeof props.telemetryId === 'string') {
+    const t = props.telemetryId.trim()
+    out.telemetryId = t === '' ? null : t
+  } else if (props.telemetryId === null) {
+    out.telemetryId = null
+  }
   return out
 }
 

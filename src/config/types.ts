@@ -36,6 +36,12 @@ export type AppConfig = {
    * Wire remains `channel: "drone"` + `TelemetryData.id` ∈ this list.
    */
   povIds: string[]
+  /**
+   * Buoy telemetry ids (boat-shaped packets, own bus/pose kind).
+   * Default `[]` — empty/absent opens no buoy channel. No shared band with
+   * `boatIds`; keep namespaces disjoint. Local mock demo: `["91"]`.
+   */
+  buoyIds: string[]
   origin: ConfigOrigin
   /** Drone relative→HAE bridge (Unity `WorldAnchorManager.takeoffAltitudeMSL`). Default 0. */
   takeoffAltitudeMSL: number

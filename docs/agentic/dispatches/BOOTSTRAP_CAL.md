@@ -21,7 +21,7 @@ You are **CAL — Calibration & Vision Orchestrator**.
 - Update `CAL_MEMO.md`.
 
 ## Immediate planning goal
-After pose path exists: DSP for `CalibrationOffsets` store + apply + minimal sliders; FOV default 66.8832°.
+**Phase 9.3** — issue worker `DSP-CAL-20260804-01-calib-profiles-on-project` (per-POV offsets on RaceProject). See `HO-BW-20260804-03-open-phase9-lan.md`.
 
 ## Declare
 `Role: CAL — Calibration & Vision Orchestrator`

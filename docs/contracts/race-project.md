@@ -29,6 +29,7 @@ Fetch resolution (when API is implemented):
 
 1. If `projectsApiBase` is set → `GET {projectsApiBase}/races/<id>`
 2. Else, or on API miss → `GET /races/<id>/project.json` (static; **required fallback**, never removed)
+3. On API + static miss → cached **venue pack** (IndexedDB; Phase 9.2) when the operator previously used Pack ↓ / Pack ↑ — see [`../ops/venue-pack.md`](../ops/venue-pack.md)
 
 ---
 
@@ -60,14 +61,43 @@ Manifest (picker): `public/races/index.json` → `{ "ids": ["demo-istanbul", ...
 | `takeoffAltitudeMSL` | no | GEO takeoff bridge |
 | `fleet.boatIds` | yes | Arch band `21–52` (normalized like config) |
 | `fleet.boatNamesUrl` | no | Catalogue JSON URL |
+| `fleet.boatVisibility` | no | Soft map id → `solid`\|`ghost`\|`hidden` (SCN 8.6; omit → solid; junk dropped) |
+| `fleet.boatMapVisible` | no | Soft map id → boolean (SCN 11.7; `false` hides 2D icon; omit → show) |
+| `fleet.povMapVisible` | no | Soft map id → boolean (SCN 11.7; `false` hides 2D icon; omit → show) |
 | `povIds` | yes | Arch bands `1–4` ∪ `11–12` |
 | `features` | no* | Embedded `WorldFeature[]` (same shape as editor export) |
 | `featuresUrl` | no* | URL to `{ features: WorldFeature[] }` |
 | `courseUrl` / `sponsorsUrl` / `flagsUrl` | no* | Compat fixture pointers when features omitted |
 | `replayUrl` | no | TEL replay fixture |
 | `output` | no | Defaults: `outputMode`, `whepUrl`, `chromaKey`, timecode fields |
+| `calibration` | no | Soft CAL map — see below. Omit when empty; old packs without it still parse |
 
 \* At least one of: non-empty `features`, `featuresUrl`, or course/sponsors/flags URL pointers (demo pack uses fixture URLs for visual parity).
+
+### `calibration` (CAL — soft)
+
+Per-POV runtime offsets (same knobs as the calib panel / `offsetsStore`). Soft field: missing/`null`/junk → ignored; empty `byPovId` → omit on save.
+
+```json
+"calibration": {
+  "byPovId": {
+    "1": {
+      "yawDeg": 2.5,
+      "pitchDeg": 0,
+      "rollDeg": 0,
+      "fovHDeg": 66.8832,
+      "altMeters": -1.2
+    }
+  }
+}
+```
+
+| Nested field | Notes |
+| --- | --- |
+| `byPovId` | Map POV/device id → offsets. Keys should align with `povIds` |
+| offsets | Prefer store names: `yawDeg`, `pitchDeg`, `rollDeg`, `fovHDeg`, `altMeters`. Soft aliases also accepted on parse: `yaw`, `pitch`, `roll`, `fov`, `alt`. Unknown keys ignored |
+
+Load (`applyRaceProjectToConfig` / `?race=` / HUD Load) hydrates `offsetsStore` before pose apply. Save / Save as embeds a snapshot for current `povIds`.
 
 ### `WorldFeature` (SCN)
 
@@ -85,7 +115,26 @@ Matches `src/scene/features/types.ts` and editor download `world-features.json`:
 }
 ```
 
-Allowed `type`: `mark` | `gateLeft` | `gateRight` | `sponsor` | `flagP1` | `flagP2` | `start` | `finish` | `arrow` | `rotation`.
+Allowed `type`: `mark` | `gateLeft` | `gateRight` | `sponsor` | `flagP1` | `flagP2` | `start` | `finish` | `arrow` | `rotation` | `buoy` | `billboardChain`.
+
+Additive optional fields (old packs without them still parse):
+
+| Field | Types | Notes |
+| --- | --- | --- |
+| `textureUrl` | `sponsor`, `billboardChain` | URL under `public/` (or Library). `null` / omit → procedural |
+| `spacingM` | `billboardChain` | Meters between instances along the polyline (≥2 `points`) |
+| `telemetryId` | `buoy` | Optional TEL buoy id for live bind; omit / `null` → static placed point |
+| `visible3d` | all | Soft 3D draw flag (SCN 11.7). Omit / `true` → show; `false` → omit from 3D remount |
+| `visible2d` | all | Soft 2D map draw flag (SCN 11.7). Omit / `true` → show; `false` → hide map chrome |
+
+`buoy` is a free-floating mark (distinct from course `mark` waypoints). `billboardChain` is a polyline of ≥2 GPS points with repeated sponsor-style panels at `spacingM`.
+
+Additional soft fleet map-visibility maps (independent of `boatVisibility` solid/ghost/hidden):
+
+| Field | Notes |
+| --- | --- |
+| `fleet.boatMapVisible` | id → boolean; only `false` entries need persist; omit → show map icon |
+| `fleet.povMapVisible` | id → boolean; only `false` entries need persist; omit → show map icon |
 
 ---
 
@@ -104,7 +153,7 @@ Full design: [`project-api-and-database.md`](../architecture/project-api-and-dat
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| `GET` | `/api/races` | List `{ id, name, revision, updatedAt, labels }[]` |
+| `GET` | `/api/races` | List `{ id, name, revision, updatedAt, labels }[]` (default excludes `archived`; `?includeArchived=1` / `?label=`) |
 | `GET` | `/api/races/:id` | Full RaceProject |
 | `POST` | `/api/races` | Create (`revision` starts at 1); 409 if id exists |
 | `PUT` | `/api/races/:id` | Replace; `If-Match: "<revision>"` or body `revision` must match; else 409 |

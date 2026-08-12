@@ -1,4 +1,5 @@
 import type { WorldFeature, WorldFeatureType, WorldGpsPoint } from '../types.ts'
+import { segmentBearingDeg } from './segmentReadout.ts'
 import type { EditorTool } from './tools.ts'
 
 export type EnuToGpsAmslFn = (
@@ -32,9 +33,8 @@ export function pointTypeForTool(tool: EditorTool): WorldFeatureType | null {
     case 'gateRight':
     case 'flagP1':
     case 'flagP2':
-    case 'start':
-    case 'finish':
     case 'arrow':
+    case 'buoy':
       return tool
     default:
       return null
@@ -74,9 +74,132 @@ export function createPointFeature(
     base.label = type === 'flagP1' ? 'P1' : 'P2'
   } else if (type === 'arrow') {
     base.label = 'arrow'
+  } else if (type === 'buoy') {
+    base.heightM = 5
+    base.color = 0xffb200
+    base.label = 'buoy'
   }
 
   return base
+}
+
+/** Default spacing between billboard-chain instances (meters). */
+export const DEFAULT_BILLBOARD_CHAIN_SPACING_M = 12
+
+/**
+ * Create a free-floating buoy WorldFeature (distinct from course `mark`).
+ * Optional `telemetryId` binds to TEL buoy channel when available.
+ */
+export function createBuoyFeature(
+  east: number,
+  north: number,
+  enuToGpsAmsl: EnuToGpsAmslFn,
+  counter: FeatureIdCounter,
+  opts?: { telemetryId?: string | null },
+): WorldFeature {
+  const id = nextId('buoy', counter)
+  const feature: WorldFeature = {
+    id,
+    name: `buoy-${counter.n}`,
+    type: 'buoy',
+    points: [gpsAtEnu(east, north, enuToGpsAmsl)],
+    heightM: 5,
+    color: 0xffb200,
+    label: 'buoy',
+  }
+  if (opts?.telemetryId) {
+    feature.telemetryId = opts.telemetryId
+  }
+  return feature
+}
+
+/**
+ * Polyline billboard chain (≥2 ENU points). Instances spaced at `spacingM`
+ * along the path; texture from library (stub list OK until PLT-01).
+ */
+export function createBillboardChainFeature(
+  enuPoints: readonly { east: number; north: number }[],
+  enuToGpsAmsl: EnuToGpsAmslFn,
+  counter: FeatureIdCounter,
+  opts?: {
+    spacingM?: number
+    textureUrl?: string | null
+    label?: string
+    heightM?: number
+    color?: number
+  },
+): WorldFeature | null {
+  if (enuPoints.length < 2) return null
+  const id = nextId('billboardChain', counter)
+  const spacingM =
+    opts?.spacingM !== undefined &&
+    Number.isFinite(opts.spacingM) &&
+    opts.spacingM > 0
+      ? opts.spacingM
+      : DEFAULT_BILLBOARD_CHAIN_SPACING_M
+  return {
+    id,
+    name: `billboardChain-${counter.n}`,
+    type: 'billboardChain',
+    points: enuPoints.map((p) => gpsAtEnu(p.east, p.north, enuToGpsAmsl)),
+    heightM: opts?.heightM ?? 8,
+    color: opts?.color ?? 0x2a6f7a,
+    label: opts?.label ?? `Chain ${counter.n}`,
+    textureUrl: opts?.textureUrl ?? null,
+    spacingM,
+  }
+}
+
+/**
+ * Two-click arrow: position at A; B sets bearing (label `brg NNN°`).
+ * Point feature stays single-GPS (heading later / 3D stub).
+ */
+export function createArrowFeature(
+  eastA: number,
+  northA: number,
+  eastB: number,
+  northB: number,
+  enuToGpsAmsl: EnuToGpsAmslFn,
+  counter: FeatureIdCounter,
+): WorldFeature {
+  const id = nextId('arrow', counter)
+  const brg = Math.round(
+    segmentBearingDeg(eastA, northA, eastB, northB),
+  )
+    .toString()
+    .padStart(3, '0')
+  return {
+    id,
+    name: `arrow-${counter.n}`,
+    type: 'arrow',
+    points: [gpsAtEnu(eastA, northA, enuToGpsAmsl)],
+    label: `brg ${brg}°`,
+  }
+}
+
+/** Two-click start or finish line A–B (Unity BillboardBetweenTwoPoints). */
+export function createLineSignFeature(
+  kind: 'start' | 'finish',
+  eastA: number,
+  northA: number,
+  eastB: number,
+  northB: number,
+  enuToGpsAmsl: EnuToGpsAmslFn,
+  counter: FeatureIdCounter,
+): WorldFeature {
+  const id = nextId(kind, counter)
+  const label = kind === 'start' ? 'START' : 'FINISH'
+  return {
+    id,
+    name: `${kind}-${counter.n}`,
+    type: kind,
+    points: [
+      gpsAtEnu(eastA, northA, enuToGpsAmsl),
+      gpsAtEnu(eastB, northB, enuToGpsAmsl),
+    ],
+    color: 0xad0000,
+    label,
+  }
 }
 
 /** Two-click sponsor A–B. */

@@ -1,5 +1,6 @@
 import type {
   BoatTelemetry,
+  BuoyTelemetry,
   StreamAnchorMessage,
   TelemetryData,
   TelemetryQuaternion,
@@ -16,6 +17,12 @@ export const MOCK_DRONE_ID = '1'
  */
 export const MOCK_BOAT_ID = '21'
 
+/**
+ * Suggested demo buoy id for local mock (`buoyIds: ["91"]`).
+ * Outside the race-boat band `21–52`; not emitted unless configured.
+ */
+export const MOCK_BUOY_ID = '91'
+
 /** Default mock POV ids when `povIds` is omitted (matches committed config). */
 export const DEFAULT_MOCK_POV_IDS: readonly string[] = ['1', '2']
 
@@ -27,7 +34,13 @@ export const DEFAULT_MOCK_BOAT_IDS: readonly string[] = [
   '24',
 ]
 
-export type MockChannel = 'drone' | 'boat'
+/**
+ * Default buoy ids when omitted: **empty** (no buoy channel).
+ * Unlike boats/POVs there is no committed default fleet of buoys.
+ */
+export const DEFAULT_MOCK_BUOY_IDS: readonly string[] = []
+
+export type MockChannel = 'drone' | 'boat' | 'buoy'
 
 export type MockPacket = {
   channel: MockChannel
@@ -50,6 +63,12 @@ export type MockSourceOptions = {
    * `["21","22","23","24"]`. One packet per id; phase-offset so they are not stacked.
    */
   boatIds?: readonly string[]
+  /**
+   * Buoy ids to emit each pose tick (`channel: 'buoy'`, boat-shaped JSON).
+   * Default `[]` — empty/absent opens no buoy channel. Demo: `["91"]`.
+   * Must not overlap `boatIds`.
+   */
+  buoyIds?: readonly string[]
   onPacket?: (packet: MockPacket) => void
 }
 
@@ -73,14 +92,16 @@ function eulerQuat(
 
 /**
  * Interval mock: one drone packet per `povIds` entry + one boat packet per
- * `boatIds` entry, plus periodic `stream_anchor` for `povIds[0]`. Emits JSON
- * text so ingest can run packets through the router.
+ * `boatIds` entry + one buoy packet per `buoyIds` entry, plus periodic
+ * `stream_anchor` for `povIds[0]`. Emits JSON text so ingest can run packets
+ * through the router. Empty `buoyIds` → no buoy packets (backward compatible).
  */
 export class MockTelemetrySource {
   private readonly hz: number
   private readonly streamAnchorIntervalMs: number
   private readonly povIds: readonly string[]
   private readonly boatIds: readonly string[]
+  private readonly buoyIds: readonly string[]
   private readonly onPacket?: (packet: MockPacket) => void
 
   private timer: ReturnType<typeof setInterval> | null = null
@@ -100,6 +121,11 @@ export class MockTelemetrySource {
       options.boatIds !== undefined && options.boatIds.length > 0
         ? [...options.boatIds]
         : [...DEFAULT_MOCK_BOAT_IDS]
+    // Empty/absent = no buoy channel (do not invent a default fleet).
+    this.buoyIds =
+      options.buoyIds !== undefined && options.buoyIds.length > 0
+        ? [...options.buoyIds]
+        : [...DEFAULT_MOCK_BUOY_IDS]
     this.onPacket = options.onPacket
   }
 
@@ -151,6 +177,10 @@ export class MockTelemetrySource {
     for (let i = 0; i < this.boatIds.length; i++) {
       const id = this.boatIds[i]!
       this.emit('boat', JSON.stringify(this.buildBoat(t, id, i)))
+    }
+    for (let i = 0; i < this.buoyIds.length; i++) {
+      const id = this.buoyIds[i]!
+      this.emit('buoy', JSON.stringify(this.buildBuoy(t, id, i)))
     }
   }
 
@@ -208,6 +238,25 @@ export class MockTelemetrySource {
       acc: 1.2,
       spd: 4 + Math.sin(t * 0.2 + phase) * 0.5,
       brg: (t * 12 + index * 40) % 360,
+      time: Date.now(),
+      id,
+      t_sync: true,
+      t_err: 5,
+    }
+  }
+
+  /** Same wire shape as boat; phase-offset away from the race fleet. */
+  private buildBuoy(t: number, id: string, index: number): BuoyTelemetry {
+    const phase = index * 0.4 + 1.2
+    const latOff = 0.0008 + index * 0.00025
+    const lonOff = -0.0006 + index * 0.0003
+    return {
+      lat: 41.007 + latOff + Math.sin(t * 0.025 + phase) * 0.0006,
+      lon: 28.979 + lonOff + Math.cos(t * 0.025 + phase) * 0.0006,
+      alt: 0.3 + Math.sin(t * 0.12 + phase) * 0.08,
+      acc: 1.5,
+      spd: 0.4 + Math.sin(t * 0.15 + phase) * 0.2,
+      brg: (t * 6 + index * 55) % 360,
       time: Date.now(),
       id,
       t_sync: true,

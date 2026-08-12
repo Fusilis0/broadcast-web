@@ -49,6 +49,24 @@ describe('writeRaceProject', () => {
     )
   })
 
+  it('sends Authorization bearer when token provided', async () => {
+    const fetchImpl = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+      const headers = init?.headers as Record<string, string>
+      expect(headers.Authorization).toBe('Bearer editor-secret')
+      return Response.json(
+        { ...sample, revision: 1, updatedAt: '2026-08-04T12:00:00.000Z' },
+        { status: 201 },
+      )
+    }) as unknown as typeof fetch
+
+    await writeRaceProject(sample, {
+      projectsApiBase: '/api',
+      mode: 'create',
+      bearerToken: 'editor-secret',
+      fetchImpl,
+    })
+  })
+
   it('PUTs update with If-Match revision', async () => {
     const fetchImpl = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
       expect(String(url)).toBe('/api/races/heat-2')

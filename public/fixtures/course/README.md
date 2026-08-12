@@ -40,6 +40,6 @@ Example: `Gate1-Left` + `Gate1-Right` → gate `Gate1`.
 
 ### Placement
 
-Lat/lon are WGS84. SCN converts with GEO `gpsToEnuAmsl` after world origin + EGM96 are set. Course **lines** sit at water Y = 0 (Unity `waterSurfaceY`); buoy poles stand on that plane.
+Lat/lon are WGS84. SCN converts with GEO `gpsToEnuAmsl` after world origin + EGM96 are set. Course **lines** sit at water Y = 0 (Unity `waterSurfaceY`); buoys stand on that plane. A mild water/shore pad is sized from the waypoint AABB (tunables in `src/scene/course/waterCue.ts`).
 
 Point `config.courseUrl` at a fixture (default `/fixtures/course/demo-istanbul.json`).

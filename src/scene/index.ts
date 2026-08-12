@@ -35,6 +35,14 @@ export {
   type BoatEntityOptions,
 } from './boatEntity.ts'
 export {
+  DEFAULT_BOAT_VISIBILITY_MODE,
+  GHOST_HULL_OPACITY,
+  isBoatVisibilityMode,
+  normalizeBoatVisibilityMode,
+  normalizeBoatVisibilityMap,
+  type BoatVisibilityMode,
+} from './boatVisibility.ts'
+export {
   createBoatTag,
   boatTagWorldHeight,
   BOAT_TAG_CANVAS_ASPECT,
@@ -43,10 +51,15 @@ export {
   type BoatTagIdentity,
 } from './boatTag.ts'
 export {
+  resolveBillboardCamera,
+  type BillboardRenderPass,
+} from './billboardPassCamera.ts'
+export {
   loadBoatNames,
   normalizeBoatNames,
   lookupBoatName,
   parseCategoryColor,
+  boatColorsFromCatalogue,
   upsertBoatNameEntry,
   removeBoatNameEntry,
   DEFAULT_BOAT_NAMES_URL,
@@ -66,10 +79,40 @@ export {
   type ConnectionStatusUi,
   type HudLiveChannelStatus,
   type StubHudHandle,
+  type StubHudMountHosts,
   type StubHudOptions,
   type TelemetryModeSwitchable,
   type TelemetryModeUi,
 } from './stubHud.ts'
+export {
+  createSidebar,
+  compareSidebarSectionOrder,
+  isSidebarCollapseHotkey,
+  SIDEBAR_COLLAPSE_HOTKEY,
+  startAssetInspector,
+  featureAssetKind,
+  resolveAssetFocusEnu,
+  type CreateSidebarOptions,
+  type SidebarHandle,
+  type SidebarSection,
+  type SidebarSectionMountHandle,
+  type AssetInspectorHandle,
+  type AssetInspectorOptions,
+  type AssetKind,
+  type AssetRowId,
+} from './sidebar/index.ts'
+export {
+  createWorldAuthoringWorkspace,
+  mountWorldMapAuthoringLauncher,
+  resolveAuthoringInitiallyOpen,
+  WORLD_AUTHORING_MAP_SIZE,
+  WORLD_AUTHORING_MAP_SIZE_MAX,
+  WORLD_AUTHORING_MAP_SIZE_MIN,
+  type WorldAuthoringWorkspaceHandle,
+  type WorldAuthoringWorkspaceOptions,
+  type WorldMapAuthoringLauncherHandle,
+} from './worldAuthoringWorkspace.ts'
+
 export {
   loadFleetLiveFromSession,
   saveFleetLiveToSession,
@@ -84,12 +127,32 @@ export {
   boundsFromPoints,
   enuToMapPx,
   mapPxToEnu,
+  resolveMapDotFill,
+  DEFAULT_BOAT_DOT_COLOR,
+  DEFAULT_DRONE_DOT_COLOR,
   type Map2dHandle,
   type Map2dOptions,
+  type Map2dVariant,
   type MapBounds,
   type MapPoint,
   type MapCourseMark,
 } from './map2d.ts'
+export {
+  mapChromeMetrics,
+  yawDegToCanvasRad,
+  parseArrowBearingDeg,
+  MAP_BOAT_SPRITE_URL,
+  MAP_SAIL_SPRITE_URL,
+  type MapChromeMetrics,
+  type MapChromeVariant,
+} from './mapChrome.ts'
+export {
+  createStreamMap2d,
+  resolveStreamMapOptions,
+  STREAM_MAP_DEFAULT_TITLE,
+  STREAM_MAP_SIZE_PX,
+  type StreamMapResolvedOptions,
+} from './streamMap.ts'
 export {
   adaptCourseToFeatures,
   adaptSponsorsToFeatures,
@@ -100,6 +163,8 @@ export {
   getLayoutFeatures,
   setLayoutFeatures,
   clearLayoutFeatures,
+  loadWorldExtrasFeatures,
+  DEFAULT_WORLD_EXTRAS_URL,
   startMapFeatureEditor,
   serializeWorldFeaturesExport,
   geojsonToWorldFeatures,
@@ -115,6 +180,20 @@ export {
   type EditorTool,
 } from './features/index.ts'
 export {
+  mountLineSignsFromFeatures,
+  buildLineSignLayout,
+  LINE_SIGN_WATER_Y,
+  type LineSignsHandle,
+} from './lineSigns/index.ts'
+export {
+  loadPositionMarkers,
+  mountPositionMarkers,
+  normalizePositionMarkers,
+  DEFAULT_POSITION_MARKERS_URL,
+  type PositionMarkersHandle,
+  type PositionMarkersData,
+} from './positionMarkers/index.ts'
+export {
   loadCourse,
   mountCourse,
   normalizeCourse,
@@ -123,6 +202,9 @@ export {
   buildCourseLayout,
   COURSE_WATER_Y,
   DEFAULT_COURSE_URL,
+  courseWaterCueBounds,
+  createWaterShoreCue,
+  WATER_CUE_DEFAULTS,
   type CourseHandle,
   type CourseData,
   type CourseEnuPoint,

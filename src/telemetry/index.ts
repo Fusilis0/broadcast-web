@@ -1,5 +1,6 @@
 export type {
   BoatTelemetry,
+  BuoyTelemetry,
   StreamAnchorMessage,
   TelemetryCamera,
   TelemetryData,
@@ -26,8 +27,10 @@ export {
 export {
   MockTelemetrySource,
   MOCK_BOAT_ID,
+  MOCK_BUOY_ID,
   MOCK_DRONE_ID,
   DEFAULT_MOCK_BOAT_IDS,
+  DEFAULT_MOCK_BUOY_IDS,
   DEFAULT_MOCK_POV_IDS,
   type MockChannel,
   type MockPacket,
@@ -65,6 +68,7 @@ export {
   ingestPacket,
   startTelemetryIngest,
   type IngestHandle,
+  type IngestPacketOptions,
   type LiveStatusMap,
   type StartTelemetryIngestOptions,
 } from './ingest.ts'

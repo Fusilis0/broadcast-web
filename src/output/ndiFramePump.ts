@@ -12,6 +12,12 @@ export type NdiFramePumpOptions = {
    */
   getAirCamera?: () => Camera | null | undefined
   /**
+   * SCN hook: orient ops billboards (tag distance-scale) for the camera
+   * about to render. Required for dual-render so air/NDI tags match active
+   * POV while the screen keeps preview (free cam) scales.
+   */
+  prepareCameraPass?: (camera: Camera) => void
+  /**
    * Target send rate. Default 30. Dropped when previous IPC is still busy
    * (main process signals via sendFrame fire-and-forget + local gate).
    */
@@ -36,7 +42,12 @@ const DEFAULT_NAME = 'broadcast-web'
  *
  * **Air lock:** capture is always the active POV (`getAirCamera`). If the
  * screen render used another camera, a second pass renders air into an FBO
- * for readback so ops free cam cannot hijack NDI.
+ * for readback so ops free cam cannot hijack NDI. Optional `prepareCameraPass`
+ * re-orients SCN billboard scales for each camera before that pass.
+ *
+ * **Sidebar invariant (Phase 11):** NDI never reads ops sidebar / HUD DOM —
+ * only `readRenderTargetPixels` on the WebGL path. Collapsing or growing the
+ * ops sidebar must not change air pixels. Regression: `sidebar/sidebar.test.ts`.
  *
  * No-ops when `window.broadcastStudio` is missing (Chrome path).
  * Start **after** `startVisualTimecode` so the barcode is in the framebuffer.
@@ -48,7 +59,7 @@ export function startNdiFramePump(
   if (!studio) return null
   const ndi = studio.ndi
 
-  const { renderer, getAirCamera } = options
+  const { renderer, getAirCamera, prepareCameraPass } = options
   const fps =
     typeof options.fps === 'number' && options.fps > 0
       ? options.fps
@@ -70,6 +81,14 @@ export function startNdiFramePump(
   let airTargetH = 0
 
   const originalRender = renderer.render.bind(renderer)
+
+  function preparePass(camera: Camera): void {
+    try {
+      prepareCameraPass?.(camera)
+    } catch (err) {
+      console.warn('[output] prepareCameraPass failed', err)
+    }
+  }
 
   function ensureBuffer(w: number, h: number): Uint8Array {
     if (!rgba || rgbaW !== w || rgbaH !== h) {
@@ -145,14 +164,15 @@ export function startNdiFramePump(
 
     const buf = ensureBuffer(w, h)
     try {
-      // Three returns top-down rows into the buffer.
+      // Same origin as gl.readPixels: bottom-left row first (WebGL / Three).
       renderer.readRenderTargetPixels(target, 0, 0, w, h, buf)
     } catch (err) {
       error = err instanceof Error ? err.message : String(err)
       return
     }
 
-    sendRgba(w, h, buf, false)
+    // Match captureDefaultFb — sender flips bottom-up RGBA → top-down BGRA.
+    sendRgba(w, h, buf, true)
   }
 
   function renderAirToTarget(
@@ -194,13 +214,16 @@ export function startNdiFramePump(
     }
 
     // Preview ≠ air: NDI from active POV FBO; screen shows preview camera.
+    // Re-orient billboards per pass so tags scale to the camera being drawn.
     const canvas = renderer.domElement
     const w = canvas.width
     const h = canvas.height
     if (w >= 1 && h >= 1 && airCamera) {
+      preparePass(airCamera)
       const target = renderAirToTarget(sceneRoot, airCamera, w, h)
       captureAirTarget(target, w, h)
     }
+    preparePass(camera)
     originalRender(sceneRoot, camera)
   }) as typeof renderer.render
 

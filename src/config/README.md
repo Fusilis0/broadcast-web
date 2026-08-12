@@ -26,6 +26,7 @@ Owned by **PLT+BW**. Thin `/config.json` loader — no domain logic.
 | `wsBoatUrl` | Boat **base** live WebSocket URL (default `""`; no `id` — ids from `boatIds` / Fleet panel) |
 | `boatIds` | Boat channel ids for mock + SCN fleet registry (default `["21","22","23","24"]`; arch band `21–52`) |
 | `povIds` | POV / drone+cam ids for mock multi-emit + SCN camera switch (default `["1","2"]`; bands `1–4` ∪ `11–12`) |
+| `buoyIds` | Buoy telemetry ids (default `[]` = no buoy channel). Boat-shaped packets; keep disjoint from `boatIds`. Demo: `["91"]` |
 | `outputMode` | OUT clear mode: `preview` (committed default) \| `chroma` \| `transparent` (NDI alpha plate). Unknown → preview |
 | `chromaKey` | Optional chroma hex when mode is chroma (e.g. `"#00ff00"`). Empty → OUT default green |
 | `timecodeEnabled` | OUT 8×8 visual timecode burn-in (default `true`) |
@@ -33,6 +34,8 @@ Owned by **PLT+BW**. Thin `/config.json` loader — no domain logic.
 | `timecodeSizePx` | On-screen barcode size in CSS px (default `96`, clamped 32–256) |
 | `whepUrl` | OUT MediaMTX WHEP underlay URL (default `""` = idle). Non-empty enables in preview — see [`src/output/README.md`](../output/README.md) |
 | `projectsApiBase` | Optional RaceProject API base (default `""` = static packs only). e.g. `"/api"` — try API then `/races/<id>/project.json`. See [`src/projects/README.md`](../projects/README.md) |
+| `projectsRole` | LAN role `"editor"` (default) \| `"air"`. Air disables Save / API write. Override: `?projectsRole=air` / `?role=air`. See [`docs/ops/projects-api.md`](../../docs/ops/projects-api.md) |
+| `projectsApiToken` | Editor bearer for API writes (default `""`). Local editor PCs only — never commit secrets. |
 
 ### `boatIds` (SCN contract)
 
@@ -47,6 +50,13 @@ Owned by **PLT+BW**. Thin `/config.json` loader — no domain logic.
 - Out-of-band values (boats / pilots / junk) are filtered with a console warn.
 - Wire: still `channel: "drone"` + `TelemetryData.id` ∈ `povIds` (cams use the same DTO). SCN reads `loadConfig().povIds` for HUD switch allow-list.
 - Full `1–4` + cams later by extending the array only. Display names remain **2.7**. Camera / HUD POV switch is **SCN**, not config/TEL.
+
+### `buoyIds` (TEL contract)
+
+- Non-empty trimmed strings; **no** numeric boat-band filter (separate id namespace).
+- Missing / non-array / empty → `[]` (no buoy channel — fully backward compatible).
+- Wire: same as `BoatTelemetry`; bus/pose kind is `buoy`. Live shares `wsBoatUrl` base.
+- Placement / live-bind UI is **SCN**, not config.
 
 Mock-centered default origin is Istanbul near TEL mock tracks (`41.0082, 28.9784`), not `0,0`. Example Bosphorus ops anchor: `41.08673822819249, 29.061803205100848` (set via HUD Apply; not hardcoded).
 

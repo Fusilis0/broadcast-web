@@ -3,6 +3,11 @@ import { buildCourseLayout, COURSE_WATER_Y } from './courseLayout.ts'
 import { gateBaseName, pairGates } from './gatePairing.ts'
 import { normalizeCourse } from './normalizeCourse.ts'
 import type { GpsToEnuAmslFn } from './types.ts'
+import {
+  courseWaterCueBounds,
+  createWaterShoreCue,
+  WATER_CUE_DEFAULTS,
+} from './waterCue.ts'
 
 describe('normalizeCourse', () => {
   it('fills defaults and keeps valid waypoints', () => {
@@ -110,5 +115,41 @@ describe('buildCourseLayout', () => {
     expect(layout.gates[0]!.left.x).toBe(80)
     expect(layout.gates[0]!.right.z).toBe(90)
     expect(layout.gates[0]!.left.y).toBe(COURSE_WATER_Y)
+  })
+})
+
+describe('water / shore cue', () => {
+  it('builds padded AABB around course points', () => {
+    const bounds = courseWaterCueBounds(
+      [
+        { x: 0, z: 0 },
+        { x: 100, z: 50 },
+      ],
+      10,
+    )
+    expect(bounds).not.toBeNull()
+    expect(bounds!.centerX).toBe(50)
+    expect(bounds!.centerZ).toBe(25)
+    expect(bounds!.sizeX).toBe(120)
+    expect(bounds!.sizeZ).toBe(70)
+  })
+
+  it('returns null for empty points', () => {
+    expect(courseWaterCueBounds([])).toBeNull()
+  })
+
+  it('creates dispose-safe water + shore pads', () => {
+    const cue = createWaterShoreCue(
+      [
+        { x: -20, z: -10 },
+        { x: 20, z: 10 },
+      ],
+      { paddingM: WATER_CUE_DEFAULTS.paddingM },
+    )
+    expect(cue).not.toBeNull()
+    expect(cue!.root.name).toBe('waterShoreCue')
+    expect(cue!.root.children).toHaveLength(2)
+    cue!.dispose()
+    expect(cue!.root.children).toHaveLength(0)
   })
 })

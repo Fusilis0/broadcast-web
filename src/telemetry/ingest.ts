@@ -27,6 +27,7 @@ import {
 } from './router.ts'
 import type {
   BoatTelemetry,
+  BuoyTelemetry,
   TelemetryData,
   TelemetryMode,
 } from './types.ts'
@@ -66,6 +67,7 @@ type TelemetryConfigSlice = {
   wsBoatUrl?: string
   boatIds?: unknown
   povIds?: unknown
+  buoyIds?: unknown
 }
 
 export type StartTelemetryIngestOptions = {
@@ -90,9 +92,23 @@ export type StartTelemetryIngestOptions = {
    * If omitted, resolve from config then default `["1","2"]`.
    */
   povIds?: readonly string[]
+  /**
+   * Buoy ids (boat-shaped packets, own bus/pose kind). Empty/absent → no buoy
+   * channel. Must not overlap `boatIds`. Live: same boat WS base + subscribe.
+   */
+  buoyIds?: readonly string[]
   bus?: TelemetryBus
   /** Injectable WebSocket for tests (live mode only). */
   WebSocketImpl?: typeof WebSocket
+}
+
+export type IngestPacketOptions = {
+  /**
+   * Ids treated as buoys when a boat-shaped packet arrives on the `boat`
+   * channel (live sockets share the boat WS). Explicit `channel: 'buoy'`
+   * always emits `buoy` regardless of this set.
+   */
+  buoyIds?: readonly string[]
 }
 
 function isTelemetryData(value: Record<string, unknown>): value is TelemetryData &
@@ -159,12 +175,37 @@ function resolvePovIds(raw: unknown): string[] {
 }
 
 /**
+ * Soft-normalize buoy ids for ingest (TEL).
+ * Explicit array (including `[]`) preserved. Omitted / non-array → `[]`
+ * (no buoy channel — fully backward compatible). No numeric band: buoys are a
+ * separate id namespace from race boats; avoid colliding with `boatIds`.
+ */
+function resolveBuoyIds(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return []
+  const out: string[] = []
+  for (const item of raw) {
+    if (typeof item !== 'string') continue
+    const id = item.trim()
+    if (id === '') continue
+    if (!out.includes(id)) out.push(id)
+  }
+  return out
+}
+
+function buoyIdSet(ids: readonly string[] | undefined): Set<string> {
+  return new Set(ids ?? [])
+}
+
+/**
  * Route a mock/replay/live JSON packet onto the bus.
  * Boat vs drone for non-anchor pose is decided by `channel` (connection context).
+ * Buoy vs boat: `channel: 'buoy'` **or** boat-shaped packet whose `id` is in
+ * `options.buoyIds` (live boat WS + allow-list). Same wire DTO either way.
  */
 export function ingestPacket(
   packet: MockPacket,
   bus: TelemetryBus = telemetryBus,
+  options?: IngestPacketOptions,
 ): void {
   const { kind, parsed } = classify(packet.jsonText)
 
@@ -187,8 +228,18 @@ export function ingestPacket(
     return
   }
 
-  if (isBoatTelemetry(parsed)) {
-    bus.emit('boat', parsed as BoatTelemetry)
+  if (!isBoatTelemetry(parsed)) {
+    return
+  }
+
+  const boatShaped = parsed as BoatTelemetry
+  const asBuoy =
+    packet.channel === 'buoy' || buoyIdSet(options?.buoyIds).has(boatShaped.id)
+
+  if (asBuoy) {
+    bus.emit('buoy', boatShaped as BuoyTelemetry)
+  } else {
+    bus.emit('boat', boatShaped)
   }
 }
 
@@ -220,6 +271,7 @@ async function resolveConfigSlice(options?: {
   wsBoatUrl?: string
   boatIds?: readonly string[]
   povIds?: readonly string[]
+  buoyIds?: readonly string[]
 }): Promise<{
   mode: TelemetryMode
   replayUrl: string
@@ -228,6 +280,7 @@ async function resolveConfigSlice(options?: {
   wsBoatUrl: string
   boatIds: string[]
   povIds: string[]
+  buoyIds: string[]
 }> {
   let mode = options?.mode
   let replayUrl = options?.replayUrl
@@ -238,11 +291,14 @@ async function resolveConfigSlice(options?: {
     options?.boatIds !== undefined ? resolveBoatIds(options.boatIds) : undefined
   let povIds =
     options?.povIds !== undefined ? resolvePovIds(options.povIds) : undefined
+  let buoyIds =
+    options?.buoyIds !== undefined ? resolveBuoyIds(options.buoyIds) : undefined
 
   let cfgWsUrl: string | undefined
   let cfgWsBoatUrl: string | undefined
   let cfgBoatIds: unknown
   let cfgPovIds: unknown
+  let cfgBuoyIds: unknown
 
   if (
     mode === undefined ||
@@ -250,7 +306,8 @@ async function resolveConfigSlice(options?: {
     wsUrl === undefined ||
     wsBoatUrl === undefined ||
     boatIds === undefined ||
-    povIds === undefined
+    povIds === undefined ||
+    buoyIds === undefined
   ) {
     try {
       const res = await fetch('/config.json')
@@ -272,6 +329,7 @@ async function resolveConfigSlice(options?: {
         if (typeof cfg.wsBoatUrl === 'string') cfgWsBoatUrl = cfg.wsBoatUrl
         if (boatIds === undefined) cfgBoatIds = cfg.boatIds
         if (povIds === undefined) cfgPovIds = cfg.povIds
+        if (buoyIds === undefined) cfgBuoyIds = cfg.buoyIds
       }
     } catch {
       // fall through to defaults
@@ -290,6 +348,9 @@ async function resolveConfigSlice(options?: {
   if (povIds === undefined) {
     povIds = resolvePovIds(cfgPovIds)
   }
+  if (buoyIds === undefined) {
+    buoyIds = resolveBuoyIds(cfgBuoyIds)
+  }
 
   return {
     mode: mode ?? 'mock',
@@ -302,23 +363,36 @@ async function resolveConfigSlice(options?: {
     wsBoatUrl: wsBoatUrl.trim(),
     boatIds,
     povIds,
+    buoyIds,
   }
 }
 
 /**
  * Starts telemetry ingest for `mock` | `replay` | `live`.
  * Live connects only when mode is `live` and at least one enabled id resolves
- * to a URL. Mock emits one `drone` packet per `povIds` and one `boat` per
- * `boatIds` each pose tick. Live: base `wsUrl` / `wsBoatUrl` + one socket per
- * **enabled** `povIds` / `boatIds` (`?type=client&subscribe=<id>`). Empty id lists
- * open **no** sockets for that channel (no legacy base-only fallback).
+ * to a URL. Mock emits one `drone` packet per `povIds`, one `boat` per
+ * `boatIds`, and one `buoy` per `buoyIds` each pose tick. Live: base `wsUrl` /
+ * `wsBoatUrl` + one socket per **enabled** `povIds` / (`boatIds` ∪ `buoyIds`)
+ * (`?type=client&subscribe=<id>`). Empty id lists open **no** sockets for that
+ * channel (no legacy base-only fallback). Empty `buoyIds` → no buoy channel.
  */
 export async function startTelemetryIngest(
   options?: StartTelemetryIngestOptions,
 ): Promise<IngestHandle> {
   const bus = options?.bus ?? telemetryBus
-  const { mode, replayUrl, replayLoop, wsUrl, wsBoatUrl, boatIds, povIds } =
-    await resolveConfigSlice(options)
+  const {
+    mode,
+    replayUrl,
+    replayLoop,
+    wsUrl,
+    wsBoatUrl,
+    boatIds,
+    povIds,
+    buoyIds,
+  } = await resolveConfigSlice(options)
+
+  const routePacket = (packet: MockPacket) =>
+    ingestPacket(packet, bus, { buoyIds })
 
   if (mode === 'live') {
     const statusListeners = new Set<
@@ -331,14 +405,16 @@ export async function startTelemetryIngest(
       droneBase !== '' && povIds.length > 0
         ? buildLiveWsUrlsForIds(droneBase, povIds)
         : []
+    // Buoys share the boat GPS WS base; classify onto `buoy` via allow-list.
+    const boatSubscribeIds = [...new Set([...boatIds, ...buoyIds])]
     const boatUrls =
-      boatBase !== '' && boatIds.length > 0
-        ? buildLiveWsUrlsForIds(boatBase, boatIds)
+      boatBase !== '' && boatSubscribeIds.length > 0
+        ? buildLiveWsUrlsForIds(boatBase, boatSubscribeIds)
         : []
     const source = new LiveTelemetrySource({
       droneUrls,
       boatUrls,
-      onPacket: (packet) => ingestPacket(packet, bus),
+      onPacket: routePacket,
       onStatus: (channel, status) => {
         for (const listener of statusListeners) {
           listener(channel, status)
@@ -382,7 +458,7 @@ export async function startTelemetryIngest(
     const source = new ReplayTelemetrySource({
       fixture: loaded.fixture,
       loop: replayLoop,
-      onPacket: (packet) => ingestPacket(packet, bus),
+      onPacket: routePacket,
     })
     source.start()
 
@@ -397,7 +473,8 @@ export async function startTelemetryIngest(
   const source = new MockTelemetrySource({
     povIds,
     boatIds,
-    onPacket: (packet) => ingestPacket(packet, bus),
+    buoyIds,
+    onPacket: routePacket,
   })
   source.start()
 

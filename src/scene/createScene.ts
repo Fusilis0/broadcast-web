@@ -5,6 +5,12 @@ import {
   type BoatEntityHandle,
 } from './boatEntity.ts'
 import {
+  DEFAULT_BOAT_VISIBILITY_MODE,
+  normalizeBoatVisibilityMode,
+  type BoatVisibilityMode,
+} from './boatVisibility.ts'
+import { filterFeaturesFor3d } from './features/featureVisibility.ts'
+import {
   loadBoatNames,
   lookupBoatName,
   upsertBoatNameEntry,
@@ -27,6 +33,16 @@ import {
 } from './features/editor/reverseAdapters.ts'
 import type { WorldFeature } from './features/types.ts'
 import { clearLayoutFeatures } from './features/layoutStore.ts'
+import {
+  mountLineSignsFromFeatures,
+  type LineSignsHandle,
+} from './lineSigns/index.ts'
+import {
+  loadPositionMarkers,
+  mountPositionMarkers,
+  type PositionMarkersData,
+  type PositionMarkersHandle,
+} from './positionMarkers/index.ts'
 import { createDroneCamera, TEMP_HFOV_DEG } from './droneCamera.ts'
 import {
   createFreeCam,
@@ -58,6 +74,8 @@ import {
   mountSponsors,
   type SponsorsHandle,
 } from './sponsors/index.ts'
+import { mountBillboardChains, type BillboardChainHandle } from './billboardChain.ts'
+import { mountWorldBuoys, type WorldBuoysHandle } from './worldBuoys.ts'
 
 export { DEFAULT_DRONE_ID }
 
@@ -141,6 +159,26 @@ export type SceneHandle = {
    */
   frameFleet: () => number
   /**
+   * Switch preview to free cam and frame an ENU point (single-entity Focus).
+   * Returns false if free cam is unavailable.
+   */
+  frameEnuPoint: (
+    center: { x: number; y: number; z: number },
+    radiusM?: number,
+  ) => boolean
+  /**
+   * ENU position of a spawned boat root, or null if not spawned.
+   */
+  getBoatEnuPosition: (
+    id: string,
+  ) => { x: number; y: number; z: number } | null
+  /**
+   * Last known ENU for a POV (pose cache or active drone cam), or null.
+   */
+  getPovEnuPosition: (
+    id: string,
+  ) => { x: number; y: number; z: number } | null
+  /**
    * Switch active POV. Applies cached last pose immediately when available.
    * Returns false if `id` is not in the allow-list.
    * Does not change ops view mode (free cam stays free).
@@ -167,12 +205,22 @@ export type SceneHandle = {
     url?: string,
   ) => Promise<FlagsHandle | null>
   /**
-   * Remount course / sponsors / flags from editable WorldFeature[] (map editor).
-   * Stub types (start/finish/arrow) stay map-only.
+   * Remount course / sponsors / flags / start–finish signs from WorldFeature[].
+   * Position markers remount from last loaded markers fixture (not WorldFeature yet).
+   * `arrow` / `rotation` stay map-only until a later asset DSP.
    */
   remountWorldFromFeatures: (
     features: readonly WorldFeature[],
   ) => Promise<void>
+  /** Distances-style water labels (Unity Distances prefab spirit). */
+  loadPositionMarkersFromUrl: (
+    url?: string,
+  ) => Promise<PositionMarkersHandle | null>
+  /**
+   * Mount/replace start–finish water signs from WorldFeature[] without
+   * remounting course/sponsors/flags (URL boot path).
+   */
+  syncLineSignsFromFeatures: (features: readonly WorldFeature[]) => void
   /**
    * Load boat name/colour catalogue and apply to existing + future tags.
    * Safe anytime after `startScene` (before or after boats spawn).
@@ -182,6 +230,20 @@ export type SceneHandle = {
   getBoatNamesCatalogue: () => BoatNamesCatalogue
   /** Upsert one boat name/category/color and apply to a live entity if present. */
   upsertBoatName: (input: UpsertBoatNameInput) => BoatNameEntry | null
+  /**
+   * Set per-boat draw mode (`solid` | `ghost` | `hidden`).
+   * Applies immediately if the entity is spawned; remembered for future spawns.
+   */
+  setBoatVisibilityMode: (id: string, mode: BoatVisibilityMode) => void
+  /** Current mode for an id (default `solid` if never set). */
+  getBoatVisibilityMode: (id: string) => BoatVisibilityMode
+  /**
+   * Apply many id→mode pairs (Fleet session / RaceProject soft field).
+   * Ids omitted keep their previous mode.
+   */
+  setBoatVisibilityModes: (
+    modes: ReadonlyMap<string, BoatVisibilityMode> | Record<string, BoatVisibilityMode>,
+  ) => void
   /** Start / pause / reset / restart the loaded countdown (no-op if none). */
   controlCountdown: (
     action: 'start' | 'pause' | 'reset' | 'restart',
@@ -191,6 +253,12 @@ export type SceneHandle = {
    * Prefer `applyOutputMode(renderer, …)` from `src/output/` for mode mapping.
    */
   setClearColor: (color: number, alpha?: number) => void
+  /**
+   * Distance-scale boat tags + countdown plate for the camera about to render.
+   * Call before each dual-render pass (air/NDI then preview). Sprites auto-face
+   * the WebGL camera; this keeps scale matched to that same camera.
+   */
+  orientOpsBillboards: (camera: THREE.Camera) => void
   stop: () => void
 }
 
@@ -212,28 +280,40 @@ export function startScene(options: SceneOptions): SceneHandle {
 
   const scene = new THREE.Scene()
 
-  // Minimal lights so MeshStandard / glTF materials read on dark preview.
-  const ambient = new THREE.AmbientLight(0xffffff, 0.85)
+  // Lights tuned for hull / sponsor / buoy readability on dark preview,
+  // transparent (alpha plate), and chroma clears (no environment bounce).
+  const ambient = new THREE.AmbientLight(0xffffff, 0.95)
   ambient.name = 'ambient'
   scene.add(ambient)
-  const sun = new THREE.DirectionalLight(0xfff2e0, 1.6)
+  const sun = new THREE.DirectionalLight(0xfff2e0, 1.75)
   sun.name = 'sun'
   sun.position.set(40, 80, 20)
   scene.add(sun)
-  const fill = new THREE.DirectionalLight(0xa8c4ff, 0.45)
+  const fill = new THREE.DirectionalLight(0xa8c4ff, 0.55)
   fill.name = 'fill'
   fill.position.set(-30, 40, -20)
   scene.add(fill)
+  const bounce = new THREE.DirectionalLight(0xc8d8e8, 0.28)
+  bounce.name = 'bounce'
+  bounce.position.set(10, -25, 15)
+  scene.add(bounce)
 
   const drone = createDroneCamera(1, TEMP_HFOV_DEG)
   let freeCam: FreeCamHandle | null = null
   let opsViewMode: OpsViewMode = 'follow'
   let stopped = false
   const boats = new Map<string, BoatEntityHandle>()
+  /** Per-id draw mode; defaults to solid when missing. */
+  const boatVisibility = new Map<string, BoatVisibilityMode>()
   let boatNames: BoatNamesCatalogue = new Map()
   let course: CourseHandle | null = null
   let sponsors: SponsorsHandle | null = null
   let countdownFlags: FlagsHandle | null = null
+  let lineSigns: LineSignsHandle | null = null
+  let positionMarkers: PositionMarkersHandle | null = null
+  let positionMarkersData: PositionMarkersData | null = null
+  let billboardChains: BillboardChainHandle | null = null
+  let worldBuoys: WorldBuoysHandle | null = null
   let courseAppearance: CourseAppearance = { ...DEFAULT_COURSE_APPEARANCE }
   let flagsMeta: FlagsRemountMeta = {}
   let remountGen = 0
@@ -251,6 +331,19 @@ export function startScene(options: SceneOptions): SceneHandle {
     freeCam?.setEnabled(mode === 'free')
   }
 
+  function frameEnuPoint(
+    center: { x: number; y: number; z: number },
+    radiusM = 80,
+  ): boolean {
+    if (stopped || !freeCam) return false
+    setOpsViewMode('free')
+    freeCam.frameTarget(
+      new THREE.Vector3(center.x, center.y, center.z),
+      radiusM,
+    )
+    return true
+  }
+
   function frameFleet(): number {
     if (stopped || !freeCam) return 0
     if (boats.size === 0) return 0
@@ -262,8 +355,7 @@ export function startScene(options: SceneOptions): SceneHandle {
     const center = box.getCenter(new THREE.Vector3())
     const size = box.getSize(new THREE.Vector3())
     const radius = Math.max(size.length() * 0.5, 60)
-    setOpsViewMode('free')
-    freeCam.frameTarget(center, radius)
+    frameEnuPoint({ x: center.x, y: center.y, z: center.z }, radius)
     return boats.size
   }
 
@@ -341,6 +433,10 @@ export function startScene(options: SceneOptions): SceneHandle {
     renderer.setSize(width, height, false)
   }
 
+  function visibilityFor(id: string): BoatVisibilityMode {
+    return boatVisibility.get(id) ?? DEFAULT_BOAT_VISIBILITY_MODE
+  }
+
   function ensureBoat(id: string): BoatEntityHandle {
     let boat = boats.get(id)
     if (boat) return boat
@@ -349,6 +445,7 @@ export function startScene(options: SceneOptions): SceneHandle {
       id,
       displayName: entry?.name,
       color: entry?.color,
+      visibilityMode: visibilityFor(id),
     })
     boats.set(id, boat)
     scene.add(boat.root)
@@ -406,16 +503,23 @@ export function startScene(options: SceneOptions): SceneHandle {
     return activePovId
   }
 
+  function orientOpsBillboards(camera: THREE.Camera): void {
+    if (stopped) return
+    for (const boat of boats.values()) {
+      boat.updateTag(camera, viewH)
+    }
+    countdownFlags?.orientBillboards(camera, viewH)
+  }
+
   function tick(): void {
     if (stopped) return
     try {
       const dt = Math.min(clock.getDelta(), 0.1)
       const cam = previewCamera()
       if (opsViewMode === 'free') freeCam?.update()
-      for (const boat of boats.values()) {
-        boat.updateTag(cam, viewH)
-      }
-      countdownFlags?.update(dt, cam, viewH)
+      countdownFlags?.tickClock(dt)
+      // Preview pass scales; NDI dual-render re-orients for air via prepareCameraPass.
+      orientOpsBillboards(cam)
       // Screen preview may be free cam; active POV camera keeps tracking for OUT/NDI.
       renderer.render(scene, cam)
     } catch (err) {
@@ -465,8 +569,33 @@ export function startScene(options: SceneOptions): SceneHandle {
     getOpsViewMode: () => opsViewMode,
     setOpsViewMode,
     frameFleet,
+    frameEnuPoint,
+    getBoatEnuPosition(id): { x: number; y: number; z: number } | null {
+      const boat = boats.get(id.trim())
+      if (!boat) return null
+      const p = boat.root.position
+      return { x: p.x, y: p.y, z: p.z }
+    },
+    getPovEnuPosition(id): { x: number; y: number; z: number } | null {
+      const trimmed = id.trim()
+      if (trimmed === '') return null
+      const cached = lastPoseByPovId.get(trimmed)
+      if (cached) {
+        return {
+          x: cached.position.x,
+          y: cached.position.y,
+          z: cached.position.z,
+        }
+      }
+      if (trimmed === activePovId) {
+        const p = drone.camera.position
+        return { x: p.x, y: p.y, z: p.z }
+      }
+      return null
+    },
     setActivePovId,
     setFleetAllowLists,
+    orientOpsBillboards,
     async loadCourseFromUrl(url?: string): Promise<CourseHandle | null> {
       if (stopped) return null
       course?.dispose()
@@ -512,8 +641,10 @@ export function startScene(options: SceneOptions): SceneHandle {
     ): Promise<void> {
       if (stopped) return
       const gen = ++remountGen
+      // Soft visible3d=false → omit from 3D remount (map may still show).
+      const for3d = filterFeaturesFor3d(features)
 
-      const courseData = featuresToCourseData(features, courseAppearance)
+      const courseData = featuresToCourseData(for3d, courseAppearance)
       course?.dispose()
       course = null
       if (courseData.waypoints.length > 0) {
@@ -525,7 +656,7 @@ export function startScene(options: SceneOptions): SceneHandle {
         return
       }
 
-      const sponsorsData = featuresToSponsorsData(features)
+      const sponsorsData = featuresToSponsorsData(for3d)
       sponsors?.dispose()
       sponsors = null
       if (sponsorsData.sponsors.length > 0) {
@@ -537,7 +668,7 @@ export function startScene(options: SceneOptions): SceneHandle {
         sponsors = handle
       }
 
-      const flagsData = featuresToFlagsData(features, flagsMeta)
+      const flagsData = featuresToFlagsData(for3d, flagsMeta)
       if (flagsData) {
         captureFlagsMeta(flagsData)
         countdownFlags?.dispose()
@@ -548,6 +679,56 @@ export function startScene(options: SceneOptions): SceneHandle {
           autoStart: false,
         })
       }
+
+      lineSigns?.dispose()
+      lineSigns = null
+      if (stopped || gen !== remountGen) return
+      lineSigns = mountLineSignsFromFeatures(scene, for3d)
+
+      worldBuoys?.dispose()
+      worldBuoys = null
+      if (stopped || gen !== remountGen) return
+      worldBuoys = mountWorldBuoys(scene, for3d, undefined, courseAppearance)
+
+      billboardChains?.dispose()
+      billboardChains = null
+      if (stopped || gen !== remountGen) return
+      {
+        const chainHandle = await mountBillboardChains(scene, for3d)
+        if (stopped || gen !== remountGen) {
+          chainHandle?.dispose()
+          return
+        }
+        billboardChains = chainHandle
+      }
+
+      positionMarkers?.dispose()
+      positionMarkers = null
+      if (positionMarkersData && positionMarkersData.markers.length > 0) {
+        if (stopped || gen !== remountGen) return
+        positionMarkers = mountPositionMarkers(scene, positionMarkersData)
+      }
+    },
+    async loadPositionMarkersFromUrl(
+      url?: string,
+    ): Promise<PositionMarkersHandle | null> {
+      if (stopped) return null
+      positionMarkers?.dispose()
+      positionMarkers = null
+      positionMarkersData = null
+      const handle = await loadPositionMarkers({ scene, url })
+      if (stopped) {
+        handle?.dispose()
+        return null
+      }
+      positionMarkers = handle
+      positionMarkersData = handle?.data ?? null
+      return handle
+    },
+    syncLineSignsFromFeatures(features: readonly WorldFeature[]): void {
+      if (stopped) return
+      lineSigns?.dispose()
+      lineSigns = mountLineSignsFromFeatures(scene, features)
     },
     async loadBoatNamesFromUrl(url?: string): Promise<BoatNamesCatalogue> {
       if (stopped) return new Map()
@@ -570,6 +751,29 @@ export function startScene(options: SceneOptions): SceneHandle {
       const boat = boats.get(id)
       if (boat) applyCatalogueToBoat(boat)
       return lookupBoatName(boatNames, id) ?? null
+    },
+    setBoatVisibilityMode(id, mode): void {
+      if (stopped) return
+      const trimmed = id.trim()
+      if (trimmed === '') return
+      const next = normalizeBoatVisibilityMode(mode)
+      boatVisibility.set(trimmed, next)
+      boats.get(trimmed)?.setVisibilityMode(next)
+    },
+    getBoatVisibilityMode(id): BoatVisibilityMode {
+      return visibilityFor(id.trim())
+    },
+    setBoatVisibilityModes(modes): void {
+      if (stopped) return
+      const entries =
+        modes instanceof Map ? modes.entries() : Object.entries(modes)
+      for (const [rawId, mode] of entries) {
+        const id = rawId.trim()
+        if (id === '') continue
+        const next = normalizeBoatVisibilityMode(mode)
+        boatVisibility.set(id, next)
+        boats.get(id)?.setVisibilityMode(next)
+      }
     },
     controlCountdown(action): void {
       if (!countdownFlags) return
@@ -605,8 +809,18 @@ export function startScene(options: SceneOptions): SceneHandle {
       sponsors = null
       countdownFlags?.dispose()
       countdownFlags = null
+      lineSigns?.dispose()
+      lineSigns = null
+      worldBuoys?.dispose()
+      worldBuoys = null
+      billboardChains?.dispose()
+      billboardChains = null
+      positionMarkers?.dispose()
+      positionMarkers = null
+      positionMarkersData = null
       clearLayoutFeatures()
       boatNames = new Map()
+      boatVisibility.clear()
       lastPoseByPovId.clear()
       for (const boat of boats.values()) {
         scene.remove(boat.root)

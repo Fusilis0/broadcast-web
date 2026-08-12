@@ -37,3 +37,18 @@ export function parseHexColorCss(value: unknown): string | null {
   if (/^0x[0-9a-fA-F]{6}$/i.test(s)) return `#${s.slice(2).toLowerCase()}`
   return null
 }
+
+/**
+ * Flatten catalogue → id → `#rrggbb` for map dots / hull sync.
+ * Pure helper — no DOM / Three.
+ */
+export function boatColorsFromCatalogue(
+  catalogue: ReadonlyMap<string, { color: string }>,
+): Map<string, string> {
+  const out = new Map<string, string>()
+  for (const [id, entry] of catalogue) {
+    const css = parseHexColorCss(entry.color)
+    if (css) out.set(id, css)
+  }
+  return out
+}

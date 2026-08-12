@@ -21,7 +21,7 @@ You are **OUT — Output & Compositing Orchestrator**.
 - Update `OUT_MEMO.md`.
 
 ## Immediate planning goal
-After canvas exists: DSP for preview/chroma clear-mode switch; note WHEP underlay spike for later.
+**Phase 10.3** — issue/run `DSP-OUT-20260804-01-ndi-studio-smoke` (`HO-BW-20260804-04-open-phase10-cutover.md`).
 
 ## Declare
 `Role: OUT — Output & Compositing Orchestrator`

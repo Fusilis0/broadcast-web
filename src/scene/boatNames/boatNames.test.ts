@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  boatColorsFromCatalogue,
   CATEGORY_COLOR_FALLBACK,
   CATEGORY_COLOR_MAVI,
   CATEGORY_COLOR_PEMBE,
@@ -23,6 +24,20 @@ describe('parseCategoryColor', () => {
 
   it('falls back to white when no keyword', () => {
     expect(parseCategoryColor('Open Class')).toBe(CATEGORY_COLOR_FALLBACK)
+  })
+})
+
+describe('boatColorsFromCatalogue', () => {
+  it('maps id → #rrggbb for map/hull sync', () => {
+    const colours = boatColorsFromCatalogue(
+      new Map([
+        ['21', { color: CATEGORY_COLOR_PEMBE }],
+        ['23', { color: CATEGORY_COLOR_MAVI }],
+      ]),
+    )
+    expect(colours.get('21')).toBe(CATEGORY_COLOR_PEMBE)
+    expect(colours.get('23')).toBe(CATEGORY_COLOR_MAVI)
+    expect(colours.size).toBe(2)
   })
 })
 

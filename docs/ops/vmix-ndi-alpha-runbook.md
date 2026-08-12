@@ -44,6 +44,18 @@ Output is always **1920×1080**; resizing or minimizing the Electron window must
 3. No Chroma Key filter on that source
 4. Same alpha / barcode checks as above
 
+## NDI Studio Monitor (no vMix)
+
+When vMix/OBS is unavailable, use **NDI 6 Tools → Studio Monitor** for smoke:
+
+1. Start Electron studio (`outputMode=transparent`) so `… (broadcast-web)` is publishing.
+2. Open `C:\Program Files\NDI\NDI 6 Tools\Studio Monitor\Application.Network.StudioMonitor.x64.exe` (or Start Menu **NDI Studio Monitor**).
+3. Select `HOSTNAME (broadcast-web)`.
+4. Confirm motion / framing; alpha checkerboard or dark underlay shows see-through empty areas.
+5. Run the Phase **10.3** checks in [`air-runbook.md`](./air-runbook.md) § Studio NDI smoke (POV vs free cam, stream map off).
+
+Studio Monitor is enough to Pass **source live + POV/free-cam framing**. Full alpha layering over a camera plate still needs vMix/OBS when available.
+
 ## Fallback (chroma)
 
 If NDI is unavailable or alpha looks wrong in the switcher:
@@ -76,3 +88,11 @@ Chroma remains supported as **fallback**; it is **not** the production NDI mode.
 | Notes / blockers | Minimize must **park** (tray), not OS-minimize; 1920×1080 locked |
 
 **After Pass:** 7.6 cutover docs in [`air-runbook.md`](./air-runbook.md) (`DSP-OUT-20260731-06`).
+
+### Phase 10.3 studio smoke (2026-08-04)
+
+| Field | Value |
+| --- | --- |
+| Pass / fail | **Pass** (see [`air-runbook.md`](./air-runbook.md) § Studio NDI smoke Results) |
+| Ingest | NDI Studio Monitor + `grandi` receive (`DESKTOP-264DNL1 (broadcast-web)`); vMix not on smoke PC |
+| Notes | Free-cam dual-render bottomUp fix in `ndiFramePump.ts` |

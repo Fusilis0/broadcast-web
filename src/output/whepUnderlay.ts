@@ -54,8 +54,11 @@ export function startWhepUnderlay(
   statusEl.setAttribute('data-whep-status', 'off')
   statusEl.textContent = formatWhepStatusLabel('off')
 
-  // Prefer attaching next to existing OUT mode control; else create a thin strip.
-  const existingControl = options.container.querySelector('.output-mode-control')
+  // Prefer attaching next to existing OUT mode control (may live in the Ops
+  // sidebar, not under the video `container`); else create a thin strip.
+  const existingControl =
+    options.container.querySelector('.output-mode-control') ??
+    document.querySelector('.output-mode-control')
   let statusRoot: HTMLElement | null = null
   if (existingControl) {
     existingControl.appendChild(statusEl)

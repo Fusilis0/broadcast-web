@@ -3,29 +3,29 @@
   "sponsors": [
     {
       "id": "sp-west",
-      "label": "Fusilis",
+      "label": "Rolex",
       "a": { "lat": 41.00855, "lon": 28.97755, "altMsl": 0 },
       "b": { "lat": 41.00745, "lon": 28.97755, "altMsl": 0 },
       "heightM": 8,
-      "textureUrl": null,
+      "textureUrl": "/textures/sponsors/rolex.png",
       "color": "#1e4d8c"
     },
     {
       "id": "sp-north",
-      "label": "Bosphorus Cup",
+      "label": "Vodafone",
       "a": { "lat": 41.00885, "lon": 28.9779, "altMsl": 0 },
       "b": { "lat": 41.00885, "lon": 28.9789, "altMsl": 0 },
       "heightM": 7,
-      "textureUrl": null,
+      "textureUrl": "/textures/sponsors/vodafone.png",
       "color": "#8b2e1f"
     },
     {
       "id": "sp-east",
-      "label": "Marina Tech",
+      "label": "Senexus",
       "a": { "lat": 41.00745, "lon": 28.97925, "altMsl": 0 },
       "b": { "lat": 41.00855, "lon": 28.97925, "altMsl": 0 },
       "heightM": 8,
-      "textureUrl": null,
+      "textureUrl": "/textures/sponsors/senexus.png",
       "color": "#1a6b4a"
     }
   ]

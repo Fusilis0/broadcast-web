@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { CATEGORY_TINT_USERDATA_KEY } from './tintBoatVisual.ts'
 
 /**
  * Race-readable multi-mesh hull used as glTF fallback (and export source).
@@ -9,6 +10,7 @@ export function createProceduralBoatVisual(): THREE.Group {
   group.name = 'boatVisualProcedural'
 
   // Mild emissive so the hull stays readable if lights are weak / glTF PBR is dark.
+  // Marked for catalogue category tint (deck/cabin stay neutral).
   const hullMat = new THREE.MeshStandardMaterial({
     color: 0xc45c26,
     roughness: 0.55,
@@ -16,6 +18,7 @@ export function createProceduralBoatVisual(): THREE.Group {
     emissive: 0xc45c26,
     emissiveIntensity: 0.25,
   })
+  hullMat.userData[CATEGORY_TINT_USERDATA_KEY] = true
   const deckMat = new THREE.MeshStandardMaterial({
     color: 0xe8dcc8,
     roughness: 0.7,

@@ -9,12 +9,15 @@ export const DEFAULT_LOCAL_RACE_IDS: readonly string[] = ['demo-istanbul']
 export type ListLocalRaceIdsOptions = {
   /** When set, prefer `GET {base}/races` when reachable; else static index. */
   projectsApiBase?: string
+  /** When true with API, include archived projects (default hides them). */
+  includeArchived?: boolean
   fetchImpl?: typeof fetch
 }
 
 /**
  * Discover local pack ids.
  * - With `projectsApiBase`: API list wins when reachable and non-empty.
+ *   Default API list excludes `archived` (pass `includeArchived: true` to show them).
  * - Else / on miss: `/races/index.json` → `{ "ids": [...] }`.
  * - On static miss / invalid → `DEFAULT_LOCAL_RACE_IDS`.
  */
@@ -29,7 +32,8 @@ export async function listLocalRaceIds(
   if (apiBase) {
     try {
       const base = apiBase.replace(/\/+$/, '')
-      const res = await fetchImpl(`${base}/races`)
+      const q = opts.includeArchived ? '?includeArchived=1' : ''
+      const res = await fetchImpl(`${base}/races${q}`)
       if (res.ok) {
         const ids = extractIdsFromApiList(await res.json())
         if (ids.length > 0) return ids

@@ -18,6 +18,9 @@ export const DEFAULT_BOAT_IDS: readonly string[] = ['21', '22', '23', '24']
 /** Committed default POV ids (drones/cams in band `1–12`). */
 export const DEFAULT_POV_IDS: readonly string[] = ['1', '2']
 
+/** Default buoy ids: empty (no buoy channel until configured). */
+export const DEFAULT_BUOY_IDS: readonly string[] = []
+
 const BOAT_ID_MIN = 21
 const BOAT_ID_MAX = 52
 
@@ -37,6 +40,7 @@ const DEFAULT_CONFIG: AppConfig = {
   wsBoatUrl: '',
   boatIds: [...DEFAULT_BOAT_IDS],
   povIds: [...DEFAULT_POV_IDS],
+  buoyIds: [...DEFAULT_BUOY_IDS],
   origin: { ...DEFAULT_ORIGIN },
   takeoffAltitudeMSL: 0,
   outputMode: 'preview',
@@ -142,6 +146,27 @@ export function normalizePovIds(raw: unknown): string[] {
   return out.length > 0 ? out : [...DEFAULT_POV_IDS]
 }
 
+/**
+ * Normalize `buoyIds`: non-empty trimmed strings (no numeric band).
+ * Missing/non-array/empty/all-junk → `[]` (no buoy channel).
+ * Keep disjoint from `boatIds` — collisions are a config error for ops.
+ */
+export function normalizeBuoyIds(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [...DEFAULT_BUOY_IDS]
+
+  const out: string[] = []
+  for (const item of raw) {
+    if (typeof item !== 'string') {
+      console.warn('[config] buoyIds: ignoring non-string entry')
+      continue
+    }
+    const id = item.trim()
+    if (id === '') continue
+    if (!out.includes(id)) out.push(id)
+  }
+  return out
+}
+
 /** Normalize a parsed JSON object into `AppConfig` (fills defaults). */
 export function normalizeConfig(raw: unknown): AppConfig {
   if (raw === null || typeof raw !== 'object') {
@@ -149,6 +174,7 @@ export function normalizeConfig(raw: unknown): AppConfig {
       ...DEFAULT_CONFIG,
       boatIds: [...DEFAULT_BOAT_IDS],
       povIds: [...DEFAULT_POV_IDS],
+      buoyIds: [...DEFAULT_BUOY_IDS],
       origin: { ...DEFAULT_ORIGIN },
     }
   }
@@ -179,6 +205,7 @@ export function normalizeConfig(raw: unknown): AppConfig {
     wsBoatUrl: typeof o.wsBoatUrl === 'string' ? o.wsBoatUrl : '',
     boatIds: normalizeBoatIds(o.boatIds),
     povIds: normalizePovIds(o.povIds),
+    buoyIds: normalizeBuoyIds(o.buoyIds),
     origin: parseOrigin(o.origin),
     takeoffAltitudeMSL: isFiniteNumber(o.takeoffAltitudeMSL)
       ? o.takeoffAltitudeMSL

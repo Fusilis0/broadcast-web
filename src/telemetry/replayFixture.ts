@@ -54,10 +54,10 @@ function parsePacket(
   }
 
   const channel = raw.channel
-  if (channel !== 'drone' && channel !== 'boat') {
+  if (channel !== 'drone' && channel !== 'boat' && channel !== 'buoy') {
     return {
       ok: false,
-      error: `packets[${index}]: channel must be "drone" | "boat"`,
+      error: `packets[${index}]: channel must be "drone" | "boat" | "buoy"`,
     }
   }
 

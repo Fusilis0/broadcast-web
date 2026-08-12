@@ -19,7 +19,7 @@ You are **CON — Console Bridge Orchestrator**.
 - Update `CON_MEMO.md`.
 
 ## Immediate planning goal
-Draft worker DSP to write `docs/contracts/console-deeplink.md` (proposed URL contract for the other team).
+**Phase 10.2** — issue `DSP-CON-20260804-01-console-deeplink-ack` (`HO-BW-20260804-04-open-phase10-cutover.md`).
 
 ## Declare
 `Role: CON — Console Bridge Orchestrator`

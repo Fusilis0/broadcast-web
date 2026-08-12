@@ -3,6 +3,11 @@ import { SUPPORTED_OUTPUT_MODES, type OutputMode } from './types.ts'
 
 export type OutputModeControlOptions = {
   container: HTMLElement
+  /**
+   * Where to insert in `container`. Use `start` when mounting into the Ops
+   * sidebar so the control sits above mode/POV (design §A).
+   */
+  mountAt?: 'start' | 'end'
   initialMode?: unknown
   /** Invoked when ops picks a clear mode (not persisted). */
   onChange?: (mode: OutputMode) => void
@@ -31,7 +36,11 @@ export function startOutputModeControl(
 
   const root = document.createElement('div')
   root.className = 'output-mode-control'
-  options.container.appendChild(root)
+  if (options.mountAt === 'start') {
+    options.container.insertBefore(root, options.container.firstChild)
+  } else {
+    options.container.appendChild(root)
+  }
 
   const label = document.createElement('label')
   label.className = 'output-mode-control__label'

@@ -67,6 +67,16 @@ export {
 } from './ndiFramePump.ts'
 
 export {
+  resolveNdiAirIndicator,
+  startNdiControllerPanel,
+  STREAM_MAP_NDI_BRIDGE_SUPPORTED,
+  type NdiAirIndicator,
+  type NdiControllerPanelHandle,
+  type NdiControllerPanelOptions,
+  type ResolveNdiAirIndicatorInput,
+} from './ndiControllerPanel.ts'
+
+export {
   isAirCameraLocked,
   planNdiCapture,
   shouldForceFollowActivePov,

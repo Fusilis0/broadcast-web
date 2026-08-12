@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  clearAllOffsets,
+  getOffsets,
+} from '../calibration/index.ts'
+import type { AppConfig } from '../config/types.ts'
 import { applyRaceProjectToConfig } from './applyRaceProjectToConfig.ts'
 import { isSafeRaceId, parseRaceProject } from './parseRaceProject.ts'
-import type { AppConfig } from '../config/types.ts'
 
 const minimal = {
   schemaVersion: 1,
@@ -24,6 +28,7 @@ function baseConfig(): AppConfig {
     wsBoatUrl: '',
     boatIds: ['21'],
     povIds: ['1'],
+    buoyIds: [],
     origin: { lat: 0, lon: 0, altMsl: 0 },
     takeoffAltitudeMSL: 0,
     outputMode: 'preview',
@@ -32,12 +37,16 @@ function baseConfig(): AppConfig {
     timecodeCorner: 'bottom-right',
     timecodeSizePx: 96,
     whepUrl: '',
+    projectsApiBase: '',
+    projectsRole: 'editor',
+    projectsApiToken: '',
   }
 }
 
 describe('parseRaceProject', () => {
   afterEach(() => {
     vi.restoreAllMocks()
+    clearAllOffsets()
   })
 
   it('accepts a minimal valid project', () => {
@@ -47,6 +56,74 @@ describe('parseRaceProject', () => {
     expect(p.origin).toEqual(minimal.origin)
     expect(p.fleet.boatIds).toEqual(['21', '22', '23', '24'])
     expect(p.povIds).toEqual(['1', '2'])
+    expect(p.calibration).toBeUndefined()
+  })
+
+  it('soft-parses optional calibration.byPovId (aliases + junk ignored)', () => {
+    const p = parseRaceProject({
+      ...minimal,
+      calibration: {
+        byPovId: {
+          '1': { yawDeg: 2.5, fovHDeg: 40, mystery: true },
+          '2': { yaw: 1, alt: -0.5 },
+          '': { yawDeg: 9 },
+        },
+        extraTop: 1,
+      },
+    })
+    expect(p.calibration?.byPovId['1']).toMatchObject({
+      yawDeg: 2.5,
+      fovHDeg: 40,
+    })
+    expect(p.calibration?.byPovId['2']).toMatchObject({
+      yawDeg: 1,
+      altMeters: -0.5,
+    })
+    expect(p.calibration?.byPovId['']).toBeUndefined()
+  })
+
+  it('soft-parses optional fleet.boatVisibility (drops junk)', () => {
+    const p = parseRaceProject({
+      ...minimal,
+      fleet: {
+        boatIds: ['21', '22'],
+        boatVisibility: {
+          '21': 'ghost',
+          '22': 'hidden',
+          '23': 'nope',
+          '': 'solid',
+        },
+      },
+    })
+    expect(p.fleet.boatVisibility).toEqual({
+      '21': 'ghost',
+      '22': 'hidden',
+    })
+  })
+
+  it('soft-parses fleet.boatMapVisible / povMapVisible and feature visible* flags', () => {
+    const p = parseRaceProject({
+      ...minimal,
+      fleet: {
+        boatIds: ['21'],
+        boatMapVisible: { '21': false, '22': true, junk: 'x' },
+        povMapVisible: { '1': false },
+      },
+      features: [
+        {
+          id: 'buoy:1',
+          name: 'B1',
+          type: 'buoy',
+          points: [{ lat: 41, lon: 29, altMsl: 0 }],
+          visible3d: false,
+          visible2d: true,
+        },
+      ],
+    })
+    expect(p.fleet.boatMapVisible).toEqual({ '21': false, '22': true })
+    expect(p.fleet.povMapVisible).toEqual({ '1': false })
+    expect(p.features?.[0]?.visible3d).toBe(false)
+    expect(p.features?.[0]?.visible2d).toBe(true)
   })
 
   it('accepts embedded WorldFeature list', () => {
@@ -126,6 +203,10 @@ describe('isSafeRaceId', () => {
 })
 
 describe('applyRaceProjectToConfig', () => {
+  afterEach(() => {
+    clearAllOffsets()
+  })
+
   it('merges origin, fleet, URLs, and output defaults', () => {
     const config = baseConfig()
     const project = parseRaceProject({
@@ -149,5 +230,21 @@ describe('applyRaceProjectToConfig', () => {
     expect(config.courseUrl).toBe('/races/demo-istanbul/course.json')
     expect(config.outputMode).toBe('chroma')
     expect(config.whepUrl).toBe('http://127.0.0.1:8889/c/whep')
+  })
+
+  it('hydrates offsetsStore from calibration; old packs leave store alone', () => {
+    const config = baseConfig()
+    applyRaceProjectToConfig(config, parseRaceProject(minimal))
+    expect(getOffsets('1').yawDeg).toBe(0)
+
+    const withCal = parseRaceProject({
+      ...minimal,
+      calibration: {
+        byPovId: { '1': { yawDeg: 7, fovHDeg: 42 } },
+      },
+    })
+    applyRaceProjectToConfig(config, withCal)
+    expect(getOffsets('1').yawDeg).toBe(7)
+    expect(getOffsets('1').fovHDeg).toBe(42)
   })
 })

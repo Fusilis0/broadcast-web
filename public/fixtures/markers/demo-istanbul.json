@@ -1,0 +1,29 @@
+{
+  "name": "demo-istanbul-distances",
+  "markers": [
+    {
+      "id": "dist-100",
+      "label": "100",
+      "lat": 41.00835,
+      "lon": 28.9781,
+      "altMsl": 0,
+      "sizeM": 16
+    },
+    {
+      "id": "dist-200",
+      "label": "200",
+      "lat": 41.00835,
+      "lon": 28.9784,
+      "altMsl": 0,
+      "sizeM": 16
+    },
+    {
+      "id": "dist-300",
+      "label": "300",
+      "lat": 41.00835,
+      "lon": 28.9787,
+      "altMsl": 0,
+      "sizeM": 16
+    }
+  ]
+}

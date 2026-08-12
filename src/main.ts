@@ -1,5 +1,11 @@
 import './style.css'
-import { startOffsetSliders } from './calibration/index.ts'
+import { startLibraryPanel } from './assets/library/index.ts'
+import type { LibraryPanelHandle } from './assets/library/index.ts'
+import {
+  snapshotCalibrationByPovId,
+  startOffsetSliders,
+  type OffsetSlidersHandle,
+} from './calibration/index.ts'
 import { loadConfig } from './config/index.ts'
 import type { AppConfig } from './config/types.ts'
 import {
@@ -16,26 +22,41 @@ import {
 import {
   applyRaceProjectToConfig,
   buildRaceProject,
+  buildVenuePack,
+  canWriteProjectsApi,
+  confirmSaveWithOrphanBoatIds,
   defaultEditedRaceId,
   downloadRaceProject,
+  downloadVenuePack,
+  getDefaultVenuePackCache,
   isSafeRaceId,
   listLocalRaceIds,
   loadRaceProject,
+  materializeVenuePack,
+  parseVenuePack,
+  projectsApiBearerToken,
+  resolveProjectsRole,
+  retainMaterializedVenuePack,
+  startProjectManagerPanel,
   writeRaceProject,
   WriteRaceProjectError,
   type RaceProject,
 } from './projects/index.ts'
+import type { ProjectManagerPanelHandle } from './projects/index.ts'
+import { promptModal } from './ui/promptModal.ts'
 import {
   applyOutputMode,
   getStudioBridge,
   normalizeOutputMode,
   resolveClearAppearance,
+  startNdiControllerPanel,
   startNdiFramePump,
   startOutputModeControl,
   startVisualTimecode,
   startWhepUnderlay,
   STUDIO_OUTPUT_HEIGHT,
   STUDIO_OUTPUT_WIDTH,
+  type NdiControllerPanelHandle,
   type NdiFramePumpHandle,
   type OutputModeControlHandle,
   type TimecodeCorner,
@@ -44,16 +65,31 @@ import {
 } from './output/index.ts'
 import { startPosePipeline, stopPosePipeline } from './pose/index.ts'
 import {
+  boatColorsFromCatalogue,
+  createSidebar,
   layoutFeatures,
   loadFleetLiveFromSession,
+  loadWorldExtrasFeatures,
+  resolveAssetFocusEnu,
   setLayoutFeatures,
+  startAssetInspector,
   startFleetLivePanel,
   startMapFeatureEditor,
   startScene,
   startStubHud,
+  createWorldAuthoringWorkspace,
+  mountWorldMapAuthoringLauncher,
+  resolveAuthoringInitiallyOpen,
+  WORLD_AUTHORING_MAP_SIZE,
+  type AssetInspectorHandle,
+
+  type AssetRowId,
+  type BoatVisibilityMode,
   type FleetLivePanelHandle,
   type MapFeatureEditorHandle,
   type SceneHandle,
+  type WorldAuthoringWorkspaceHandle,
+  type WorldMapAuthoringLauncherHandle,
   type WorldFeature,
 } from './scene/index.ts'
 import {
@@ -69,7 +105,7 @@ if (!app) {
   throw new Error('#app root missing')
 }
 
-const calib = startOffsetSliders({ container: app })
+let calib: OffsetSlidersHandle | null = null
 
 let scene: SceneHandle | null = null
 let ingest: IngestHandle | null = null
@@ -77,7 +113,16 @@ let outputControl: OutputModeControlHandle | null = null
 let visualTimecode: VisualTimecodeHandle | null = null
 let whepUnderlay: WhepUnderlayHandle | null = null
 let ndiPump: NdiFramePumpHandle | null = null
+let ndiController: NdiControllerPanelHandle | null = null
 let mapEditor: MapFeatureEditorHandle | null = null
+let worldAuthoring: WorldAuthoringWorkspaceHandle | null = null
+let worldMapLauncher: WorldMapAuthoringLauncherHandle | null = null
+let fleetPanel: FleetLivePanelHandle | null = null
+let assetInspector: AssetInspectorHandle | null = null
+/** Soft POV map-dot visibility (false = hidden). Missing → true. */
+const povMapVisible = new Map<string, boolean>()
+/** Soft POV 3D flag (no mesh yet). Missing → true. */
+const povVisible3d = new Map<string, boolean>()
 let unsubLiveStatus: (() => void) | null = null
 let bootConfig: AppConfig | null = null
 let raceProject: RaceProject | null = null
@@ -98,15 +143,146 @@ let wsBoatUrl = DEFAULT_LIVE_WS_BASE
 let chromaKey = ''
 let switching = false
 let switchingRace = false
-let fleetPanel: FleetLivePanelHandle | null = null
 let liveStatusPoll: ReturnType<typeof setInterval> | null = null
 
-function editorQueryOpen(): boolean {
-  try {
-    return new URLSearchParams(window.location.search).get('editor') === '1'
-  } catch {
-    return false
+/** Push catalogue category colours onto 2D map boat dots (hull tint is via scene). */
+function syncMapBoatDotColors(): void {
+  if (!scene) return
+  const colors = boatColorsFromCatalogue(scene.getBoatNamesCatalogue())
+  hud.getMap().setBoatDotColors(colors)
+  hud.getStreamMap().setBoatDotColors(colors)
+}
+
+/** Build soft RaceProject fleet.boatVisibility from Fleet rows (skip pure solid). */
+function fleetBoatVisibilityRecord(
+  boats:
+    | ReadonlyArray<{ id: string; visibility?: BoatVisibilityMode }>
+    | undefined,
+): Record<string, BoatVisibilityMode> | undefined {
+  if (!boats?.length) return undefined
+  const out: Record<string, BoatVisibilityMode> = {}
+  for (const b of boats) {
+    const id = b.id.trim()
+    if (id === '') continue
+    const mode = b.visibility ?? 'solid'
+    if (mode === 'solid') continue
+    out[id] = mode
   }
+  return Object.keys(out).length > 0 ? out : undefined
+}
+
+/** Soft fleet.boatMapVisible — only persist explicit `false` entries. */
+function fleetBoatMapVisibleRecord(
+  boats:
+    | ReadonlyArray<{ id: string; mapVisible?: boolean }>
+    | undefined,
+): Record<string, boolean> | undefined {
+  if (!boats?.length) return undefined
+  const out: Record<string, boolean> = {}
+  for (const b of boats) {
+    const id = b.id.trim()
+    if (id === '' || b.mapVisible !== false) continue
+    out[id] = false
+  }
+  return Object.keys(out).length > 0 ? out : undefined
+}
+
+/** Soft fleet.povMapVisible — only persist explicit `false` entries. */
+function fleetPovMapVisibleRecord(
+  ids: readonly string[],
+): Record<string, boolean> | undefined {
+  const out: Record<string, boolean> = {}
+  for (const raw of ids) {
+    const id = raw.trim()
+    if (id === '') continue
+    if (povMapVisible.get(id) === false) out[id] = false
+  }
+  return Object.keys(out).length > 0 ? out : undefined
+}
+
+/** Push hidden boat/POV ids to ops + stream maps. */
+function syncMapHiddenPoseIds(): void {
+  const hidden: string[] = []
+  const boats = fleetPanel?.getState().boats ?? []
+  for (const b of boats) {
+    if (b.mapVisible === false) hidden.push(b.id)
+  }
+  for (const [id, visible] of povMapVisible) {
+    if (visible === false) hidden.push(id)
+  }
+  hud.getMap().setHiddenPoseIds(hidden)
+  hud.getStreamMap().setHiddenPoseIds(hidden)
+}
+
+/** Apply Fleet / pack visibility modes onto live boat entities. */
+function syncBoatVisibilityToScene(
+  boats: ReadonlyArray<{ id: string; visibility?: BoatVisibilityMode }>,
+): void {
+  if (!scene) return
+  const modes: Record<string, BoatVisibilityMode> = {}
+  for (const b of boats) {
+    const id = b.id.trim()
+    if (id === '') continue
+    modes[id] = b.visibility ?? 'solid'
+  }
+  scene.setBoatVisibilityModes(modes)
+}
+
+async function patchWorldFeature(
+  id: string,
+  patch: Partial<WorldFeature>,
+): Promise<void> {
+  const src = mapEditor?.getFeatures() ?? currentWorldFeatures
+  const next = src.map((f) => {
+    if (f.id !== id) {
+      return { ...f, points: f.points.map((p) => ({ ...p })) }
+    }
+    const merged: WorldFeature = {
+      ...f,
+      ...patch,
+      points: (patch.points ?? f.points).map((p) => ({ ...p })),
+    }
+    return merged
+  })
+  currentWorldFeatures = cloneWorldFeatures(next)
+  mapEditor?.replaceFeatures(currentWorldFeatures, true)
+  const layout = layoutFeatures(currentWorldFeatures, gpsToEnu)
+  setLayoutFeatures(layout)
+  hud.setLayoutFeatures(layout)
+  assetInspector?.refresh()
+}
+
+function focusAssetRow(target: AssetRowId): void {
+  if (!scene) return
+  const fleet = fleetPanel?.getState()
+  const enu = resolveAssetFocusEnu(target, {
+    getBoatEnu: (id) => scene?.getBoatEnuPosition(id) ?? null,
+    getPovEnu: (id) => scene?.getPovEnuPosition(id) ?? null,
+    getBoatPlanned: (id) => {
+      const b = fleet?.boats.find((row) => row.id === id)
+      if (
+        typeof b?.plannedLat === 'number' &&
+        typeof b?.plannedLon === 'number'
+      ) {
+        return { lat: b.plannedLat, lon: b.plannedLon }
+      }
+      return null
+    },
+    getPovPlanned: (id) => {
+      const p = fleet?.plannedPovs?.find((row) => row.id === id)
+      return p ? { lat: p.plannedLat, lon: p.plannedLon } : null
+    },
+    features: mapEditor?.getFeatures() ?? currentWorldFeatures,
+    gpsToEnuAmsl: gpsToEnu,
+  })
+  if (!enu) {
+    console.warn('[assets] Focus: no position for', target)
+    return
+  }
+  scene.frameEnuPoint(enu, 80)
+  hud.getMap().focusEnu(enu.x, enu.z, 80)
+  hud.setOpsViewMode('free')
+  fleetPanel?.setOpsViewMode('free')
 }
 
 /** Transparent NDI plate: clear page chrome so only WebGL alpha matters for ops view. */
@@ -130,7 +306,7 @@ function applyFleetToScene(): void {
   if (!scene) return
   const active = scene.setFleetAllowLists({ boatIds, povIds })
   hud.setPovIds(povIds, active)
-  calib.setPovIds(povIds, active)
+  calib?.setPovIds(povIds, active)
   fleetPanel?.setState({ boatIds, povIds, activePovId: active })
 }
 
@@ -167,6 +343,85 @@ function gpsToEnu(lat: number, lon: number, alt: number) {
   return { x: v.x, y: v.y, z: v.z }
 }
 
+/** Keep ops (+ stream) maps able to draw OSM + convert click-to-anchor. */
+function syncMapGeoBridge(maps: {
+  ops: { setGeoBridge: (b: {
+    enuToLatLon: (east: number, north: number) => { lat: number; lon: number }
+    latLonToEnu: (lat: number, lon: number) => { east: number; north: number }
+  } | null) => void }
+  stream: { setGeoBridge: (b: {
+    enuToLatLon: (east: number, north: number) => { lat: number; lon: number }
+    latLonToEnu: (lat: number, lon: number) => { east: number; north: number }
+  } | null) => void }
+}): void {
+  const bridge = {
+    enuToLatLon: (east: number, north: number) => {
+      const g = enuToGpsAmsl(east, 0, north)
+      return { lat: g.lat, lon: g.lon }
+    },
+    latLonToEnu: (lat: number, lon: number) => {
+      const v = gpsToEnuAmsl(lat, lon, 0)
+      return { east: v.x, north: v.z }
+    },
+  }
+  maps.ops.setGeoBridge(bridge)
+  maps.stream.setGeoBridge(bridge)
+}
+
+/** Seed 2D map dots for map-placed fleet until live pose arrives. */
+function seedPlannedFleetOnMap(
+  map: {
+    updatePose: (pose: {
+      id: string
+      kind: 'boat' | 'drone' | 'buoy'
+      position: { x: number; y: number; z: number }
+      rotation: { yawDeg: number; pitchDeg: number; rollDeg: number }
+      fovHDeg: number
+      ts: number
+    }) => void
+  },
+  boats: readonly {
+    id: string
+    plannedLat?: number
+    plannedLon?: number
+  }[],
+  plannedPovs: readonly {
+    id: string
+    plannedLat: number
+    plannedLon: number
+  }[] = [],
+): void {
+  const now = Date.now()
+  for (const b of boats) {
+    if (
+      typeof b.plannedLat !== 'number' ||
+      typeof b.plannedLon !== 'number'
+    ) {
+      continue
+    }
+    const enu = gpsToEnu(b.plannedLat, b.plannedLon, 0)
+    map.updatePose({
+      id: b.id,
+      kind: 'boat',
+      position: { x: enu.x, y: 0, z: enu.z },
+      rotation: { yawDeg: 0, pitchDeg: 0, rollDeg: 0 },
+      fovHDeg: 66.8832,
+      ts: now,
+    })
+  }
+  for (const p of plannedPovs) {
+    const enu = gpsToEnu(p.plannedLat, p.plannedLon, 0)
+    map.updatePose({
+      id: p.id,
+      kind: 'drone',
+      position: { x: enu.x, y: 10, z: enu.z },
+      rotation: { yawDeg: 0, pitchDeg: 0, rollDeg: 0 },
+      fovHDeg: 66.8832,
+      ts: now,
+    })
+  }
+}
+
 function syncRaceQuery(id: string): void {
   try {
     const url = new URL(window.location.href)
@@ -197,11 +452,12 @@ function syncFleetIntoConfig(config: AppConfig): void {
   config.replayUrl = replayUrl
 }
 
-function promptSaveAsMeta(defaults: {
+async function promptSaveAsMeta(defaults: {
   id: string
   name: string
-}): { id: string; name: string } | null {
-  const idRaw = window.prompt('Save as — project id', defaults.id)
+}): Promise<{ id: string; name: string } | null> {
+  // Electron overrides window.prompt to throw — use shared DOM modal.
+  const idRaw = await promptModal('Save as — project id', defaults.id)
   if (idRaw === null) return null
   const id = idRaw.trim()
   if (!isSafeRaceId(id)) {
@@ -210,7 +466,10 @@ function promptSaveAsMeta(defaults: {
     )
     return null
   }
-  const nameRaw = window.prompt('Save as — display name', defaults.name || id)
+  const nameRaw = await promptModal(
+    'Save as — display name',
+    defaults.name || id,
+  )
   if (nameRaw === null) return null
   const name = nameRaw.trim() || id
   return { id, name }
@@ -223,9 +482,80 @@ async function refreshRacePicker(activeId?: string): Promise<void> {
     const ids = await listLocalRaceIds({
       projectsApiBase: config.projectsApiBase,
     })
-    hud.setRaceIds(ids, activeId ?? raceProject?.id ?? ids[0])
+    let cached: string[] = []
+    try {
+      cached = await getDefaultVenuePackCache().listIds()
+    } catch {
+      /* ignore */
+    }
+    const merged = [...ids]
+    for (const id of cached) {
+      if (!merged.includes(id)) merged.push(id)
+    }
+    hud.setRaceIds(merged, activeId ?? raceProject?.id ?? merged[0])
+    void projectManagerPanel?.refresh()
   } catch {
     /* keep existing picker */
+  }
+}
+
+/** Build RaceProject from current editor/config (shared by Save + Pack ↓). */
+function buildCurrentRaceProject(meta?: {
+  id?: string
+  name?: string
+  revision?: number
+}): RaceProject | null {
+  const config = bootConfig
+  if (!config) return null
+  const fleet = fleetPanel?.getState()
+  if (fleet) {
+    boatIds = [...fleet.boatIds]
+    povIds = [...fleet.povIds]
+  }
+  syncFleetIntoConfig(config)
+  const features = mapEditor?.getFeatures() ?? currentWorldFeatures
+  const id =
+    meta?.id?.trim() || raceProject?.id || defaultEditedRaceId()
+  if (!isSafeRaceId(id)) return null
+  const name = meta?.name?.trim() || raceProject?.name || id
+  const boatVisibility = fleetBoatVisibilityRecord(fleet?.boats)
+  const boatMapVisible = fleetBoatMapVisibleRecord(fleet?.boats)
+  const povMapVisibleRecord = fleetPovMapVisibleRecord(povIds)
+  const calibration = snapshotCalibrationByPovId(povIds)
+  return buildRaceProject({
+    id,
+    name,
+    origin: { ...config.origin },
+    boatIds,
+    povIds,
+    features,
+    takeoffAltitudeMSL: config.takeoffAltitudeMSL,
+    boatNamesUrl: boatNamesUrl || config.boatNamesUrl,
+    boatVisibility,
+    boatMapVisible,
+    povMapVisible: povMapVisibleRecord,
+    courseUrl: courseUrl || config.courseUrl,
+    sponsorsUrl: sponsorsUrl || config.sponsorsUrl,
+    flagsUrl: flagsUrl || config.flagsUrl,
+    replayUrl: replayUrl || config.replayUrl,
+    calibration,
+    revision: meta?.revision,
+    output: {
+      outputMode: config.outputMode,
+      whepUrl: config.whepUrl || undefined,
+      chromaKey: config.chromaKey || undefined,
+      timecodeEnabled: config.timecodeEnabled,
+      timecodeCorner: config.timecodeCorner,
+      timecodeSizePx: config.timecodeSizePx,
+    },
+  })
+}
+
+function projectsWriteOpts(apiBase: string) {
+  const config = bootConfig
+  return {
+    projectsApiBase: apiBase,
+    bearerToken: config ? projectsApiBearerToken(config) : undefined,
   }
 }
 
@@ -234,14 +564,21 @@ async function maybeWriteRaceProjectApi(
   mode: 'save' | 'saveAs',
 ): Promise<RaceProject | null> {
   const config = bootConfig
-  const apiBase = config?.projectsApiBase?.trim()
+  if (!config) return null
+  const apiBase = config.projectsApiBase.trim()
   if (!apiBase) return null
+  // Air-only LAN role: never POST/PUT (UI also disables Save).
+  if (!canWriteProjectsApi(config, window.location.search)) {
+    return null
+  }
+
+  const auth = projectsWriteOpts(apiBase)
 
   try {
     if (mode === 'saveAs') {
       try {
         return await writeRaceProject(project, {
-          projectsApiBase: apiBase,
+          ...auth,
           mode: 'create',
         })
       } catch (err) {
@@ -263,7 +600,7 @@ async function maybeWriteRaceProjectApi(
         }
         if (expectedRevision === undefined) throw err
         return await writeRaceProject(project, {
-          projectsApiBase: apiBase,
+          ...auth,
           mode: 'update',
           expectedRevision,
         })
@@ -285,7 +622,7 @@ async function maybeWriteRaceProjectApi(
         expectedRevision = existing.revision
       } catch {
         return await writeRaceProject(project, {
-          projectsApiBase: apiBase,
+          ...auth,
           mode: 'create',
         })
       }
@@ -293,21 +630,21 @@ async function maybeWriteRaceProjectApi(
 
     if (expectedRevision === undefined) {
       return await writeRaceProject(project, {
-        projectsApiBase: apiBase,
+        ...auth,
         mode: 'create',
       })
     }
 
     try {
       return await writeRaceProject(project, {
-        projectsApiBase: apiBase,
+        ...auth,
         mode: 'update',
         expectedRevision,
       })
     } catch (err) {
       if (err instanceof WriteRaceProjectError && err.status === 404) {
         return await writeRaceProject(project, {
-          projectsApiBase: apiBase,
+          ...auth,
           mode: 'create',
         })
       }
@@ -330,6 +667,11 @@ async function saveCurrentRaceProject(
   const config = bootConfig
   if (!config) {
     console.warn('[projects] save skipped; config not ready')
+    return
+  }
+  if (!canWriteProjectsApi(config, window.location.search)) {
+    console.warn('[projects] save skipped; air-only role')
+    hud.setBootMessage('air-only · Save disabled')
     return
   }
 
@@ -356,7 +698,19 @@ async function saveCurrentRaceProject(
     raceProject?.name ||
     id
 
+  const catalogueIds = scene
+    ? [...scene.getBoatNamesCatalogue().keys()]
+    : []
+  if (!confirmSaveWithOrphanBoatIds(boatIds, catalogueIds)) {
+    hud.setBootMessage('save cancelled')
+    return
+  }
+
   try {
+    const boatVisibility = fleetBoatVisibilityRecord(fleet?.boats)
+    const boatMapVisible = fleetBoatMapVisibleRecord(fleet?.boats)
+    const povMapVisibleRecord = fleetPovMapVisibleRecord(povIds)
+    const calibration = snapshotCalibrationByPovId(povIds)
     const project = buildRaceProject({
       id,
       name,
@@ -366,10 +720,14 @@ async function saveCurrentRaceProject(
       features,
       takeoffAltitudeMSL: config.takeoffAltitudeMSL,
       boatNamesUrl: boatNamesUrl || config.boatNamesUrl,
+      boatVisibility,
+      boatMapVisible,
+      povMapVisible: povMapVisibleRecord,
       courseUrl: courseUrl || config.courseUrl,
       sponsorsUrl: sponsorsUrl || config.sponsorsUrl,
       flagsUrl: flagsUrl || config.flagsUrl,
       replayUrl: replayUrl || config.replayUrl,
+      calibration,
       revision: mode === 'save' ? raceProject?.revision : undefined,
       output: {
         outputMode: config.outputMode,
@@ -415,12 +773,12 @@ async function saveCurrentRaceProject(
   }
 }
 
-function saveAsRaceProject(): void {
+async function saveAsRaceProject(): Promise<void> {
   const defaults = {
     id: defaultEditedRaceId(),
     name: raceProject?.name ? `${raceProject.name} (copy)` : 'Edited race',
   }
-  const meta = promptSaveAsMeta(defaults)
+  const meta = await promptSaveAsMeta(defaults)
   if (!meta) return
   void saveCurrentRaceProject({ meta, mode: 'saveAs' })
 }
@@ -433,16 +791,22 @@ async function loadWorldForProject(
   if (packFeatures && packFeatures.length > 0) {
     const world = cloneWorldFeatures(packFeatures)
     await scene.remountWorldFromFeatures(world)
+    await scene.loadPositionMarkersFromUrl()
     return world
   }
   const course = await scene.loadCourseFromUrl(courseUrl)
   const sponsors = await scene.loadSponsorsFromUrl(sponsorsUrl)
   const flags = await scene.loadCountdownFlagsFromUrl(flagsUrl)
-  return [
+  const extras = await loadWorldExtrasFeatures()
+  const world = [
     ...(course?.worldFeatures ?? []),
     ...(sponsors?.worldFeatures ?? []),
     ...(flags?.worldFeatures ?? []),
+    ...extras,
   ]
+  scene.syncLineSignsFromFeatures(world)
+  await scene.loadPositionMarkersFromUrl()
+  return world
 }
 
 async function applyWorldFeatures(world: WorldFeature[]): Promise<void> {
@@ -468,6 +832,8 @@ async function applyWorldOrigin(origin: ConfigOrigin): Promise<void> {
   applyConfigOrigin(config.origin)
   hud.setOrigin(config.origin)
 
+  syncMapGeoBridge({ ops: hud.getMap(), stream: hud.getStreamMap() })
+
   const features = mapEditor?.getFeatures() ?? currentWorldFeatures
   currentWorldFeatures = cloneWorldFeatures(features)
   await scene.remountWorldFromFeatures(currentWorldFeatures)
@@ -480,6 +846,77 @@ async function applyWorldOrigin(origin: ConfigOrigin): Promise<void> {
     `origin: ${config.origin.lat}, ${config.origin.lon}, altMsl=${config.origin.altMsl}`,
   )
   console.info('[geo] world anchor applied', config.origin)
+}
+
+async function applyLoadedRaceProject(project: RaceProject): Promise<void> {
+  const config = bootConfig
+  if (!scene || !config) return
+
+  applyRaceProjectToConfig(config, project)
+  raceProject = project
+  replayUrl = config.replayUrl
+  courseUrl = config.courseUrl
+  sponsorsUrl = config.sponsorsUrl
+  flagsUrl = config.flagsUrl
+  boatNamesUrl = config.boatNamesUrl
+  boatIds = config.boatIds
+  povIds = config.povIds
+
+  applyConfigOrigin(config.origin)
+  hud.setOrigin(config.origin)
+  await scene.loadBoatNamesFromUrl(boatNamesUrl)
+  syncMapBoatDotColors()
+
+  const world = await loadWorldForProject(project)
+  await applyWorldFeatures(world)
+
+  mapEditor?.setProjectMeta(project.id, project.name)
+  const streamTitle = project.name.trim()
+  hud.getStreamMap().setTitle(streamTitle || 'Race map')
+  hud.setActiveRaceId(project.id)
+  const activePov = scene.setFleetAllowLists({
+    boatIds: config.boatIds,
+    povIds: config.povIds,
+  })
+  hud.setPovIds(config.povIds, activePov)
+  calib?.setPovIds(config.povIds, activePov)
+  syncRaceQuery(project.id)
+
+  liveBoatIds = liveBoatIds.filter((id) => boatIds.includes(id))
+  livePovIds = livePovIds.filter((id) => povIds.includes(id))
+
+  await restartIngest(ingest?.mode ?? config.telemetryMode)
+  const packVis = project.fleet.boatVisibility ?? {}
+  const packBoatMap = project.fleet.boatMapVisible ?? {}
+  povMapVisible.clear()
+  povVisible3d.clear()
+  if (project.fleet.povMapVisible) {
+    for (const [id, v] of Object.entries(project.fleet.povMapVisible)) {
+      if (typeof v === 'boolean') povMapVisible.set(id, v)
+    }
+  }
+  fleetPanel?.setState({
+    boatIds: config.boatIds,
+    povIds: config.povIds,
+    enabledBoatIds: [...liveBoatIds],
+    enabledPovIds: [...livePovIds],
+    activePovId: activePov,
+    boats: [...scene.getBoatNamesCatalogue().entries()].map(([id, e]) => ({
+      id,
+      name: e.name,
+      category: e.category,
+      visibility: packVis[id] ?? 'solid',
+      mapVisible: packBoatMap[id] === false ? false : undefined,
+    })),
+  })
+  syncBoatVisibilityToScene(
+    fleetPanel?.getState().boats ??
+      Object.entries(packVis).map(([id, visibility]) => ({ id, visibility })),
+  )
+  syncMapHiddenPoseIds()
+  assetInspector?.refresh()
+  hud.setBootMessage(`project: ${project.id}`)
+  console.info('[projects] switched race pack', { id: project.id })
 }
 
 async function switchRace(id: string): Promise<void> {
@@ -497,53 +934,7 @@ async function switchRace(id: string): Promise<void> {
     const project = await loadRaceProject(trimmed, {
       projectsApiBase: config.projectsApiBase,
     })
-    applyRaceProjectToConfig(config, project)
-    raceProject = project
-    replayUrl = config.replayUrl
-    courseUrl = config.courseUrl
-    sponsorsUrl = config.sponsorsUrl
-    flagsUrl = config.flagsUrl
-    boatNamesUrl = config.boatNamesUrl
-    boatIds = config.boatIds
-    povIds = config.povIds
-
-    applyConfigOrigin(config.origin)
-    hud.setOrigin(config.origin)
-    await scene.loadBoatNamesFromUrl(boatNamesUrl)
-
-    const world = await loadWorldForProject(project)
-    await applyWorldFeatures(world)
-
-    mapEditor?.setProjectMeta(project.id, project.name)
-    hud.setActiveRaceId(project.id)
-    // Scene allow-lists are boot-time unless refreshed here (soft switch).
-    const activePov = scene.setFleetAllowLists({
-      boatIds: config.boatIds,
-      povIds: config.povIds,
-    })
-    hud.setPovIds(config.povIds, activePov)
-    calib.setPovIds(config.povIds, activePov)
-    syncRaceQuery(project.id)
-
-    // Pack load restores registry; keep live-enabled subsets within new allow-lists.
-    liveBoatIds = liveBoatIds.filter((id) => boatIds.includes(id))
-    livePovIds = livePovIds.filter((id) => povIds.includes(id))
-
-    await restartIngest(ingest?.mode ?? config.telemetryMode)
-    fleetPanel?.setState({
-      boatIds: config.boatIds,
-      povIds: config.povIds,
-      enabledBoatIds: [...liveBoatIds],
-      enabledPovIds: [...livePovIds],
-      activePovId: activePov,
-      boats: [...scene.getBoatNamesCatalogue().entries()].map(([id, e]) => ({
-        id,
-        name: e.name,
-        category: e.category,
-      })),
-    })
-    hud.setBootMessage(`project: ${project.id}`)
-    console.info('[projects] switched race pack', { id: project.id })
+    await applyLoadedRaceProject(project)
   } catch (err) {
     console.warn('[projects] race pack switch failed', err)
     hud.setBootMessage(`project load failed: ${trimmed}`)
@@ -552,9 +943,189 @@ async function switchRace(id: string): Promise<void> {
   }
 }
 
+async function downloadCurrentVenuePack(): Promise<void> {
+  const project = buildCurrentRaceProject({
+    id: raceProject?.id,
+    name: raceProject?.name,
+    revision: raceProject?.revision,
+  })
+  if (!project) {
+    hud.setBootMessage('venue pack: no project')
+    return
+  }
+  try {
+    hud.setBootMessage(`venue pack: building ${project.id}…`)
+    const pack = await buildVenuePack(project)
+    downloadVenuePack(pack)
+    await getDefaultVenuePackCache().put(pack)
+    await refreshRacePicker(project.id)
+    const n = Object.keys(pack.files).length
+    hud.setBootMessage(`venue pack: ${pack.id} (${n} files)`)
+    console.info('[venuePack] downloaded', { id: pack.id, files: n })
+  } catch (err) {
+    console.warn('[venuePack] download failed', err)
+    hud.setBootMessage('venue pack download failed')
+  }
+}
+
+async function loadVenuePackFromFile(file: File): Promise<void> {
+  if (switchingRace) return
+  switchingRace = true
+  try {
+    hud.setBootMessage(`venue pack: reading ${file.name}…`)
+    const raw = JSON.parse(await file.text()) as unknown
+    const pack = parseVenuePack(raw)
+    await getDefaultVenuePackCache().put(pack)
+    const mat = retainMaterializedVenuePack(materializeVenuePack(pack))
+    await applyLoadedRaceProject(mat.project)
+    await refreshRacePicker(pack.id)
+    const n = Object.keys(pack.files).length
+    hud.setBootMessage(`venue pack loaded: ${pack.id} (${n} files)`)
+    console.info('[venuePack] loaded file', { id: pack.id, files: n })
+  } catch (err) {
+    console.warn('[venuePack] load file failed', err)
+    hud.setBootMessage('venue pack load failed')
+  } finally {
+    switchingRace = false
+  }
+}
+
+const opsSidebar = createSidebar({ container: app })
+
+const authoringShell = createWorldAuthoringWorkspace({
+  container: opsSidebar.getOverlayHost(),
+  initiallyOpen: false,
+})
+worldAuthoring = authoringShell
+
+/** Section body hosts — filled synchronously by registerSection mount. */
+let projectSectionEl!: HTMLElement
+let assetsSectionEl!: HTMLElement
+let calibSectionEl!: HTMLElement
+let librarySectionEl!: HTMLElement
+let liveSectionEl!: HTMLElement
+let ndiSectionEl!: HTMLElement
+let opsSectionEl!: HTMLElement
+let libraryPanel: LibraryPanelHandle | null = null
+let projectManagerPanel: ProjectManagerPanelHandle | null = null
+
+opsSidebar.registerSection({
+  id: 'project',
+  label: 'Project',
+  order: 10,
+  mount(container) {
+    projectSectionEl = container
+    return {
+      dispose() {
+        projectManagerPanel?.dispose()
+        projectManagerPanel = null
+      },
+    }
+  },
+})
+opsSidebar.registerSection({
+  id: 'world-map',
+  label: 'World Map',
+  order: 20,
+  mount(container) {
+    worldMapLauncher = mountWorldMapAuthoringLauncher(container, authoringShell)
+    return {
+      dispose() {
+        worldMapLauncher?.dispose()
+        worldMapLauncher = null
+      },
+    }
+  },
+})
+opsSidebar.registerSection({
+  id: 'assets',
+  label: 'Assets',
+  order: 30,
+  mount(container) {
+    assetsSectionEl = container
+    return {
+      dispose() {
+        assetInspector?.dispose()
+        assetInspector = null
+      },
+    }
+  },
+})
+opsSidebar.registerSection({
+  id: 'calib',
+  label: 'Calib',
+  order: 35,
+  mount(container) {
+    calibSectionEl = container
+    return {
+      dispose() {
+        calib?.stop()
+        calib = null
+      },
+    }
+  },
+})
+opsSidebar.registerSection({
+  id: 'library',
+  label: 'Library',
+  order: 40,
+  mount(container) {
+    librarySectionEl = container
+    return {
+      dispose() {
+        libraryPanel?.dispose()
+        libraryPanel = null
+      },
+    }
+  },
+})
+opsSidebar.registerSection({
+  id: 'live',
+  label: 'Live',
+  order: 50,
+  mount(container) {
+    liveSectionEl = container
+    return { dispose: () => {} }
+  },
+})
+opsSidebar.registerSection({
+  id: 'ndi',
+  label: 'NDI',
+  order: 55,
+  mount(container) {
+    ndiSectionEl = container
+    return { dispose: () => {} }
+  },
+})
+opsSidebar.registerSection({
+  id: 'ops',
+  label: 'Ops',
+  order: 60,
+  mount(container) {
+    opsSectionEl = container
+    return { dispose: () => {} }
+  },
+})
+
+// CAL offset sliders — sidebar Calib section (no fixed top-left chrome).
+calib = startOffsetSliders({ container: calibSectionEl })
+
+// Read-only NDI status tab (OUT). Polls pump + POV; never feeds the render loop.
+ndiController = startNdiControllerPanel({
+  container: ndiSectionEl,
+  getPump: () => ndiPump,
+  getActivePovId: () => scene?.getActivePovId() ?? null,
+})
+
 const hud = startStubHud({
   container: app,
-  editorInitiallyOpen: editorQueryOpen(),
+  hosts: {
+    project: projectSectionEl,
+    ops: opsSectionEl,
+    map: authoringShell.getMapHost(),
+    streamMapHost: opsSidebar.getOverlayHost(),
+  },
+  editorInitiallyOpen: false,
   onModeChange: (mode) => {
     void (async () => {
       if (switching) return
@@ -568,7 +1139,7 @@ const hud = startStubHud({
   },
   onPovChange: (id) => {
     scene?.setActivePovId(id)
-    calib.setDeviceId(id)
+    calib?.setDeviceId(id)
     fleetPanel?.setState({ activePovId: id })
   },
   onOpsViewChange: (mode) => {
@@ -579,7 +1150,7 @@ const hud = startStubHud({
     scene?.controlCountdown(action)
   },
   onEditorToggle: (open) => {
-    mapEditor?.setOpen(open)
+    authoringShell.setOpen(open)
   },
   onRaceLoad: (id) => {
     void switchRace(id)
@@ -588,11 +1159,23 @@ const hud = startStubHud({
     void saveCurrentRaceProject({ mode: 'save' })
   },
   onSaveAsProject: () => {
-    saveAsRaceProject()
+    void saveAsRaceProject()
+  },
+  onDownloadVenuePack: () => {
+    void downloadCurrentVenuePack()
+  },
+  onLoadVenuePackFile: (file) => {
+    void loadVenuePackFromFile(file)
   },
   onOriginApply: (origin) => {
     void applyWorldOrigin(origin)
   },
+})
+
+authoringShell.onOpenChange((open) => {
+  mapEditor?.setOpen(open)
+  hud.setEditorOpen(open, false)
+  if (open) mapEditor?.resyncChrome()
 })
 
 function pushLiveStatus(snapshot: LiveStatusSnapshot): void {
@@ -625,6 +1208,35 @@ void (async () => {
   const config = await loadConfig()
   bootConfig = config
   const deeplink = parseConsoleDeeplink(window.location.search)
+  libraryPanel = startLibraryPanel({
+    container: librarySectionEl,
+    projectsApiBase: config.projectsApiBase,
+    bearerToken: projectsApiBearerToken(config),
+    canUpload: canWriteProjectsApi(config, window.location.search),
+  })
+  projectManagerPanel = startProjectManagerPanel({
+    container: projectSectionEl,
+    projectsApiBase: config.projectsApiBase,
+    bearerToken: projectsApiBearerToken(config),
+    canWrite: canWriteProjectsApi(config, window.location.search),
+    getActiveProjectId: () => raceProject?.id,
+    onProjectsChanged: async (activeId) => {
+      await refreshRacePicker(activeId)
+    },
+    onRenamedActive: async (project) => {
+      await applyLoadedRaceProject(project)
+    },
+  })
+  const projectWritesEnabled = canWriteProjectsApi(
+    config,
+    window.location.search,
+  )
+  hud.setProjectWritesEnabled(projectWritesEnabled)
+  console.info('[projects] LAN role', {
+    role: resolveProjectsRole(config, window.location.search),
+    writes: projectWritesEnabled,
+    apiBase: config.projectsApiBase || '(static)',
+  })
 
   // PLT+CON: ?race=<id> → local pack under /races/<id>/; miss → config.json (warn).
   if (deeplink.race) {
@@ -721,10 +1333,12 @@ void (async () => {
   })
   const activePov = scene.getActivePovId()
   hud.setPovIds(povIds, activePov)
-  calib.setPovIds(povIds, activePov)
+  calib?.setPovIds(povIds, activePov)
 
+  // Ops sidebar (above mode/POV) — not fixed canvas chrome.
   outputControl = startOutputModeControl({
-    container: app,
+    container: opsSectionEl,
+    mountAt: 'start',
     initialMode: outputMode,
     onChange: (mode) => {
       if (!scene) return
@@ -736,6 +1350,8 @@ void (async () => {
     },
   })
 
+  // Video still under the WebGL canvas on `app`; WHEP status attaches to the
+  // sidebar output-mode control (looked up after mount above).
   whepUnderlay = startWhepUnderlay({
     container: app,
     whepUrl: config.whepUrl,
@@ -759,6 +1375,9 @@ void (async () => {
   ndiPump = startNdiFramePump({
     renderer: scene.renderer,
     getAirCamera: () => scene?.getActivePovCamera() ?? null,
+    prepareCameraPass: (camera) => {
+      scene?.orientOpsBillboards(camera)
+    },
   })
 
   hud.setBootMessage(
@@ -776,14 +1395,19 @@ void (async () => {
   hud.setLayoutFeatures(layout)
   if (raceProject) {
     hud.setBootMessage(`project: ${raceProject.id}`)
+    const streamTitle = raceProject.name.trim()
+    hud.getStreamMap().setTitle(streamTitle || 'Race map')
   }
 
   const projectIdDefault = raceProject?.id ?? defaultEditedRaceId()
   const projectNameDefault = raceProject?.name ?? 'Edited race'
 
-  // V1 map feature editor — seeded from adapters; edits re-layout + remount 3D.
+  // World Authoring workspace — large map + tool palette (SCN-04).
+  // Editor role defaults open; air closed; ?editor=1|0 overrides.
+  const authoringOpen = resolveAuthoringInitiallyOpen(projectWritesEnabled)
+  syncMapGeoBridge({ ops: hud.getMap(), stream: hud.getStreamMap() })
   mapEditor = startMapFeatureEditor({
-    container: app.querySelector('.ops-overlay') ?? app,
+    container: authoringShell.getToolsHost(),
     map: hud.getMap(),
     initialFeatures: currentWorldFeatures,
     gpsToEnuAmsl: gpsToEnu,
@@ -791,26 +1415,79 @@ void (async () => {
       const g = enuToGpsAmsl(east, up, north)
       return { lat: g.lat, lon: g.lon, alt: g.alt }
     },
-    initiallyOpen: editorQueryOpen(),
+    initiallyOpen: false,
+    mapSizeOpen: WORLD_AUTHORING_MAP_SIZE,
+    getMapSizeOpen: () => authoringShell.getMapSizePx(),
+    showPanelTitle: false,
+
+    groupedTools: true,
     initialProjectId: projectIdDefault,
     initialProjectName: projectNameDefault,
+    projectWritesEnabled,
+    knownBuoyIds: bootConfig?.buoyIds ?? [],
     onApply: async (features) => {
       currentWorldFeatures = cloneWorldFeatures(features)
       await scene?.remountWorldFromFeatures(features)
+      assetInspector?.refresh()
+      authoringShell.setStatus(
+        `Authoring: open · ${features.length} feature(s)`,
+      )
     },
     onSaveProject: (meta) => {
       // Editor id/name fields → Save as semantics (explicit pack identity).
       void saveCurrentRaceProject({ meta, mode: 'saveAs' })
     },
+    onSetAnchor: (lat, lon, altMsl) => {
+      void applyWorldOrigin({ lat, lon, altMsl })
+    },
+    onPlaceFleet: (kind, east, north, id) => {
+      const g = enuToGpsAmsl(east, 0, north)
+      if (kind === 'boat') {
+        fleetPanel?.addBoat({
+          id,
+          plannedLat: g.lat,
+          plannedLon: g.lon,
+        })
+      } else {
+        fleetPanel?.addDrone({
+          id,
+          plannedLat: g.lat,
+          plannedLon: g.lon,
+        })
+      }
+      seedPlannedFleetOnMap(
+        hud.getMap(),
+        kind === 'boat'
+          ? [{ id, plannedLat: g.lat, plannedLon: g.lon }]
+          : [],
+        kind === 'drone'
+          ? [{ id, plannedLat: g.lat, plannedLon: g.lon }]
+          : [],
+      )
+    },
   })
-  hud.setEditorOpen(editorQueryOpen())
+  // Maximize / map-resize should re-layout the canvas backing store while open.
+  authoringShell.onMapSizeChange(() => {
+    if (authoringShell.isOpen()) mapEditor?.resyncChrome()
+  })
+  const maxBtn = authoringShell.root.querySelector(
+    '.world-authoring__max-btn',
+  )
+  maxBtn?.addEventListener('click', () => {
+    mapEditor?.resyncChrome()
+  })
 
-  // Local pack picker — manifest under /races/index.json
+  authoringShell.setOpen(authoringOpen)
+  hud.setEditorOpen(authoringOpen, false)
+  if (authoringOpen) {
+    authoringShell.setStatus(
+      `Authoring: open · ${currentWorldFeatures.length} feature(s)`,
+    )
+  }
+
+  // Local pack picker — static/API index + cached venue packs
   try {
-    const ids = await listLocalRaceIds({
-      projectsApiBase: config.projectsApiBase,
-    })
-    hud.setRaceIds(ids, raceProject?.id ?? ids[0])
+    await refreshRacePicker(raceProject?.id)
   } catch {
     hud.setRaceIds(['demo-istanbul'], raceProject?.id ?? 'demo-istanbul')
   }
@@ -826,9 +1503,20 @@ void (async () => {
       })
     }
   }
+  // Soft pack field (if boot race had boatVisibility) — session boats win after.
+  if (raceProject?.fleet.boatVisibility) {
+    scene.setBoatVisibilityModes(raceProject.fleet.boatVisibility)
+  }
+  if (raceProject?.fleet.povMapVisible) {
+    for (const [id, v] of Object.entries(raceProject.fleet.povMapVisible)) {
+      if (typeof v === 'boolean') povMapVisible.set(id, v)
+    }
+  }
+  syncMapBoatDotColors()
 
+  const packBoatMap = raceProject?.fleet.boatMapVisible ?? {}
   fleetPanel = startFleetLivePanel({
-    container: app,
+    container: liveSectionEl,
     initial: {
       wsUrl,
       wsBoatUrl,
@@ -838,13 +1526,23 @@ void (async () => {
       enabledPovIds: [...livePovIds],
       boats:
         sessionFleet?.boats?.length && sessionFleet.boats.length > 0
-          ? sessionFleet.boats.map((b) => ({ ...b }))
+          ? sessionFleet.boats.map((b) => ({
+              ...b,
+              mapVisible:
+                b.mapVisible === false || packBoatMap[b.id] === false
+                  ? false
+                  : b.mapVisible,
+            }))
           : [...scene.getBoatNamesCatalogue().entries()].map(([id, e]) => ({
               id,
               name: e.name,
               category: e.category,
+              visibility:
+                raceProject?.fleet.boatVisibility?.[id] ?? 'solid',
+              mapVisible: packBoatMap[id] === false ? false : undefined,
             })),
       activePovId: scene.getActivePovId(),
+      plannedPovs: sessionFleet?.plannedPovs?.map((p) => ({ ...p })) ?? [],
     },
     onFleetChange: ({ boatIds: nextBoats, povIds: nextPovs, boats }) => {
       boatIds = nextBoats
@@ -862,11 +1560,19 @@ void (async () => {
           category: b.category,
         })
       }
+      syncMapBoatDotColors()
+      syncBoatVisibilityToScene(boats)
+      syncMapHiddenPoseIds()
       applyFleetToScene()
+      assetInspector?.refresh()
+    },
+    onBoatVisibilityChange: (id, mode) => {
+      scene?.setBoatVisibilityMode(id, mode)
+      assetInspector?.refresh()
     },
     onPovChange: (id) => {
       scene?.setActivePovId(id)
-      calib.setDeviceId(id)
+      calib?.setDeviceId(id)
       hud.setActivePovId(id)
     },
     onOpsViewChange: (mode) => {
@@ -911,6 +1617,85 @@ void (async () => {
       })()
     },
   })
+  // Session / pack visibility → scene (entities spawn on first pose).
+  syncBoatVisibilityToScene(fleetPanel.getState().boats)
+  syncMapHiddenPoseIds()
+  seedPlannedFleetOnMap(
+    hud.getMap(),
+    fleetPanel.getState().boats,
+    fleetPanel.getState().plannedPovs ?? [],
+  )
+
+  assetInspector = startAssetInspector({
+    container: assetsSectionEl,
+    projectsApiBase: config.projectsApiBase,
+    getBoats: () => fleetPanel?.getState().boats ?? [],
+    getBoatIds: () => fleetPanel?.getState().boatIds ?? boatIds,
+    getPovIds: () => fleetPanel?.getState().povIds ?? povIds,
+    getFeatures: () => mapEditor?.getFeatures() ?? currentWorldFeatures,
+    gpsToEnuAmsl: gpsToEnu,
+    getBoatMapVisible: (id) => {
+      const row = fleetPanel?.getState().boats.find((b) => b.id === id)
+      return row?.mapVisible !== false
+    },
+    getPovMapVisible: (id) => povMapVisible.get(id) !== false,
+    getPovVisible3d: (id) => povVisible3d.get(id) !== false,
+    onFocus: focusAssetRow,
+    onBoatVisibilityChange: (id, mode) => {
+      scene?.setBoatVisibilityMode(id, mode)
+      const state = fleetPanel?.getState()
+      if (!state) return
+      const boats = state.boats.map((b) =>
+        b.id === id ? { ...b, visibility: mode } : b,
+      )
+      // Ensure row exists
+      if (!boats.some((b) => b.id === id)) {
+        boats.push({
+          id,
+          name: id,
+          category: '',
+          visibility: mode,
+        })
+      }
+      fleetPanel?.setState({ boats })
+      assetInspector?.refresh()
+    },
+    onBoatMapVisibleChange: (id, visible) => {
+      const state = fleetPanel?.getState()
+      if (!state) return
+      const boats = state.boats.map((b) =>
+        b.id === id
+          ? { ...b, mapVisible: visible ? undefined : false }
+          : b,
+      )
+      if (!boats.some((b) => b.id === id)) {
+        boats.push({
+          id,
+          name: id,
+          category: '',
+          mapVisible: visible ? undefined : false,
+        })
+      }
+      fleetPanel?.setState({ boats })
+      syncMapHiddenPoseIds()
+      assetInspector?.refresh()
+    },
+    onPovMapVisibleChange: (id, visible) => {
+      if (visible) povMapVisible.delete(id)
+      else povMapVisible.set(id, false)
+      syncMapHiddenPoseIds()
+      assetInspector?.refresh()
+    },
+    onPovVisible3dChange: (id, visible) => {
+      if (visible) povVisible3d.delete(id)
+      else povVisible3d.set(id, false)
+      assetInspector?.refresh()
+    },
+    onFeaturePatch: patchWorldFeature,
+    onOpenBoatDetails: (id) => {
+      fleetPanel?.highlightBoat(id)
+    },
+  })
 
   // Boot live uses enabled lists (often empty until Connect); mock/replay use registry.
   const bootLive = config.telemetryMode === 'live'
@@ -930,19 +1715,25 @@ void (async () => {
     stopPosePipeline()
     clearLiveStatusSub()
     ingest?.stop()
+    ndiController?.dispose()
+    ndiController = null
     ndiPump?.stop()
     ndiPump = null
     visualTimecode?.stop()
     visualTimecode = null
     whepUnderlay?.stop()
     whepUnderlay = null
-    calib.stop()
+    calib?.stop()
+    calib = null
     outputControl?.stop()
     mapEditor?.dispose()
     mapEditor = null
+    worldAuthoring?.dispose()
+    worldAuthoring = null
     fleetPanel?.stop()
     fleetPanel = null
     hud.stop()
+    opsSidebar.dispose()
     scene?.stop()
   })
 })()

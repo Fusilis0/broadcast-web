@@ -18,6 +18,8 @@ type Started = {
 
 async function startServer(opts: {
   token?: string
+  editorToken?: string
+  airToken?: string
   seed?: boolean
   now?: () => Date
 }): Promise<Started> {
@@ -27,7 +29,8 @@ async function startServer(opts: {
   }
   const handler = createApp({
     db,
-    apiToken: opts.token,
+    editorToken: opts.editorToken ?? opts.token,
+    airToken: opts.airToken,
     now: opts.now,
   })
   const server = createServer((req: IncomingMessage, res: ServerResponse) => {
@@ -168,8 +171,8 @@ describe('projects API', () => {
     expect(again.status).toBe(404)
   })
 
-  it('requires bearer when PROJECTS_API_TOKEN is set', async () => {
-    started = await startServer({ token: 'secret', seed: false })
+  it('requires editor bearer when write auth is locked', async () => {
+    started = await startServer({ editorToken: 'secret', seed: false })
     const noAuth = await fetch(`${started.baseUrl}/api/races`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -191,6 +194,42 @@ describe('projects API', () => {
     expect(getOpen.status).toBe(200)
   })
 
+  it('rejects air bearer on writes with 403; reads stay open', async () => {
+    started = await startServer({
+      editorToken: 'editor-secret',
+      airToken: 'air-secret',
+      seed: false,
+    })
+
+    const airWrite = await fetch(`${started.baseUrl}/api/races`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer air-secret',
+      },
+      body: JSON.stringify(sampleProject),
+    })
+    expect(airWrite.status).toBe(403)
+    const err = (await airWrite.json()) as { error: string; role: string }
+    expect(err.error).toBe('forbidden')
+    expect(err.role).toBe('air')
+
+    const created = await fetch(`${started.baseUrl}/api/races`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer editor-secret',
+      },
+      body: JSON.stringify(sampleProject),
+    })
+    expect(created.status).toBe(201)
+
+    const list = await fetch(`${started.baseUrl}/api/races`)
+    expect(list.status).toBe(200)
+    const get = await fetch(`${started.baseUrl}/api/races/heat-test`)
+    expect(get.status).toBe(200)
+  })
+
   it('filters list by label', async () => {
     started = await startServer({})
     const res = await fetch(`${started.baseUrl}/api/races?label=demo`)
@@ -199,6 +238,79 @@ describe('projects API', () => {
     expect(list.length).toBeGreaterThanOrEqual(1)
     expect(list.every((p) => p.labels.includes('demo'))).toBe(true)
     expect(list.some((p) => p.id === 'demo-istanbul')).toBe(true)
+  })
+
+  it('hides archived from default list; includeArchived and label=archived work', async () => {
+    started = await startServer({ seed: false })
+    const created = await fetch(`${started.baseUrl}/api/races`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        project: sampleProject,
+        labels: ['archived', 'heat'],
+      }),
+    })
+    expect(created.status).toBe(201)
+
+    const def = await fetch(`${started.baseUrl}/api/races`)
+    expect(def.status).toBe(200)
+    const defList = (await def.json()) as Array<{ id: string }>
+    expect(defList.some((p) => p.id === 'heat-test')).toBe(false)
+
+    const all = await fetch(`${started.baseUrl}/api/races?includeArchived=1`)
+    expect(all.status).toBe(200)
+    const allList = (await all.json()) as Array<{
+      id: string
+      labels: string[]
+    }>
+    expect(allList.some((p) => p.id === 'heat-test')).toBe(true)
+
+    const archivedOnly = await fetch(
+      `${started.baseUrl}/api/races?label=archived`,
+    )
+    expect(archivedOnly.status).toBe(200)
+    const archivedList = (await archivedOnly.json()) as Array<{
+      id: string
+      labels: string[]
+    }>
+    expect(archivedList.every((p) => p.labels.includes('archived'))).toBe(true)
+    expect(archivedList.some((p) => p.id === 'heat-test')).toBe(true)
+  })
+
+  it('updates labels via PUT wrapper (archive)', async () => {
+    started = await startServer({ seed: false })
+    const created = await fetch(`${started.baseUrl}/api/races`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sampleProject),
+    })
+    expect(created.status).toBe(201)
+    const doc = (await created.json()) as { revision: number }
+
+    const put = await fetch(`${started.baseUrl}/api/races/heat-test`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'If-Match': `"${doc.revision}"`,
+      },
+      body: JSON.stringify({
+        project: { ...sampleProject, revision: doc.revision },
+        labels: ['archived'],
+      }),
+    })
+    expect(put.status).toBe(200)
+
+    const def = await fetch(`${started.baseUrl}/api/races`)
+    const defList = (await def.json()) as Array<{ id: string }>
+    expect(defList.some((p) => p.id === 'heat-test')).toBe(false)
+
+    const archived = await fetch(`${started.baseUrl}/api/races?label=archived`)
+    const archivedList = (await archived.json()) as Array<{ id: string }>
+    expect(archivedList.some((p) => p.id === 'heat-test')).toBe(true)
+
+    // Still loadable by id
+    const get = await fetch(`${started.baseUrl}/api/races/heat-test`)
+    expect(get.status).toBe(200)
   })
 
   it('seed is idempotent (never overwrites)', async () => {

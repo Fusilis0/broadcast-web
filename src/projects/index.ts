@@ -20,13 +20,62 @@ export {
   type WriteRaceProjectOptions,
 } from './writeRaceProject.ts'
 export {
+  ARCHIVED_LABEL,
+  boatIdsMissingFromCatalogue,
+  confirmSaveWithOrphanBoatIds,
+  deleteRaceProject,
+  duplicateRaceProject,
+  formatOrphanBoatIdWarning,
+  isArchived,
+  isProjectsApiConfigured,
+  listRaceProjects,
+  renameRaceProject,
+  setRaceProjectArchived,
+  type ListRaceProjectsOptions,
+  type ProjectManagerWriteOptions,
+  type RaceProjectSummary,
+} from './projectManager.ts'
+export {
+  startProjectManagerPanel,
+  type ProjectManagerPanelHandle,
+  type ProjectManagerPanelOptions,
+} from './projectManagerPanel.ts'
+export {
+  canWriteProjectsApi,
+  normalizeProjectsRole,
+  projectsApiBearerToken,
+  projectsRoleFromSearch,
+  resolveProjectsRole,
+  type ProjectsAuthConfig,
+  type ProjectsRole,
+} from './projectsAuth.ts'
+export {
   DEFAULT_LOCAL_RACE_IDS,
   LOCAL_RACES_INDEX_URL,
   listLocalRaceIds,
   type ListLocalRaceIdsOptions,
 } from './listLocalRaces.ts'
+export {
+  VENUE_PACK_KIND,
+  DEFAULT_VENUE_EXTRA_URLS,
+  buildVenuePack,
+  downloadVenuePack,
+  serializeVenuePack,
+  parseVenuePack,
+  materializeVenuePack,
+  retainMaterializedVenuePack,
+  collectProjectAssetUrls,
+  seedVenuePackUrls,
+  getDefaultVenuePackCache,
+  createMemoryVenuePackCache,
+  type VenuePack,
+  type VenuePackCache,
+  type MaterializedVenuePack,
+  type BuildVenuePackOptions,
+} from './venuePack/index.ts'
 export type {
   RaceProject,
+  RaceProjectCalibration,
   RaceProjectOrigin,
   RaceProjectFleet,
   RaceProjectOutputDefaults,

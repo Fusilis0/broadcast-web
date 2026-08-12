@@ -7,7 +7,11 @@ import {
   telemetryBus as defaultTelemetryBus,
   type TelemetryBus,
 } from '../telemetry/bus.ts'
-import type { BoatTelemetry, TelemetryData } from '../telemetry/types.ts'
+import type {
+  BoatTelemetry,
+  BuoyTelemetry,
+  TelemetryData,
+} from '../telemetry/types.ts'
 import { poseBus as defaultPoseBus, type PoseBus } from './bus.ts'
 import { boatRawPose, droneRawPose } from './convert.ts'
 import { MidpointLerp } from './lerp.ts'
@@ -112,6 +116,12 @@ export function startPosePipeline(
     upsert('boat', data.id, data.time, raw.position, raw.rotation, raw.fovHDeg)
   }
 
+  /** Buoy uses the same ENU convert as boat (identical wire shape). */
+  function onBuoy(data: BuoyTelemetry): void {
+    const raw = boatRawPose(data)
+    upsert('buoy', data.id, data.time, raw.position, raw.rotation, raw.fovHDeg)
+  }
+
   function emitEntity(state: EntityState): void {
     const sample = {
       position: state.lerp.currentPos,
@@ -149,6 +159,7 @@ export function startPosePipeline(
 
   unsubs.push(telBus.on('drone', onDrone))
   unsubs.push(telBus.on('boat', onBoat))
+  unsubs.push(telBus.on('buoy', onBuoy))
   // stream_anchor intentionally ignored for ENU
 
   if (!manualTick && typeof requestAnimationFrame === 'function') {

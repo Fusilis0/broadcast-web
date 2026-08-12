@@ -6,6 +6,10 @@ import { createBuoyMarkers, type BuoyMarkersHandle } from './buoyMarkers.ts'
 import { buildCourseLayout } from './courseLayout.ts'
 import { createCourseLines, type CourseLinesHandle } from './courseLines.ts'
 import { normalizeCourse } from './normalizeCourse.ts'
+import {
+  createWaterShoreCue,
+  type WaterShoreCueHandle,
+} from './waterCue.ts'
 import type {
   CourseAppearance,
   CourseData,
@@ -76,6 +80,11 @@ export function mountCourse(
   const root = new THREE.Group()
   root.name = 'course'
 
+  // Water/shore pad first (renderOrder low) so buoys/gates sit on top.
+  const cuePoints = layout.points.map((p) => ({ x: p.x, z: p.z }))
+  let waterCue: WaterShoreCueHandle | null = createWaterShoreCue(cuePoints)
+  if (waterCue) root.add(waterCue.root)
+
   let lines: CourseLinesHandle | null = createCourseLines(
     layout,
     course.appearance,
@@ -102,6 +111,8 @@ export function mountCourse(
     appearance: { ...course.appearance },
     dispose(): void {
       scene.remove(root)
+      waterCue?.dispose()
+      waterCue = null
       lines?.dispose()
       lines = null
       buoys?.dispose()

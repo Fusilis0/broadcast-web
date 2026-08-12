@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  clearAllOffsets,
+  getOffsets,
+  setOffsets,
+  snapshotCalibrationByPovId,
+} from '../calibration/index.ts'
+import {
   buildRaceProject,
   defaultEditedRaceId,
   serializeRaceProject,
@@ -8,6 +14,10 @@ import { listLocalRaceIds } from './listLocalRaces.ts'
 import { parseRaceProject } from './parseRaceProject.ts'
 
 describe('buildRaceProject', () => {
+  afterEach(() => {
+    clearAllOffsets()
+  })
+
   it('embeds features and round-trips through parseRaceProject', () => {
     const project = buildRaceProject({
       id: 'edited-test',
@@ -90,6 +100,31 @@ describe('buildRaceProject', () => {
     expect(project.povIds).toEqual(['1', '3', '11'])
     expect(project.id).toBe('bosphorus-heat')
     expect(project.name).toBe('Bosphorus Heat')
+  })
+
+  it('embeds calibration.byPovId and round-trips through parse', () => {
+    clearAllOffsets()
+    setOffsets('1', { yawDeg: 8, fovHDeg: 40, altMeters: -1 })
+    const calibration = snapshotCalibrationByPovId(['1', '2'])
+    const project = buildRaceProject({
+      id: 'calib-pack',
+      name: 'Calib Pack',
+      origin: { lat: 41, lon: 29, altMsl: 0 },
+      boatIds: ['21'],
+      povIds: ['1', '2'],
+      calibration,
+      updatedAt: '2026-08-04T12:00:00.000Z',
+    })
+    expect(project.calibration?.byPovId['1']?.yawDeg).toBe(8)
+    expect(project.calibration?.byPovId['1']?.fovHDeg).toBe(40)
+    expect(project.calibration?.byPovId['2']?.fovHDeg).toBe(66.8832)
+
+    const again = parseRaceProject(JSON.parse(serializeRaceProject(project)))
+    clearAllOffsets()
+    expect(getOffsets('1').yawDeg).toBe(0)
+    // hydrate path covered in applyRaceProjectToConfig tests; parse retains field
+    expect(again.calibration?.byPovId['1']?.yawDeg).toBe(8)
+    clearAllOffsets()
   })
 })
 

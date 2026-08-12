@@ -1,4 +1,4 @@
-# Projects API stub (Phase 6.4)
+# Projects API stub (Phase 6.4 + 9.1 LAN roles)
 
 Minimal **Node + SQLite** REST API for RaceProject documents. Design: [`docs/architecture/project-api-and-database.md`](../docs/architecture/project-api-and-database.md). Ops proxy: [`docs/ops/projects-api.md`](../docs/ops/projects-api.md).
 
@@ -34,6 +34,16 @@ npm run seed
 | `POST` | `/api/races` | Create (`revision` = 1) |
 | `PUT` | `/api/races/:id` | Replace; `If-Match: "<rev>"` or body `revision` |
 | `DELETE` | `/api/races/:id` | `204` / `404` |
+| `GET` | `/api/assets` | Universal library manifest (no auth) |
+| `POST` | `/api/assets` | Multipart upload (`file` + optional `label`); editor bearer |
+
+### Asset library (`/api/assets`)
+
+Writes go to `public/assets/library/<kind>/<slug>-<shortHash>.<ext>` and append
+`index.json`. Extensions: `png|jpg|jpeg|webp|glb|gltf`. Default size cap **20 MiB**
+(`PROJECTS_MAX_ASSET_BYTES`). Multipart parsing is in-process (no extra npm dep).
+Delete/replace is out of scope (append-only). Static-only SPA deployments browse
+`/assets/library/index.json` without this endpoint.
 
 ## Env
 
@@ -44,10 +54,14 @@ npm run seed
 | `PROJECTS_DB_PATH` | `server/data/races.sqlite` | SQLite file |
 | `PROJECTS_SEED_DIR` | `public/races` | Packs to seed on boot |
 | `PROJECTS_SEED_ON_BOOT` | on (`0` to disable) | Auto-seed |
-| `PROJECTS_API_TOKEN` | unset | If set, writes require `Authorization: Bearer …` |
+| `PROJECTS_ASSETS_LIBRARY_DIR` | `public/assets/library` | Library storage root |
+| `PROJECTS_MAX_ASSET_BYTES` | `20971520` (20 MiB) | Upload file size cap |
+| `PROJECTS_API_EDITOR_TOKEN` | unset | Preferred editor bearer for POST/PUT/DELETE |
+| `PROJECTS_API_TOKEN` | unset | Legacy alias for editor bearer |
+| `PROJECTS_API_AIR_TOKEN` | unset | Optional; write with this → **403**; reads stay open |
 | `PROJECTS_API_CORS` | unset | e.g. `http://127.0.0.1:5173` or `*` |
 
-Do not commit tokens. See root [`.env.example`](../.env.example).
+**Roles:** `editor` (write with editor bearer) vs `air` (read-only; air bearer on write → 403). Unset tokens → open writes (dev). Do not commit tokens. See root [`.env.example`](../.env.example) and [`docs/ops/projects-api.md`](../docs/ops/projects-api.md).
 
 ## Local SPA
 

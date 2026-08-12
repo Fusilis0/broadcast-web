@@ -1,7 +1,7 @@
 # Human ops — Hetzner SPA + WSS + projects API
 
-**Status:** Human-owned (worker docs/code landed; VPS install pending)  
-**Related:** [`hetzner-static-deploy.md`](./hetzner-static-deploy.md), [`wss-live-telemetry.md`](./wss-live-telemetry.md), [`projects-api.md`](./projects-api.md)
+**Status:** **Deferred (Phase 12)** — not required for v1. BW lock 2026-08-04: local studio first; revisit in months if needed.  
+**Related:** [`hetzner-static-deploy.md`](./hetzner-static-deploy.md), [`wss-live-telemetry.md`](./wss-live-telemetry.md), [`projects-api.md`](./projects-api.md) · roadmap: [`../roadmap/phases-roadmap.md`](../roadmap/phases-roadmap.md)
 
 ## Goal
 

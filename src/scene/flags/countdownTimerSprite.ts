@@ -61,8 +61,8 @@ function roundRect(
 }
 
 /**
- * World-space countdown `MM:SS` above P1 (Sprite billboards to active camera).
- * Distance scale reuses boat-tag spirit.
+ * World-space countdown `MM:SS` above P1 (Sprite faces the render camera).
+ * Distance scale reuses boat-tag spirit — pass the camera for this render pass.
  */
 export function createCountdownTimerSprite(
   verticalOffsetM: number,

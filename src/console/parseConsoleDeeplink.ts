@@ -1,3 +1,4 @@
+import { isSafeRaceId } from '../projects/parseRaceProject.ts'
 import type {
   ConsoleDeeplink,
   DeeplinkOutputMode,
@@ -41,7 +42,8 @@ function parseNonEmptyString(raw: string | null): string | undefined {
 /**
  * Pure parser for console deep-link query strings.
  * Works with `window.location.search` on `/`, `/overlay`, or `/index.html`.
- * Invalid `mode` / `outputMode` are omitted (optional console.warn).
+ * Invalid `mode` / `outputMode` / unsafe `race` are omitted (console.warn).
+ * LAN `role` / `projectsRole` are PLT companion params — see projectsAuth.
  */
 export function parseConsoleDeeplink(
   search: string | URLSearchParams,
@@ -50,7 +52,15 @@ export function parseConsoleDeeplink(
   const out: ConsoleDeeplink = {}
 
   const race = parseNonEmptyString(params.get('race'))
-  if (race !== undefined) out.race = race
+  if (race !== undefined) {
+    if (isSafeRaceId(race)) {
+      out.race = race
+    } else {
+      console.warn(
+        `[console] ignoring unsafe race=${JSON.stringify(race)} (expected [A-Za-z0-9][A-Za-z0-9_-]{0,63})`,
+      )
+    }
+  }
 
   const token = parseNonEmptyString(params.get('token'))
   if (token !== undefined) out.token = token

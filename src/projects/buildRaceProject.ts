@@ -6,6 +6,7 @@
 import { parseRaceProject } from './parseRaceProject.ts'
 import type {
   RaceProject,
+  RaceProjectCalibration,
   RaceProjectOrigin,
   RaceProjectOutputDefaults,
   WorldFeature,
@@ -21,12 +22,20 @@ export type BuildRaceProjectInput = {
   features?: readonly WorldFeature[]
   takeoffAltitudeMSL?: number
   boatNamesUrl?: string
+  /** Soft optional per-boat solid/ghost/hidden (default solid when omitted). */
+  boatVisibility?: Record<string, 'solid' | 'ghost' | 'hidden'>
+  /** Soft optional per-boat map-dot visibility (default true when omitted). */
+  boatMapVisible?: Record<string, boolean>
+  /** Soft optional per-POV map-dot visibility (default true when omitted). */
+  povMapVisible?: Record<string, boolean>
   courseUrl?: string
   sponsorsUrl?: string
   flagsUrl?: string
   replayUrl?: string
   featuresUrl?: string
   output?: RaceProjectOutputDefaults
+  /** Soft per-POV calib (CAL); omit when empty. */
+  calibration?: RaceProjectCalibration
   revision?: number
   /** ISO-8601; default now. */
   updatedAt?: string
@@ -73,6 +82,21 @@ export function buildRaceProject(input: BuildRaceProjectInput): RaceProject {
   if (input.boatNamesUrl) {
     ;(raw.fleet as Record<string, unknown>).boatNamesUrl = input.boatNamesUrl
   }
+  if (input.boatVisibility && Object.keys(input.boatVisibility).length > 0) {
+    ;(raw.fleet as Record<string, unknown>).boatVisibility = {
+      ...input.boatVisibility,
+    }
+  }
+  if (input.boatMapVisible && Object.keys(input.boatMapVisible).length > 0) {
+    ;(raw.fleet as Record<string, unknown>).boatMapVisible = {
+      ...input.boatMapVisible,
+    }
+  }
+  if (input.povMapVisible && Object.keys(input.povMapVisible).length > 0) {
+    ;(raw.fleet as Record<string, unknown>).povMapVisible = {
+      ...input.povMapVisible,
+    }
+  }
   if (features !== undefined) raw.features = features
   if (input.featuresUrl) raw.featuresUrl = input.featuresUrl
   if (input.courseUrl) raw.courseUrl = input.courseUrl
@@ -80,6 +104,16 @@ export function buildRaceProject(input: BuildRaceProjectInput): RaceProject {
   if (input.flagsUrl) raw.flagsUrl = input.flagsUrl
   if (input.replayUrl) raw.replayUrl = input.replayUrl
   if (input.output) raw.output = { ...input.output }
+  if (
+    input.calibration &&
+    Object.keys(input.calibration.byPovId).length > 0
+  ) {
+    const byPovId: Record<string, unknown> = {}
+    for (const [id, offs] of Object.entries(input.calibration.byPovId)) {
+      byPovId[id] = { ...offs }
+    }
+    raw.calibration = { byPovId }
+  }
 
   return parseRaceProject(raw)
 }

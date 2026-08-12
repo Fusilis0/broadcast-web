@@ -14,8 +14,11 @@ if (config.seedOnBoot) {
 
 const handler = createApp({
   db,
-  apiToken: config.apiToken,
+  editorToken: config.editorToken,
+  airToken: config.airToken,
   corsOrigin: config.corsOrigin,
+  assetsLibraryDir: config.assetsLibraryDir,
+  maxAssetBytes: config.maxAssetBytes,
 })
 
 const server = createServer((req, res) => {
@@ -27,9 +30,20 @@ server.listen(config.port, config.host, () => {
     `[projects-api] listening on http://${config.host}:${config.port}`,
   )
   console.info(`[projects-api] db=${config.dbPath}`)
-  if (config.apiToken) {
-    console.info('[projects-api] write auth: bearer token required')
+  console.info(
+    `[projects-api] assets library=${config.assetsLibraryDir} (max ${config.maxAssetBytes} bytes)`,
+  )
+  if (config.editorToken) {
+    console.info(
+      '[projects-api] write auth: editor bearer required (PROJECTS_API_EDITOR_TOKEN or PROJECTS_API_TOKEN)',
+    )
+  } else if (config.airToken) {
+    console.info(
+      '[projects-api] write auth: air token set but no editor token — writes return 401/403',
+    )
   } else {
-    console.info('[projects-api] write auth: open (set PROJECTS_API_TOKEN to lock)')
+    console.info(
+      '[projects-api] write auth: open (set PROJECTS_API_EDITOR_TOKEN to lock)',
+    )
   }
 })

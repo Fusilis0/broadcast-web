@@ -62,6 +62,12 @@ export type BoatTelemetry = {
   t_err: number
 }
 
+/**
+ * Buoy GPS packet — same wire shape as `BoatTelemetry` (no new format).
+ * Distinct bus / pose kind + id namespace (must not collide with race boat ids).
+ */
+export type BuoyTelemetry = BoatTelemetry
+
 /** Unity `StreamAnchorMessage` — classify via `type === "stream_anchor"`. */
 export type StreamAnchorMessage = {
   type: string

@@ -50,7 +50,10 @@ This doc absorbs the Phase **3.5** studio chroma checklist ([`vmix-chroma-runboo
 6. Place on a layer above camera/plate. Compositing must use source **alpha**.
 7. **Do not** enable Chroma Key / Colour Key on this NDI input.
 8. Confirm: empty sky/sea see-through; boats/course/overlays opaque; **8×8** visual timecode sharp (nearest, not soft-scaled).
-9. **Active cam lock:** switch Fleet **Cam** / POV (`1–4`) → NDI framing follows that drone. If ops free cam is on screen, NDI must still match the **active** cam (not the free look).
+9. **Water/shore cue:** a localized semi-transparent pad under the course AABB may show on the plate — that is expected (Phase 8.8). Empty areas outside the pad must stay see-through. Tune opacities in `WATER_CUE_DEFAULTS` if the pad is too heavy ([`unity-asset-port.md`](./unity-asset-port.md)).
+10. **Active cam lock:** switch Fleet **Cam** / POV (`1–4`) → NDI framing follows that drone. If ops free cam is on screen, NDI must still match the **active** cam (not the free look).
+11. **Overlay clutter:** leave HUD **stream map** off for clean air unless you need the PiP in preview/chroma. Stream map is a DOM overlay — it does **not** appear on Electron NDI (WebGL readback only).
+12. **Ops NDI tab:** open the left sidebar **NDI** section. Confirm status **live**, source name matches the switcher (`HOSTNAME (broadcast-web)` or override), SDK version populated, **Active POV** matches Fleet Cam, Error row hidden. Collapsing the sidebar must not change the NDI picture. Chrome/Vite-only: tab shows **unavailable** (expected — no studio bridge). The **2D stream-map NDI** checkbox stays disabled until a multi-sender bridge ships.
 
 Full ingest detail: [`vmix-ndi-alpha-runbook.md`](./vmix-ndi-alpha-runbook.md).
 
@@ -60,6 +63,38 @@ Full ingest detail: [`vmix-ndi-alpha-runbook.md`](./vmix-ndi-alpha-runbook.md).
 - [ ] Switch active POV (Fleet **Cam** or `1–4`) → air / NDI perspective changes
 - [ ] HUD **view=free** (orbit) → on-screen preview moves; NDI framing stays on active POV
 - [ ] HUD **view=follow** → screen matches active POV again (same as NDI)
+- [ ] Sidebar **NDI** tab: status live, source/SDK/Active POV match air; collapse sidebar → NDI unchanged
+
+### Studio NDI smoke (Phase 10.3)
+
+Runnable gate for cutover. Ingest in **vMix**, **OBS**, or **NDI Studio Monitor** (same LAN / same PC). Stream map stays **DOM-only** on the primary air source — leave it **off**; it never burns into Electron NDI (`HO-SCN-OUT-20260804-01` resolved as opt-in second source, currently bridge-stubbed).
+
+| # | Check | Pass when |
+| --- | --- | --- |
+| 1 | Boot | Vite + `desktop:dev` (or `build` + `desktop:file`); URL has `outputMode=transparent` + race pack |
+| 2 | Source live | Switcher/Studio Monitor shows `HOSTNAME (broadcast-web)` (or override); ~30 fps; **1920×1080** |
+| 3 | Alpha plate | Empty sky/sea see-through; boats/course/overlays opaque; **no** chroma key on NDI input; **8×8** timecode sharp |
+| 4 | POV → NDI | Fleet **Cam** / keys `1–4` changes NDI framing to that drone |
+| 5 | Free cam ≠ NDI | HUD **view=free** → Electron window orbits; NDI stays on active POV |
+| 6 | Follow sync | HUD **view=follow** → window matches NDI again |
+| 7 | Stream map off | HUD **stream map** unchecked for air; NDI has no map PiP (DOM-only by design) |
+| 8 | NDI controller tab | Sidebar **NDI**: live + matching source/SDK/Active POV; collapse rail → plate unchanged |
+
+**Fail / blocker notes:** if Electron, NDI Tools, or switcher missing on the machine, record **Blocker** (not Pass) with what was unavailable. Unit tests for dual-render do **not** replace this smoke.
+
+#### Results — DSP-OUT-20260804-01
+
+| Field | Value |
+| --- | --- |
+| Date | 2026-08-04 |
+| Operator | WORKER(DSP-OUT-20260804-01) on `DESKTOP-264DNL1` |
+| Ingest | NDI Studio Monitor available; frame verify via `grandi` receive (vMix not installed) |
+| Shell mode | `desktop:dev` + Vite; `?race=demo-istanbul&outputMode=transparent` |
+| NDI name seen | `DESKTOP-264DNL1 (broadcast-web)` |
+| Checks 1–7 | 1 boot ✓ · 2 source 1920×1080 ✓ · 3 alpha + sharp 8×8 timecode ✓ · 4 POV 1↔2 changes NDI ✓ · 5 free cam upright active-POV (dual-render) ✓ · 6 follow sync ✓ · 7 stream map off / DOM-only ✓ |
+| Pass / fail | **Pass** |
+| Notes / blockers | vMix absent — Studio Monitor + `grandi` receive used. P0 fix: air-target readback used wrong `bottomUp` (free-cam dual-render flipped NDI); corrected in `ndiFramePump.ts`. |
+| `git log -1` (optional) | `36871e2` (pre-fix tip; smoke on dirty tree with pump fix) |
 
 ### Park / tray (do not OS-minimize)
 
@@ -80,7 +115,7 @@ Use before a show that runs **broadcast-web** as the AR NDI layer.
 - [ ] Repo ready: `npm install` + `npm install --prefix desktop` (once per machine)
 - [ ] Start path: **Vite + `desktop:dev`** *or* **`build` + `desktop:file`**
 - [ ] SPA in **`outputMode=transparent`** (not `chroma`, not `preview` for air)
-- [ ] Race pack loaded if needed (`?race=demo-istanbul` or show pack)
+- [ ] Race pack loaded if needed (`?race=demo-istanbul` or show pack). If WAN/`public/races` may be missing on air PC: HUD **Pack ↓** on studio, then **Pack ↑** (or cached `?race=`) — [`venue-pack.md`](./venue-pack.md)
 - [ ] NDI name visible in vMix/OBS: `HOSTNAME (broadcast-web)` (or override)
 - [ ] vMix/OBS NDI input selected; layer above plate; **no** chroma key on NDI
 - [ ] Alpha OK (see-through empty); AR opaque; **8×8** timecode sharp
@@ -178,7 +213,7 @@ Confirm fleet/course fixtures resolve (`/races/<id>/project.json` → 200). Miss
    - Query `?outputMode=chroma` (with other params as needed), **or**
    - Session config `"outputMode": "chroma"` then reload  
    Do **not** require committing chroma as the repo default.
-5. Confirm clear is **solid green** behind AR (boats / course / overlays). Green = `#00ff00` / RGB `(0, 255, 0)`. Optional override: `chromaKey` in config.
+5. Confirm clear is **solid green** behind AR (boats / course / overlays). Green = `#00ff00` / RGB `(0, 255, 0)`. Optional override: `chromaKey` in config. The mild water/shore pad under the course is AR (keyed out only if you over-key); green outside the pad must stay clean.
 6. In **OBS** or **vMix** (same PC):
    - **OBS:** Add **Window Capture** (or Display Capture / region) → select the **Chrome** window covering the WebGL view → filter **Chroma Key** → key colour green `#00ff00`.
    - **vMix:** **Add Input** → **Window Capture** (or Screen / region) → select **Chrome** → apply **Chroma Key** → green `#00ff00`.

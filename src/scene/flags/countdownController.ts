@@ -16,8 +16,22 @@ export type CountdownFlagsHandle = {
   /** Reset then start. */
   restart: () => void
   /**
+   * Tick clock only (demoTimeScale applied inside). Call once per RAF.
+   * Billboard scale is separate — see `orientBillboards`.
+   */
+  tickClock: (dtSec: number) => void
+  /**
+   * Distance-scale the MM:SS sprite for the camera about to render
+   * (preview vs air/NDI dual-render).
+   */
+  orientBillboards: (
+    camera: THREE.Camera,
+    viewportHeightPx: number,
+  ) => void
+  /**
    * Tick clock + billboard. Call each RAF with wall-clock `dtSec`
-   * (demoTimeScale applied inside).
+   * (demoTimeScale applied inside). Prefer `tickClock` + `orientBillboards`
+   * when dual-rendering preview ≠ air.
    */
   update: (
     dtSec: number,
@@ -94,6 +108,31 @@ export function createCountdownFlagsController(
     timer.setRemaining(remainingSeconds, finished)
   }
 
+  function tickClock(dtSec: number): void {
+    if (running && !finished) {
+      remainingSeconds -= dtSec * data.demoTimeScale
+      if (remainingSeconds <= 0) {
+        remainingSeconds = 0
+        finished = true
+        // Freeze last visibility (Unity: stop UpdateFlagStates after 0).
+        const phases = flagPhasesFromRemaining(0, thresholds)
+        p1.setVisible(phases.white)
+        p2Orange.setVisible(phases.orange)
+        p2Blue.setVisible(phases.blueWhite)
+      } else {
+        applyPhases()
+      }
+      syncDisplay()
+    }
+  }
+
+  function orientBillboards(
+    camera: THREE.Camera,
+    viewportHeightPx: number,
+  ): void {
+    timer.update(camera, viewportHeightPx)
+  }
+
   // Initial: all flags hidden until first UpdateFlagStates (Unity Instantiates hidden).
   applyPhases()
   syncDisplay()
@@ -120,23 +159,11 @@ export function createCountdownFlagsController(
       syncDisplay()
       running = true
     },
+    tickClock,
+    orientBillboards,
     update(dtSec, camera, viewportHeightPx): void {
-      if (running && !finished) {
-        remainingSeconds -= dtSec * data.demoTimeScale
-        if (remainingSeconds <= 0) {
-          remainingSeconds = 0
-          finished = true
-          // Freeze last visibility (Unity: stop UpdateFlagStates after 0).
-          const phases = flagPhasesFromRemaining(0, thresholds)
-          p1.setVisible(phases.white)
-          p2Orange.setVisible(phases.orange)
-          p2Blue.setVisible(phases.blueWhite)
-        } else {
-          applyPhases()
-        }
-        syncDisplay()
-      }
-      timer.update(camera, viewportHeightPx)
+      tickClock(dtSec)
+      orientBillboards(camera, viewportHeightPx)
     },
     getRemainingSeconds: () => remainingSeconds,
     isRunning: () => running,

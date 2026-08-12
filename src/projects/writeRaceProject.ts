@@ -1,7 +1,8 @@
 /**
- * Optional RaceProject API write (Phase 6.4).
+ * Optional RaceProject API write (Phase 6.4 / 9.1).
  * Download remains the primary persist path; this POSTs/PUTs when
  * `projectsApiBase` is configured and the stub is reachable.
+ * Send `bearerToken` (editor) when the server locks writes; air role must not call this.
  */
 
 import { raceProjectApiUrl } from './loadRaceProject.ts'
@@ -19,6 +20,11 @@ export type WriteRaceProjectOptions = {
   mode: WriteRaceProjectMode
   /** Required for `update` when the project body has no `revision`. */
   expectedRevision?: number
+  /**
+   * Optional labels metadata (archive uses `archived`).
+   * Sent as `{ project, labels }` wrapper on create/update.
+   */
+  labels?: string[]
   /** When set, sent as `Authorization: Bearer …` (local stub may leave writes open). */
   bearerToken?: string
   fetchImpl?: typeof fetch
@@ -81,10 +87,14 @@ export async function writeRaceProject(
   }
 
   if (options.mode === 'create') {
+    const payload =
+      options.labels !== undefined
+        ? { project, labels: options.labels }
+        : project
     const res = await fetchImpl(apiRacesCollectionUrl(apiBase), {
       method: 'POST',
       headers,
-      body: JSON.stringify(project),
+      body: JSON.stringify(payload),
     })
     if (!res.ok) {
       throw new WriteRaceProjectError(
@@ -103,13 +113,17 @@ export async function writeRaceProject(
     throw new Error('writeRaceProject update requires expectedRevision')
   }
 
-  const body = { ...project, revision: expected }
+  const projectBody = { ...project, revision: expected }
+  const payload =
+    options.labels !== undefined
+      ? { project: projectBody, labels: options.labels }
+      : projectBody
   headers['If-Match'] = `"${expected}"`
 
   const res = await fetchImpl(raceProjectApiUrl(apiBase, project.id), {
     method: 'PUT',
     headers,
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
   })
   if (!res.ok) {
     throw new WriteRaceProjectError(

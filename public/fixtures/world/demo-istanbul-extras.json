@@ -1,0 +1,27 @@
+{
+  "name": "demo-istanbul-extras",
+  "features": [
+    {
+      "id": "start:gate-south",
+      "name": "Start",
+      "type": "start",
+      "label": "START",
+      "color": 11337728,
+      "points": [
+        { "lat": 41.00795, "lon": 28.9778, "altMsl": 0 },
+        { "lat": 41.00795, "lon": 28.9790, "altMsl": 0 }
+      ]
+    },
+    {
+      "id": "finish:marks-north",
+      "name": "Finish",
+      "type": "finish",
+      "label": "FINISH",
+      "color": 11337728,
+      "points": [
+        { "lat": 41.0087, "lon": 28.9778, "altMsl": 0 },
+        { "lat": 41.0087, "lon": 28.9790, "altMsl": 0 }
+      ]
+    }
+  ]
+}

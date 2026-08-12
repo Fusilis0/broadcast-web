@@ -1,3 +1,4 @@
+import { parseRaceProjectCalibration } from '../calibration/projectCalibration.ts'
 import type { WorldFeature, WorldFeatureType } from '../scene/features/types.ts'
 import { normalizeBoatIds, normalizePovIds } from '../config/loadConfig.ts'
 import type {
@@ -18,6 +19,8 @@ const FEATURE_TYPES = new Set<WorldFeatureType>([
   'finish',
   'arrow',
   'rotation',
+  'buoy',
+  'billboardChain',
 ])
 
 function isFiniteNumber(value: unknown): value is number {
@@ -28,6 +31,44 @@ function nonEmptyString(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined
   const t = value.trim()
   return t === '' ? undefined : t
+}
+
+const BOAT_VISIBILITY_MODES = new Set(['solid', 'ghost', 'hidden'])
+
+/** Soft optional fleet.boatVisibility — invalid entries dropped; omit if empty. */
+function parseBoatVisibility(
+  raw: unknown,
+): RaceProjectFleet['boatVisibility'] {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    return undefined
+  }
+  const out: NonNullable<RaceProjectFleet['boatVisibility']> = {}
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    const id = key.trim()
+    if (
+      id === '' ||
+      typeof value !== 'string' ||
+      !BOAT_VISIBILITY_MODES.has(value)
+    ) {
+      continue
+    }
+    out[id] = value as 'solid' | 'ghost' | 'hidden'
+  }
+  return Object.keys(out).length > 0 ? out : undefined
+}
+
+/** Soft id→boolean map (map visibility). Non-boolean values dropped; omit if empty. */
+function parseIdBoolMap(raw: unknown): Record<string, boolean> | undefined {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    return undefined
+  }
+  const out: Record<string, boolean> = {}
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    const id = key.trim()
+    if (id === '' || typeof value !== 'boolean') continue
+    out[id] = value
+  }
+  return Object.keys(out).length > 0 ? out : undefined
 }
 
 function parseOrigin(raw: unknown): RaceProjectOrigin | null {
@@ -75,6 +116,25 @@ function parseWorldFeature(raw: unknown): WorldFeature | null {
   if (isFiniteNumber(o.color)) feature.color = o.color
   const label = nonEmptyString(o.label)
   if (label !== undefined) feature.label = label
+  // Additive optional fields (sponsors / Phase 11.6 chain + buoy bind).
+  if (typeof o.textureUrl === 'string') {
+    const t = o.textureUrl.trim()
+    feature.textureUrl = t === '' ? null : t
+  } else if (o.textureUrl === null) {
+    feature.textureUrl = null
+  }
+  if (isFiniteNumber(o.spacingM) && o.spacingM > 0) {
+    feature.spacingM = o.spacingM
+  }
+  if (typeof o.telemetryId === 'string') {
+    const t = o.telemetryId.trim()
+    feature.telemetryId = t === '' ? null : t
+  } else if (o.telemetryId === null) {
+    feature.telemetryId = null
+  }
+  // Soft visibility (SCN 11.7) — omit → visible; only persist false typically.
+  if (typeof o.visible3d === 'boolean') feature.visible3d = o.visible3d
+  if (typeof o.visible2d === 'boolean') feature.visible2d = o.visible2d
   return feature
 }
 
@@ -152,6 +212,12 @@ export function parseRaceProject(raw: unknown): RaceProject {
   const fleet: RaceProjectFleet = { boatIds }
   const boatNamesUrl = parseOptionalUrl(fleetRaw.boatNamesUrl)
   if (boatNamesUrl !== undefined) fleet.boatNamesUrl = boatNamesUrl
+  const boatVisibility = parseBoatVisibility(fleetRaw.boatVisibility)
+  if (boatVisibility !== undefined) fleet.boatVisibility = boatVisibility
+  const boatMapVisible = parseIdBoolMap(fleetRaw.boatMapVisible)
+  if (boatMapVisible !== undefined) fleet.boatMapVisible = boatMapVisible
+  const povMapVisible = parseIdBoolMap(fleetRaw.povMapVisible)
+  if (povMapVisible !== undefined) fleet.povMapVisible = povMapVisible
 
   if (!Array.isArray(o.povIds)) {
     throw new Error('RaceProject.povIds must be an array')
@@ -190,6 +256,9 @@ export function parseRaceProject(raw: unknown): RaceProject {
 
   const output = parseOutput(o.output)
   if (output !== undefined) project.output = output
+
+  const calibration = parseRaceProjectCalibration(o.calibration)
+  if (calibration !== undefined) project.calibration = calibration
 
   return project
 }

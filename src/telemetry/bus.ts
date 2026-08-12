@@ -1,5 +1,6 @@
 import type {
   BoatTelemetry,
+  BuoyTelemetry,
   StreamAnchorMessage,
   TelemetryData,
 } from './types.ts'
@@ -7,6 +8,8 @@ import type {
 export type TelemetryEvents = {
   drone: TelemetryData
   boat: BoatTelemetry
+  /** Same payload shape as `boat`; separate topic / id namespace. */
+  buoy: BuoyTelemetry
   stream_anchor: StreamAnchorMessage
 }
 
@@ -16,7 +19,7 @@ type Handler<K extends TelemetryEventName> = (payload: TelemetryEvents[K]) => vo
 
 /**
  * Tiny typed pub-sub for telemetry ingest.
- * Event names: `drone` | `boat` | `stream_anchor`.
+ * Event names: `drone` | `boat` | `buoy` | `stream_anchor`.
  */
 export class TelemetryBus {
   private readonly listeners: {
@@ -24,6 +27,7 @@ export class TelemetryBus {
   } = {
     drone: new Set(),
     boat: new Set(),
+    buoy: new Set(),
     stream_anchor: new Set(),
   }
 
@@ -43,6 +47,7 @@ export class TelemetryBus {
   clear(): void {
     this.listeners.drone.clear()
     this.listeners.boat.clear()
+    this.listeners.buoy.clear()
     this.listeners.stream_anchor.clear()
   }
 }

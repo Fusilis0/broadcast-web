@@ -16,6 +16,7 @@ function baseConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     wsBoatUrl: '',
     boatIds: ['21', '22'],
     povIds: ['1', '2'],
+    buoyIds: [],
     origin: {
       lat: 41.0,
       lon: 29.0,
@@ -29,6 +30,9 @@ function baseConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     timecodeCorner: 'bottom-right',
     timecodeSizePx: 96,
     whepUrl: '',
+    projectsApiBase: '',
+    projectsRole: 'editor',
+    projectsApiToken: '',
     ...rest,
   }
 }
@@ -89,6 +93,15 @@ describe('parseConsoleDeeplink', () => {
     expect(parseConsoleDeeplink('?race=%20&token=  x  ')).toEqual({
       token: 'x',
     })
+  })
+
+  it('ignores unsafe race id with warn', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    expect(parseConsoleDeeplink('?race=../etc&mode=mock')).toEqual({
+      mode: 'mock',
+    })
+    expect(parseConsoleDeeplink('?race=a/b')).toEqual({})
+    expect(warn).toHaveBeenCalled()
   })
 })
 

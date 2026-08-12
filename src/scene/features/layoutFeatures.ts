@@ -30,6 +30,11 @@ export function layoutFeatures(
     heightM: f.heightM,
     color: f.color,
     label: f.label,
+    textureUrl: f.textureUrl,
+    spacingM: f.spacingM,
+    telemetryId: f.telemetryId,
+    visible3d: f.visible3d,
+    visible2d: f.visible2d,
     rawPoints: f.points.map((p) => ({ ...p })),
   }))
 }

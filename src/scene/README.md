@@ -1,6 +1,8 @@
 # scene
 
-Owned by **SCN**. Three.js view: fleet boats (glTF/procedural) + billboard tags, drone camera, stub HUD, 2D fleet map, static course + buoys, sponsor panels, countdown flags.
+Owned by **SCN**. Three.js view: fleet boats (glTF/procedural) + billboard tags, drone camera, stub HUD, 2D fleet map (pan/zoom + optional OSM), static course + buoys, sponsor panels, billboard chains, free buoys, countdown flags, start/finish water signs, distance position markers.
+
+Unity asset inventory + backlog: [`docs/ops/unity-asset-port.md`](../../docs/ops/unity-asset-port.md).
 
 ## Consume contract
 
@@ -12,9 +14,15 @@ Do **not** call `gpsToEnu` for boats, subscribe to `telemetryBus` for positions,
 
 `telemetryBus` may be used for **packet counts only** in the stub HUD.
 
+**Ops sidebar (Phase 11.1+):** `createSidebar` mounts a collapsible left rail over the canvas
+(does not reflow WebGL). Sections: Project / World Map / **Assets** / Library / Live / NDI / Ops.
+`startAssetInspector` (11.7) lists every boat/POV/feature with Focus / Show-3D / Show-2D / Details.
+NDI never reads this DOM (`ndiFramePump` / WebGL only). Text prompts (billboard texture/spacing,
+boat/drone/buoy ids) use shared `promptModal` in `src/ui/` — Electron rejects `window.prompt()`.
+
 ## Boot
 
-`main.ts` loads config → `startScene({ boatIds, povIds })` → **`loadBoatNamesFromUrl(boatNamesUrl)`** → EGM96 → origin → **`loadCourseFromUrl(courseUrl)`** → **`loadSponsorsFromUrl(sponsorsUrl)`** → **`loadCountdownFlagsFromUrl(flagsUrl)`** → TEL ingest → `startPosePipeline` → HUD mode + POV select. HUD boots early for status; scene waits on `loadConfig()` so allow-lists are known.
+`main.ts` creates the ops sidebar → `startStubHud({ hosts })` → loads config → `startScene({ boatIds, povIds })` → **`loadBoatNamesFromUrl(boatNamesUrl)`** → EGM96 → origin → **`loadCourseFromUrl(courseUrl)`** → **`loadSponsorsFromUrl(sponsorsUrl)`** → **`loadCountdownFlagsFromUrl(flagsUrl)`** → TEL ingest → `startPosePipeline` → HUD mode + POV select. HUD boots early for status; scene waits on `loadConfig()` so allow-lists are known.
 
 **World anchor (Unity GeoOrigin):** `config.origin` `{ lat, lon, altMsl }` is ENU `(0,0,0)`. HUD **origin** fields show the active values after boot/deeplink/race load; **Apply** updates runtime config → `applyConfigOrigin` → remounts world features so boats/course shift in ENU together. Save project embeds the current origin via `buildRaceProject`.
 
@@ -28,19 +36,32 @@ Mock ids: POVs from `povIds` (default `1`,`2`), boats from `boatIds` (default `2
 | --- | --- |
 | `startScene(options)` | Scene + lights + renderer + RAF + pose subscribe + fleet `Map` + POV switch + ops free cam + course/sponsors/flags/boatNames loaders |
 | `setOpsViewMode` / `getOpsViewMode` / `getPreviewCamera` | Ops preview: `follow` (active POV) or `free` (orbit/pan/zoom); preview ≠ air |
+| `frameFleet` / `frameEnuPoint` / `getBoatEnuPosition` / `getPovEnuPosition` | Free-cam Focus (fleet or single ENU point) |
 | `getActivePovCamera` | Active POV camera — air / NDI source (OUT); never free cam |
+| `orientOpsBillboards(camera)` | Distance-scale boat tags + countdown plate for the camera about to render (dual-render hook) |
 | `setFleetAllowLists({ boatIds, povIds })` | Soft race switch: replace allow-lists, drop orphan boats, prune/clamp POV |
-| `loadCourse` / `mountCourse` | Fetch/normalize course JSON → GEO ENU → boundary/gates/buoys |
+| `loadCourse` / `mountCourse` | Fetch/normalize course JSON → GEO ENU → water cue + boundary/gates/buoys |
 | `loadSponsors` / `mountSponsors` | Fetch/normalize sponsors JSON → GEO ENU → fixed world panels |
 | `loadCountdownFlags` / `mountCountdownFlags` | Fetch/normalize flags JSON → GEO ENU → poles + phase timer |
 | `loadBoatNames` / `normalizeBoatNames` | Fetch/normalize Unity category→id→name JSON → tag identity map |
-| `startStubHud(options)` | Ops overlay: mode + POV + countdown + editor + race Load/Save + **world origin** (lat/lon/altMsl Apply) + WS + status + 2D map |
+| `startStubHud(options)` | Ops controls + status + ops/stream 2D maps; optional `hosts` split into sidebar sections |
+| `createSidebar(options)` | Collapsible left ops sidebar shell; `registerSection` for panels (Phase 11.1) |
+
+**Project section (Phase 11.4):** `startProjectManagerPanel` (PLT) mounts above Load/Save in the sidebar Project section — API list with rename / duplicate / archive + “Show archived”. Static-only mode disables those controls. Save still lives in `stubHud` and warns on boat ids missing from the catalogue.
+
+| Helper (continued) | Role |
+| --- | --- |
 | `formatConnectionStatus` | Compact `ws=…` / `ws=n/a (mock|replay)` string for HUD status |
-| `createMap2d()` | Top-down ENU East/North fleet panel (canvas 2D) + shared layout features |
+| `createMap2d()` | Top-down ENU East/North fleet panel (canvas 2D) + shared layout features; `focusEnu` / `setHiddenPoseIds` |
+| `createStreamMap2d()` | Viewer-facing broadcast PiP map (~520px; CSS overlay; default hidden; HUD toggle) |
 | `layoutFeatures` / `getLayoutFeatures` | Shared GPS→ENU world features (course/sponsors/flags adapters) |
-| `startMapFeatureEditor` | V1 world editor: place/select/delete/export + GeoJSON I/O + **Save project** download; remounts 3D |
-| `remountWorldFromFeatures` | Rebuild course/sponsors/flags from editable `WorldFeature[]` |
-| `createBoatEntity()` | Pose root + glTF/procedural visual + billboard tag |
+| `startAssetInspector` | Assets sidebar: Focus / Show-3D / Show-2D / Details (11.7) |
+| `startMapFeatureEditor` | V1 world editor: place/select/delete/export + GeoJSON I/O + **Save project**; remounts 3D (hosted in World Authoring workspace) |
+| `createWorldAuthoringWorkspace` | Dedicated DOM authoring window (large 2D map + tool hosts); NDI-safe overlay |
+| `mountWorldMapAuthoringLauncher` | World Map sidebar Open/Close authoring + status |
+| `remountWorldFromFeatures` | Rebuild course/sponsors/flags from editable `WorldFeature[]` (skips `visible3d: false`) |
+| `createBoatEntity()` | Pose root + glTF/procedural visual + billboard tag + visibility mode |
+| `setBoatVisibilityMode` / `setBoatVisibilityModes` | Per-boat `solid` \| `ghost` \| `hidden` (8.6) |
 | `createBoatTag()` | Canvas sprite label (catalogue name + category tint, or `Boat {id}` stub) |
 | `createDroneCamera()` | PerspectiveCamera + ENU apply |
 | `createFreeCam()` | OrbitControls free look around ENU origin (ops preview only) |
@@ -48,14 +69,15 @@ Mock ids: POVs from `povIds` (default `1`,`2`), boats from `boatIds` (default `2
 | `povIdAllowSet` / `isAllowedPovId` / `formatPovStatus` / `resolvePovIdList` | POV allow-list + HUD helpers |
 | `formatOpsViewStatus` / `isOpsViewMode` | HUD helpers for `view=follow\|free` |
 
-Clear color stays dark preview; OUT owns chroma later. Ambient + directional lights are present so `MeshStandard` / glTF materials read.
+Clear color stays dark preview; OUT owns chroma / transparent. Ambient + sun + cool fill + weak bounce so `MeshStandard` / glTF / buoy materials read on alpha and chroma plates.
 
-## Course + buoys (Phase 2.3)
+## Course + buoys (Phase 2.3 / 8.8 polish)
 
 - Fixture: `public/fixtures/course/demo-istanbul.json` (config key `courseUrl`).
 - Waypoints: `mark` | `gateLeft` | `gateRight` — see fixture README for schema + gate pairing (Unity name-prefix).
 - **Water Y:** course lines and buoy bases forced to **`y = 0`** (Unity `waterSurfaceY`). Converted AMSL ENU `y` is ignored for graphics so Istanbul geoid offset does not float the course.
-- Boundary: `LineLoop` through marks (fixture order). Gates: segment per Left/Right pair. Buoys: cylinder poles + stub name sprites at marks and gate ends (visible for web ops).
+- Boundary: `LineLoop` through marks (fixture order). Gates: horizontal **tubes** (MeshStandard) per Left/Right pair. Buoys: float body + band + stem + cap + name sprites (gate ends use gate-colour accent).
+- **Water / shore cue (8.8):** localized semi-transparent pads under course AABB (`WATER_CUE_DEFAULTS` in `course/waterCue.ts`) — not Cesium. Clear behaviour: see [`docs/ops/unity-asset-port.md`](../../docs/ops/unity-asset-port.md) + air runbook.
 - Not `poseBus`-driven; dispose on `scene.stop()`.
 
 ## Sponsors (Phase 2.5)
@@ -64,8 +86,21 @@ Clear color stays dark preview; OUT owns chroma later. Ambient + directional lig
 - Schema: `a`/`b` GPS anchors + `heightM` + optional `textureUrl` / `label` / `color` — see fixture README.
 - Placement: **`gpsToEnuAmsl` only**; panel baseline **water Y = 0** (same as course).
 - Mesh: vertical quad spanning A↔B; **fixed** world orientation (not camera-billboard). Face normal = flatten(A→B) × up (left of A→B). Order points so the course is on the facing side.
-- Missing texture → procedural canvas with `label` (no blank void). Sponsor `label` ≠ boat name catalogue (**2.7**).
-- Dispose on `scene.stop()`. Full Unity Sponsors pack / BillboardChain tiling are out of this slice.
+- Missing texture → procedural canvas with `label` (brand fill + inner plate). Demo logos under `public/textures/sponsors/` (Unity Sprites copy — see unity-asset-port).
+- Dispose on `scene.stop()`. Full Unity Sponsors pack / BillboardChain tiling remain backlog.
+
+## Start / finish line signs (Phase 8.5)
+
+- Unity: `Start.prefab` / `Finish.prefab` + `BillboardBetweenTwoPoints` (flat water canvas).
+- Web: `src/scene/lineSigns/` — textured horizontal band spanning A–B (or default east–west width for 1-point features).
+- Demo: `public/fixtures/world/demo-istanbul-extras.json` merged at boot; editor tools **start** / **finish** are two-click A–B.
+- Map draws red line segments + labels (no longer empty stub squares).
+
+## Position markers (Phase 8.5 partial)
+
+- Unity: `Distances.prefab` (TMP meter labels on water).
+- Web: `src/scene/positionMarkers/` + `public/fixtures/markers/demo-istanbul.json`.
+- Not yet a WorldFeature editor tool — fixture-only; see backlog in unity-asset-port.
 
 ## Countdown flags (Phase 2.6)
 
@@ -73,7 +108,7 @@ Clear color stays dark preview; OUT owns chroma later. Ambient + directional lig
 - Two GPS poles near the demo course gate: P1 shore (**white**), P2 committee (**orange** + **blue-white**).
 - Timeline (Unity defaults): orange @ 6:00 → white @ 5:00 → blue-white up @ 4:00 → blue-white down @ 1:00 → freeze at 0:00.
 - Placement: **`gpsToEnuAmsl` only**; pole baseline **water Y = 0**. Flags face the other point (yaw-only).
-- World `MM:SS` sprite above P1; billboards to active POV camera with mild distance scale (boat-tag spirit). Plate red while running, green at zero.
+- World `MM:SS` sprite above P1; faces the render camera with mild distance scale (boat-tag spirit). Plate red while running, green at zero.
 - Demo speed: fixture **`demoTimeScale: 20`** (~18 s for a 6-min sequence). Set `1` for real-time. HUD: Start / Pause / Reset / Restart.
 - Procedural colored planes — no Unity FBX/PNG dump. Dispose on `scene.stop()`.
 
@@ -82,17 +117,36 @@ Clear color stays dark preview; OUT owns chroma later. Ambient + directional lig
 - `startScene({ boatIds })` maintains `Map<string, BoatEntityHandle>`.
 - On `poseBus` boat pose: ignore ids not in `boatIds`; otherwise create (clone 2.1 template + tag) then `applyPose`.
 - Soft race switch: `setFleetAllowLists` rebuilds the allow-set and disposes ids that leave the pack; new ids spawn on the next allowed pose.
-- Each RAF: `updateTag` for every active boat (drone camera).
+- Each RAF: `orientOpsBillboards(previewCamera)` (boat tags + countdown plate). NDI dual-render re-orients for air before the FBO pass.
 - `stop()` disposes all entities and clears the map.
 - Names/colours: **2.7** catalogue via `boatNamesUrl` (see below).
 
-## Boat names / colours (Phase 2.7)
+## Boat names / colours (Phase 2.7 + 8.3)
 
 - Fixture: `public/fixtures/boats/demo-istanbul-names.json` (config key **`boatNamesUrl`**).
 - Schema: Unity `BoatNameAssigner` nested map — category → `{ "<id>": "<name>" }` (covers default `21`–`24`).
 - Colour from category Turkish keywords (`pembe`/`mavi`/`sarı`/`sari`/`yeşil`/`yesil`/`turuncu`; else white). Optional `_color` / per-entry hex overrides.
-- Boot: `loadBoatNamesFromUrl` before TEL; `ensureBoat` resolves on create; late load re-applies via `setTagIdentity` (canvas texture redraw, no leak — same texture updated).
-- Unknown id → stub `Boat {id}` / neutral plate. Hull tint and 2D map dots are out of this slice.
+- Boot: `loadBoatNamesFromUrl` before TEL; `ensureBoat` resolves on create; late load / Fleet upsert re-applies via `setTagIdentity` (tag canvas + **hull tint** + **map dots**).
+- Unknown id → stub `Boat {id}` / neutral plate; hull keeps procedural default; map dot uses orange fallback.
+- **Hull tint (8.3):** catalogue `#rrggbb` applied to procedural hull materials (`userData.categoryTint`) and to glTF MeshStandard colour + emissive (Three colour × albedo map; see `src/assets/tintBoatVisual.ts` + `src/assets/README.md`).
+- **Map dots (8.3):** same id→colour via `map.setBoatDotColors(boatColorsFromCatalogue(…))` from `main` after load / Fleet edits.
+- Details: [`boatNames/README.md`](./boatNames/README.md).
+
+## Ghost / invisible boats (Phase 8.6)
+
+Per-boat draw mode: **`solid`** | **`ghost`** | **`hidden`** (`BoatVisibilityMode`).
+
+| Mode | 3D hull | Tag | Water ring | Map dot |
+| --- | --- | --- | --- | --- |
+| `solid` (default) | opaque | yes | no | tracks |
+| `ghost` | translucent (`GHOST_HULL_OPACITY`) | yes | yes (category tint) | tracks |
+| `hidden` | off | off | no | **still tracks** (ops choice) |
+
+- Ops: Fleet / Live row select → `scene.setBoatVisibilityMode` (sessionStorage via `FleetBoatRow.visibility`).
+- Soft RaceProject field: `fleet.boatVisibility` `{ "<id>": "ghost"|"hidden"|… }` — invalid entries dropped; omitted → solid.
+- Independent 2D map hide (11.7): `FleetBoatRow.mapVisible` / `fleet.boatMapVisible` — `false` hides the map icon while 3D mode is unchanged.
+- Pose updates continue in all modes; hidden boats do not draw a hull on air/preview.
+- Unity sibling had no dedicated ghost script in-tree; web mirrors the ops intent (transparent / icon-only tracking).
 
 ## Multi-POV switch (Phase 2.4)
 
@@ -103,7 +157,7 @@ Clear color stays dark preview; OUT owns chroma later. Ambient + directional lig
 - Deprecated `droneId` remains as a single-id / initial-active alias when needed.
 - Cam ids `11`/`12` use the same `kind: 'drone'` path when listed in `povIds` — no second pipeline.
 - HUD: POV select (labels = raw id; **not** 2.7 names) + status `pov=<id>  seen=…`; optional digit keys `1`–`4`.
-- Boat tags / countdown plates billboard to the **preview** camera (free or follow). Frustum gizmos for inactive POVs are out of this slice.
+- Boat tags / countdown plates: on-screen → **preview** camera (free or follow); NDI air FBO → **active POV** when dual-rendering. Frustum gizmos for inactive POVs are out of this slice.
 - TEL must emit ≥2 POV ids on mock for a visible switch demo (`HO-SCN-TEL-20260727-01`).
 
 ## Ops free cam (preview vs air)
@@ -113,18 +167,46 @@ Clear color stays dark preview; OUT owns chroma later. Ambient + directional lig
 - **Follow:** on-screen preview uses the active POV pose again (`1`–`4` / Fleet **Cam** / POV select).
 - Free cam does **not** mutate `activePovId` — air selection stays with POV switch / Fleet Cam.
 - Status line includes `view=follow` or `view=free`.
-- **OUT / NDI:** `getActivePovCamera()` is the air source; screen may use `getPreviewCamera()`. NDI dual-renders air when preview ≠ air (`startNdiFramePump({ getAirCamera })`). See `src/output/README.md` § Air camera lock.
+- **OUT / NDI:** `getActivePovCamera()` is the air source; screen may use `getPreviewCamera()`. NDI dual-renders air when preview ≠ air (`startNdiFramePump({ getAirCamera, prepareCameraPass })`). See `src/output/README.md` § Air camera lock.
+- **Billboard pass contract:** sprites auto-face the WebGL camera; distance scale must match that same camera. Tick orients for preview; NDI `prepareCameraPass` orients for air then preview again.
+
+### Manual checklist (free cam + NDI billboards)
+
+1. **Follow:** `view=follow` — tags readable on screen; sizes match active POV.
+2. **Free cam:** switch to Free cam, orbit away — on-screen tags face/scale to free look (not stuck on drone POV size).
+3. **NDI dual-render (Electron):** with Free cam on screen, NDI plate still shows **active POV** framing; tags on NDI are sized for that air cam (not free-cam distance).
+4. **POV switch:** change active cam (`1`–`4` / Fleet Cam) while Free cam is on — NDI framing + tag scale follow the new active POV; preview stays free.
+5. **Back to Follow:** preview and air share one camera again; tags stay sane.
 
 ## Boat + tag (Phase 2.1 template)
 
-- Visual: loads `/models/boat.glb` (cached, cloned per entity); procedural multi-mesh fallback if load fails. See `src/assets/README.md` for axis offset.
+- Visual: loads `/models/boat.glb` (cached, cloned per entity); procedural multi-mesh fallback if load fails. See `src/assets/README.md` for axis offset + **category hull tint**.
 - Tag: sprite billboard (auto-faces camera) with mild distance scale (Unity `BoatTagRotation` spirit). Catalogue name + category tint when **2.7** loaded; else stub `Boat {id}`.
 
 ## Stub HUD + 2D map
 
-- **HUD:** mode select (`mock` / `replay` / `live`) restarts TEL ingest via `onModeChange`. POV select lists `povIds` and calls `onPovChange` → scene `setActivePovId` (and calib device sync in `main`). **View** select: Free cam | Follow active POV → `onOpsViewChange` → `scene.setOpsViewMode` (does not change air POV). Countdown Start / Pause / Reset / Restart → `onCountdownControl` → scene `controlCountdown`. **Editor** checkbox (or `?editor=1`) opens the world feature editor. Status shows mode, TEL counts, **connection line** (`ws drone=… boat=…` in live via `setConnectionStatus`, or `ws=n/a (mock|replay)` — never fake `open`), `pov=<active>  seen=…  view=follow|free`, last active-drone ENU, and a multi-boat ENU line (`boats=N  21=(…) 22=(…)` truncated if long).
-- **Map:** plots `position.x` (East) vs `position.z` (North), north-up; auto-fits bounds to recent points + shared layout features (marks, gates, sponsors, flags).
+- **HUD:** mode select (`mock` / `replay` / `live`) restarts TEL ingest via `onModeChange`. POV select lists `povIds` and calls `onPovChange` → scene `setActivePovId` (and calib device sync in `main`). **View** select: Free cam | Follow active POV → `onOpsViewChange` → `scene.setOpsViewMode` (does not change air POV). Countdown Start / Pause / Reset / Restart → `onCountdownControl` → scene `controlCountdown`. **Authoring** checkbox mirrors World Authoring workspace open state (primary: World Map → Open authoring; `?editor=1|0` override). **Stream map** checkbox (default **off**) toggles the viewer-facing broadcast PiP map. Status shows mode, TEL counts, **connection line** (`ws drone=… boat=…` in live via `setConnectionStatus`, or `ws=n/a (mock|replay)` — never fake `open`), `pov=<active>  seen=…  view=follow|free`, last active-drone ENU, and a multi-boat ENU line (`boats=N  21=(…) 22=(…)` truncated if long).
+- **Ops map:** small top-right panel; plots `position.x` (East) vs `position.z` (North), north-up; auto-fits bounds to recent points + shared layout features (marks, gates, sponsors, flags, S/F). Boat **sail icons** (Unity `tekne_yeni` tinted by catalogue colour, yaw from pose `brg`; procedural fallback). Drones stay cyan circles. Editor click tools attach here.
+- **Stream map (Phase 8.1 + 8.7 + Phase 11 broadcast graphic):** larger CSS-overlay PiP (`createStreamMap2d`, **520px**, top-left when shown). Shares layout/fleet data with ops via `createMap2d` + `mapChrome`, but **`variant: 'stream'`** gets a distinct broadcast look — framed card CSS, race-name title strip (`setTitle` from loaded project), larger icons/labels, water vignette, north compass ring. Ops/authoring map stays utilitarian (unchanged). **Not** a Three.js HUD — never steals WebGL / NDI air POV. Default hidden (air clutter). Manual check: toggle on in preview → polished graphic with course + coloured sailboats; free cam / POV switch unchanged; NDI still active POV.
+
+### Map chrome checklist (Phase 8.7)
+
+1. Mock demo: boats 21–24 show sailboat icons in category colours (not flat squares); heading rotates with pose.
+2. Start/finish segments: thicker red bars + **START/FINISH** label pills; gate lines dashed.
+3. Toggle **Stream map** — broadcast graphic (larger icons, compass, framed card); ops map still small utilitarian top-right.
+4. Place editor **arrow** / **rotation** — chevron or curved glyph (Unity CW/RCW PNG port deferred; see `docs/ops/unity-asset-port.md`).
+5. No tile basemap.
 - **World editor (4.2 / 4.4):** see `src/scene/features/README.md` — place/edit/delete features on the map; ENU→GPS via GEO `enuToGpsAmsl`; export `world-features.json`; **Import/Export GeoJSON** (geojson.io); remounts 3D course/sponsors/flags. No DB.
+
+### Stream map + OUT compositing
+
+| Path | Stream map visible? |
+| --- | --- |
+| Preview (ops) | Yes when HUD toggle on |
+| Chrome chroma (window capture) | Yes when toggle on (opaque DOM plate over green — may need key/crop care) |
+| Electron alpha NDI | **No** — NDI is WebGL `readPixels` only; DOM PiP is not burned in |
+
+**OUT flag:** if the stream map must appear on the NDI / transparent plate, burn it into WebGL (or another capture path). SCN owns the graphic; OUT owns plate compositing.
 
 ## Camera convention
 

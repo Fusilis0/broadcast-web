@@ -31,7 +31,10 @@ function hexToCss(color: number): string {
   return `#${color.toString(16).padStart(6, '0')}`
 }
 
-/** Procedural branded panel — solid fill + label (no blank pink void). */
+/**
+ * Procedural branded panel — Unity LogoOnSea-style: brand fill, inner plate,
+ * label. Used when `textureUrl` is missing or fails to load.
+ */
 export function createProceduralSponsorTexture(
   label: string,
   color: number,
@@ -43,18 +46,32 @@ export function createProceduralSponsorTexture(
   canvas.height = h
   const ctx = canvas.getContext('2d')
   if (ctx) {
-    ctx.fillStyle = hexToCss(color)
+    const css = hexToCss(color)
+    const grad = ctx.createLinearGradient(0, 0, 0, h)
+    grad.addColorStop(0, css)
+    grad.addColorStop(1, '#0c1218')
+    ctx.fillStyle = grad
     ctx.fillRect(0, 0, w, h)
 
-    // Subtle edge frame
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)'
-    ctx.lineWidth = 16
-    ctx.strokeRect(24, 24, w - 48, h - 48)
+    // Inner plate (logo slot)
+    ctx.fillStyle = 'rgba(12, 16, 22, 0.45)'
+    ctx.fillRect(48, 56, w - 96, h - 112)
+    ctx.strokeStyle = 'rgba(245, 242, 234, 0.4)'
+    ctx.lineWidth = 10
+    ctx.strokeRect(48, 56, w - 96, h - 112)
+
+    // Outer frame
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)'
+    ctx.lineWidth = 14
+    ctx.strokeRect(20, 20, w - 40, h - 40)
 
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillStyle = '#f5f2ea'
-    const fontSize = Math.min(96, Math.floor(w / Math.max(label.length * 0.55, 6)))
+    const fontSize = Math.min(
+      88,
+      Math.floor(w / Math.max(label.length * 0.55, 6)),
+    )
     ctx.font = `700 ${fontSize}px "Segoe UI", system-ui, sans-serif`
     ctx.fillText(label, w / 2, h / 2)
   }
@@ -100,6 +117,7 @@ export async function createSponsorBillboard(
     endpoints.color,
   )
   let ownedMap = true
+  let useAlpha = false
 
   if (endpoints.textureUrl) {
     try {
@@ -107,6 +125,7 @@ export async function createSponsorBillboard(
       map.dispose()
       map = loaded
       ownedMap = true
+      useAlpha = true
     } catch (err) {
       console.warn(
         `[sponsors] texture failed for ${endpoints.id} (${endpoints.textureUrl}); using label`,
@@ -120,7 +139,13 @@ export async function createSponsorBillboard(
     map,
     side: THREE.DoubleSide,
     toneMapped: false,
+    transparent: useAlpha,
+    depthWrite: !useAlpha,
   })
+  // Brand fill behind logo PNGs so transparent sprites still read on air.
+  if (useAlpha) {
+    mat.color.setHex(endpoints.color)
+  }
   const mesh = new THREE.Mesh(geo, mat)
   mesh.name = `sponsor:${endpoints.id}`
 

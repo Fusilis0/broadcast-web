@@ -1,5 +1,11 @@
 import { isSafeRaceId, parseRaceProject } from './parseRaceProject.ts'
 import type { RaceProject } from './types.ts'
+import { retainMaterializedVenuePack } from './venuePack/activeMaterialization.ts'
+import { materializeVenuePack } from './venuePack/materializeVenuePack.ts'
+import {
+  getDefaultVenuePackCache,
+  type VenuePackCache,
+} from './venuePack/venuePackCache.ts'
 
 /** Default pack path under Vite `public/`. */
 export function raceProjectUrl(id: string): string {
@@ -16,6 +22,11 @@ export type LoadRaceProjectOptions = {
   /** When set, try API get first; on miss/fail → static pack. */
   projectsApiBase?: string
   fetchImpl?: typeof fetch
+  /**
+   * Offline venue-pack fallback after API + static miss.
+   * `true` / omit → default IndexedDB cache; `false` → disable; or inject a cache.
+   */
+  venuePackCache?: boolean | VenuePackCache
 }
 
 async function fetchJson(
@@ -45,10 +56,33 @@ async function hydrateFeaturesUrl(
   return project
 }
 
+function resolveVenuePackCache(
+  option: LoadRaceProjectOptions['venuePackCache'],
+): VenuePackCache | null {
+  if (option === false) return null
+  if (option === true || option === undefined) return getDefaultVenuePackCache()
+  return option
+}
+
+async function loadFromVenuePackCache(
+  id: string,
+  cache: VenuePackCache,
+): Promise<RaceProject> {
+  const pack = await cache.get(id)
+  if (!pack) {
+    throw new Error(`No cached venue pack for ${JSON.stringify(id)}`)
+  }
+  const materialized = retainMaterializedVenuePack(materializeVenuePack(pack))
+  return materialized.project
+}
+
 /**
  * Fetch and lightly validate a RaceProject pack.
- * Pack root: `/races/<id>/project.json`.
- * When `projectsApiBase` is set: `GET {base}/races/:id` first, then static fallback.
+ * Precedence:
+ * 1. API `GET {projectsApiBase}/races/:id` when configured
+ * 2. Static `/races/<id>/project.json`
+ * 3. Cached venue pack (IndexedDB) when API + static miss
+ *
  * When `featuresUrl` is set and `features` omitted, loads that JSON
  * (`{ features: WorldFeature[] }` or a bare array).
  */
@@ -63,6 +97,7 @@ export async function loadRaceProject(
 
   const fetchImpl = options.fetchImpl ?? fetch
   const apiBase = options.projectsApiBase?.trim()
+  const cache = resolveVenuePackCache(options.venuePackCache)
 
   if (apiBase) {
     try {
@@ -76,10 +111,21 @@ export async function loadRaceProject(
     }
   }
 
-  const project = parseRaceProject(
-    await fetchJson(raceProjectUrl(trimmed), fetchImpl),
-  )
-  return hydrateFeaturesUrl(project, fetchImpl)
+  try {
+    const project = parseRaceProject(
+      await fetchJson(raceProjectUrl(trimmed), fetchImpl),
+    )
+    return hydrateFeaturesUrl(project, fetchImpl)
+  } catch (staticErr) {
+    if (cache) {
+      try {
+        return await loadFromVenuePackCache(trimmed, cache)
+      } catch {
+        // Re-throw original static miss.
+      }
+    }
+    throw staticErr
+  }
 }
 
 function extractFeaturesList(raw: unknown): unknown[] {
