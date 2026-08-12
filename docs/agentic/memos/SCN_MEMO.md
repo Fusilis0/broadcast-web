@@ -1,7 +1,42 @@
 # SCN_MEMO
 
 **Last updated:** 2026-08-12  
-**Status:** Idle — Phase 11 follow-up #3 accepted (P0 `window.prompt()` Electron bug fixed)
+**Status:** Idle — SCN-03 fleet-map pose sync **accepted**
+
+## Phase 13 follow-up — SCN-03 accepted 2026-08-12
+- `done/DSP-SCN-20260812-03-fleet-map-pose-sync` — `removePose` / `retainPoseIds` (buoys kept);
+  fleet delete prunes ops+stream icons; place seeds click ENU without telem; HUD allow-list filter.
+  Suite 476+23.
+
+## Phase 13 — SCN-02 accepted 2026-08-12
+- `done/DSP-SCN-20260812-02-ar-calib-coordinate-overlay` — ENU 50 m grid ±1 km; origin + force-shown
+  marks; `setCalibrationOverlayEnabled` default off; Calib checkbox (SCN-mounted); ops
+  `docs/ops/ar-calibration-overlay.md`. No offset writes. Suite 439+23 green.
+- Soft note for later: OUT-02 reported water may look static on 3D NDI when AR is transparent
+  (env unmounted outside 3D pass) — optional SCN follow-up if ops cares.
+
+## Phase 13 — SCN-01 accepted 2026-08-12
+- `done/DSP-SCN-20260812-01-sea-sky-environment` — `src/scene/environment/`; Water+Sky; default
+  `simple`; realistic only when `opaqueClearSafe` (preview today). API for OUT 13.3:
+  `setEnvironmentMode` / `getEnvironmentMode` / `setEnvironmentOpaqueClearSafe`.
+
+## Phase 13 — wave 1 issued 2026-08-12 — historical
+BW wrote two design docs covering future SCN scope (reference image: shaded, waved ocean —
+"not real sea, a realistic model"). User later clarified: this is **not** a new rendering
+pipeline — literally "just adding sea model to 3d environment basically." The "3D channel" is the
+same scene/camera as AR, just an opaque clear + the sea/sky model; no second content pipeline.
+- [`docs/architecture/realistic-3d-environment.md`](../../architecture/realistic-3d-environment.md)
+  — today there is **no** ocean/sky render (`waterCue.ts` is a flat tinted plane; sky is just the
+  clear color). Proposed `three/examples/jsm` `Water` + `Sky`, **hard-constrained to the opaque
+  clear variant only** — must never render when a channel needs transparent/chroma clear
+  (would break AR's alpha-key compositing).
+- [`docs/architecture/ar-calibration-map-overlay.md`](../../architecture/ar-calibration-map-overlay.md)
+  — SCN render piece: dense ENU-grid/marks overlay through the calibrated camera, for CAL's manual
+  calibration-aid feature (read-only, no pose/offset math changes).
+
+Both depend on [`docs/architecture/multi-output-streaming.md`](../../architecture/multi-output-streaming.md)
+(OUT's new 3-channel/multi-sender-NDI model) for full context. Do not start until BW dispatches;
+this is a read-only heads-up.
 
 ## Phase 11 follow-up #3 — accepted 2026-08-12 (P0)
 User: billboard chain still won't finish via button **or** Enter after `-05`. BW root-caused it

@@ -2,6 +2,10 @@ import type { AppConfig, ConfigOrigin } from '../config/types.ts'
 import { parseConfigOriginFields } from '../geodesy/index.ts'
 import { poseBus, type PoseEvent } from '../pose/index.ts'
 import {
+  mountLocalProjectControls,
+  type LocalProjectControlsHandle,
+} from '../projects/localProjectControls.ts'
+import {
   telemetryBus,
   type LiveIdSocketStatus,
   type LiveWsStatus,
@@ -13,6 +17,12 @@ import {
   isOpsViewMode,
   type OpsViewMode,
 } from './freeCam.ts'
+import {
+  DEFAULT_ENVIRONMENT_MODE,
+  isEnvironmentMode,
+  normalizeEnvironmentMode,
+  type EnvironmentMode,
+} from './environment/index.ts'
 import { createMap2d, type Map2dHandle } from './map2d.ts'
 import { formatPovStatus, resolvePovIdList } from './povSwitcher.ts'
 import { createStreamMap2d } from './streamMap.ts'
@@ -97,6 +107,11 @@ export type StubHudOptions = {
    * May be empty until `setPovIds` after config loads.
    */
   povIds?: readonly string[]
+  /**
+   * Initial boat allow-list for ops/stream map pose icons.
+   * Until `setBoatIds` runs, boat poses are still accepted (boot gap).
+   */
+  boatIds?: readonly string[]
   /** Invoked when ops picks a POV id in the HUD select. */
   onPovChange?: (povId: string) => void
   /**
@@ -106,6 +121,13 @@ export type StubHudOptions = {
   onOpsViewChange?: (mode: OpsViewMode) => void
   /** Initial ops view mode (default `follow`). */
   opsViewMode?: OpsViewMode
+  /**
+   * Scene sea/sky dressing (`simple` | `realistic`). Temporary Ops control
+   * until the Phase 13.5 channel switcher owns it.
+   */
+  onEnvironmentModeChange?: (mode: EnvironmentMode) => void
+  /** Initial environment mode (default `simple`). */
+  environmentMode?: EnvironmentMode
   /** Countdown flag controls (Phase 2.6). */
   onCountdownControl?: (
     action: 'start' | 'pause' | 'reset' | 'restart',
@@ -127,13 +149,20 @@ export type StubHudOptions = {
   /** Load a local pack by id (manifest pick or typed). */
   onRaceLoad?: (raceId: string) => void
   /**
-   * Save = overwrite current pack id (download + optional API PUT).
+   * Save = overwrite current pack id.
+   * Electron folder mode → races folder; Chrome → download (+ optional API).
    */
   onSaveProject?: () => void
   /**
-   * Save as = prompt for new id + name (download + optional API POST).
+   * Save as = prompt for new id + name.
+   * Electron folder mode → races folder; Chrome → download (+ optional API).
    */
   onSaveAsProject?: () => void
+  /**
+   * Download `project.json` only (Export… in Electron; unused in Chrome where
+   * Save already downloads).
+   */
+  onExportProject?: () => void
   /** Download offline venue pack (project + linked fixtures/assets). */
   onDownloadVenuePack?: () => void
   /** Load a previously downloaded `*-venue-pack.json` file. */
@@ -143,6 +172,13 @@ export type StubHudOptions = {
    * Default true (editor).
    */
   projectWritesEnabled?: boolean
+  /**
+   * Electron `broadcastStudio.races` present → folder Save + Load-on-change.
+   * Chrome → download Save; no pretend folder write.
+   */
+  localRacesFolder?: boolean
+  /** Initial display name for the active pack. */
+  projectName?: string
   /**
    * Initial world anchor (WGS84 lat/lon + altMsl).
    * Usually empty until boot fills via `setOrigin` after config/deeplink.
@@ -158,10 +194,17 @@ export type StubHudHandle = {
   setBootMessage: (msg: string) => void
   /** Replace POV select options; keeps active if still listed. */
   setPovIds: (povIds: readonly string[], activePovId?: string) => void
+  /**
+   * Boat ids allowed on ops/stream map icons (and HUD boat ENU line).
+   * After the first call, boat poses outside the list are ignored by the maps.
+   */
+  setBoatIds: (boatIds: readonly string[]) => void
   /** Sync active POV label without firing `onPovChange`. */
   setActivePovId: (povId: string) => void
   /** Sync ops view select without firing `onOpsViewChange`. */
   setOpsViewMode: (mode: OpsViewMode) => void
+  /** Sync environment select without firing `onEnvironmentModeChange`. */
+  setEnvironmentMode: (mode: EnvironmentMode) => void
   /** Static course mark dots on the 2D map (ENU east/north). Legacy. */
   setCourseMarks: (
     marks: readonly { name: string; x: number; z: number }[],
@@ -182,6 +225,12 @@ export type StubHudHandle = {
   setRaceIds: (raceIds: readonly string[], activeRaceId?: string) => void
   /** Sync active race id in select + custom field (no load). */
   setActiveRaceId: (raceId: string) => void
+  /** Show active pack name + id in the Project section. */
+  setProjectMeta: (id: string, name: string) => void
+  /** Electron races root path hint (`saving to: …`). */
+  setRacesRootHint: (path: string | null) => void
+  /** Save success / fail line (path or error). */
+  setSaveStatus: (msg: string) => void
   /** Sync world-anchor fields (boot / race switch / after Apply). */
   setOrigin: (origin: ConfigOrigin) => void
   /** Enable/disable Save + Save as (air-only → false). */
@@ -219,6 +268,11 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   const initialMode = options.initialMode ?? 'mock'
   let povIds = resolvePovIdList(options.povIds)
   let activePovId = povIds[0] ?? '1'
+  /** null = boot gap (accept all boat poses until first `setBoatIds`). */
+  let boatIds: string[] | null =
+    options.boatIds !== undefined
+      ? [...options.boatIds].map((id) => id.trim()).filter((id) => id !== '')
+      : null
   const hosts = options.hosts
 
   /** Legacy freestanding overlay; unused when sidebar hosts are provided. */
@@ -397,52 +451,60 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   streamMapHint.textContent = 'broadcast PiP · off'
   streamMapRow.appendChild(streamMapHint)
 
-  const raceRow = document.createElement('div')
-  raceRow.className = 'ops-hud__mode-row'
-  projectHud.appendChild(raceRow)
+  const envRow = document.createElement('div')
+  envRow.className = 'ops-hud__mode-row'
+  opsHud.appendChild(envRow)
 
-  const raceLabel = document.createElement('label')
-  raceLabel.className = 'ops-hud__mode-label'
-  raceLabel.htmlFor = 'ops-race-id'
-  raceLabel.textContent = 'race'
-  raceRow.appendChild(raceLabel)
+  const envLabel = document.createElement('label')
+  envLabel.className = 'ops-hud__mode-label'
+  envLabel.htmlFor = 'ops-environment-mode'
+  envLabel.textContent = 'environment'
+  envRow.appendChild(envLabel)
 
-  const raceSelect = document.createElement('select')
-  raceSelect.id = 'ops-race-id'
-  raceSelect.className = 'ops-hud__mode-select'
-  raceSelect.title = 'Local RaceProject packs under /races/'
-  raceRow.appendChild(raceSelect)
+  const envSelect = document.createElement('select')
+  envSelect.id = 'ops-environment-mode'
+  envSelect.className = 'ops-hud__mode-select'
+  envSelect.title =
+    'simple = clear + waterCue pad; realistic = sea+sky model (preview/opaque only — forced off for transparent/chroma AR)'
+  for (const m of ['simple', 'realistic'] as const) {
+    const opt = document.createElement('option')
+    opt.value = m
+    opt.textContent = m
+    envSelect.appendChild(opt)
+  }
+  let environmentMode: EnvironmentMode = normalizeEnvironmentMode(
+    options.environmentMode ?? DEFAULT_ENVIRONMENT_MODE,
+  )
+  envSelect.value = environmentMode
+  envRow.appendChild(envSelect)
 
-  const raceCustom = document.createElement('input')
-  raceCustom.className = 'ops-hud__input'
-  raceCustom.type = 'text'
-  raceCustom.placeholder = 'id…'
-  raceCustom.title = 'Type a pack id (public/races/<id>/) then Load'
-  raceCustom.spellcheck = false
-  raceRow.appendChild(raceCustom)
+  const envHint = document.createElement('span')
+  envHint.className = 'ops-hud__mode-hint'
+  envHint.textContent =
+    environmentMode === 'realistic' ? '3D dress · AR-gated' : 'AR-safe'
+  envRow.appendChild(envHint)
 
-  const raceLoadBtn = document.createElement('button')
-  raceLoadBtn.type = 'button'
-  raceLoadBtn.className = 'ops-hud__btn'
-  raceLoadBtn.textContent = 'Load'
-  raceLoadBtn.title = 'Load local RaceProject pack'
-  raceRow.appendChild(raceLoadBtn)
+  const localProject: LocalProjectControlsHandle = mountLocalProjectControls({
+    container: projectHud,
+    folderMode: options.localRacesFolder === true,
+    raceIds: options.raceIds,
+    activeRaceId: options.activeRaceId,
+    projectName: options.projectName,
+    projectWritesEnabled: options.projectWritesEnabled,
+    onRaceLoad: options.onRaceLoad,
+    onSaveProject: options.onSaveProject,
+    onSaveAsProject: options.onSaveAsProject,
+    onExportProject: options.onExportProject,
+  })
 
-  const raceSaveBtn = document.createElement('button')
-  raceSaveBtn.type = 'button'
-  raceSaveBtn.className = 'ops-hud__btn'
-  raceSaveBtn.textContent = 'Save'
-  raceSaveBtn.title =
-    'Overwrite current project id: download project.json (+ API PUT when projectsApiBase is set).'
-  raceRow.appendChild(raceSaveBtn)
+  const packRow = document.createElement('div')
+  packRow.className = 'ops-hud__mode-row'
+  projectHud.appendChild(packRow)
 
-  const raceSaveAsBtn = document.createElement('button')
-  raceSaveAsBtn.type = 'button'
-  raceSaveAsBtn.className = 'ops-hud__btn'
-  raceSaveAsBtn.textContent = 'Save as'
-  raceSaveAsBtn.title =
-    'New id + name from prompts: download project.json (+ API POST when projectsApiBase is set).'
-  raceRow.appendChild(raceSaveAsBtn)
+  const packLabel = document.createElement('span')
+  packLabel.className = 'ops-hud__mode-label'
+  packLabel.textContent = 'pack'
+  packRow.appendChild(packLabel)
 
   const venuePackDownloadBtn = document.createElement('button')
   venuePackDownloadBtn.type = 'button'
@@ -450,13 +512,13 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   venuePackDownloadBtn.textContent = 'Pack ↓'
   venuePackDownloadBtn.title =
     'Download venue pack (project.json + linked fixtures/textures) for offline / air PC'
-  raceRow.appendChild(venuePackDownloadBtn)
+  packRow.appendChild(venuePackDownloadBtn)
 
   const venuePackFileInput = document.createElement('input')
   venuePackFileInput.type = 'file'
   venuePackFileInput.accept = 'application/json,.json'
   venuePackFileInput.hidden = true
-  raceRow.appendChild(venuePackFileInput)
+  packRow.appendChild(venuePackFileInput)
 
   const venuePackLoadBtn = document.createElement('button')
   venuePackLoadBtn.type = 'button'
@@ -464,31 +526,12 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   venuePackLoadBtn.textContent = 'Pack ↑'
   venuePackLoadBtn.title =
     'Load venue pack file (caches offline; works when /races/ or WAN is down)'
-  raceRow.appendChild(venuePackLoadBtn)
+  packRow.appendChild(venuePackLoadBtn)
 
-  const raceHint = document.createElement('span')
-  raceHint.className = 'ops-hud__mode-hint'
-  raceHint.textContent = 'Save=download · API optional'
-  raceRow.appendChild(raceHint)
-
-  let projectWritesEnabled = options.projectWritesEnabled !== false
-
-  function applyProjectWritesEnabled(): void {
-    raceSaveBtn.disabled = !projectWritesEnabled
-    raceSaveAsBtn.disabled = !projectWritesEnabled
-    if (projectWritesEnabled) {
-      raceSaveBtn.title =
-        'Overwrite current project id: download project.json (+ API PUT when projectsApiBase is set).'
-      raceSaveAsBtn.title =
-        'New id + name from prompts: download project.json (+ API POST when projectsApiBase is set).'
-      raceHint.textContent = 'Save=download · Pack=offline'
-    } else {
-      raceSaveBtn.title = 'Air-only role — Save disabled (read/load only)'
-      raceSaveAsBtn.title = 'Air-only role — Save as disabled (read/load only)'
-      raceHint.textContent = 'air-only · Pack ok'
-    }
-  }
-  applyProjectWritesEnabled()
+  const packHint = document.createElement('span')
+  packHint.className = 'ops-hud__mode-hint'
+  packHint.textContent = 'offline venue'
+  packRow.appendChild(packHint)
 
   // World anchor = Unity GeoOrigin → ENU (0,0,0).
   const originRow = document.createElement('div')
@@ -602,61 +645,6 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
     streamMap.setVisible(streamMapCheck.checked)
   })
 
-  let raceIds = [...(options.raceIds ?? ['demo-istanbul'])]
-  let activeRaceId = options.activeRaceId?.trim() || raceIds[0] || 'demo-istanbul'
-
-  function rebuildRaceSelect(): void {
-    raceSelect.replaceChildren()
-    for (const id of raceIds) {
-      const opt = document.createElement('option')
-      opt.value = id
-      opt.textContent = id
-      raceSelect.appendChild(opt)
-    }
-    if (raceIds.includes(activeRaceId)) {
-      raceSelect.value = activeRaceId
-    } else if (raceIds.length > 0) {
-      raceSelect.value = raceIds[0]!
-    }
-    raceCustom.value = activeRaceId
-  }
-
-  function resolveRacePick(): string {
-    const typed = raceCustom.value.trim()
-    if (typed !== '') return typed
-    return raceSelect.value.trim()
-  }
-
-  function requestRaceLoad(): void {
-    const id = resolveRacePick()
-    if (!id) return
-    activeRaceId = id
-    raceCustom.value = id
-    if (raceIds.includes(id)) raceSelect.value = id
-    options.onRaceLoad?.(id)
-  }
-
-  raceSelect.addEventListener('change', () => {
-    activeRaceId = raceSelect.value
-    raceCustom.value = activeRaceId
-  })
-  raceLoadBtn.addEventListener('click', () => {
-    requestRaceLoad()
-  })
-  raceCustom.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Enter') {
-      ev.preventDefault()
-      requestRaceLoad()
-    }
-  })
-  raceSaveBtn.addEventListener('click', () => {
-    if (!projectWritesEnabled) return
-    options.onSaveProject?.()
-  })
-  raceSaveAsBtn.addEventListener('click', () => {
-    if (!projectWritesEnabled) return
-    options.onSaveAsProject?.()
-  })
   venuePackDownloadBtn.addEventListener('click', () => {
     options.onDownloadVenuePack?.()
   })
@@ -717,18 +705,32 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
     if (notify && changed) options.onPovChange?.(id)
   }
 
+  function boatAllowedOnMap(id: string): boolean {
+    // Boot gap: accept until main wires the Live fleet list.
+    if (boatIds === null) return true
+    return boatIds.includes(id)
+  }
+
   function onPose(pose: PoseEvent): void {
     const s = fmtEnu(pose.position)
     if (pose.kind === 'drone') {
-      if (povIds.includes(pose.id)) {
-        seenPovIds.add(pose.id)
+      if (!povIds.includes(pose.id)) {
+        // Counts still tick via telemetryBus; maps must not re-add ghosts.
+        renderStatus()
+        return
       }
+      seenPovIds.add(pose.id)
       if (pose.id === activePovId) {
         lastDroneEnu = s
       }
     } else if (pose.kind === 'boat') {
+      if (!boatAllowedOnMap(pose.id)) {
+        renderStatus()
+        return
+      }
       lastBoatEnuById.set(pose.id, s)
     }
+    // Buoy (+ allowed boat/drone): keep ops + stream icons in sync.
     map.updatePose(pose)
     streamMap.updatePose(pose)
     renderStatus()
@@ -752,6 +754,15 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
     opsViewMode = next
     renderStatus()
     options.onOpsViewChange?.(next)
+  })
+
+  envSelect.addEventListener('change', () => {
+    const next = envSelect.value
+    if (!isEnvironmentMode(next) || next === environmentMode) return
+    environmentMode = next
+    envHint.textContent =
+      next === 'realistic' ? '3D dress · AR-gated' : 'AR-safe'
+    options.onEnvironmentModeChange?.(next)
   })
 
   function onKeyDown(ev: KeyboardEvent): void {
@@ -792,7 +803,6 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   }, 200)
 
   rebuildPovSelect()
-  rebuildRaceSelect()
   renderStatus()
 
   return {
@@ -819,6 +829,13 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
       rebuildPovSelect()
       renderStatus()
     },
+    setBoatIds(nextIds): void {
+      boatIds = [...nextIds].map((id) => id.trim()).filter((id) => id !== '')
+      for (const id of [...lastBoatEnuById.keys()]) {
+        if (!boatIds.includes(id)) lastBoatEnuById.delete(id)
+      }
+      renderStatus()
+    },
     setActivePovId(povId: string): void {
       applyPovSelection(povId, false)
     },
@@ -826,6 +843,12 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
       opsViewMode = mode
       viewSelect.value = mode
       renderStatus()
+    },
+    setEnvironmentMode(mode: EnvironmentMode): void {
+      environmentMode = normalizeEnvironmentMode(mode)
+      envSelect.value = environmentMode
+      envHint.textContent =
+        environmentMode === 'realistic' ? '3D dress · AR-gated' : 'AR-safe'
     },
     setCourseMarks(marks): void {
       const mapped = marks.map((m) => ({
@@ -855,28 +878,26 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
       renderStatus()
     },
     setRaceIds(nextIds, nextActive): void {
-      raceIds = nextIds.length > 0 ? [...nextIds] : ['demo-istanbul']
-      if (nextActive !== undefined && nextActive.trim() !== '') {
-        activeRaceId = nextActive.trim()
-      } else if (!raceIds.includes(activeRaceId)) {
-        activeRaceId = raceIds[0]!
-      }
-      rebuildRaceSelect()
+      localProject.setRaceIds(nextIds, nextActive)
     },
     setActiveRaceId(raceId: string): void {
-      const id = raceId.trim()
-      if (!id) return
-      activeRaceId = id
-      raceCustom.value = id
-      if (raceIds.includes(id)) raceSelect.value = id
+      localProject.setActiveRaceId(raceId)
+    },
+    setProjectMeta(id: string, name: string): void {
+      localProject.setProjectMeta(id, name)
+    },
+    setRacesRootHint(path: string | null): void {
+      localProject.setRootHint(path)
+    },
+    setSaveStatus(msg: string): void {
+      localProject.setSaveStatus(msg)
     },
     setOrigin(origin: ConfigOrigin): void {
       fillOriginFields(origin)
       originHint.textContent = 'ENU 0,0,0'
     },
     setProjectWritesEnabled(enabled: boolean): void {
-      projectWritesEnabled = enabled
-      applyProjectWritesEnabled()
+      localProject.setProjectWritesEnabled(enabled)
     },
     stop(): void {
       window.clearInterval(refreshId)
@@ -885,6 +906,7 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
       for (const u of unsubTel) u()
       map.dispose()
       streamMap.dispose()
+      localProject.dispose()
       for (const el of disposableRoots) el.remove()
     },
   }

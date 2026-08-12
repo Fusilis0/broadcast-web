@@ -16,6 +16,7 @@ import {
   type RaceProjectSummary,
 } from './projectManager.ts'
 import { loadRaceProject } from './loadRaceProject.ts'
+import { getRacesBridge } from './racesBridge.ts'
 import type { RaceProject } from './types.ts'
 
 export type ProjectManagerPanelOptions = {
@@ -107,8 +108,10 @@ export function startProjectManagerPanel(
   const canWrite = apiLive && options.canWrite !== false
 
   if (!apiLive) {
-    hint.textContent =
-      'Static-only (no API) — rename / duplicate / archive disabled. Use Save / Save as download.'
+    const localFolder = getRacesBridge() !== null
+    hint.textContent = localFolder
+      ? 'No projects API — use Load dropdown + Save (local races folder) above. Rename / duplicate / archive need the API.'
+      : 'Static-only (no API) — rename / duplicate / archive disabled. Use Save / Save as download.'
     showArchived.disabled = true
     refreshBtn.disabled = true
   } else if (!canWrite) {

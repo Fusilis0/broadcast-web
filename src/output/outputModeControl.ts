@@ -28,6 +28,10 @@ function hintForMode(mode: OutputMode): string {
 /**
  * OUT-owned ops control: toggle preview / chroma / transparent at runtime.
  * Does not persist — `config.json` remains source of truth on reload.
+ *
+ * Compose with `startLocalChannelSwitcher`: this control sets **AR clear**
+ * (preview / chroma / transparent); the switcher picks which channel fills
+ * the local window. Neither starts/stops NDI.
  */
 export function startOutputModeControl(
   options: OutputModeControlOptions,
@@ -52,7 +56,7 @@ export function startOutputModeControl(
   select.id = 'ops-output-mode'
   select.className = 'output-mode-control__select'
   select.title =
-    'preview (dark) | chroma (key green) | transparent (NDI alpha = active POV) — runtime only; config.json on reload'
+    'AR clear: preview (dark) | chroma (key green) | transparent (NDI alpha). Independent of local 2D/3D/AR view switcher. Runtime only; config.json on reload'
   for (const m of SUPPORTED_OUTPUT_MODES) {
     const opt = document.createElement('option')
     opt.value = m

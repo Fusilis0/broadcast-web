@@ -19,13 +19,27 @@ Default product remains the browser SPA (Hetzner / preview). Electron is the **p
 | Item | Value |
 | --- | --- |
 | Binding | [`grandi`](https://www.npmjs.com/package/grandi) ^2 (NDI SDK 6, Node-API) |
-| Default source name | `broadcast-web` → appears as `HOSTNAME (broadcast-web)` |
+| Multi-sender | `ndiSender.cjs` Map of channel → sender (`ar` \| `3d` \| `2d`) |
+| Default AR name | `broadcast-web` → `HOSTNAME (broadcast-web)` (unchanged; not renamed to `-ar`) |
+| Default 3D / 2D names | `broadcast-web-3d` / `broadcast-web-2d` (idle until Phase 13.3 / 13.4 pumps) |
 | Pixel path | WebGL `readPixels` RGBA → main converts to top-down **BGRA** (straight alpha) |
 | Output size | **1920×1080** locked in the SPA (window may resize; NDI stays 1080p) |
 | Timecode size | Fixed — canvas displayed at native **1920×1080** CSS px (window scroll/letterbox, no scale) |
 | Minimize / close | **Parks off-screen** (OS minimize freezes WebGL). NDI stays ~30 fps. **Tray → Show studio** to restore; **Tray → Quit** to exit |
 | Clear mode | Prefer `outputMode=transparent` (alpha 0 plate; opaque AR + timecode) |
 | Air camera | **Active POV** only — NDI does not follow ops free cam (see OUT air lock) |
+
+### Preload API (`window.broadcastStudio.ndi`)
+
+| Method | Notes |
+| --- | --- |
+| `start({ channel?, name? })` | Omit `channel` → `'ar'`. Returns `{ ok, channel, sourceName, sdkVersion, error? }` |
+| `stop(channelOrOpts?)` | Omit → stop `'ar'`; `'all'` / `{ channel: 'all' }` → every sender |
+| `sendFrame({ channel?, width, height, data, bottomUp? })` | Omit `channel` → `'ar'` |
+| `getStatus(channel?)` | Omit → `'ar'` status; `'all'` → status map |
+| `getStatusAll()` | `{ ar, 3d, 2d }` status objects |
+
+Back-compat: existing SPA calls that omit `channel` keep driving the AR air plate.
 
 ### Overrides
 
@@ -109,9 +123,43 @@ npm run desktop:file
 
 | File | Role |
 | --- | --- |
-| `main.cjs` | BrowserWindow + NDI IPC |
-| `preload.cjs` | `window.broadcastStudio` bridge |
-| `ndiSender.cjs` | `grandi` send (BGRA) |
+| `main.cjs` | BrowserWindow + NDI IPC (per-channel) + `races:*` IPC |
+| `preload.cjs` | `window.broadcastStudio` bridge (`ndi` + `races`) |
+| `ndiSender.cjs` | Multi-sender `grandi` Map (`ar`/`3d`/`2d` → BGRA) |
+| `racesFs.cjs` | Local RaceProject folder write/list/read |
+
+## Local RaceProject saves (Phase 13.8)
+
+Electron **Save / Save as** write RaceProject JSON into the races folder as the **primary**
+persist path. **Export…** downloads `project.json` only. Chrome without the bridge stays
+download-only.
+
+| Mode | Write root | Why |
+| --- | --- | --- |
+| `desktop:dev` / Vite URL / preview | repo **`public/races/`** | Vite serves updates immediately |
+| `--file` / packaged | Electron **`app.getPath('userData')/races/`** | `dist/` is not writable; do not write into baked `dist/races/` |
+
+Layout (same as static packs):
+
+```text
+<racesDir>/<id>/project.json
+<racesDir>/index.json   → { "ids": ["demo-istanbul", "<id>", …] }
+```
+
+IPC (preload → `window.broadcastStudio.races`):
+
+| Method | Role |
+| --- | --- |
+| `save(project)` | mkdir + write `project.json` + upsert id into `index.json` (never drops other ids) |
+| `list()` | read `index.json` ids (+ `kind`: `public` \| `userData`) |
+| `read(id)` | read `project.json` (for Load when static `/races` is not the write target) |
+| `getRoot()` | `{ kind, path }` |
+
+**Git hygiene:** saving in `desktop:dev` dirties tracked files under `public/races/` — expected for
+studio; commit demo packs intentionally. No new ignore scheme in this slice.
+
+**API coexistence:** when `projectsApiBase` is set, HTTP POST/PUT still runs; Electron Save
+writes the local folder when the `races` bridge is present (folder + API; Export… = download).
 
 ## Non-goals (this slice)
 

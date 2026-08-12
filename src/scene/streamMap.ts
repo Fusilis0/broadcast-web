@@ -42,8 +42,9 @@ export function resolveStreamMapOptions(
  * overlays, procedural CW/RCW glyphs when features exist.
  *
  * Visible in browser preview and Chrome chroma window capture when toggled on.
- * Electron NDI `readPixels` is WebGL-only, so this DOM PiP is **not** on the
- * NDI plate (OUT follow-up if on-air NDI map burn-in is required).
+ * Electron **AR** NDI (`readPixels` / WebGL) never burns this DOM PiP into the
+ * air plate. Phase **13.4** wires a separate NDI channel `'2d'`
+ * (`broadcast-web-2d`) that samples `getCanvas()` (works while PiP is hidden).
  *
  * Default **hidden** (air clutter). Toggle from ops HUD.
  */

@@ -99,6 +99,7 @@ export type FleetLivePanelHandle = {
   /**
    * Programmatic add from World Map place-boat tool.
    * Optional planned GPS seeds the 2D map until live pose arrives.
+   * Returns whether the id was newly added (`created`) or already present.
    */
   addBoat: (input: {
     id: string
@@ -106,13 +107,13 @@ export type FleetLivePanelHandle = {
     category?: string
     plannedLat?: number
     plannedLon?: number
-  }) => void
+  }) => { ok: boolean; created: boolean }
   /** Programmatic add from World Map place-drone tool. */
   addDrone: (input: {
     id: string
     plannedLat?: number
     plannedLon?: number
-  }) => void
+  }) => { ok: boolean; created: boolean }
   /** Expand panel and flash a boat row (Assets Details deep-link). */
   highlightBoat: (id: string) => void
   stop: () => void
@@ -576,6 +577,8 @@ export function startFleetLivePanel(
           name: nameIn.value.trim() || newId,
           category: catIn.value.trim(),
           visibility,
+          plannedLat: row.plannedLat,
+          plannedLon: row.plannedLon,
         })
         const idx = state.boats.findIndex((b) => b.id === newId)
         if (idx >= 0) state.boats[idx] = next
@@ -598,6 +601,7 @@ export function startFleetLivePanel(
         state.boats = state.boats.filter((b) => b.id !== id)
         renderBoats()
         emitFleet()
+        statusEl.textContent = `Boat ${id} removed`
       })
 
       el.append(en, idIn, nameIn, catIn, visSel, sock, saveBtn, rm)
@@ -648,6 +652,11 @@ export function startFleetLivePanel(
         state.enabledPovIds = state.enabledPovIds.map((x) =>
           x === id ? newId : x,
         )
+        if (state.plannedPovs?.length) {
+          state.plannedPovs = state.plannedPovs.map((p) =>
+            p.id === id ? { ...p, id: newId } : p,
+          )
+        }
         if (state.activePovId === id) {
           state.activePovId = newId
           options.onPovChange(newId)
@@ -683,12 +692,16 @@ export function startFleetLivePanel(
         }
         state.povIds = state.povIds.filter((x) => x !== id)
         state.enabledPovIds = state.enabledPovIds.filter((x) => x !== id)
+        if (state.plannedPovs?.length) {
+          state.plannedPovs = state.plannedPovs.filter((p) => p.id !== id)
+        }
         if (state.activePovId === id) {
           state.activePovId = state.povIds[0]!
           options.onPovChange(state.activePovId)
         }
         renderPovs()
         emitFleet()
+        statusEl.textContent = `Drone ${id} removed`
       })
 
       el.append(en, idIn, sock, saveBtn, sw, rm)
@@ -836,13 +849,14 @@ export function startFleetLivePanel(
       renderBoats()
       renderPovs()
     },
-    addBoat(input): void {
+    addBoat(input): { ok: boolean; created: boolean } {
       const id = input.id.trim()
       if (id === '') {
         statusEl.textContent = 'Boat id required'
-        return
+        return { ok: false, created: false }
       }
-      if (!state.boatIds.includes(id)) state.boatIds.push(id)
+      const created = !state.boatIds.includes(id)
+      if (created) state.boatIds.push(id)
       const existing = state.boats.findIndex((b) => b.id === id)
       const row = normalizeFleetBoatRow({
         id,
@@ -859,15 +873,19 @@ export function startFleetLivePanel(
       renderBoats()
       emitFleet()
       persist()
-      statusEl.textContent = `Boat ${id} added from map`
+      statusEl.textContent = created
+        ? `Boat ${id} added from map`
+        : `Boat ${id} already in fleet — planned position updated`
+      return { ok: true, created }
     },
-    addDrone(input): void {
+    addDrone(input): { ok: boolean; created: boolean } {
       const id = input.id.trim()
       if (id === '') {
         statusEl.textContent = 'Drone id required'
-        return
+        return { ok: false, created: false }
       }
-      if (!state.povIds.includes(id)) state.povIds.push(id)
+      const created = !state.povIds.includes(id)
+      if (created) state.povIds.push(id)
       setEnabledPov(id, true)
       if (
         typeof input.plannedLat === 'number' &&
@@ -887,7 +905,10 @@ export function startFleetLivePanel(
       renderPovs()
       emitFleet()
       persist()
-      statusEl.textContent = `Drone ${id} added from map`
+      statusEl.textContent = created
+        ? `Drone ${id} added from map`
+        : `Drone ${id} already in fleet — planned position updated`
+      return { ok: true, created }
     },
     highlightBoat(id): void {
       const trimmed = id.trim()

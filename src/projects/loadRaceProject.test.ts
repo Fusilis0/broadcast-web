@@ -29,7 +29,11 @@ describe('loadRaceProject', () => {
       return Response.json(staticPack)
     }) as unknown as typeof fetch
 
-    const project = await loadRaceProject('demo-istanbul', { fetchImpl })
+    const project = await loadRaceProject('demo-istanbul', {
+      fetchImpl,
+      racesBridge: null,
+      venuePackCache: false,
+    })
     expect(project.name).toBe('Demo Istanbul')
     expect(fetchImpl).toHaveBeenCalledTimes(1)
   })
@@ -46,6 +50,8 @@ describe('loadRaceProject', () => {
     const project = await loadRaceProject('demo-istanbul', {
       projectsApiBase: '/api',
       fetchImpl,
+      racesBridge: null,
+      venuePackCache: false,
     })
     expect(project.name).toBe('Demo Istanbul (API)')
     expect(project.revision).toBe(3)
@@ -67,6 +73,8 @@ describe('loadRaceProject', () => {
     const project = await loadRaceProject('demo-istanbul', {
       projectsApiBase: '/api',
       fetchImpl,
+      racesBridge: null,
+      venuePackCache: false,
     })
     expect(project.name).toBe('Demo Istanbul')
     expect(fetchImpl).toHaveBeenCalledTimes(2)
@@ -87,6 +95,8 @@ describe('loadRaceProject', () => {
     const project = await loadRaceProject('demo-istanbul', {
       projectsApiBase: 'http://127.0.0.1:8787/api',
       fetchImpl,
+      racesBridge: null,
+      venuePackCache: false,
     })
     expect(project.id).toBe('demo-istanbul')
   })

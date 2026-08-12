@@ -102,15 +102,74 @@ temp script deleted after):
 Both dispatches moved to `done/`; full write-up in
 `docs/architecture/world-authoring-workspace.md` § "Follow-up #3".
 
+## Phase 13 follow-ups accepted 2026-08-12
+- `done/DSP-OUT-20260812-06` — NDI capture perf (AR30 / 3D10 / 2D off; stagger)
+- `done/DSP-SCN-20260812-03` — fleet map pose sync (delete/place)
+- `done/DSP-PLT-20260812-02` — Electron Project Save→folder + Load dropdown
+Suite **476 + 23**. Soft: default 3D NDI off if UI still janks.
+
+## Phase 13 — complete 2026-08-12
+All **13.1–13.8** accepted (waves 1–3). Optional non-blocking polish noted above.
+
+## Phase 13 — wave 2 accepted 2026-08-12
+**Accepted** (`npm test` 439+23 green):
+- `done/DSP-OUT-20260812-02` — 3D NDI pump (`broadcast-web-3d`)
+- `done/DSP-OUT-20260812-03` — 2D map NDI (`broadcast-web-2d`, 1920×1080 letterbox)
+- `done/DSP-SCN-20260812-02` — AR calib coordinate overlay
+
+## Phase 13 — wave 1 accepted 2026-08-12; wave 2 issued — wave 2 done; see above
+**Accepted** (`npm test` 418+23 green at the time):
+- `done/DSP-OUT-20260812-01` — multi-sender bridge; AR name `broadcast-web`
+- `done/DSP-SCN-20260812-01` — sea/sky + `setEnvironmentOpaqueClearSafe`
+- `done/DSP-PLT-20260812-01` — `races:*` local save
+
+## Phase 13 — planned 2026-08-12 (design only, no dispatches) — historical
+User asked for: three simultaneous NDI outputs (**2D** map / **3D** virtual environment / **AR** —
+the existing transparent alpha plate, formalized as one of three channels), a realistic
+sea+sky environment for the new 3D channel (reference image provided — shaded waved ocean, not
+photoreal), a bigger local 2D/3D/AR switcher (screen focus only, never gates NDI), an adjustable
+per-output NDI delay (RAM buffer, ms, max **30000**), and an AR-calibration coordinate overlay to
+visually compare synthetic marks against a real camera feed. Explicit instruction: **"add these to
+roadmap and design docs. later i will ask for dispatches"** — no worker dispatches written.
+
+**Follow-up (same day):** user clarified the "3D channel" is **not** meant as different rendering
+logic — "just adding sea model to 3d environment basically." Docs updated to say plainly: 3D reuses
+the AR render path verbatim (same scene, same active-POV camera), just opaque clear + a sea/sky
+model, not a second content pipeline. Also requested: a "project saves" folder (override on same
+name, new file on new name) + a dropdown of what's in it. **That folder already exists** —
+`public/races/` — and the dropdown already exists (`listLocalRaceIds`); the only gap is that
+nothing today writes back into it (Save only downloads). Added
+`docs/architecture/project-api-and-database.md` §10: a new `races:*` Electron IPC (same pattern as
+`ndi:*`) so Save/Save as write directly into `public/races/` in addition to the download, reusing
+the existing overwrite-current-id / new-id-via-`promptModal` semantics as-is.
+
+Four design docs now exist (cross-referenced, each with its own open-questions table):
+- `docs/architecture/multi-output-streaming.md` (OUT) — channel model, multi-sender NDI bridge
+  requirement (today is a single `grandi` sender), memory-cost math for the delay buffer
+  (~7.5 GB/channel for a full 30 s buffer at 1080p — flagged as a decision, not silently shipped),
+  and the resolution ask (`1080×1920` as literally requested — **portrait**, opposite of today's
+  `1920×1080` landscape lock — flagged for confirmation, not silently changed).
+- `docs/architecture/realistic-3d-environment.md` (SCN) — there is **no** ocean/sky render today
+  (`waterCue.ts` is a flat tinted plane; sky is just the clear color); proposed `three/examples/jsm`
+  `Water` + `Sky`, hard-constrained to the opaque 3D channel only (must never leak into AR's
+  transparent clear). Explicitly scoped as additive, not a rewrite.
+- `docs/architecture/ar-calibration-map-overlay.md` (CAL + SCN) — manual, read-only precursor to
+  the existing `docs/research/cv-calibration-spike.md` automated CV plan; renders a dense
+  ENU-grid/marks overlay through the calibrated camera for a human to eyeball against the WHEP
+  underlay real-camera feed.
+- `docs/architecture/project-api-and-database.md` §10 (PLT) — Electron-side direct write to
+  `public/races/`, additive to the existing download + HTTP/SQLite API paths.
+
+Roadmap: new **Phase 13** (13.1–13.8) added, explicitly marked "not scheduled for workers."
+
 ## Next (human)
-1. **10.1** — the only remaining open gate: parallel Unity vs broadcast-web air (or dress); decide
-   primary / dual-path / keep Unity.
-2. Forward `HO-CON-console-team-20260804-01` when convenient.
-3. Optional/unscheduled: 11.8 revision history, 11.9 misc show-notes UX, Library catalogue
-   content, multi-sender NDI for the second (stream-map) source.
+1. Smoke the three fixes: sidebar FPS (2D off / 3D@10), place+delete boats on authoring map,
+   Project Save→`public/races/<id>/` + Load dropdown.
+2. If UI still unusable → say so; BW will issue “3D NDI default off”.
+3. **10.1** — Unity vs broadcast-web air decision.
 
 ## Idle
-No active dispatches. Only open item is human-side **10.1**.
+Worker queue clear. Open human: **10.1** + smokes above.
 
 ## Compaction recovery
-`BOOTSTRAP_BW.md` → this memo → roadmap (Phase 10.1 open/human; Phase 11 Done / V1-D)
+`BOOTSTRAP_BW.md` → this memo → roadmap (Phase 13 + follow-ups done; 10.1 human)

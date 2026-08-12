@@ -26,6 +26,7 @@ const {
 const path = require('node:path')
 const fs = require('node:fs')
 const ndiSender = require('./ndiSender.cjs')
+const racesFs = require('./racesFs.cjs')
 
 const DEV_URL = 'http://127.0.0.1:5173'
 const PREVIEW_URL = 'http://127.0.0.1:4173'
@@ -103,27 +104,126 @@ function registerNdiIpc() {
     if (!ndiEnabled) {
       return { ok: false, error: 'NDI disabled (--no-ndi)' }
     }
+    let channel = ndiSender.DEFAULT_CHANNEL
+    try {
+      channel = ndiSender.normalizeChannel(opts?.channel)
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      }
+    }
+    // Back-compat: omit channel → 'ar'; env/--ndi-name override applies to 'ar' only.
+    const nameFromOpts =
+      opts && typeof opts.name === 'string' && opts.name.trim()
+        ? opts.name.trim()
+        : null
     const name =
-      (opts && typeof opts.name === 'string' && opts.name.trim()) ||
-      resolveNdiName()
-    const result = await ndiSender.start(name)
+      nameFromOpts ||
+      (channel === ndiSender.DEFAULT_CHANNEL
+        ? resolveNdiName()
+        : ndiSender.DEFAULT_NAMES[channel])
+    const result = await ndiSender.start(channel, name)
     if (result.ok) {
-      console.info(`[desktop] NDI source: ${result.sourceName} (${result.sdkVersion})`)
+      console.info(
+        `[desktop] NDI[${result.channel}] source: ${result.sourceName} (${result.sdkVersion})`,
+      )
     } else {
-      console.error(`[desktop] NDI start failed: ${result.error}`)
+      console.error(
+        `[desktop] NDI[${result.channel ?? channel}] start failed: ${result.error}`,
+      )
     }
     return result
   })
 
-  ipcMain.handle('ndi:stop', async () => {
-    await ndiSender.stop()
+  ipcMain.handle('ndi:stop', async (_evt, arg) => {
+    // omit / undefined → 'ar'; 'all' → every channel; string or { channel }
+    if (arg === 'all') {
+      await ndiSender.stop('all')
+      return
+    }
+    if (arg && typeof arg === 'object' && arg.channel === 'all') {
+      await ndiSender.stop('all')
+      return
+    }
+    const channel =
+      arg && typeof arg === 'object' && 'channel' in arg
+        ? arg.channel
+        : arg
+    await ndiSender.stop(channel)
   })
 
-  ipcMain.handle('ndi:status', () => ndiSender.getStatus())
+  ipcMain.handle('ndi:status', (_evt, channel) => {
+    if (channel === undefined || channel === null || channel === '') {
+      return ndiSender.getStatus(ndiSender.DEFAULT_CHANNEL)
+    }
+    if (channel === 'all') {
+      return ndiSender.getStatusAll()
+    }
+    return ndiSender.getStatus(channel)
+  })
+
+  ipcMain.handle('ndi:statusAll', () => ndiSender.getStatusAll())
 
   ipcMain.on('ndi:frame', (_evt, frame) => {
     if (!ndiEnabled) return
-    ndiSender.sendFrame(frame)
+    const channel =
+      frame && typeof frame === 'object' && 'channel' in frame
+        ? frame.channel
+        : ndiSender.DEFAULT_CHANNEL
+    ndiSender.sendFrame(channel, frame)
+  })
+}
+
+function getRacesDir() {
+  return racesFs.resolveRacesDir(resolveLoadTarget().kind, {
+    desktopDir: __dirname,
+    userDataPath: app.getPath('userData'),
+  })
+}
+
+function getRacesKind() {
+  return racesFs.resolveRacesKind(resolveLoadTarget().kind)
+}
+
+/** Local RaceProject saves — additive; do not refactor NDI here. */
+function registerRacesIpc() {
+  ipcMain.handle('races:save', async (_evt, project) => {
+    try {
+      return await racesFs.saveRaceProject(getRacesDir(), project)
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      }
+    }
+  })
+
+  ipcMain.handle('races:list', async () => {
+    try {
+      const listed = await racesFs.listRaceIds(getRacesDir())
+      return { ...listed, kind: getRacesKind() }
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      }
+    }
+  })
+
+  ipcMain.handle('races:read', async (_evt, id) => {
+    try {
+      return await racesFs.readRaceProject(getRacesDir(), id)
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      }
+    }
+  })
+
+  ipcMain.handle('races:root', async () => {
+    return { kind: getRacesKind(), path: getRacesDir() }
   })
 }
 
@@ -322,6 +422,10 @@ function stopStudioClock() {
 
 app.whenReady().then(() => {
   registerNdiIpc()
+  registerRacesIpc()
+  console.info(
+    `[desktop] races dir (${getRacesKind()}): ${getRacesDir()}`,
+  )
   if (ndiEnabled) {
     console.info(
       `[desktop] NDI enabled (default name "${resolveNdiName()}"). Use outputMode=transparent for alpha plate.`,

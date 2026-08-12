@@ -5,6 +5,9 @@ import { COURSE_WATER_Y } from './courseLayout.ts'
  * Mild water / shore cue under the race area (Phase 8.8).
  * Not a globe / Cesium terrain — a localized pad so air clear stays clean outside.
  *
+ * When realistic sea/sky is on (`environment` mode), this pad stays as a crisp
+ * local race-area tint **on top of** the large ocean mesh (not hidden).
+ *
  * **Clear behaviour (document for ops):**
  * - `preview` — teal pad visible under course on dark clear.
  * - `transparent` — pad is semi-transparent (`depthWrite: false`); only the

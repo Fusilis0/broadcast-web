@@ -2,38 +2,72 @@
  * Electron studio preload bridge (path A). Absent in Chrome — NDI pump no-ops.
  */
 
+import type { StudioRacesBridge } from '../projects/racesBridge.ts'
+
+/** NDI output channels (multi-sender bridge). Default air plate = `'ar'`. */
+export type NdiChannelId = 'ar' | '3d' | '2d'
+
+export const NDI_CHANNEL_IDS: readonly NdiChannelId[] = ['ar', '3d', '2d']
+
+export const DEFAULT_NDI_CHANNEL: NdiChannelId = 'ar'
+
 export type StudioNdiStatus = {
+  channel?: NdiChannelId
   active: boolean
   sourceName: string | null
   sdkVersion: string | null
   error: string | null
 }
 
+export type StudioNdiStatusAll = Record<NdiChannelId, StudioNdiStatus>
+
+export type StudioNdiStartResult = {
+  ok: boolean
+  channel?: NdiChannelId
+  sourceName?: string
+  sdkVersion?: string
+  error?: string
+}
+
+export type StudioNdiFrame = {
+  /** Omit → `'ar'` (back-compat). */
+  channel?: NdiChannelId
+  width: number
+  height: number
+  /** RGBA8888, WebGL bottom-up (readPixels order). */
+  data: ArrayBuffer
+  bottomUp?: boolean
+}
+
 export type StudioNdiBridge = {
-  start: (opts?: { name?: string }) => Promise<{
-    ok: boolean
-    sourceName?: string
-    sdkVersion?: string
-    error?: string
-  }>
-  stop: () => Promise<void>
+  start: (opts?: {
+    channel?: NdiChannelId
+    name?: string
+  }) => Promise<StudioNdiStartResult>
+  /**
+   * Stop one channel or all.
+   * Omit → `'ar'`; `'all'` / `{ channel: 'all' }` → every sender.
+   */
+  stop: (
+    channelOrOpts?: NdiChannelId | 'all' | { channel?: NdiChannelId | 'all' },
+  ) => Promise<void>
   /**
    * Push one RGBA frame (top-down or bottom-up — main flips as needed).
    * `data` is transferred when possible; do not reuse after send.
    */
-  sendFrame: (frame: {
-    width: number
-    height: number
-    /** RGBA8888, WebGL bottom-up (readPixels order). */
-    data: ArrayBuffer
-    bottomUp?: boolean
-  }) => void
-  getStatus: () => Promise<StudioNdiStatus>
+  sendFrame: (frame: StudioNdiFrame) => void
+  /** Omit channel → `'ar'` status (back-compat). Pass `'all'` for the map. */
+  getStatus: (
+    channel?: NdiChannelId | 'all',
+  ) => Promise<StudioNdiStatus | StudioNdiStatusAll>
+  getStatusAll: () => Promise<StudioNdiStatusAll>
 }
 
 export type BroadcastStudioBridge = {
   isStudio: true
   ndi: StudioNdiBridge
+  /** Local RaceProject folder writes (Phase 13.8). Optional for typing; Electron preload provides it. */
+  races?: StudioRacesBridge
   /**
    * Main-process ~30 fps clock (not throttled when minimized).
    * Returns an unsubscribe function.

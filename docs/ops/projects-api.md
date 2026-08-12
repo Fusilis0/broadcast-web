@@ -22,6 +22,18 @@ In `public/config.json` (local only — leave empty / defaults in git for static
 
 Without the API (or with empty `projectsApiBase`), `?race=` still loads `/races/<id>/project.json`.
 
+## Electron local folder vs HTTP API
+
+| Path | When | Where |
+| --- | --- | --- |
+| **Electron `races:*` IPC** | Studio shell (`desktop:dev` / `--file`) | **Primary Save** → Dev: repo `public/races/`; `--file`: `userData/races/`. Load dropdown lists that folder. No `projectsApiBase` required. |
+| **Static / download** | Chrome (always); Electron **Export…** | Download `project.json`; manually drop under `public/races/` |
+| **HTTP API** (`projectsApiBase`) | LAN / VPS SQLite stub | `POST`/`PUT` `/api/races` — additive; does not replace local Electron write |
+
+In Electron, Save writes the races folder first (shows path/status in the Project section). **Export…**
+downloads JSON without a folder write. When API is also configured, Save does **folder + API**
+(Chrome remains **download + optional API**). Shell folder details: [`desktop/README.md`](../../desktop/README.md).
+
 ## LAN roles (Phase 9.1)
 
 | Role | Who | Reads (`GET`) | Writes (`POST`/`PUT`/`DELETE`) | SPA Save / Save as |
@@ -46,7 +58,7 @@ which Electron overrides to throw).
 | **Duplicate** | Load source → `POST /api/races` under a new id (original untouched) |
 | **Rename** | Client-orchestrated: **create new id first**, then `DELETE` old — never deletes until create succeeds (ids remain immutable in the schema) |
 | **Archive** | Add label `archived` via PUT wrapper `{ project, labels }` — still loadable by id / `?race=` |
-| **Static-only** | No `projectsApiBase` → manager controls disabled; Save / Save as download unchanged |
+| **Static-only** | No `projectsApiBase` → manager rename/dup/archive disabled; Electron still Saves to the races folder via the Load/Save row; Chrome Save = download |
 
 Boat-id check on Save / Save as: warn when fleet ids are missing from the boat-name catalogue (`orphanBoatIds` vs catalogue keys). Warning is **non-blocking** (ops may Save anyway).
 

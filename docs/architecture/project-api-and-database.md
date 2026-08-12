@@ -1,6 +1,7 @@
 # Phase 6.4 — Project API + database (design)
 
-**Status:** Design + **stub shipped** (2026-08-01) — human VPS deploy pending  
+**Status:** Design + **stub shipped** (2026-08-01) — human VPS deploy pending. §10 adds a
+**Phase 13** local-file-save design (2026-08-12, no dispatch yet).  
 **Ops:** [`docs/ops/projects-api.md`](../ops/projects-api.md) · [`server/README.md`](../../server/README.md)  
 **Owners:** PLT (API/DB), CON (`?race=` load path), SCN (document body / features)  
 **Related:** [`race-project.md`](../contracts/race-project.md) · [`race-projects-and-world-authoring.md`](./race-projects-and-world-authoring.md) §6 · [`hetzner-static-deploy.md`](../ops/hetzner-static-deploy.md)  
@@ -285,7 +286,77 @@ Docs-only design does **not** require that stub in this DSP; ship contract + thi
 
 ---
 
-## 10. Acceptance checklist (design)
+## 10. Local file save (Electron) — no server process required
+
+**Status:** Design + **dispatch issued** — `DSP-PLT-20260812-01` (Phase 13.8).
+
+**The "project saves folder" already exists:** `public/races/` — one `project.json` per id under
+`public/races/<id>/project.json`, plus a manifest `public/races/index.json` (`{ "ids": [...] }`).
+`listLocalRaceIds` (`src/projects/listLocalRaces.ts`) already reads that manifest to populate the
+Project sidebar's dropdown, and `loadRaceProject` already reads `/races/<id>/project.json` to load
+one — **this is the dropdown the user asked for; it just has nothing new in it today** because
+nothing currently writes back into that folder. Today Save/Save as only `downloadRaceProject()` a
+`project.json` to the browser's Downloads folder (`src/projects/README.md` §"Save = download");
+the user then has to manually drop it under `public/races/<id>/` for it to show up.
+
+### What's missing: the write side, from inside Electron
+
+The Electron **main process already has full Node `fs` access** (it writes NDI status, reads
+`dist/index.html` in `--file` mode, etc. — `desktop/main.cjs`). The same pattern used for NDI
+(`ndi:*` IPC channels, `desktop/preload.cjs`) extends naturally to a new `races:*` namespace:
+
+```js
+// desktop/preload.cjs (sketch — same shape as the existing `ndi` block)
+races: {
+  save: (project) => ipcRenderer.invoke('races:save', project),
+}
+```
+
+```js
+// desktop/main.cjs (sketch)
+ipcMain.handle('races:save', async (_evt, project) => {
+  const dir = path.join(publicRacesDir, project.id)
+  await fs.promises.mkdir(dir, { recursive: true })
+  await fs.promises.writeFile(
+    path.join(dir, 'project.json'),
+    JSON.stringify(project, null, 2),
+  )
+  // Merge-and-dedupe id into index.json, never drop existing ids.
+  await upsertRacesIndex(publicRacesDir, project.id)
+  return { ok: true, path: dir }
+})
+```
+
+**SPA side:** feature-detect the same way NDI does (`getStudioBridge()` /
+`window.broadcastStudio`) — when `window.broadcastStudio?.races` exists (Electron), Save / Save as
+write directly to `public/races/` **in addition to** the existing download (download stays as the
+guaranteed fallback, same "download is primary, API is additive" pattern already used for the
+HTTP API path). In plain Chrome (no studio bridge), behavior is unchanged — download only.
+
+### Save / override / new — reuses existing semantics, just a new destination
+
+The **id/name prompt flow already implements exactly what was asked** (`promptSaveAsMeta` /
+`promptIdName`, both already Electron-safe via `promptModal` — see
+`docs/architecture/world-authoring-workspace.md` § Follow-up #3): **Save** reuses the current id
+(→ overwrite `public/races/<id>/project.json`); **Save as** prompts for a new id/name (→ new
+folder + file, id appended to `index.json`). No new UI or prompt logic needed — only the new
+`races:save` IPC write target.
+
+| Ask | Existing mechanism it maps to |
+| --- | --- |
+| "if same project name entered override" | **Save** (current id) → overwrite file in place |
+| "if new name entered just create new file" | **Save as** (new id/name via `promptModal`) → new folder + file, `index.json` gains the id |
+| "dropdown menu that sees projects on that folder" | Already exists (`listLocalRaceIds` → `/races/index.json`) — just starts showing real content once `races:save` writes into it |
+
+### Open questions
+
+| # | Question |
+| --- | --- |
+| 1 | Dev mode (`npm run desktop:dev`, loads Vite at `:5173`) writes straight into the repo's `public/races/` and Vite serves it back immediately — confirmed simple. **`--file` mode** (loads built `dist/`) has its own copy of `public/races/` baked into `dist/races/` at build time; should saves there write into the **repo** `public/races/` (visible only after a rebuild) or into a separate writable runtime data directory? Needs a decision before implementing. |
+| 2 | Should this direct-file-write path exist **alongside** the HTTP+SQLite `projectsApiBase` path (both available, editor picks via config), or should it become the default local behavior in Electron even when an API base is also configured? |
+| 3 | Git hygiene: every local Save now modifies tracked files under `public/races/` — worth a `.gitignore`d sibling id pattern for "scratch" saves vs. committed demo packs, or is that over-engineering for a single-studio-PC tool? |
+
+## 11. Acceptance checklist (design)
 
 - [x] Stack recommended (SQLite + small Node API + reverse proxy)
 - [x] Endpoints: list / get / create / put / delete

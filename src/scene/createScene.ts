@@ -76,6 +76,15 @@ import {
 } from './sponsors/index.ts'
 import { mountBillboardChains, type BillboardChainHandle } from './billboardChain.ts'
 import { mountWorldBuoys, type WorldBuoysHandle } from './worldBuoys.ts'
+import {
+  DEFAULT_ENVIRONMENT_MODE,
+  createRealisticEnvironment,
+  normalizeEnvironmentMode,
+  shouldShowRealisticEnvironment,
+  type EnvironmentMode,
+  type RealisticEnvironmentHandle,
+} from './environment/index.ts'
+import { createCalibrationOverlay } from './calibrationOverlay.ts'
 
 export { DEFAULT_DRONE_ID }
 
@@ -254,6 +263,28 @@ export type SceneHandle = {
    */
   setClearColor: (color: number, alpha?: number) => void
   /**
+   * Scene dressing: `simple` (default) vs `realistic` sea+sky.
+   * Realistic still forced off when opaque clear is not safe (see
+   * `setEnvironmentOpaqueClearSafe`).
+   */
+  setEnvironmentMode: (mode: EnvironmentMode) => void
+  getEnvironmentMode: () => EnvironmentMode
+  /**
+   * Whether an opaque clear context allows realistic env meshes.
+   * Pass `true` for `preview` (and a future dedicated 3D opaque channel);
+   * `false` for `transparent` / `chroma` so AR alpha stays clean.
+   */
+  setEnvironmentOpaqueClearSafe: (safe: boolean) => void
+  getEnvironmentOpaqueClearSafe: () => boolean
+  /**
+   * Toggle ENU grid + force-visible mark helpers for AR calibration.
+   * Default **off**. Read-only — does not write calibration offsets.
+   */
+  setCalibrationOverlayEnabled: (enabled: boolean) => void
+  getCalibrationOverlayEnabled: () => boolean
+  /** Rebuild overlay from `getLayoutFeatures()` when enabled (no-op when off). */
+  refreshCalibrationOverlay: () => void
+  /**
    * Distance-scale boat tags + countdown plate for the camera about to render.
    * Call before each dual-render pass (air/NDI then preview). Sprites auto-face
    * the WebGL camera; this keeps scale matched to that same camera.
@@ -318,6 +349,40 @@ export function startScene(options: SceneOptions): SceneHandle {
   let flagsMeta: FlagsRemountMeta = {}
   let remountGen = 0
   const clock = new THREE.Clock()
+  /** User-facing env mode; default simple so boot is unchanged. */
+  let environmentMode: EnvironmentMode = DEFAULT_ENVIRONMENT_MODE
+  /**
+   * Opaque-clear gate — main sets from outputMode (`preview` → true).
+   * Start false until main confirms so a transparent boot never flashes sea.
+   */
+  let environmentOpaqueClearSafe = false
+  let realisticEnv: RealisticEnvironmentHandle | null = null
+  let realisticEnvMounted = false
+  const calibrationOverlay = createCalibrationOverlay(scene)
+
+  function syncRealisticEnvironment(): void {
+    if (stopped) return
+    const want = shouldShowRealisticEnvironment(
+      environmentMode,
+      environmentOpaqueClearSafe,
+    )
+    if (want) {
+      if (!realisticEnv) {
+        realisticEnv = createRealisticEnvironment()
+      }
+      if (!realisticEnvMounted) {
+        scene.add(realisticEnv.root)
+        scene.fog = realisticEnv.fog
+        realisticEnvMounted = true
+      }
+      return
+    }
+    if (realisticEnvMounted && realisticEnv) {
+      scene.remove(realisticEnv.root)
+      scene.fog = null
+      realisticEnvMounted = false
+    }
+  }
 
   function previewCamera(): THREE.PerspectiveCamera {
     return opsViewMode === 'free' && freeCam
@@ -518,6 +583,7 @@ export function startScene(options: SceneOptions): SceneHandle {
       const cam = previewCamera()
       if (opsViewMode === 'free') freeCam?.update()
       countdownFlags?.tickClock(dt)
+      if (realisticEnvMounted) realisticEnv?.tick(dt)
       // Preview pass scales; NDI dual-render re-orients for air via prepareCameraPass.
       orientOpsBillboards(cam)
       // Screen preview may be free cam; active POV camera keeps tracking for OUT/NDI.
@@ -708,6 +774,7 @@ export function startScene(options: SceneOptions): SceneHandle {
         if (stopped || gen !== remountGen) return
         positionMarkers = mountPositionMarkers(scene, positionMarkersData)
       }
+      calibrationOverlay.rebuild()
     },
     async loadPositionMarkersFromUrl(
       url?: string,
@@ -786,6 +853,27 @@ export function startScene(options: SceneOptions): SceneHandle {
       if (stopped) return
       renderer.setClearColor(color, alpha)
     },
+    setEnvironmentMode(mode): void {
+      if (stopped) return
+      environmentMode = normalizeEnvironmentMode(mode)
+      syncRealisticEnvironment()
+    },
+    getEnvironmentMode: () => environmentMode,
+    setEnvironmentOpaqueClearSafe(safe): void {
+      if (stopped) return
+      environmentOpaqueClearSafe = safe === true
+      syncRealisticEnvironment()
+    },
+    getEnvironmentOpaqueClearSafe: () => environmentOpaqueClearSafe,
+    setCalibrationOverlayEnabled(enabled): void {
+      if (stopped) return
+      calibrationOverlay.setEnabled(enabled === true)
+    },
+    getCalibrationOverlayEnabled: () => calibrationOverlay.isEnabled(),
+    refreshCalibrationOverlay(): void {
+      if (stopped) return
+      calibrationOverlay.rebuild()
+    },
     stop(): void {
       if (stopped) return
       stopped = true
@@ -803,6 +891,16 @@ export function startScene(options: SceneOptions): SceneHandle {
       freeCam?.dispose()
       freeCam = null
       opsViewMode = 'follow'
+      calibrationOverlay.dispose()
+      if (realisticEnvMounted && realisticEnv) {
+        scene.remove(realisticEnv.root)
+        realisticEnvMounted = false
+      }
+      scene.fog = null
+      realisticEnv?.dispose()
+      realisticEnv = null
+      environmentMode = DEFAULT_ENVIRONMENT_MODE
+      environmentOpaqueClearSafe = false
       course?.dispose()
       course = null
       sponsors?.dispose()
@@ -834,3 +932,4 @@ export function startScene(options: SceneOptions): SceneHandle {
 }
 
 export type { OpsViewMode } from './freeCam.ts'
+export type { EnvironmentMode } from './environment/index.ts'

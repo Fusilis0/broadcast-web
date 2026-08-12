@@ -50,9 +50,10 @@ http://127.0.0.1:5173/?race=demo-istanbul
 
 | Action | Behaviour |
 | --- | --- |
-| **Save** | Overwrite current pack id. Always **downloads** `project.json`. If `projectsApiBase` is set and the stub is up → `PUT` (revision) or `POST` when the id is new. Before save: non-blocking warning if fleet boat ids are missing from the boat-name catalogue. |
-| **Save as** | DOM id/name prompts (`promptModal` — Electron-safe; not `window.prompt`) via HUD or editor fields for a **new** `id` + `name`. Download + optional API `POST`. Same boat-id warning. |
-| **Load** | HUD picker / typed id / `?race=` → apply origin, fleet (`boatIds`), `povIds`, URLs into runtime; Fleet panel + origin fields refresh. |
+| **Save** | Overwrite current pack id. **Electron** (races bridge): write `public/races/<id>/` (or `userData/races/` in `--file`). **Chrome**: download `project.json`. Optional API `PUT`/`POST` when `projectsApiBase` is set. Before save: non-blocking warning if fleet boat ids are missing from the boat-name catalogue. |
+| **Save as** | DOM id/name prompts (`promptModal` — Electron-safe; not `window.prompt`) via HUD or editor fields for a **new** `id` + `name`. Same persist path as Save (folder in Electron, download in Chrome) + optional API `POST`. |
+| **Export…** | Electron only — download `project.json` without writing the races folder. |
+| **Load** | HUD dropdown of pack ids (`listLocalRaceIds` = static index + Electron `races.list`). Electron: selecting an id loads immediately. Chrome: pick + **Load** (or typed id). Also `?race=` → apply origin, fleet, URLs. |
 
 ### Project manager (Phase 11.4)
 
@@ -64,20 +65,27 @@ Sidebar **Project** section (`startProjectManagerPanel`) lists API projects when
 | **Duplicate** | `POST` copy under a new id (DOM id/name prompts via `promptModal`) |
 | **Rename** | Create new id first, then `DELETE` old (ids immutable; no data loss if create fails). Same DOM prompts as Duplicate. |
 | **Archive** | Label `archived` via PUT wrapper — still loadable by id |
-| **Static-only** | Controls disabled with a clear message; Save download still works |
+| **Static-only** | API controls disabled. Electron still uses Load dropdown + folder Save above (no API required). Chrome: Save download still works. |
 
 Helpers: `listRaceProjects`, `duplicateRaceProject`, `renameRaceProject`, `setRaceProjectArchived`, `confirmSaveWithOrphanBoatIds` (`src/projects/projectManager.ts`).
 
 Payload includes **runtime session** state: world origin (`config.origin` / world-anchor Apply), Fleet `boatIds` / `povIds`, `boatNamesUrl`, features (embedded when the editor has them), fixture URLs, and soft **`calibration.byPovId`** (CAL offsets snapshot for current `povIds`; omitted when empty). Load hydrates `offsetsStore` when the field is present.
 
-### Save = download (primary)
+### Save destinations
 
-The browser cannot write into `public/races/`. Download is always the durable local path:
+| Shell | Primary Save | Secondary |
+| --- | --- | --- |
+| **Electron** (`broadcastStudio.races`) | Folder write via `races.save` | **Export…** = download; API when configured |
+| **Chrome** (no bridge) | Download `project.json` | Drop under `public/races/<id>/` + update `index.json` manually |
 
-1. **Save** or **Save as** → `project.json` download
-2. Drop it at `public/races/<id>/project.json` (folder name should match `id`)
-3. Add `<id>` to `public/races/index.json` → `{ "ids": ["demo-istanbul", "<id>"] }`
-4. Reload with `?race=<id>` or pick it in the HUD race list
+Electron folder roots:
+
+| Shell mode | Folder |
+| --- | --- |
+| `desktop:dev` (Vite URL) | repo `public/races/` |
+| `desktop:file` (`--file`) | `userData/races/` (not `dist/races/`) |
+
+After a successful local save, the Load dropdown refreshes (`listLocalRaceIds` + `races.list`). Project **name** is shown next to Save; status shows the write path or error. Details: [`desktop/README.md`](../../desktop/README.md) § Local RaceProject saves.
 
 ### Optional API write + LAN roles
 
@@ -88,7 +96,7 @@ When `projectsApiBase` is set (e.g. `"/api"` with `npm run server` + Vite proxy)
 - Editor PC: `projectsRole: "editor"` + `projectsApiToken` → `Authorization: Bearer …`
 - Air PC: `projectsRole: "air"` (or `?role=air`) → Save / Save as disabled; no API write
 
-Download still happens first on editor saves. API failure does not undo the download. Ops: [`docs/ops/projects-api.md`](../../docs/ops/projects-api.md).
+API is **additive** to Electron folder write / Chrome download. Ops: [`docs/ops/projects-api.md`](../../docs/ops/projects-api.md).
 
 ```ts
 import {
@@ -96,6 +104,8 @@ import {
   canWriteProjectsApi,
   defaultEditedRaceId,
   downloadRaceProject,
+  persistRaceProjectLocal,
+  getRacesBridge,
   projectsApiBearerToken,
   writeRaceProject,
   listLocalRaceIds,
@@ -112,7 +122,12 @@ const project = buildRaceProject({
   courseUrl: config.courseUrl,
   // …
 })
-downloadRaceProject(project) // → project.json
+await persistRaceProjectLocal({
+  project,
+  racesBridge: getRacesBridge(),
+  mode: 'save',
+  download: downloadRaceProject,
+})
 if (config.projectsApiBase && canWriteProjectsApi(config)) {
   await writeRaceProject(project, {
     projectsApiBase: config.projectsApiBase,

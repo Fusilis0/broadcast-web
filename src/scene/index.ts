@@ -5,7 +5,24 @@ export {
   type OpsViewMode,
   type SceneHandle,
   type SceneOptions,
+  type EnvironmentMode,
 } from './createScene.ts'
+export {
+  CALIBRATION_OVERLAY_DEFAULTS,
+  createCalibrationOverlay,
+  type CalibrationOverlayHandle,
+  type CalibrationOverlayOptions,
+} from './calibrationOverlay.ts'
+export {
+  DEFAULT_ENVIRONMENT_MODE,
+  isEnvironmentMode,
+  normalizeEnvironmentMode,
+  parseEnvironmentModeQuery,
+  shouldShowRealisticEnvironment,
+  REALISTIC_ENVIRONMENT_DEFAULTS,
+  createRealisticEnvironment,
+  type RealisticEnvironmentHandle,
+} from './environment/index.ts'
 export {
   createFreeCam,
   formatOpsViewStatus,

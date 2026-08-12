@@ -22,6 +22,52 @@ Orchestrators save concrete `DSP-*.md` files into:
 
 Templates: see `../DISPATCH_PROTOCOL.md`.
 
+### Active 2026-08-12 (follow-ups)
+
+**No active worker dispatches.** Soft: if Electron UI still janks after OUT-06, default **3D NDI off**.
+Human **10.1** (Unity cutover) still open. Human smokes recommended (FPS, place/delete boats, Project Save).
+
+### Accepted 2026-08-12 (follow-up trio)
+
+| DSP | Result |
+| --- | --- |
+| [`done/DSP-OUT-20260812-06-ndi-capture-perf.md`](./done/DSP-OUT-20260812-06-ndi-capture-perf.md) | AR 30 / 3D 10 / 2D off@10; AR↔3D stagger |
+| [`done/DSP-SCN-20260812-03-fleet-map-pose-sync.md`](./done/DSP-SCN-20260812-03-fleet-map-pose-sync.md) | Delete clears map icons; place seeds without telem |
+| [`done/DSP-PLT-20260812-02-electron-project-save-ux.md`](./done/DSP-PLT-20260812-02-electron-project-save-ux.md) | Electron Save→folder; name + Load dropdown |
+
+`npm test` **476 + 23** green at accept.
+
+### Accepted 2026-08-12 (Phase 13 wave 3)
+
+| DSP | Phase | Result |
+| --- | --- | --- |
+| [`done/DSP-OUT-20260812-04-local-channel-switcher.md`](./done/DSP-OUT-20260812-04-local-channel-switcher.md) | 13.5 | Local 2D/3D/AR switcher; never stops NDI |
+| [`done/DSP-OUT-20260812-05-ndi-delay-buffer.md`](./done/DSP-OUT-20260812-05-ndi-delay-buffer.md) | 13.6 | Per-channel delay; default 0; max 30000; warn &gt;3s |
+
+`npm test` **461 + 23** green at accept.
+
+### Accepted 2026-08-12 (Phase 13 wave 2)
+
+| DSP | Phase | Result |
+| --- | --- | --- |
+| [`done/DSP-OUT-20260812-02-3d-ndi-channel-pump.md`](./done/DSP-OUT-20260812-02-3d-ndi-channel-pump.md) | 13.3 | Continuous `broadcast-web-3d`; opaque+env pass; AR restore |
+| [`done/DSP-OUT-20260812-03-2d-map-ndi-pump.md`](./done/DSP-OUT-20260812-03-2d-map-ndi-pump.md) | 13.4 | `broadcast-web-2d`; letterbox 1920×1080; stub flag **true** |
+| [`done/DSP-SCN-20260812-02-ar-calib-coordinate-overlay.md`](./done/DSP-SCN-20260812-02-ar-calib-coordinate-overlay.md) | 13.7 | ENU grid/marks overlay; Calib checkbox; ops doc |
+
+`npm test` **439 + 23** green at accept. Human vMix: confirm all three sources (`broadcast-web`,
+`-3d`, `-2d`).
+
+### Accepted 2026-08-12 (Phase 13 wave 1)
+
+| DSP | Phase | Result |
+| --- | --- | --- |
+| [`done/DSP-OUT-20260812-01-multi-sender-ndi-bridge.md`](./done/DSP-OUT-20260812-01-multi-sender-ndi-bridge.md) | 13.1 | Multi-sender `ar`/`3d`/`2d`; AR name still `broadcast-web` |
+| [`done/DSP-SCN-20260812-01-sea-sky-environment.md`](./done/DSP-SCN-20260812-01-sea-sky-environment.md) | 13.2 | Water+Sky; forced off for transparent/chroma |
+| [`done/DSP-PLT-20260812-01-electron-local-races-save.md`](./done/DSP-PLT-20260812-01-electron-local-races-save.md) | 13.8 | `races:*` IPC; public vs userData roots |
+
+`npm test` **418 + 23** green at wave-1 accept (suite now **439 + 23** after wave 2). Human Electron
+checklists (Save folder + vMix) still recommended.
+
 ### Accepted 2026-08-11 (Phase 11 follow-up — authoring + chrome)
 
 Design: [`../../architecture/world-authoring-workspace.md`](../../architecture/world-authoring-workspace.md)

@@ -29,11 +29,14 @@ import {
   downloadRaceProject,
   downloadVenuePack,
   getDefaultVenuePackCache,
+  formatPersistStatus,
+  getRacesBridge,
   isSafeRaceId,
   listLocalRaceIds,
   loadRaceProject,
   materializeVenuePack,
   parseVenuePack,
+  persistRaceProjectLocal,
   projectsApiBearerToken,
   resolveProjectsRole,
   retainMaterializedVenuePack,
@@ -49,16 +52,27 @@ import {
   getStudioBridge,
   normalizeOutputMode,
   resolveClearAppearance,
+  resolveLocalFocusPresentation,
+  resolveScreenClearAppearance,
+  startLocalChannelSwitcher,
   startNdiControllerPanel,
+  startNdi3dChannelPump,
   startNdiFramePump,
   startOutputModeControl,
+  startStreamMapNdiPump,
   startVisualTimecode,
   startWhepUnderlay,
   STUDIO_OUTPUT_HEIGHT,
   STUDIO_OUTPUT_WIDTH,
+  normalizeOutputDelayMs,
+  type LocalChannelFocus,
+  type LocalChannelSwitcherHandle,
   type NdiControllerPanelHandle,
   type NdiFramePumpHandle,
+  type OutputDelayMsConfig,
+  type OutputMode,
   type OutputModeControlHandle,
+  type StreamMapNdiPumpHandle,
   type TimecodeCorner,
   type VisualTimecodeHandle,
   type WhepUnderlayHandle,
@@ -70,6 +84,7 @@ import {
   layoutFeatures,
   loadFleetLiveFromSession,
   loadWorldExtrasFeatures,
+  parseEnvironmentModeQuery,
   resolveAssetFocusEnu,
   setLayoutFeatures,
   startAssetInspector,
@@ -80,6 +95,7 @@ import {
   createWorldAuthoringWorkspace,
   mountWorldMapAuthoringLauncher,
   resolveAuthoringInitiallyOpen,
+  STREAM_MAP_SIZE_PX,
   WORLD_AUTHORING_MAP_SIZE,
   type AssetInspectorHandle,
 
@@ -110,9 +126,25 @@ let calib: OffsetSlidersHandle | null = null
 let scene: SceneHandle | null = null
 let ingest: IngestHandle | null = null
 let outputControl: OutputModeControlHandle | null = null
+let localChannelSwitcher: LocalChannelSwitcherHandle | null = null
+/** Local window focus — independent of NDI pumps and of AR `outputMode`. */
+let localChannelFocus: LocalChannelFocus = 'ar'
+/** Remembered AR clear mode while local focus is 3D/2D. */
+let arOutputMode: OutputMode = 'preview'
+/** Stream-map PiP visibility before entering local 2D focus. */
+let streamMapPipBefore2d = false
+/** True while local 2D focus owns stream-map size/visibility. */
+let local2dMapActive = false
 let visualTimecode: VisualTimecodeHandle | null = null
 let whepUnderlay: WhepUnderlayHandle | null = null
 let ndiPump: NdiFramePumpHandle | null = null
+/** Desired 2D NDI enable (default off); applied when pump boots. */
+let streamMapNdiWanted = false
+let streamMapNdiPump: StreamMapNdiPumpHandle | null = null
+/** Per-channel NDI delay (ms). Default 0 = no ring; optional `config.outputDelayMs`. */
+let ndiDelayMs: OutputDelayMsConfig = normalizeOutputDelayMs(undefined)
+/** 3D opaque channel (OUT-02) — do not change pump internals here. */
+let ndi3dPump: NdiFramePumpHandle | null = null
 let ndiController: NdiControllerPanelHandle | null = null
 let mapEditor: MapFeatureEditorHandle | null = null
 let worldAuthoring: WorldAuthoringWorkspaceHandle | null = null
@@ -249,6 +281,7 @@ async function patchWorldFeature(
   const layout = layoutFeatures(currentWorldFeatures, gpsToEnu)
   setLayoutFeatures(layout)
   hud.setLayoutFeatures(layout)
+  scene?.refreshCalibrationOverlay()
   assetInspector?.refresh()
 }
 
@@ -287,10 +320,79 @@ function focusAssetRow(target: AssetRowId): void {
 
 /** Transparent NDI plate: clear page chrome so only WebGL alpha matters for ops view. */
 function applyOutputModeChrome(mode: string): void {
-  const on = mode === 'transparent'
+  // Page transparency only when local focus is AR (3D/2D use opaque ops chrome).
+  const on = mode === 'transparent' && localChannelFocus === 'ar'
   document.documentElement.classList.toggle('output-transparent', on)
   document.body.classList.toggle('output-transparent', on)
   document.getElementById('app')?.classList.toggle('output-transparent', on)
+}
+
+/** CSS hook for local 2D/3D/AR presentation (stream-map size, canvas hide). */
+function applyLocalFocusDocumentClass(focus: LocalChannelFocus): void {
+  const root = document.documentElement
+  const body = document.body
+  const appEl = document.getElementById('app')
+  for (const id of ['2d', '3d', 'ar'] as const) {
+    const cls = `local-focus-${id}`
+    root.classList.toggle(cls, id === focus)
+    body.classList.toggle(cls, id === focus)
+    appEl?.classList.toggle(cls, id === focus)
+  }
+}
+
+/** Large stream-map canvas for local 2D focus (still letterboxed for 2D NDI). */
+function resolveLocal2dMapSizePx(): number {
+  const sidebar = 360
+  const pad = 48
+  const avail = Math.min(
+    window.innerWidth - sidebar - pad,
+    window.innerHeight - pad,
+  )
+  return Math.max(520, Math.min(960, Math.floor(avail)))
+}
+
+/**
+ * Apply local channel focus to screen only — never starts/stops NDI pumps.
+ * `outputMode` still governs AR clear when focus is AR (and AR air capture).
+ */
+function applyLocalChannelFocus(focus: LocalChannelFocus): void {
+  localChannelFocus = focus
+  applyLocalFocusDocumentClass(focus)
+
+  const presentation = resolveLocalFocusPresentation(focus, arOutputMode, {
+    chromaKey: chromaKey || undefined,
+  })
+  const screenClear = resolveScreenClearAppearance(presentation, arOutputMode, {
+    chromaKey: chromaKey || undefined,
+  })
+
+  if (scene) {
+    scene.renderer.setClearColor(screenClear.color, screenClear.alpha)
+    scene.setEnvironmentOpaqueClearSafe(presentation.opaqueClearSafe)
+  }
+
+  applyOutputModeChrome(arOutputMode)
+
+  // Stream map: enlarge for 2D local view; restore PiP size/visibility otherwise.
+  const stream = hud.getStreamMap()
+  if (presentation.streamMapPrimary) {
+    if (!local2dMapActive) {
+      streamMapPipBefore2d = stream.isVisible()
+      local2dMapActive = true
+    }
+    stream.setSizePx(resolveLocal2dMapSizePx())
+    hud.setStreamMapVisible(true)
+  } else if (local2dMapActive) {
+    local2dMapActive = false
+    stream.setSizePx(STREAM_MAP_SIZE_PX)
+    hud.setStreamMapVisible(streamMapPipBefore2d)
+  }
+
+  // WebGL canvas visibility for local 2D (NDI still renders offscreen).
+  const canvas = scene?.renderer.domElement
+  if (canvas) {
+    canvas.classList.toggle('local-channel-webgl--hidden', !presentation.showWebgl)
+  }
 }
 
 function clearLiveStatusSub(): void {
@@ -306,8 +408,25 @@ function applyFleetToScene(): void {
   if (!scene) return
   const active = scene.setFleetAllowLists({ boatIds, povIds })
   hud.setPovIds(povIds, active)
+  hud.setBoatIds(boatIds)
   calib?.setPovIds(povIds, active)
   fleetPanel?.setState({ boatIds, povIds, activePovId: active })
+  syncFleetMapPosesToAllowList()
+}
+
+/**
+ * Drop ops/stream map icons for boats/drones no longer in the Live fleet.
+ * Buoy poses stay. Re-seed planned GPS so map-placed craft remain visible
+ * without live telemetry.
+ */
+function syncFleetMapPosesToAllowList(): void {
+  const allow = [...boatIds, ...povIds]
+  hud.getMap().retainPoseIds(allow)
+  hud.getStreamMap().retainPoseIds(allow)
+  const boats = fleetPanel?.getState().boats ?? []
+  const plannedPovs = fleetPanel?.getState().plannedPovs ?? []
+  seedPlannedFleetOnMap(hud.getMap(), boats, plannedPovs)
+  seedPlannedFleetOnMap(hud.getStreamMap(), boats, plannedPovs)
 }
 
 async function restartIngest(mode?: 'mock' | 'replay' | 'live'): Promise<void> {
@@ -420,6 +539,27 @@ function seedPlannedFleetOnMap(
       ts: now,
     })
   }
+}
+
+/** Place-tool seed at click ENU (authoritative; no GPS round-trip drift). */
+function seedFleetPoseAtEnu(
+  id: string,
+  kind: 'boat' | 'drone',
+  east: number,
+  north: number,
+): void {
+  const pose = {
+    id,
+    kind,
+    position: { x: east, y: kind === 'drone' ? 10 : 0, z: north },
+    rotation: { yawDeg: 0, pitchDeg: 0, rollDeg: 0 },
+    fovHDeg: 66.8832,
+    ts: Date.now(),
+  }
+  hud.getMap().updatePose(pose)
+  hud.getStreamMap().updatePose(pose)
+  hud.getMap().redraw()
+  hud.getStreamMap().redraw()
 }
 
 function syncRaceQuery(id: string): void {
@@ -739,25 +879,32 @@ async function saveCurrentRaceProject(
       },
     })
 
-    // Primary persist path: browser download (git drop under public/races/<id>/).
-    downloadRaceProject(project)
+    // Electron: folder write is primary. Chrome: download. Export… = download only.
+    const races = getRacesBridge()
+    const persist = await persistRaceProjectLocal({
+      project,
+      racesBridge: races,
+      mode,
+      download: downloadRaceProject,
+    })
+    if (persist.local && !persist.local.ok) {
+      console.warn('[projects] Electron races.save failed', persist.local.error)
+    }
 
     const stored = await maybeWriteRaceProjectApi(project, mode)
     const finalProject = stored ?? project
     raceProject = finalProject
     mapEditor?.setProjectMeta(finalProject.id, finalProject.name)
+    hud.setProjectMeta(finalProject.id, finalProject.name)
     hud.setActiveRaceId(finalProject.id)
     syncRaceQuery(finalProject.id)
-    if (stored) {
+    const localSaved = Boolean(persist.local?.ok)
+    if (localSaved || stored) {
       await refreshRacePicker(finalProject.id)
-      hud.setBootMessage(`saved: ${finalProject.id} (download + API)`)
-    } else {
-      hud.setBootMessage(
-        config.projectsApiBase.trim()
-          ? `saved: ${finalProject.id} (download)`
-          : `saved: ${finalProject.id} (download · drop into public/races/)`,
-      )
     }
+    const status = formatPersistStatus(persist, { api: Boolean(stored) })
+    hud.setSaveStatus(status)
+    hud.setBootMessage(`saved: ${finalProject.id} · ${status}`)
     console.info('[projects] saved RaceProject', {
       id: finalProject.id,
       mode,
@@ -765,12 +912,34 @@ async function saveCurrentRaceProject(
       boatIds: finalProject.fleet.boatIds,
       povIds: finalProject.povIds,
       features: finalProject.features?.length ?? 0,
+      local: localSaved,
+      localPath: persist.local?.ok ? persist.local.path : undefined,
+      downloaded: persist.downloaded,
       api: Boolean(stored),
     })
   } catch (err) {
     console.warn('[projects] save/download failed', err)
+    hud.setSaveStatus('save failed')
     hud.setBootMessage('save failed')
   }
+}
+
+async function exportCurrentRaceProject(): Promise<void> {
+  const project = buildCurrentRaceProject()
+  if (!project) {
+    hud.setBootMessage('export failed: no project')
+    return
+  }
+  const catalogueIds = scene
+    ? [...scene.getBoatNamesCatalogue().keys()]
+    : []
+  if (!confirmSaveWithOrphanBoatIds(boatIds, catalogueIds)) {
+    hud.setBootMessage('export cancelled')
+    return
+  }
+  downloadRaceProject(project)
+  hud.setSaveStatus('download')
+  hud.setBootMessage(`exported: ${project.id}`)
 }
 
 async function saveAsRaceProject(): Promise<void> {
@@ -814,6 +983,7 @@ async function applyWorldFeatures(world: WorldFeature[]): Promise<void> {
   const layout = layoutFeatures(currentWorldFeatures, gpsToEnu)
   setLayoutFeatures(layout)
   hud.setLayoutFeatures(layout)
+  scene?.refreshCalibrationOverlay()
   // 3D already mounted by loadWorldForProject — sync editor/map only.
   mapEditor?.replaceFeatures(currentWorldFeatures, false)
 }
@@ -840,6 +1010,7 @@ async function applyWorldOrigin(origin: ConfigOrigin): Promise<void> {
   const layout = layoutFeatures(currentWorldFeatures, gpsToEnu)
   setLayoutFeatures(layout)
   hud.setLayoutFeatures(layout)
+  scene.refreshCalibrationOverlay()
   mapEditor?.replaceFeatures(currentWorldFeatures, false)
 
   hud.setBootMessage(
@@ -871,6 +1042,7 @@ async function applyLoadedRaceProject(project: RaceProject): Promise<void> {
   await applyWorldFeatures(world)
 
   mapEditor?.setProjectMeta(project.id, project.name)
+  hud.setProjectMeta(project.id, project.name)
   const streamTitle = project.name.trim()
   hud.getStreamMap().setTitle(streamTitle || 'Race map')
   hud.setActiveRaceId(project.id)
@@ -879,6 +1051,7 @@ async function applyLoadedRaceProject(project: RaceProject): Promise<void> {
     povIds: config.povIds,
   })
   hud.setPovIds(config.povIds, activePov)
+  hud.setBoatIds(config.boatIds)
   calib?.setPovIds(config.povIds, activePov)
   syncRaceQuery(project.id)
 
@@ -914,6 +1087,7 @@ async function applyLoadedRaceProject(project: RaceProject): Promise<void> {
       Object.entries(packVis).map(([id, visibility]) => ({ id, visibility })),
   )
   syncMapHiddenPoseIds()
+  syncFleetMapPosesToAllowList()
   assetInspector?.refresh()
   hud.setBootMessage(`project: ${project.id}`)
   console.info('[projects] switched race pack', { id: project.id })
@@ -1110,11 +1284,51 @@ opsSidebar.registerSection({
 // CAL offset sliders — sidebar Calib section (no fixed top-left chrome).
 calib = startOffsetSliders({ container: calibSectionEl })
 
-// Read-only NDI status tab (OUT). Polls pump + POV; never feeds the render loop.
+// SCN calibration overlay toggle (v1 mounts next to CAL sliders).
+{
+  const row = document.createElement('label')
+  row.className = 'calib-overlay-toggle'
+  const input = document.createElement('input')
+  input.type = 'checkbox'
+  input.className = 'calib-overlay-toggle__input'
+  input.checked = false
+  input.title =
+    'ENU grid + force-visible marks through the active POV camera (read-only)'
+  input.addEventListener('change', () => {
+    scene?.setCalibrationOverlayEnabled(input.checked)
+  })
+  const text = document.createElement('span')
+  text.className = 'calib-overlay-toggle__label'
+  text.textContent = 'Calibration overlay'
+  row.append(input, text)
+  calibSectionEl.appendChild(row)
+}
+
+// NDI status tab (OUT). Polls pumps + POV; never feeds the WebGL render loop.
+// 2D stream-map toggle enables/disables channel `'2d'` only (default off).
+// Per-channel delay knobs (0–30000 ms); live change, no restart.
 ndiController = startNdiControllerPanel({
   container: ndiSectionEl,
   getPump: () => ndiPump,
+  get3dPump: () => ndi3dPump,
+  getStreamMapPump: () => streamMapNdiPump,
   getActivePovId: () => scene?.getActivePovId() ?? null,
+  getDelayMs: (channel) => {
+    if (channel === 'ar') return ndiPump?.getDelayMs() ?? ndiDelayMs.ar
+    if (channel === '3d') return ndi3dPump?.getDelayMs() ?? ndiDelayMs['3d']
+    return streamMapNdiPump?.getDelayMs() ?? ndiDelayMs['2d']
+  },
+  onDelayMsChange: (channel, delayMs) => {
+    ndiDelayMs[channel] = delayMs
+    if (channel === 'ar') ndiPump?.setDelayMs(delayMs)
+    else if (channel === '3d') ndi3dPump?.setDelayMs(delayMs)
+    else streamMapNdiPump?.setDelayMs(delayMs)
+  },
+  initialDelayMs: ndiDelayMs,
+  onStreamMapNdiEnabledChange: (enabled) => {
+    streamMapNdiWanted = enabled
+    streamMapNdiPump?.setEnabled(enabled)
+  },
 })
 
 const hud = startStubHud({
@@ -1146,6 +1360,9 @@ const hud = startStubHud({
     scene?.setOpsViewMode(mode)
     fleetPanel?.setOpsViewMode(mode)
   },
+  onEnvironmentModeChange: (mode) => {
+    scene?.setEnvironmentMode(mode)
+  },
   onCountdownControl: (action) => {
     scene?.controlCountdown(action)
   },
@@ -1161,6 +1378,10 @@ const hud = startStubHud({
   onSaveAsProject: () => {
     void saveAsRaceProject()
   },
+  onExportProject: () => {
+    void exportCurrentRaceProject()
+  },
+  localRacesFolder: getRacesBridge() !== null,
   onDownloadVenuePack: () => {
     void downloadCurrentVenuePack()
   },
@@ -1207,6 +1428,10 @@ function applyIngestConnectionStatus(handle: IngestHandle): void {
 void (async () => {
   const config = await loadConfig()
   bootConfig = config
+  ndiDelayMs = normalizeOutputDelayMs(
+    (config as unknown as Record<string, unknown>).outputDelayMs,
+  )
+  ndiController?.refresh()
   const deeplink = parseConsoleDeeplink(window.location.search)
   libraryPanel = startLibraryPanel({
     container: librarySectionEl,
@@ -1232,10 +1457,19 @@ void (async () => {
     window.location.search,
   )
   hud.setProjectWritesEnabled(projectWritesEnabled)
+  const racesBridge = getRacesBridge()
+  if (racesBridge?.getRoot) {
+    void racesBridge.getRoot().then((root) => {
+      hud.setRacesRootHint(root.path)
+    }).catch(() => {
+      /* ignore */
+    })
+  }
   console.info('[projects] LAN role', {
     role: resolveProjectsRole(config, window.location.search),
     writes: projectWritesEnabled,
     apiBase: config.projectsApiBase || '(static)',
+    localRaces: Boolean(racesBridge),
   })
 
   // PLT+CON: ?race=<id> → local pack under /races/<id>/; miss → config.json (warn).
@@ -1247,6 +1481,7 @@ void (async () => {
       applyRaceProjectToConfig(config, raceProject)
       console.info('[projects] loaded race pack', { id: raceProject.id })
       hud.setBootMessage(`project: ${raceProject.id}`)
+      hud.setProjectMeta(raceProject.id, raceProject.name)
       hud.setActiveRaceId(raceProject.id)
     } catch (err) {
       console.warn(
@@ -1297,6 +1532,7 @@ void (async () => {
 
   chromaKey = config.chromaKey
   const outputMode = normalizeOutputMode(config.outputMode)
+  arOutputMode = outputMode
   const clear = resolveClearAppearance(outputMode, {
     chromaKey: chromaKey || undefined,
   })
@@ -1331,24 +1567,50 @@ void (async () => {
   applyOutputMode(scene.renderer, outputMode, {
     chromaKey: chromaKey || undefined,
   })
+  // Realistic sea/sky only when clear is opaque-safe (preview today).
+  scene.setEnvironmentOpaqueClearSafe(outputMode === 'preview')
+  const envFromQuery = parseEnvironmentModeQuery(window.location.search)
+  if (envFromQuery) {
+    scene.setEnvironmentMode(envFromQuery)
+    hud.setEnvironmentMode(envFromQuery)
+  }
   const activePov = scene.getActivePovId()
   hud.setPovIds(povIds, activePov)
+  hud.setBoatIds(boatIds)
   calib?.setPovIds(povIds, activePov)
 
   // Ops sidebar (above mode/POV) — not fixed canvas chrome.
+  // Local 2D/3D/AR switcher (strip on overlay) + AR clear dropdown compose:
+  // switcher = which channel fills the window; outputMode = AR clear only.
   outputControl = startOutputModeControl({
     container: opsSectionEl,
     mountAt: 'start',
     initialMode: outputMode,
     onChange: (mode) => {
+      arOutputMode = mode
       if (!scene) return
-      applyOutputMode(scene.renderer, mode, {
-        chromaKey: chromaKey || undefined,
-      })
-      applyOutputModeChrome(mode)
+      // Re-apply through local focus so 3D opaque screen stays opaque.
+      applyLocalChannelFocus(localChannelFocus)
       whepUnderlay?.setMode(mode)
     },
   })
+
+  {
+    const strip = document.createElement('div')
+    strip.className = 'local-channel-switcher-strip'
+    strip.setAttribute('data-ops', 'local-channel-strip')
+    opsSidebar.getOverlayHost().appendChild(strip)
+    localChannelSwitcher = startLocalChannelSwitcher({
+      container: strip,
+      mountAt: 'start',
+      initialFocus: localChannelFocus,
+      onChange: (focus) => {
+        // Presentation only — never ndi.stop / pump disable.
+        applyLocalChannelFocus(focus)
+      },
+    })
+    applyLocalChannelFocus(localChannelFocus)
+  }
 
   // Video still under the WebGL canvas on `app`; WHEP status attaches to the
   // sidebar output-mode control (looked up after mount above).
@@ -1371,13 +1633,65 @@ void (async () => {
   }
 
   // Electron studio only — after timecode wrap so barcode is in readback.
-  // Air lock: NDI always captures active POV (dual-render if preview ≠ air).
+  // 3D pump first (binds render before AR patches it); AR pump second.
+  // Air lock: both channels capture active POV (AR dual-renders if preview ≠ air).
+  // Perf (DSP-OUT-20260812-06): AR ~30 fps, 3D ~10 fps, staggered heavy readback;
+  // 2D default off @ 10 fps when enabled.
+  ndi3dPump = startNdi3dChannelPump({
+    renderer: scene.renderer,
+    scene: scene.scene,
+    getAirCamera: () => scene?.getActivePovCamera() ?? null,
+    prepareCameraPass: (camera) => {
+      scene?.orientOpsBillboards(camera)
+    },
+    setEnvironmentOpaqueClearSafe: (safe) => {
+      scene?.setEnvironmentOpaqueClearSafe(safe)
+    },
+    getEnvironmentOpaqueClearSafe: () =>
+      scene?.getEnvironmentOpaqueClearSafe() ?? false,
+    fps: 10,
+    delayMs: ndiDelayMs['3d'],
+  })
   ndiPump = startNdiFramePump({
     renderer: scene.renderer,
     getAirCamera: () => scene?.getActivePovCamera() ?? null,
     prepareCameraPass: (camera) => {
       scene?.orientOpsBillboards(camera)
     },
+    // Local 3D opaque screen must not pollute AR alpha — force air FBO + AR clear.
+    forceAirTargetCapture: () =>
+      resolveLocalFocusPresentation(localChannelFocus, arOutputMode)
+        .forceArAirTarget,
+    getAirPlateClear: () => {
+      const appearance = resolveClearAppearance(arOutputMode, {
+        chromaKey: chromaKey || undefined,
+      })
+      return {
+        color: appearance.color,
+        alpha: appearance.alpha,
+        opaqueClearSafe: appearance.alpha >= 1,
+      }
+    },
+    setEnvironmentOpaqueClearSafe: (safe) => {
+      scene?.setEnvironmentOpaqueClearSafe(safe)
+    },
+    getEnvironmentOpaqueClearSafe: () =>
+      scene?.getEnvironmentOpaqueClearSafe() ?? false,
+    fps: 30,
+    delayMs: ndiDelayMs.ar,
+  })
+
+  // 2D stream-map NDI (channel `'2d'`) — letterbox into 1920×1080; independent
+  // of PiP visibility / sidebar. Default off; NDI tab toggle starts/stops only
+  // this sender (does not affect AR/3D).
+  streamMapNdiPump = startStreamMapNdiPump({
+    getSourceCanvas: () => hud.getStreamMap().getCanvas(),
+    ensureDrawn: () => {
+      hud.getStreamMap().redraw()
+    },
+    enabled: streamMapNdiWanted,
+    fps: 10,
+    delayMs: ndiDelayMs['2d'],
   })
 
   hud.setBootMessage(
@@ -1393,14 +1707,18 @@ void (async () => {
   const layout = layoutFeatures(currentWorldFeatures, gpsToEnu)
   setLayoutFeatures(layout)
   hud.setLayoutFeatures(layout)
-  if (raceProject) {
-    hud.setBootMessage(`project: ${raceProject.id}`)
-    const streamTitle = raceProject.name.trim()
-    hud.getStreamMap().setTitle(streamTitle || 'Race map')
-  }
+  scene.refreshCalibrationOverlay()
 
   const projectIdDefault = raceProject?.id ?? defaultEditedRaceId()
   const projectNameDefault = raceProject?.name ?? 'Edited race'
+  if (raceProject) {
+    hud.setBootMessage(`project: ${raceProject.id}`)
+    hud.setProjectMeta(raceProject.id, raceProject.name)
+    const streamTitle = raceProject.name.trim()
+    hud.getStreamMap().setTitle(streamTitle || 'Race map')
+  } else {
+    hud.setProjectMeta(projectIdDefault, projectNameDefault)
+  }
 
   // World Authoring workspace — large map + tool palette (SCN-04).
   // Editor role defaults open; air closed; ?editor=1|0 overrides.
@@ -1442,27 +1760,36 @@ void (async () => {
     },
     onPlaceFleet: (kind, east, north, id) => {
       const g = enuToGpsAmsl(east, 0, north)
+      let created = true
       if (kind === 'boat') {
-        fleetPanel?.addBoat({
+        const result = fleetPanel?.addBoat({
           id,
           plannedLat: g.lat,
           plannedLon: g.lon,
         })
+        if (result && !result.ok) {
+          authoringShell.setStatus('Place boat: id required')
+          return
+        }
+        created = result?.created ?? true
       } else {
-        fleetPanel?.addDrone({
+        const result = fleetPanel?.addDrone({
           id,
           plannedLat: g.lat,
           plannedLon: g.lon,
         })
+        if (result && !result.ok) {
+          authoringShell.setStatus('Place drone: id required')
+          return
+        }
+        created = result?.created ?? true
       }
-      seedPlannedFleetOnMap(
-        hud.getMap(),
-        kind === 'boat'
-          ? [{ id, plannedLat: g.lat, plannedLon: g.lon }]
-          : [],
-        kind === 'drone'
-          ? [{ id, plannedLat: g.lat, plannedLon: g.lon }]
-          : [],
+      // Click ENU is authoritative — show icon immediately (no telemetry needed).
+      seedFleetPoseAtEnu(id, kind, east, north)
+      authoringShell.setStatus(
+        created
+          ? `Placed ${kind} ${id} on map`
+          : `${kind} ${id} already in fleet — position updated on map`,
       )
     },
   })
@@ -1620,11 +1947,7 @@ void (async () => {
   // Session / pack visibility → scene (entities spawn on first pose).
   syncBoatVisibilityToScene(fleetPanel.getState().boats)
   syncMapHiddenPoseIds()
-  seedPlannedFleetOnMap(
-    hud.getMap(),
-    fleetPanel.getState().boats,
-    fleetPanel.getState().plannedPovs ?? [],
-  )
+  syncFleetMapPosesToAllowList()
 
   assetInspector = startAssetInspector({
     container: assetsSectionEl,
@@ -1719,6 +2042,10 @@ void (async () => {
     ndiController = null
     ndiPump?.stop()
     ndiPump = null
+    streamMapNdiPump?.stop()
+    streamMapNdiPump = null
+    ndi3dPump?.stop()
+    ndi3dPump = null
     visualTimecode?.stop()
     visualTimecode = null
     whepUnderlay?.stop()
@@ -1726,6 +2053,9 @@ void (async () => {
     calib?.stop()
     calib = null
     outputControl?.stop()
+    outputControl = null
+    localChannelSwitcher?.stop()
+    localChannelSwitcher = null
     mapEditor?.dispose()
     mapEditor = null
     worldAuthoring?.dispose()

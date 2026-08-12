@@ -110,4 +110,16 @@ describe('NDI dual-render invariant (sidebar)', () => {
     expect(src).not.toMatch(/ops-sidebar/)
     expect(src).not.toMatch(/document\./)
   })
+
+  it('streamMapNdiPump never imports sidebar / ops panel DOM modules', () => {
+    const pumpPath = join(here, '../../output/streamMapNdiPump.ts')
+    const src = readFileSync(pumpPath, 'utf8')
+    expect(src).toMatch(/getSourceCanvas/)
+    expect(src).not.toMatch(/scene\/sidebar/)
+    expect(src).not.toMatch(/stubHud/)
+    expect(src).not.toMatch(/fleetLivePanel/)
+    expect(src).not.toMatch(/editorPanel/)
+    expect(src).not.toMatch(/ops-overlay/)
+    expect(src).not.toMatch(/ops-sidebar/)
+  })
 })

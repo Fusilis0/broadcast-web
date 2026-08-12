@@ -33,7 +33,7 @@ This doc absorbs the Phase **3.5** studio chroma checklist ([`vmix-chroma-runboo
 | App source | Local Vite (`npm run dev`) **or** `npm run build` + `npm run desktop:file` |
 | Clear mode | **`outputMode=transparent`** (alpha 0 plate; opaque AR + timecode) |
 | NDI runtime | Bundled with `grandi` / NDI Tools on the studio PC |
-| Source name | Default **`broadcast-web`** → appears as `HOSTNAME (broadcast-web)` |
+| Source name | Default AR **`broadcast-web`** (~30 fps) → `HOSTNAME (broadcast-web)`; continuous 3D **`broadcast-web-3d`** (~10 fps, Phase 13.3); 2D **`broadcast-web-2d`** (Phase 13.4, **default off** — enable in NDI tab @ ~10 fps) |
 
 ### Steps — preferred path
 
@@ -46,28 +46,35 @@ This doc absorbs the Phase **3.5** studio chroma checklist ([`vmix-chroma-runboo
    ```
    Or set `BROADCAST_WEB_URL` before `desktop:dev` (see desktop README).
 4. Confirm NDI name (override: `BROADCAST_NDI_NAME` / `--ndi-name=`). Disable only for shell debug: `--no-ndi`.
-5. In **vMix** (or OBS): **Add Input → NDI** → select `… (broadcast-web)`.
+5. In **vMix** (or OBS): **Add Input → NDI** → select `… (broadcast-web)` (AR alpha).
 6. Place on a layer above camera/plate. Compositing must use source **alpha**.
 7. **Do not** enable Chroma Key / Colour Key on this NDI input.
 8. Confirm: empty sky/sea see-through; boats/course/overlays opaque; **8×8** visual timecode sharp (nearest, not soft-scaled).
-9. **Water/shore cue:** a localized semi-transparent pad under the course AABB may show on the plate — that is expected (Phase 8.8). Empty areas outside the pad must stay see-through. Tune opacities in `WATER_CUE_DEFAULTS` if the pad is too heavy ([`unity-asset-port.md`](./unity-asset-port.md)).
-10. **Active cam lock:** switch Fleet **Cam** / POV (`1–4`) → NDI framing follows that drone. If ops free cam is on screen, NDI must still match the **active** cam (not the free look).
-11. **Overlay clutter:** leave HUD **stream map** off for clean air unless you need the PiP in preview/chroma. Stream map is a DOM overlay — it does **not** appear on Electron NDI (WebGL readback only).
-12. **Ops NDI tab:** open the left sidebar **NDI** section. Confirm status **live**, source name matches the switcher (`HOSTNAME (broadcast-web)` or override), SDK version populated, **Active POV** matches Fleet Cam, Error row hidden. Collapsing the sidebar must not change the NDI picture. Chrome/Vite-only: tab shows **unavailable** (expected — no studio bridge). The **2D stream-map NDI** checkbox stays disabled until a multi-sender bridge ships.
-
+9. **Second source (3D):** Add another NDI input → `… (broadcast-web-3d)`. Expect an **opaque** plate of the same active-POV scene (sea/sky when Ops environment = `realistic` / `?env=realistic`). It must keep updating while you look at free-cam / sidebar — same air lock as AR. AR input must stay see-through (no baked sea/sky).
+10. **Water/shore cue:** a localized semi-transparent pad under the course AABB may show on the AR plate — that is expected (Phase 8.8). Empty areas outside the pad must stay see-through. Tune opacities in `WATER_CUE_DEFAULTS` if the pad is too heavy ([`unity-asset-port.md`](./unity-asset-port.md)).
+11. **Active cam lock:** switch Fleet **Cam** / POV (`1–4`) → both AR and 3D NDI framing follow that drone. If ops free cam is on screen, NDI must still match the **active** cam (not the free look).
+12. **Overlay clutter:** leave HUD **stream map** off for clean *preview* air unless you need the PiP on screen. Stream map is a DOM overlay — it does **not** appear on Electron **AR/3D** NDI (WebGL readback only). Separately, NDI source **`broadcast-web-2d`** carries the race map (1920×1080 letterbox) when the NDI-tab **2D** toggle is on (default **off**).
+13. **Ops NDI tab:** open the left sidebar **NDI** section. Confirm **AR** and **3D** status **live**, source names match the switcher, SDK version populated, **Active POV** matches Fleet Cam, Error rows hidden. **2D** row stays **idle** until you check **2D stream-map NDI** — toggle starts/stops **only** that sender. Collapsing the sidebar must not change AR/3D or blank 2D NDI. Chrome/Vite-only: tab shows **unavailable** (expected — no studio bridge).
+14. **Local view switcher (Phase 13.5):** top-center **2D / 3D / AR** buttons change only the operator’s on-screen preview. **AR** = WebGL with `outputMode` clear (transparent plate when `transparent`). **3D** = opaque WebGL (sea/sky when realistic). **2D** = large race map (not PiP-only). Switching must **not** stop NDI — confirm AR/3D stay **live** in the NDI tab and in vMix while you click through all three (2D NDI only if you enabled it). The Ops **output** dropdown is still AR clear only (`preview` / `chroma` / `transparent`); it is a different axis from the local switcher.
+15. **NDI delay (Phase 13.6, optional):** each channel has a **Delay** ms input (0–30000) in the NDI tab. Leave at **0** unless you need to time-align against a delayed camera — default allocates **no** RAM ring. Above **3000 ms** the tab warns **high memory** (still allowed). At 1080p30, 30 s ≈ **~7.5 GB per channel**. Shrinking delay drops buffered frames. Optional boot seed: `outputDelayMs.{ar,3d,2d}` in `config.json`.
+16. **UI FPS dials (Phase 13 perf):** defaults are **AR ~30 fps**, **3D ~10 fps** (always-on, staggered so AR+3D never both `readPixels` on the same tick), **2D off @ 10 fps when enabled**. If the sidebar still feels frozen with 2D off, report to BW — next lock is default 3D NDI off. Do not leave all three capturing at 30 fps on ops machines.
 Full ingest detail: [`vmix-ndi-alpha-runbook.md`](./vmix-ndi-alpha-runbook.md).
 
 ### Manual checklist — NDI = active POV
 
-- [ ] Electron studio + `outputMode=transparent`; NDI source live in vMix/OBS
-- [ ] Switch active POV (Fleet **Cam** or `1–4`) → air / NDI perspective changes
-- [ ] HUD **view=free** (orbit) → on-screen preview moves; NDI framing stays on active POV
+- [ ] Electron studio + `outputMode=transparent`; AR NDI source live in vMix/OBS
+- [ ] Second NDI input `broadcast-web-3d` live (opaque; env when realistic on)
+- [ ] Switch active POV (Fleet **Cam** or `1–4`) → AR and 3D perspective change together
+- [ ] HUD **view=free** (orbit) → on-screen preview moves; AR + 3D framing stay on active POV
 - [ ] HUD **view=follow** → screen matches active POV again (same as NDI)
-- [ ] Sidebar **NDI** tab: status live, source/SDK/Active POV match air; collapse sidebar → NDI unchanged
+- [ ] AR alpha still see-through (no opaque sea/sky on `broadcast-web`)
+- [ ] Sidebar **NDI** tab: AR + 3D live, source/SDK/Active POV match air; collapse sidebar → NDI unchanged
+- [ ] Local **2D / 3D / AR** switcher: each button updates the window; NDI tab stays live for AR/3D; AR alpha still clean after visiting **3D**
+- [ ] With defaults (2D off, 3D ~10 fps), ops sidebar remains usable while AR NDI is live
 
 ### Studio NDI smoke (Phase 10.3)
 
-Runnable gate for cutover. Ingest in **vMix**, **OBS**, or **NDI Studio Monitor** (same LAN / same PC). Stream map stays **DOM-only** on the primary air source — leave it **off**; it never burns into Electron NDI (`HO-SCN-OUT-20260804-01` resolved as opt-in second source, currently bridge-stubbed).
+Runnable gate for cutover. Ingest in **vMix**, **OBS**, or **NDI Studio Monitor** (same LAN / same PC). Stream map stays **off the AR plate** — leave HUD PiP **off** for clean air; confirm map on **`broadcast-web-2d`** instead (`HO-SCN-OUT-20260804-01` / Phase 13.4).
 
 | # | Check | Pass when |
 | --- | --- | --- |
@@ -77,9 +84,10 @@ Runnable gate for cutover. Ingest in **vMix**, **OBS**, or **NDI Studio Monitor*
 | 4 | POV → NDI | Fleet **Cam** / keys `1–4` changes NDI framing to that drone |
 | 5 | Free cam ≠ NDI | HUD **view=free** → Electron window orbits; NDI stays on active POV |
 | 6 | Follow sync | HUD **view=follow** → window matches NDI again |
-| 7 | Stream map off | HUD **stream map** unchecked for air; NDI has no map PiP (DOM-only by design) |
-| 8 | NDI controller tab | Sidebar **NDI**: live + matching source/SDK/Active POV; collapse rail → plate unchanged |
-
+| 7 | Stream map off AR | HUD **stream map** unchecked; AR NDI has no map PiP; enable **2D** toggle → **`broadcast-web-2d`** shows the race map |
+| 8 | NDI controller tab | Sidebar **NDI**: AR live + matching source/SDK/Active POV; 2D toggle **off** by default (idle); on → 2D live; collapse rail → AR unchanged / 2D not blank when on |
+| 9 | Local view switcher | Top **2D / 3D / AR** buttons change only the window; NDI tab stays live for AR/3D; after **3D**, AR alpha still see-through |
+| 10 | UI FPS dials | With defaults (2D off, 3D ~10 fps), sidebar/menu stays draggable while AR NDI is live |
 **Fail / blocker notes:** if Electron, NDI Tools, or switcher missing on the machine, record **Blocker** (not Pass) with what was unavailable. Unit tests for dual-render do **not** replace this smoke.
 
 #### Results — DSP-OUT-20260804-01

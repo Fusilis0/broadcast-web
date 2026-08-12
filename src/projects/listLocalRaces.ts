@@ -1,4 +1,6 @@
 import { isSafeRaceId } from './parseRaceProject.ts'
+import { getRacesBridge, type StudioRacesBridge } from './racesBridge.ts'
+import { mergeLocalRaceIds } from './racesIndex.ts'
 
 /** Manifest under Vite `public/races/index.json`. */
 export const LOCAL_RACES_INDEX_URL = '/races/index.json'
@@ -12,6 +14,11 @@ export type ListLocalRaceIdsOptions = {
   /** When true with API, include archived projects (default hides them). */
   includeArchived?: boolean
   fetchImpl?: typeof fetch
+  /**
+   * Electron local races bridge. Omit → `getRacesBridge()` (Chrome = null).
+   * Pass `null` in tests to disable auto-detect.
+   */
+  racesBridge?: StudioRacesBridge | null
 }
 
 /**
@@ -20,6 +27,7 @@ export type ListLocalRaceIdsOptions = {
  *   Default API list excludes `archived` (pass `includeArchived: true` to show them).
  * - Else / on miss: `/races/index.json` → `{ "ids": [...] }`.
  * - On static miss / invalid → `DEFAULT_LOCAL_RACE_IDS`.
+ * - When Electron `races` bridge is present, merge those ids (userData / public writes).
  */
 export async function listLocalRaceIds(
   options: ListLocalRaceIdsOptions | typeof fetch = {},
@@ -29,20 +37,47 @@ export async function listLocalRaceIds(
   const fetchImpl = opts.fetchImpl ?? fetch
   const apiBase = opts.projectsApiBase?.trim()
 
+  let ids: string[] = [...DEFAULT_LOCAL_RACE_IDS]
+
   if (apiBase) {
     try {
       const base = apiBase.replace(/\/+$/, '')
       const q = opts.includeArchived ? '?includeArchived=1' : ''
       const res = await fetchImpl(`${base}/races${q}`)
       if (res.ok) {
-        const ids = extractIdsFromApiList(await res.json())
-        if (ids.length > 0) return ids
+        const fromApi = extractIdsFromApiList(await res.json())
+        if (fromApi.length > 0) {
+          ids = fromApi
+        } else {
+          ids = await readStaticIndex(fetchImpl)
+        }
+      } else {
+        ids = await readStaticIndex(fetchImpl)
       }
     } catch {
-      // Fall through to static index.
+      ids = await readStaticIndex(fetchImpl)
+    }
+  } else {
+    ids = await readStaticIndex(fetchImpl)
+  }
+
+  const bridge =
+    opts.racesBridge === undefined ? getRacesBridge() : opts.racesBridge
+  if (bridge) {
+    try {
+      const listed = await bridge.list()
+      if (listed.ok) {
+        ids = mergeLocalRaceIds(ids, listed.ids)
+      }
+    } catch {
+      /* keep non-bridge list */
     }
   }
 
+  return ids
+}
+
+async function readStaticIndex(fetchImpl: typeof fetch): Promise<string[]> {
   try {
     const res = await fetchImpl(LOCAL_RACES_INDEX_URL)
     if (!res.ok) return [...DEFAULT_LOCAL_RACE_IDS]

@@ -62,7 +62,7 @@ sidebar.dispose()
 | 10 | `project` | Project | Race Load/Save/Pack + world origin |
 | 20 | `world-map` | World Map | **Open authoring** launcher + status (tools live in World Authoring workspace) |
 | 30 | `assets` | Assets | Per-entity Focus / Show-3D / Show-2D / Details (SCN-03) |
-| 35 | `calib` | Calib | CAL offset sliders (device + yaw/pitch/roll/FOV/alt + Reset) |
+| 35 | `calib` | Calib | CAL offset sliders + SCN **Calibration overlay** checkbox (ENU grid/marks) |
 | 40 | `library` | Library | Universal asset browse/upload (PLT-01) |
 | 50 | `live` | Live | Fleet / Live panel |
 | 55 | `ndi` | NDI | Air source status (OUT); 2D-map second source stubbed |

@@ -214,6 +214,11 @@ export type MapDraftPolyline = {
 
 export type Map2dHandle = {
   root: HTMLElement
+  /**
+   * Backing store for map chrome. Safe to sample when the panel is
+   * `hidden` — redraw still updates pixels (OUT 2D NDI pump).
+   */
+  getCanvas: () => HTMLCanvasElement
   updatePose: (pose: PoseEvent) => void
   /** @deprecated Prefer `setLayoutFeatures` for gates/sponsors/flags. */
   setCourseMarks: (marks: readonly MapCourseMark[]) => void
@@ -298,6 +303,18 @@ export type Map2dHandle = {
    * Independent of layout-feature `visible2d`.
    */
   setHiddenPoseIds: (ids: ReadonlySet<string> | readonly string[]) => void
+  /**
+   * Drop a single fleet/buoy pose icon. Returns true when an entry existed.
+   * Layout features are untouched.
+   */
+  removePose: (id: string) => boolean
+  /**
+   * Drop boat/drone icons whose id is not in `ids`. Buoy poses are kept
+   * (independent of the Live fleet list). Returns how many points were removed.
+   */
+  retainPoseIds: (ids: readonly string[]) => number
+  /** Current pose icon ids (fleet + buoy); for tests / debug. */
+  getPoseIds: () => string[]
   redraw: () => void
   dispose: () => void
 }
@@ -780,9 +797,36 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
 
   return {
     root,
+    getCanvas(): HTMLCanvasElement {
+      return canvas
+    },
     updatePose(pose: PoseEvent): void {
       points.set(pose.id, toMapPoint(pose))
       redraw()
+    },
+    removePose(id: string): boolean {
+      const key = id.trim()
+      if (key === '' || !points.has(key)) return false
+      points.delete(key)
+      redraw()
+      return true
+    },
+    retainPoseIds(ids: readonly string[]): number {
+      const allow = new Set(
+        [...ids].map((id) => id.trim()).filter((id) => id !== ''),
+      )
+      let removed = 0
+      for (const [id, p] of [...points.entries()]) {
+        if (p.kind === 'buoy') continue
+        if (allow.has(id)) continue
+        points.delete(id)
+        removed++
+      }
+      if (removed > 0) redraw()
+      return removed
+    },
+    getPoseIds(): string[] {
+      return [...points.keys()]
     },
     setCourseMarks(marks: readonly MapCourseMark[]): void {
       courseMarks = marks.map((m) => ({ ...m }))

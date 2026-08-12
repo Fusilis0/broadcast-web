@@ -1,7 +1,11 @@
+/**
+ * @vitest-environment happy-dom
+ */
 import { describe, expect, it } from 'vitest'
 import type { LayoutFeature } from './features/types.ts'
 import {
   boundsFromPoints,
+  createMap2d,
   DEFAULT_BOAT_DOT_COLOR,
   DEFAULT_DRONE_DOT_COLOR,
   enuToMapPx,
@@ -200,5 +204,53 @@ describe('resolveMapDotFill', () => {
     expect(resolveMapDotFill('23', 'boat', colours)).toBe('#0000ff')
     expect(resolveMapDotFill('99', 'boat', colours)).toBe(DEFAULT_BOAT_DOT_COLOR)
     expect(resolveMapDotFill('1', 'drone', colours)).toBe(DEFAULT_DRONE_DOT_COLOR)
+  })
+})
+
+describe('map2d pose prune', () => {
+  const pose = (
+    id: string,
+    kind: 'boat' | 'drone' | 'buoy',
+    east = 0,
+    north = 0,
+  ) => ({
+    id,
+    kind,
+    position: { x: east, y: 0, z: north },
+    rotation: { yawDeg: 0, pitchDeg: 0, rollDeg: 0 },
+    fovHDeg: 60,
+    ts: 1,
+  })
+
+  it('removePose drops a point; place seed works without telemetry', () => {
+    const map = createMap2d({ sizePx: 120, visible: false })
+    try {
+      map.updatePose(pose('21', 'boat', 10, 20))
+      expect(map.getPoseIds()).toEqual(['21'])
+      expect(map.removePose('21')).toBe(true)
+      expect(map.getPoseIds()).toEqual([])
+      expect(map.removePose('21')).toBe(false)
+
+      // Planned place: seed icon at click ENU with no live packets.
+      map.updatePose(pose('40', 'boat', 55, -12))
+      expect(map.getPoseIds()).toContain('40')
+    } finally {
+      map.dispose()
+    }
+  })
+
+  it('retainPoseIds drops deleted fleet icons but keeps buoys', () => {
+    const map = createMap2d({ sizePx: 120, visible: false })
+    try {
+      map.updatePose(pose('21', 'boat'))
+      map.updatePose(pose('22', 'boat'))
+      map.updatePose(pose('1', 'drone'))
+      map.updatePose(pose('mark-a', 'buoy'))
+      const removed = map.retainPoseIds(['21', '1'])
+      expect(removed).toBe(1)
+      expect(map.getPoseIds().sort()).toEqual(['1', '21', 'mark-a'].sort())
+    } finally {
+      map.dispose()
+    }
   })
 })

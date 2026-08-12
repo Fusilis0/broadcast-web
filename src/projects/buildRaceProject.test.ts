@@ -137,7 +137,7 @@ describe('listLocalRaceIds', () => {
     const fetchImpl = vi.fn(async () =>
       Response.json({ ids: ['demo-istanbul', 'heat-2'] }),
     ) as unknown as typeof fetch
-    await expect(listLocalRaceIds(fetchImpl)).resolves.toEqual([
+    await expect(listLocalRaceIds({ fetchImpl, racesBridge: null })).resolves.toEqual([
       'demo-istanbul',
       'heat-2',
     ])
@@ -147,19 +147,18 @@ describe('listLocalRaceIds', () => {
     const fetchImpl = vi.fn(async () => {
       throw new Error('offline')
     }) as unknown as typeof fetch
-    await expect(listLocalRaceIds(fetchImpl)).resolves.toEqual([
-      'demo-istanbul',
-    ])
+    await expect(
+      listLocalRaceIds({ fetchImpl, racesBridge: null }),
+    ).resolves.toEqual(['demo-istanbul'])
   })
 
   it('prepends demo-istanbul when omitted from manifest', async () => {
     const fetchImpl = vi.fn(async () =>
       Response.json({ ids: ['heat-2'] }),
     ) as unknown as typeof fetch
-    await expect(listLocalRaceIds(fetchImpl)).resolves.toEqual([
-      'demo-istanbul',
-      'heat-2',
-    ])
+    await expect(
+      listLocalRaceIds({ fetchImpl, racesBridge: null }),
+    ).resolves.toEqual(['demo-istanbul', 'heat-2'])
   })
 
   it('prefers API list when projectsApiBase is reachable', async () => {
@@ -174,7 +173,11 @@ describe('listLocalRaceIds', () => {
       throw new Error(`unexpected ${url}`)
     }) as unknown as typeof fetch
     await expect(
-      listLocalRaceIds({ projectsApiBase: '/api', fetchImpl }),
+      listLocalRaceIds({
+        projectsApiBase: '/api',
+        fetchImpl,
+        racesBridge: null,
+      }),
     ).resolves.toEqual(['heat-api', 'demo-istanbul'])
   })
 
@@ -188,7 +191,11 @@ describe('listLocalRaceIds', () => {
       throw new Error(`unexpected ${url}`)
     }) as unknown as typeof fetch
     await expect(
-      listLocalRaceIds({ projectsApiBase: '/api', fetchImpl }),
+      listLocalRaceIds({
+        projectsApiBase: '/api',
+        fetchImpl,
+        racesBridge: null,
+      }),
     ).resolves.toEqual(['demo-istanbul', 'heat-2'])
   })
 })

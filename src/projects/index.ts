@@ -56,6 +56,34 @@ export {
   type ListLocalRaceIdsOptions,
 } from './listLocalRaces.ts'
 export {
+  getRacesBridge,
+  type StudioRacesBridge,
+  type StudioRacesListResult,
+  type StudioRacesReadResult,
+  type StudioRacesRootKind,
+  type StudioRacesRootResult,
+  type StudioRacesSaveResult,
+} from './racesBridge.ts'
+export {
+  formatProjectMetaText,
+  formatRacesRootHint,
+  mountLocalProjectControls,
+  type LocalProjectControlsHandle,
+  type LocalProjectControlsOptions,
+} from './localProjectControls.ts'
+export {
+  formatPersistStatus,
+  persistRaceProjectLocal,
+  type PersistRaceProjectMode,
+  type PersistRaceProjectOptions,
+  type PersistRaceProjectResult,
+} from './persistRaceProjectLocal.ts'
+export {
+  mergeLocalRaceIds,
+  resolveRacesKind,
+  upsertRaceIndexIds,
+} from './racesIndex.ts'
+export {
   VENUE_PACK_KIND,
   DEFAULT_VENUE_EXTRA_URLS,
   buildVenuePack,

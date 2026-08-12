@@ -502,6 +502,28 @@ body.output-transparent,
   display: none;
 }
 
+.ops-sidebar .calib-overlay-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 8px 8px;
+  padding: 6px 0 0;
+  border-top: 1px solid #2a3340;
+  color: #9aa4ae;
+  font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ops-sidebar .calib-overlay-toggle__input {
+  accent-color: #6a7888;
+  cursor: pointer;
+}
+
+.ops-sidebar .calib-overlay-toggle__label {
+  color: #c8d0d8;
+}
+
 .asset-insp__hint {
   color: #8a949e;
   font-size: 11px;
@@ -698,8 +720,29 @@ body.output-transparent,
 }
 
 .ndi-ctrl__dot[data-state='stopped'],
-.ndi-ctrl__dot[data-state='unavailable'] {
+.ndi-ctrl__dot[data-state='unavailable'],
+.ndi-ctrl__dot[data-state='idle'] {
   background: #6a7888;
+}
+
+.ndi-ctrl__channel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #2a323c;
+}
+
+.ndi-ctrl__channel:last-of-type {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.ndi-ctrl__channel-title {
+  color: #c5ccd3;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.02em;
 }
 
 .ndi-ctrl__hint {
@@ -729,6 +772,34 @@ body.output-transparent,
 .ndi-ctrl__map-label input:disabled {
   cursor: not-allowed;
   opacity: 0.7;
+}
+
+.ndi-ctrl__delay-value {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ndi-ctrl__delay-input {
+  width: 5.5em;
+  padding: 2px 4px;
+  border: 1px solid #2a323c;
+  border-radius: 2px;
+  background: #12161c;
+  color: #c5ccd3;
+  font: inherit;
+}
+
+.ndi-ctrl__delay-unit {
+  color: #6a7888;
+}
+
+.ndi-ctrl__delay-warn {
+  margin: 0 0 0 5.5em;
+  padding: 0;
+  color: #c9a227;
+  font-size: 10px;
+  line-height: 1.35;
 }
 
 /* Fleet / Live registry — top-right ops panel (legacy freestanding) */
@@ -979,6 +1050,26 @@ body.output-transparent,
   font-size: 11px;
 }
 
+.ops-local-project__meta {
+  color: #d0d6dc;
+  font-weight: 600;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ops-local-project__status-row {
+  gap: 10px;
+}
+
+.ops-local-project__root,
+.ops-local-project__save-status {
+  color: #8a949e;
+  font-size: 10px;
+  word-break: break-all;
+}
+
 .ops-hud__status {
   margin: 0;
   white-space: pre-wrap;
@@ -1086,6 +1177,109 @@ body.output-transparent,
 
 .ops-sidebar-root:not(.ops-sidebar-root--collapsed) .stream-map {
   left: calc(var(--ops-sidebar-width, 340px) + 10px);
+}
+
+/*
+ * Local channel focus 2D — stream map is the primary local view (not PiP-only).
+ * WebGL canvas hides; AR/3D NDI pumps keep running.
+ */
+html.local-focus-2d .stream-map,
+body.local-focus-2d .stream-map {
+  top: 56px;
+  left: 50%;
+  right: auto;
+  bottom: auto;
+  width: auto;
+  max-width: calc(100vw - 24px);
+  transform: translateX(-50%);
+  z-index: 4;
+}
+
+html.local-focus-2d .ops-sidebar-root:not(.ops-sidebar-root--collapsed) .stream-map,
+body.local-focus-2d .ops-sidebar-root:not(.ops-sidebar-root--collapsed) .stream-map {
+  left: calc(50% + var(--ops-sidebar-width, 340px) / 2);
+  max-width: calc(100vw - var(--ops-sidebar-width, 340px) - 24px);
+}
+
+#app > canvas.local-channel-webgl--hidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/*
+ * Local 2D / 3D / AR switcher — prominent strip (OUT Phase 13.5).
+ * DOM-only; does not start/stop NDI. Distinct from outputMode (AR clear).
+ */
+.local-channel-switcher-strip {
+  pointer-events: auto;
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  max-width: calc(100vw - 24px);
+}
+
+.ops-sidebar-root:not(.ops-sidebar-root--collapsed) .local-channel-switcher-strip {
+  left: calc(50% + var(--ops-sidebar-width, 340px) / 2);
+  max-width: calc(100vw - var(--ops-sidebar-width, 340px) - 24px);
+}
+
+.local-channel-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 12px;
+  background: rgba(10, 14, 20, 0.92);
+  border: 1px solid #3a4a5a;
+  border-radius: 8px;
+  color: #c0c8d0;
+  font: 13px/1.3 ui-sans-serif, system-ui, Segoe UI, sans-serif;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.local-channel-switcher__label {
+  color: #8a949e;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.local-channel-switcher__buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.local-channel-switcher__btn {
+  min-width: 64px;
+  min-height: 40px;
+  padding: 8px 16px;
+  border: 1px solid #4a5a6a;
+  border-radius: 6px;
+  background: #1c2430;
+  color: #d8dee6;
+  font: 700 16px/1 ui-sans-serif, system-ui, Segoe UI, sans-serif;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.local-channel-switcher__btn:hover {
+  border-color: #6a8aaa;
+  background: #243040;
+}
+
+.local-channel-switcher__btn--active,
+.local-channel-switcher__btn[aria-pressed='true'] {
+  border-color: #7ab0d8;
+  background: #2a5070;
+  color: #f0f6fc;
+  box-shadow: inset 0 0 0 1px rgba(140, 190, 230, 0.35);
+}
+
+.local-channel-switcher__hint {
+  color: #6a7888;
+  font-size: 11px;
 }
 
 .stream-map .ops-map__title,

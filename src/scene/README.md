@@ -17,7 +17,8 @@ Do **not** call `gpsToEnu` for boats, subscribe to `telemetryBus` for positions,
 **Ops sidebar (Phase 11.1+):** `createSidebar` mounts a collapsible left rail over the canvas
 (does not reflow WebGL). Sections: Project / World Map / **Assets** / Library / Live / NDI / Ops.
 `startAssetInspector` (11.7) lists every boat/POV/feature with Focus / Show-3D / Show-2D / Details.
-NDI never reads this DOM (`ndiFramePump` / WebGL only). Text prompts (billboard texture/spacing,
+NDI AR never reads this DOM (`ndiFramePump` / WebGL only). Channel `'2d'` samples
+the stream-map canvas bitmap separately (`streamMapNdiPump`). Text prompts (billboard texture/spacing,
 boat/drone/buoy ids) use shared `promptModal` in `src/ui/` — Electron rejects `window.prompt()`.
 
 ## Boot
@@ -52,7 +53,7 @@ Mock ids: POVs from `povIds` (default `1`,`2`), boats from `boatIds` (default `2
 | Helper (continued) | Role |
 | --- | --- |
 | `formatConnectionStatus` | Compact `ws=…` / `ws=n/a (mock|replay)` string for HUD status |
-| `createMap2d()` | Top-down ENU East/North fleet panel (canvas 2D) + shared layout features; `focusEnu` / `setHiddenPoseIds` |
+| `createMap2d()` | Top-down ENU East/North fleet panel (canvas 2D) + shared layout features; `focusEnu` / `setHiddenPoseIds` / `removePose` / `retainPoseIds` |
 | `createStreamMap2d()` | Viewer-facing broadcast PiP map (~520px; CSS overlay; default hidden; HUD toggle) |
 | `layoutFeatures` / `getLayoutFeatures` | Shared GPS→ENU world features (course/sponsors/flags adapters) |
 | `startAssetInspector` | Assets sidebar: Focus / Show-3D / Show-2D / Details (11.7) |
@@ -62,6 +63,10 @@ Mock ids: POVs from `povIds` (default `1`,`2`), boats from `boatIds` (default `2
 | `remountWorldFromFeatures` | Rebuild course/sponsors/flags from editable `WorldFeature[]` (skips `visible3d: false`) |
 | `createBoatEntity()` | Pose root + glTF/procedural visual + billboard tag + visibility mode |
 | `setBoatVisibilityMode` / `setBoatVisibilityModes` | Per-boat `solid` \| `ghost` \| `hidden` (8.6) |
+| `setEnvironmentMode` / `getEnvironmentMode` | Scene dressing: `simple` \| `realistic` sea+sky (13.2) |
+| `setEnvironmentOpaqueClearSafe` | Gate realistic env: `true` only for opaque clears (`preview`) |
+| `setCalibrationOverlayEnabled` / `getCalibrationOverlayEnabled` | ENU grid + force-visible mark helpers for AR calib (13.7; default off) |
+| `refreshCalibrationOverlay` | Rebuild overlay from layout store when enabled |
 | `createBoatTag()` | Canvas sprite label (catalogue name + category tint, or `Boat {id}` stub) |
 | `createDroneCamera()` | PerspectiveCamera + ENU apply |
 | `createFreeCam()` | OrbitControls free look around ENU origin (ops preview only) |
@@ -71,6 +76,13 @@ Mock ids: POVs from `povIds` (default `1`,`2`), boats from `boatIds` (default `2
 
 Clear color stays dark preview; OUT owns chroma / transparent. Ambient + sun + cool fill + weak bounce so `MeshStandard` / glTF / buoy materials read on alpha and chroma plates.
 
+## Calibration overlay (Phase 13.7)
+
+Toggle via sidebar **Calib → Calibration overlay** (`setCalibrationOverlayEnabled`). Default **off**.
+Renders an ENU grid (50 m / ±1 km), origin pole, and high-contrast helpers for marks/gates/start–finish/buoys
+**regardless** of `visible3d` — lines/poles/labels only (safe with transparent clear). See
+[`docs/ops/ar-calibration-overlay.md`](../../docs/ops/ar-calibration-overlay.md).
+
 ## Course + buoys (Phase 2.3 / 8.8 polish)
 
 - Fixture: `public/fixtures/course/demo-istanbul.json` (config key `courseUrl`).
@@ -78,6 +90,7 @@ Clear color stays dark preview; OUT owns chroma / transparent. Ambient + sun + c
 - **Water Y:** course lines and buoy bases forced to **`y = 0`** (Unity `waterSurfaceY`). Converted AMSL ENU `y` is ignored for graphics so Istanbul geoid offset does not float the course.
 - Boundary: `LineLoop` through marks (fixture order). Gates: horizontal **tubes** (MeshStandard) per Left/Right pair. Buoys: float body + band + stem + cap + name sprites (gate ends use gate-colour accent).
 - **Water / shore cue (8.8):** localized semi-transparent pads under course AABB (`WATER_CUE_DEFAULTS` in `course/waterCue.ts`) — not Cesium. Clear behaviour: see [`docs/ops/unity-asset-port.md`](../../docs/ops/unity-asset-port.md) + air runbook.
+- **Realistic sea + sky (13.2):** optional `Water` + `Sky` (`src/scene/environment/`) behind Ops **environment** `simple` \| `realistic` (also `?env=realistic`). Default **`simple`**. Hard constraint: realistic meshes are **forced off** whenever the active clear is `transparent` or `chroma` (`setEnvironmentOpaqueClearSafe(false)`) so AR alpha plates stay clean. Course `waterCue` pad remains as a local tint on top of the ocean when realistic is on.
 - Not `poseBus`-driven; dispose on `scene.stop()`.
 
 ## Sponsors (Phase 2.5)
@@ -187,6 +200,7 @@ Per-boat draw mode: **`solid`** | **`ghost`** | **`hidden`** (`BoatVisibilityMod
 
 - **HUD:** mode select (`mock` / `replay` / `live`) restarts TEL ingest via `onModeChange`. POV select lists `povIds` and calls `onPovChange` → scene `setActivePovId` (and calib device sync in `main`). **View** select: Free cam | Follow active POV → `onOpsViewChange` → `scene.setOpsViewMode` (does not change air POV). Countdown Start / Pause / Reset / Restart → `onCountdownControl` → scene `controlCountdown`. **Authoring** checkbox mirrors World Authoring workspace open state (primary: World Map → Open authoring; `?editor=1|0` override). **Stream map** checkbox (default **off**) toggles the viewer-facing broadcast PiP map. Status shows mode, TEL counts, **connection line** (`ws drone=… boat=…` in live via `setConnectionStatus`, or `ws=n/a (mock|replay)` — never fake `open`), `pov=<active>  seen=…  view=follow|free`, last active-drone ENU, and a multi-boat ENU line (`boats=N  21=(…) 22=(…)` truncated if long).
 - **Ops map:** small top-right panel; plots `position.x` (East) vs `position.z` (North), north-up; auto-fits bounds to recent points + shared layout features (marks, gates, sponsors, flags, S/F). Boat **sail icons** (Unity `tekne_yeni` tinted by catalogue colour, yaw from pose `brg`; procedural fallback). Drones stay cyan circles. Editor click tools attach here.
+- **Fleet ↔ map sync:** Live/Fleet delete/rename prunes ops + stream map icons via `retainPoseIds` (buoy poses kept). HUD pose subscribe ignores boat/drone ids outside the current allow-lists so mock/live cannot re-add ghosts. World Authoring place-boat/drone seeds an icon at click ENU immediately (planned lat/lon on the fleet row) without waiting for telemetry.
 - **Stream map (Phase 8.1 + 8.7 + Phase 11 broadcast graphic):** larger CSS-overlay PiP (`createStreamMap2d`, **520px**, top-left when shown). Shares layout/fleet data with ops via `createMap2d` + `mapChrome`, but **`variant: 'stream'`** gets a distinct broadcast look — framed card CSS, race-name title strip (`setTitle` from loaded project), larger icons/labels, water vignette, north compass ring. Ops/authoring map stays utilitarian (unchanged). **Not** a Three.js HUD — never steals WebGL / NDI air POV. Default hidden (air clutter). Manual check: toggle on in preview → polished graphic with course + coloured sailboats; free cam / POV switch unchanged; NDI still active POV.
 
 ### Map chrome checklist (Phase 8.7)

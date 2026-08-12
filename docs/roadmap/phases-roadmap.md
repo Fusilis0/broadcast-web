@@ -26,7 +26,9 @@ viewer-facing stream map) + follow-up #3 (P0 `window.prompt()` throws unconditio
 breaking billboard chain, boat/drone/buoy placement, Save as, Rename, Duplicate — fixed by shared
 `promptModal()` DOM utility, `DSP-SCN-20260811-07` + `DSP-PLT-20260811-03`, accepted 2026-08-12
 after BW drove the real Electron renderer end-to-end) all accepted. See
-`docs/architecture/world-authoring-workspace.md`. Phase 12 cloud still deferred.
+`docs/architecture/world-authoring-workspace.md`. Phase 12 cloud still deferred.  
+**Active:** human **Phase 10.1** (Unity vs broadcast-web parallel air).  
+**Done:** Phase 11 (**V1-D**) + follow-ups; **Phase 13 complete** (13.1–13.8). Phase 12 deferred.
 
 ---
 
@@ -123,6 +125,44 @@ Docs remain valid when needed: deploy / WSS / human checklist.
 
 ---
 
+### Phase 13 — Multi-channel output (2D/3D/AR), realistic environment, NDI delay, AR calib overlay, local project saves
+*(**Done** — all 13.1–13.8 accepted 2026-08-12)*
+
+**Requested:** 2026-08-12 (user, with reference image for the 3D environment look).
+
+**Design:** [`../architecture/multi-output-streaming.md`](../architecture/multi-output-streaming.md)
+(channel model, multi-sender NDI bridge, delay buffer, switcher UI, resolution) ·
+[`../architecture/realistic-3d-environment.md`](../architecture/realistic-3d-environment.md)
+(sea + sky added to the existing 3D scene) ·
+[`../architecture/ar-calibration-map-overlay.md`](../architecture/ar-calibration-map-overlay.md)
+(coordinate overlay to visually compare AR against a real camera) ·
+[`../architecture/project-api-and-database.md`](../architecture/project-api-and-database.md) §10
+(local file save to `public/races/` from Electron, no server process).
+
+**Goal:** Three always-on NDI outputs (2D map / 3D = same scene opaque + sea model / AR = today's
+alpha plate) instead of today's single AR-only path, each independently delayable up to 30 s, with
+a bigger local switcher, a manual calibration aid, and Save that writes straight into the repo's
+existing `public/races/` project-saves folder instead of only downloading.
+
+| # | Work | Owner | Dispatch / status |
+| --- | --- | --- | --- |
+| 13.1 | Multi-sender NDI bridge (`desktop/`) | OUT | `DSP-OUT-20260812-01` **accepted** |
+| 13.2 | Sea/sky model on existing 3D scene | SCN | `DSP-SCN-20260812-01` **accepted** |
+| 13.3 | 3D channel → own NDI sender | OUT | `DSP-OUT-20260812-02` **accepted** |
+| 13.4 | 2D channel → own NDI sender | OUT | `DSP-OUT-20260812-03` **accepted** |
+| 13.5 | Bigger 2D/3D/AR local switcher | OUT | `DSP-OUT-20260812-04` **accepted** |
+| 13.6 | Per-channel NDI delay (0–30000 ms) | OUT | `DSP-OUT-20260812-05` **accepted** |
+| 13.7 | AR calibration coordinate overlay | SCN | `DSP-SCN-20260812-02` **accepted** |
+| 13.8 | Electron local file save + dropdown | PLT | `DSP-PLT-20260812-01` **accepted** |
+
+**Optional polish (not blocking):** realistic water `tick` on 3D NDI while AR is transparent; typed
+`outputDelayMs` in AppConfig; human studio smokes (vMix three sources + switcher + Save folder).
+
+**BW locks (wave 1 / 3):** **1920×1080**; delay default **0**, max **30000**, buffer only if &gt;0,
+warn &gt;3s; Electron saves → `public/races/` (dev) / `userData/races` (`--file`).
+
+---
+
 ## Air / output priority (unchanged)
 
 1. **Electron + alpha NDI** — preferred studio air  
@@ -162,3 +202,4 @@ Do not re-open unless a regression. Details live in `docs/agentic/dispatches/don
 | Unity cutover + console deep-link | **10** *(active: 10.1 human)* |
 | Unified ops sidebar / asset pipeline | **11** *(done — V1-D)* |
 | Public host / WSS TLS | **12** (deferred) |
+| Multi-channel output (2D/3D/AR), NDI delay, AR calib overlay | **13** *(planned — design only)* |

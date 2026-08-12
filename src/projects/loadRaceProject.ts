@@ -1,4 +1,5 @@
 import { isSafeRaceId, parseRaceProject } from './parseRaceProject.ts'
+import { getRacesBridge, type StudioRacesBridge } from './racesBridge.ts'
 import type { RaceProject } from './types.ts'
 import { retainMaterializedVenuePack } from './venuePack/activeMaterialization.ts'
 import { materializeVenuePack } from './venuePack/materializeVenuePack.ts'
@@ -19,11 +20,16 @@ export function raceProjectApiUrl(apiBase: string, id: string): string {
 }
 
 export type LoadRaceProjectOptions = {
-  /** When set, try API get first; on miss/fail → static pack. */
+  /** When set, try API get first; on miss/fail → Electron races / static pack. */
   projectsApiBase?: string
   fetchImpl?: typeof fetch
   /**
-   * Offline venue-pack fallback after API + static miss.
+   * Electron local races bridge. Omit → `getRacesBridge()` (Chrome = null).
+   * Pass `null` in tests to disable auto-detect.
+   */
+  racesBridge?: StudioRacesBridge | null
+  /**
+   * Offline venue-pack fallback after API + Electron + static miss.
    * `true` / omit → default IndexedDB cache; `false` → disable; or inject a cache.
    */
   venuePackCache?: boolean | VenuePackCache
@@ -80,8 +86,9 @@ async function loadFromVenuePackCache(
  * Fetch and lightly validate a RaceProject pack.
  * Precedence:
  * 1. API `GET {projectsApiBase}/races/:id` when configured
- * 2. Static `/races/<id>/project.json`
- * 3. Cached venue pack (IndexedDB) when API + static miss
+ * 2. Electron `races.read` when studio bridge present (userData / public writes)
+ * 3. Static `/races/<id>/project.json`
+ * 4. Cached venue pack (IndexedDB) when prior paths miss
  *
  * When `featuresUrl` is set and `features` omitted, loads that JSON
  * (`{ features: WorldFeature[] }` or a bare array).
@@ -98,6 +105,10 @@ export async function loadRaceProject(
   const fetchImpl = options.fetchImpl ?? fetch
   const apiBase = options.projectsApiBase?.trim()
   const cache = resolveVenuePackCache(options.venuePackCache)
+  const bridge =
+    options.racesBridge === undefined
+      ? getRacesBridge()
+      : options.racesBridge
 
   if (apiBase) {
     try {
@@ -107,7 +118,19 @@ export async function loadRaceProject(
         return hydrateFeaturesUrl(project, fetchImpl)
       }
     } catch {
-      // Network / parse failure → static fallback.
+      // Network / parse failure → Electron / static fallback.
+    }
+  }
+
+  if (bridge) {
+    try {
+      const result = await bridge.read(trimmed)
+      if (result.ok) {
+        const project = parseRaceProject(result.project)
+        return hydrateFeaturesUrl(project, fetchImpl)
+      }
+    } catch {
+      // Bridge miss → static.
     }
   }
 
