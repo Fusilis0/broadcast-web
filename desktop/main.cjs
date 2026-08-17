@@ -13,6 +13,8 @@
  *   BROADCAST_WEB_URL=<url>     → override any of the above
  *   BROADCAST_NDI_NAME=<name>   → NDI source name (default broadcast-web)
  *   --no-ndi                    → disable NDI sender
+ *   --integrated-gpu            → do not request high-performance (discrete) GPU
+ *   BROADCAST_USE_INTEGRATED_GPU=1 → same as --integrated-gpu
  */
 const {
   app,
@@ -34,6 +36,22 @@ const STUDIO_WIDTH = 1920
 const STUDIO_HEIGHT = 1080
 const PARK_X = -16000
 const PARK_Y = -16000
+
+/**
+ * Prefer discrete / high-performance GPU on dual-GPU Windows (Optimus, etc.).
+ * Must run before `app.whenReady()`. Chromium may still follow OS assignment —
+ * see desktop/README.md § GPU. Opt out: `--integrated-gpu` or
+ * `BROADCAST_USE_INTEGRATED_GPU=1`.
+ */
+const useIntegratedGpu =
+  process.argv.includes('--integrated-gpu') ||
+  ['1', 'true', 'yes'].includes(
+    (process.env.BROADCAST_USE_INTEGRATED_GPU || '').trim().toLowerCase(),
+  )
+if (!useIntegratedGpu) {
+  app.commandLine.appendSwitch('force_high_performance_gpu')
+  app.commandLine.appendSwitch('ignore-gpu-blocklist')
+}
 
 // Keep renderer eligible while occluded; Windows occlusion can still freeze GPU.
 app.commandLine.appendSwitch('disable-renderer-backgrounding')
@@ -420,12 +438,25 @@ function stopStudioClock() {
   studioTickTimer = null
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   registerNdiIpc()
   registerRacesIpc()
   console.info(
     `[desktop] races dir (${getRacesKind()}): ${getRacesDir()}`,
   )
+  console.info(
+    `[desktop] GPU preference: ${useIntegratedGpu ? 'integrated (opt-out)' : 'high-performance (discrete preferred)'}`,
+  )
+  try {
+    const info = await app.getGPUInfo('basic')
+    const gpuDevice =
+      info && typeof info === 'object' && 'gpuDevice' in info
+        ? /** @type {{ gpuDevice?: unknown }} */ (info).gpuDevice
+        : undefined
+    console.info('[desktop] GPU info (basic):', JSON.stringify(gpuDevice ?? info))
+  } catch (err) {
+    console.warn('[desktop] getGPUInfo failed', err)
+  }
   if (ndiEnabled) {
     console.info(
       `[desktop] NDI enabled (default name "${resolveNdiName()}"). Use outputMode=transparent for alpha plate.`,

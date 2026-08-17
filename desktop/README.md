@@ -53,7 +53,40 @@ npm run desktop:dev -- --ndi-name=BroadcastAR
 npm run desktop:dev -- --no-ndi
 ```
 
-## Setup
+## GPU (prefer discrete / external)
+
+Studio WebGL + NDI readback is heavy. On dual-GPU Windows laptops (Intel + NVIDIA/AMD),
+Electron/Chromium often lands on the **iGPU** unless told otherwise.
+
+**What we do in `main.cjs` (default):**
+
+- `force_high_performance_gpu` — Chromium preference for the high-performance adapter
+- `ignore-gpu-blocklist` — avoid blocklist steering WebGL onto a weak adapter
+
+**Opt out (force integrated):**
+
+```bash
+npm run desktop:dev -- --integrated-gpu
+# or
+$env:BROADCAST_USE_INTEGRATED_GPU="1"; npm run desktop:dev
+```
+
+On boot the shell logs `GPU preference:` and `GPU info (basic):` — check which adapter Chromium
+reports. You can also open DevTools and go to `chrome://gpu`.
+
+**If Task Manager still shows the iGPU** (common with Optimus): Chromium’s preference is not
+enough — pin the process in Windows / NVIDIA:
+
+1. **Windows Settings → System → Display → Graphics** (or *Graphics settings*)  
+   - Browse to `desktop\node_modules\electron\dist\electron.exe`  
+   - Options → **High performance** (your NVIDIA/AMD GPU) → Save  
+   - Restart `npm run desktop:dev`
+2. **NVIDIA Control Panel → Manage 3D settings → Program Settings**  
+   - Add the same `electron.exe`  
+   - Prefer **High-performance NVIDIA processor**
+
+Laptop “external GPU” (eGPU enclosure): ensure the eGPU is the Windows high-performance GPU for
+that `electron.exe`, then restart the studio shell.
 
 From repo root (once):
 

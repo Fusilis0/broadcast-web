@@ -46,6 +46,10 @@ This doc absorbs the Phase **3.5** studio chroma checklist ([`vmix-chroma-runboo
    ```
    Or set `BROADCAST_WEB_URL` before `desktop:dev` (see desktop README).
 4. Confirm NDI name (override: `BROADCAST_NDI_NAME` / `--ndi-name=`). Disable only for shell debug: `--no-ndi`.
+4b. **GPU:** shell defaults to high-performance (discrete) preference. Check the Electron console for
+   `GPU preference:` / `GPU info`. If Task Manager still shows the iGPU, set
+   `desktop\node_modules\electron\dist\electron.exe` → **High performance** in Windows Graphics
+   settings (and NVIDIA Control Panel if present). Details: [`../desktop/README.md`](../../desktop/README.md) § GPU.
 5. In **vMix** (or OBS): **Add Input → NDI** → select `… (broadcast-web)` (AR alpha).
 6. Place on a layer above camera/plate. Compositing must use source **alpha**.
 7. **Do not** enable Chroma Key / Colour Key on this NDI input.
