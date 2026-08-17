@@ -2,19 +2,31 @@ import * as THREE from 'three'
 import {
   poseRotationToQuaternion,
   type PoseEvent,
+  type PoseRotation,
 } from '../pose/index.ts'
 
 /** Mini 4 Pro default hFOV until CAL owns FOV (architecture / roadmap 1.6). */
 export const TEMP_HFOV_DEG = 66.8832
 
 /**
- * Unity cameras look along local +Z; Three.js PerspectiveCamera looks along −Z.
- * Right-multiply so pose ENU attitude aims the Three camera the same world way.
+ * Compass yaw (0°=N, 90°=E, CW) → Three.js Euler Y for right-handed ENU
+ * (`x=East`, `y=Up`, `z=−North`). Unity/DJI yaw is clockwise from north;
+ * Three Y is CCW and north is −Z, so scene yaw is negated.
+ *
+ * Measured: yaw 0 looks −Z (north); yaw 90 looks +X (east). Positive Unity
+ * pitch (look down) must be negated for Three's X rotation after the Z packing
+ * change. The old `UNITY_CAM_TO_THREE` 180° Y was correct only while packing
+ * used `z=+North`; after packing, identity + negated yaw/pitch is the match.
  */
-const UNITY_CAM_TO_THREE = new THREE.Quaternion().setFromAxisAngle(
-  new THREE.Vector3(0, 1, 0),
-  Math.PI,
-)
+function poseRotationToSceneCameraQuaternion(
+  rotation: PoseRotation,
+): THREE.Quaternion {
+  return poseRotationToQuaternion({
+    pitchDeg: -rotation.pitchDeg,
+    yawDeg: -rotation.yawDeg,
+    rollDeg: rotation.rollDeg,
+  })
+}
 
 export type DroneCameraHandle = {
   camera: THREE.PerspectiveCamera
@@ -50,7 +62,6 @@ export function createDroneCamera(
     0.5,
     80_000,
   )
-  const _q = new THREE.Quaternion()
 
   function updateProjection(): void {
     camera.fov = horizontalToVerticalFovDeg(currentHFov, camera.aspect)
@@ -62,8 +73,7 @@ export function createDroneCamera(
     applyPose(pose: PoseEvent): void {
       const { x, y, z } = pose.position
       camera.position.set(x, y, z)
-      _q.copy(poseRotationToQuaternion(pose.rotation))
-      camera.quaternion.copy(_q).multiply(UNITY_CAM_TO_THREE)
+      camera.quaternion.copy(poseRotationToSceneCameraQuaternion(pose.rotation))
       const nextFov = pose.fovHDeg > 0 ? pose.fovHDeg : TEMP_HFOV_DEG
       if (Math.abs(nextFov - currentHFov) > 1e-6) {
         currentHFov = nextFov

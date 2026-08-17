@@ -1,7 +1,9 @@
 /**
  * @vitest-environment happy-dom
  */
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
+import { knotsToMs } from '../telemetry/windDirection.ts'
+import { resetWindBusForTests, windBus } from '../telemetry/windBus.ts'
 import type { LayoutFeature } from './features/types.ts'
 import {
   boundsFromPoints,
@@ -27,6 +29,8 @@ import {
   tilesForEnuBounds,
 } from './map2dBasemap.ts'
 import { samplePolylineAtSpacing } from './billboardChain.ts'
+import * as GeoOrigin from '../geodesy/geoOrigin.ts'
+import { gpsToEnu, northFromSceneZ } from '../geodesy/index.ts'
 
 describe('map2d projection', () => {
   it('maps East→right and North→top (north-up)', () => {
@@ -37,6 +41,44 @@ describe('map2d projection', () => {
     expect(sw.y).toBeCloseTo(200)
     expect(ne.x).toBeCloseTo(200)
     expect(ne.y).toBeCloseTo(0)
+  })
+
+  it('scene Vector3 north (−Z) and named-scalar map agree: N→top, E→right', () => {
+    const lat0 = 41.08673822819249
+    const lon0 = 29.061803205100848
+    GeoOrigin.setOriginHAE(lat0, lon0, 0)
+    try {
+      const metersPerDegLat = 111_320
+      const metersPerDegLon =
+        metersPerDegLat * Math.cos((lat0 * Math.PI) / 180)
+      const east = gpsToEnu(lat0, lon0 + 500 / metersPerDegLon, 0)
+      const north = gpsToEnu(lat0 + 500 / metersPerDegLat, lon0, 0)
+      expect(east.x).toBeGreaterThan(0)
+      expect(north.z).toBeLessThan(0)
+
+      const bounds = { minE: -800, maxE: 800, minN: -800, maxN: 800 }
+      const originPx = enuToMapPx(0, 0, bounds, 200, 200, 0)
+      const eastPx = enuToMapPx(
+        east.x,
+        northFromSceneZ(east.z),
+        bounds,
+        200,
+        200,
+        0,
+      )
+      const northPx = enuToMapPx(
+        north.x,
+        northFromSceneZ(north.z),
+        bounds,
+        200,
+        200,
+        0,
+      )
+      expect(eastPx.x).toBeGreaterThan(originPx.x)
+      expect(northPx.y).toBeLessThan(originPx.y)
+    } finally {
+      GeoOrigin.resetForTests()
+    }
   })
 
   it('mapPxToEnu inverts enuToMapPx', () => {
@@ -207,6 +249,34 @@ describe('resolveMapDotFill', () => {
   })
 })
 
+describe('map2d windBus readout', () => {
+  afterEach(() => {
+    resetWindBusForTests()
+  })
+
+  it('subscribes to windBus (no fetch) and still redraws after a publish', () => {
+    const ops = createMap2d({ sizePx: 120, visible: false })
+    const stream = createMap2d({
+      sizePx: 120,
+      visible: false,
+      variant: 'stream',
+    })
+    try {
+      windBus.publish({
+        directionFromDeg: 90,
+        speedMs: knotsToMs(12),
+        source: 'operator',
+        updatedAtMs: 1,
+      })
+      expect(ops.getCanvas().width).toBe(120)
+      expect(stream.getCanvas().width).toBe(120)
+    } finally {
+      ops.dispose()
+      stream.dispose()
+    }
+  })
+})
+
 describe('map2d pose prune', () => {
   const pose = (
     id: string,
@@ -216,7 +286,7 @@ describe('map2d pose prune', () => {
   ) => ({
     id,
     kind,
-    position: { x: east, y: 0, z: north },
+    position: { x: east, y: 0, z: -north },
     rotation: { yawDeg: 0, pitchDeg: 0, rollDeg: 0 },
     fovHDeg: 60,
     ts: 1,

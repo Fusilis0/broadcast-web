@@ -36,6 +36,9 @@ Owned by **PLT+BW**. Thin `/config.json` loader — no domain logic.
 | `projectsApiBase` | Optional RaceProject API base (default `""` = static packs only). e.g. `"/api"` — try API then `/races/<id>/project.json`. See [`src/projects/README.md`](../projects/README.md) |
 | `projectsRole` | LAN role `"editor"` (default) \| `"air"`. Air disables Save / API write. Override: `?projectsRole=air` / `?role=air`. See [`docs/ops/projects-api.md`](../../docs/ops/projects-api.md) |
 | `projectsApiToken` | Editor bearer for API writes (default `""`). Local editor PCs only — never commit secrets. |
+| `cesiumIonToken` | Cesium ion token for World Terrain (default `""`). **Commit on this private studio repo** so machines share the Unity ion account. Ops **ion token + Apply** writes this field (`desktop:dev` → `public/config.json`). Empty → terrain stays off. Fallback: `VITE_CESIUM_ION_TOKEN` in local `.env` (gitignored). Never log the value. Do not deploy a filled token on a public host. |
+| `cesiumIonAssetId` | ion terrain asset (default `1` = Cesium World Terrain) |
+| `cesiumIonImageryAssetId` | ion imagery overlay (default `2` = Bing Maps Aerial). `0` = bare terrain |
 
 ### `boatIds` (SCN contract)
 

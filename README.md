@@ -51,6 +51,8 @@ Also available:
 
 Runtime placeholders live in `public/config.json`. Optional env keys are listed in `.env.example` (copy to `.env` locally; `.env` is gitignored).
 
+Wind (Phase 14.3b): Open-Meteo forecast at `config.origin` polls onto `windBus` (~10 min). Operator **hold** in Ops beats the API. Open-Meteo data is [CC BY 4.0](https://open-meteo.com/) (non-commercial free tier; fine for studio/dev).
+
 ## Deploy
 
 Production is a **static SPA**: `npm run build` → upload `dist/` to a web root with SPA fallback (`try_files` → `index.html`).

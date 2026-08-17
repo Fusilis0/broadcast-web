@@ -72,7 +72,7 @@ export type WorldFeature = {
   visible2d?: boolean
 }
 
-/** ENU meters after GEO + water-Y force (x=East, y=Up, z=North). */
+/** ENU meters after GEO + water-Y force (x=East, y=Up, z=−North). */
 export type LayoutEnuPoint = {
   x: number
   y: number

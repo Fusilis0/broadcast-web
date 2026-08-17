@@ -81,10 +81,21 @@ import {
   createRealisticEnvironment,
   normalizeEnvironmentMode,
   shouldShowRealisticEnvironment,
+  shouldEnableShoreFoam,
   type EnvironmentMode,
   type RealisticEnvironmentHandle,
 } from './environment/index.ts'
 import { createCalibrationOverlay } from './calibrationOverlay.ts'
+import {
+  CESIUM_ION_BING_AERIAL_ASSET_ID,
+  CESIUM_ION_WORLD_TERRAIN_ASSET_ID,
+  DEFAULT_TERRAIN_ENABLED,
+  TERRAIN_STATUS_NO_TOKEN,
+  TERRAIN_STATUS_OFF,
+  TERRAIN_STATUS_ON,
+  createTerrain,
+  type TerrainHandle,
+} from './terrain/index.ts'
 
 export { DEFAULT_DRONE_ID }
 
@@ -130,6 +141,15 @@ export type SceneOptions = {
   frameClock?: {
     subscribe: (onTick: () => void) => () => void
   }
+  /**
+   * Cesium ion token (Phase 14.1). Empty → terrain stays off, no throw.
+   * Git-shared via `public/config.json`; Ops can paste and Apply at runtime.
+   */
+  cesiumIonToken?: string
+  /** ion terrain asset id. Default `1` (Cesium World Terrain). */
+  cesiumIonAssetId?: number
+  /** ion imagery overlay asset id. Default `2` (Bing Aerial). `0` skips overlay. */
+  cesiumIonImageryAssetId?: number
 }
 
 export type FleetAllowLists = {
@@ -277,6 +297,30 @@ export type SceneHandle = {
   setEnvironmentOpaqueClearSafe: (safe: boolean) => void
   getEnvironmentOpaqueClearSafe: () => boolean
   /**
+   * Cesium ion World Terrain (default **off**). Opaque-only — hidden when
+   * `setEnvironmentOpaqueClearSafe(false)` (transparent / chroma AR).
+   */
+  setTerrainEnabled: (enabled: boolean) => void
+  getTerrainEnabled: () => boolean
+  /** Extra metres of +Y after HAE reorientation (operator venue nudge). */
+  setTerrainAltitudeNudgeM: (nudgeM: number) => void
+  getTerrainAltitudeNudgeM: () => number
+  /** Freeze tile LOD updates once the shot is framed. */
+  setTerrainTilesLocked: (locked: boolean) => void
+  getTerrainTilesLocked: () => boolean
+  getTerrainStatusMessage: () => string
+  getTerrainCredits: () => readonly string[]
+  /** Notify when ion credit strings change (DOM overlay; never WebGL). */
+  setTerrainCreditsListener: (
+    listener: ((lines: readonly string[]) => void) | null,
+  ) => void
+  /**
+   * Replace the ion token and remount terrain (auth plugin is baked at create).
+   * Empty string disposes tiles and leaves terrain off. Does not log the value.
+   */
+  setCesiumIonToken: (token: string) => void
+  getCesiumIonToken: () => string
+  /**
    * Toggle ENU grid + force-visible mark helpers for AR calibration.
    * Default **off**. Read-only — does not write calibration offsets.
    */
@@ -358,7 +402,31 @@ export function startScene(options: SceneOptions): SceneHandle {
   let environmentOpaqueClearSafe = false
   let realisticEnv: RealisticEnvironmentHandle | null = null
   let realisticEnvMounted = false
+  /** DSP-SCN-20260817-01 — terrain hooks only; ocean stays in environment/. */
+  let terrain: TerrainHandle | null = null
+  let terrainEnabled = DEFAULT_TERRAIN_ENABLED
+  let terrainNudgeM = 0
+  let terrainTilesLocked = false
+  let terrainToken = (options.cesiumIonToken ?? '').trim()
+  const terrainAssetId =
+    options.cesiumIonAssetId !== undefined && options.cesiumIonAssetId > 0
+      ? Math.floor(options.cesiumIonAssetId)
+      : CESIUM_ION_WORLD_TERRAIN_ASSET_ID
+  const terrainImageryAssetId =
+    options.cesiumIonImageryAssetId !== undefined
+      ? Math.floor(options.cesiumIonImageryAssetId)
+      : CESIUM_ION_BING_AERIAL_ASSET_ID
+  let terrainCreditsListener: ((lines: readonly string[]) => void) | null =
+    null
   const calibrationOverlay = createCalibrationOverlay(scene)
+
+  function applyWaterCueForEnvironment(): void {
+    const hidePad = shouldShowRealisticEnvironment(
+      environmentMode,
+      environmentOpaqueClearSafe,
+    )
+    course?.setWaterCueVisible(!hidePad)
+  }
 
   function syncRealisticEnvironment(): void {
     if (stopped) return
@@ -375,6 +443,8 @@ export function startScene(options: SceneOptions): SceneHandle {
         scene.fog = realisticEnv.fog
         realisticEnvMounted = true
       }
+      applyWaterCueForEnvironment()
+      syncShoreFoam()
       return
     }
     if (realisticEnvMounted && realisticEnv) {
@@ -382,6 +452,8 @@ export function startScene(options: SceneOptions): SceneHandle {
       scene.fog = null
       realisticEnvMounted = false
     }
+    applyWaterCueForEnvironment()
+    syncShoreFoam()
   }
 
   function previewCamera(): THREE.PerspectiveCamera {
@@ -462,6 +534,56 @@ export function startScene(options: SceneOptions): SceneHandle {
   )
   options.container.appendChild(renderer.domElement)
   freeCam = createFreeCam(renderer.domElement, 1, TEMP_HFOV_DEG)
+
+  function disposeTerrainInstance(): void {
+    if (!terrain) return
+    scene.remove(terrain.root)
+    terrain.dispose()
+    terrain = null
+  }
+
+  function ensureTerrain(): TerrainHandle | null {
+    if (stopped) return null
+    if (terrain) return terrain
+    if (terrainToken === '') return null
+    terrain = createTerrain({
+      renderer,
+      token: terrainToken,
+      assetId: terrainAssetId,
+      imageryAssetId: terrainImageryAssetId,
+    })
+    scene.add(terrain.root)
+    terrain.setAltitudeNudgeM(terrainNudgeM)
+    terrain.setTilesLocked(terrainTilesLocked)
+    terrain.setEnabled(terrainEnabled)
+    terrain.setOpaqueClearSafe(environmentOpaqueClearSafe)
+    return terrain
+  }
+
+  function syncTerrain(): void {
+    if (stopped) return
+    if (terrainEnabled && terrainToken !== '') {
+      ensureTerrain()
+    }
+    terrain?.setEnabled(terrainEnabled)
+    terrain?.setOpaqueClearSafe(environmentOpaqueClearSafe)
+    syncShoreFoam()
+  }
+
+  function syncShoreFoam(): void {
+    if (!realisticEnv) return
+    const on = shouldEnableShoreFoam({
+      realisticMounted: realisticEnvMounted,
+      terrainEnabled: terrainEnabled && terrain !== null,
+      opaqueClearSafe: environmentOpaqueClearSafe,
+    })
+    realisticEnv.setShoreContact(on && terrain ? terrain.root : null)
+  }
+
+  function emitTerrainCredits(): void {
+    if (!terrainCreditsListener) return
+    terrainCreditsListener(terrain?.getCredits() ?? [])
+  }
 
   let rafId = 0
   let intervalId: ReturnType<typeof setInterval> | 0 = 0
@@ -583,7 +705,12 @@ export function startScene(options: SceneOptions): SceneHandle {
       const cam = previewCamera()
       if (opsViewMode === 'free') freeCam?.update()
       countdownFlags?.tickClock(dt)
+      // Ocean time is a shared clock (onBeforeRender); tick is not required for 3D NDI.
       if (realisticEnvMounted) realisticEnv?.tick(dt)
+      if (terrain && terrainEnabled) {
+        terrain.tick(cam, drone.camera, renderer)
+        emitTerrainCredits()
+      }
       // Preview pass scales; NDI dual-render re-orients for air via prepareCameraPass.
       orientOpsBillboards(cam)
       // Screen preview may be free cam; active POV camera keeps tracking for OUT/NDI.
@@ -673,6 +800,7 @@ export function startScene(options: SceneOptions): SceneHandle {
       }
       course = handle
       if (handle) courseAppearance = { ...handle.appearance }
+      applyWaterCueForEnvironment()
       return handle
     },
     async loadSponsorsFromUrl(url?: string): Promise<SponsorsHandle | null> {
@@ -721,6 +849,7 @@ export function startScene(options: SceneOptions): SceneHandle {
         course = null
         return
       }
+      applyWaterCueForEnvironment()
 
       const sponsorsData = featuresToSponsorsData(for3d)
       sponsors?.dispose()
@@ -863,8 +992,50 @@ export function startScene(options: SceneOptions): SceneHandle {
       if (stopped) return
       environmentOpaqueClearSafe = safe === true
       syncRealisticEnvironment()
+      syncTerrain()
     },
     getEnvironmentOpaqueClearSafe: () => environmentOpaqueClearSafe,
+    setTerrainEnabled(enabled): void {
+      if (stopped) return
+      terrainEnabled = enabled === true
+      syncTerrain()
+      emitTerrainCredits()
+    },
+    getTerrainEnabled: () => terrainEnabled,
+    setTerrainAltitudeNudgeM(nudgeM): void {
+      if (stopped) return
+      terrainNudgeM = Number.isFinite(nudgeM) ? nudgeM : 0
+      terrain?.setAltitudeNudgeM(terrainNudgeM)
+    },
+    getTerrainAltitudeNudgeM: () =>
+      terrain?.getAltitudeNudgeM() ?? terrainNudgeM,
+    setTerrainTilesLocked(locked): void {
+      if (stopped) return
+      terrainTilesLocked = locked === true
+      terrain?.setTilesLocked(terrainTilesLocked)
+    },
+    getTerrainTilesLocked: () =>
+      terrain?.getTilesLocked() ?? terrainTilesLocked,
+    getTerrainStatusMessage(): string {
+      if (terrain) return terrain.getStatusMessage()
+      if (terrainToken === '') return TERRAIN_STATUS_NO_TOKEN
+      return terrainEnabled ? TERRAIN_STATUS_ON : TERRAIN_STATUS_OFF
+    },
+    getTerrainCredits: () => terrain?.getCredits() ?? [],
+    setTerrainCreditsListener(listener): void {
+      terrainCreditsListener = listener
+      emitTerrainCredits()
+    },
+    setCesiumIonToken(token): void {
+      if (stopped) return
+      const next = (token ?? '').trim()
+      if (next === terrainToken) return
+      terrainToken = next
+      disposeTerrainInstance()
+      syncTerrain()
+      emitTerrainCredits()
+    },
+    getCesiumIonToken: () => terrainToken,
     setCalibrationOverlayEnabled(enabled): void {
       if (stopped) return
       calibrationOverlay.setEnabled(enabled === true)
@@ -901,6 +1072,13 @@ export function startScene(options: SceneOptions): SceneHandle {
       realisticEnv = null
       environmentMode = DEFAULT_ENVIRONMENT_MODE
       environmentOpaqueClearSafe = false
+      if (terrain) {
+        scene.remove(terrain.root)
+        terrain.dispose()
+        terrain = null
+      }
+      terrainEnabled = DEFAULT_TERRAIN_ENABLED
+      terrainCreditsListener = null
       course?.dispose()
       course = null
       sponsors?.dispose()

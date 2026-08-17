@@ -1,8 +1,12 @@
 /**
- * WGS84 GPS → local ENU (Unity GeoUtils port).
+ * WGS84 GPS → local ENU (Unity GeoUtils port, right-handed Three packing).
  *
- * Axis contract (Three.js / Unity-compatible):
- *   x = East, y = Up, z = North
+ * Axis contract (Three.js / glTF, right-handed):
+ *   x = East, y = Up, z = −North
+ *
+ * Named-scalar APIs (`enuToGps(east, up, north)`) stay geographic: positive
+ * `north` means north. Scene Vector3 packing is `(east, up, −north)`.
+ * Use `sceneZFromNorth` / `northFromSceneZ` at call sites that convert.
  *
  * If GeoOrigin is unset: returns (0,0,0) and warns (Unity behavior).
  */
@@ -45,10 +49,28 @@ function enuFromEcefDelta(dx: number, dy: number, dz: number, out: Vector3): Vec
     GeoOrigin.m10 * dx + GeoOrigin.m11 * dy + GeoOrigin.m12 * dz
   const up =
     GeoOrigin.m20 * dx + GeoOrigin.m21 * dy + GeoOrigin.m22 * dz
-  return out.set(east, up, north)
+  return out.set(east, up, sceneZFromNorth(north))
 }
 
-/** GPS with HAE altitude → ENU Vector3 (x=East, y=Up, z=North). */
+/** Scene `Vector3.z` from geographic north (metres). */
+export function sceneZFromNorth(north: number): number {
+  return -north
+}
+
+/** Geographic north (metres) from scene `Vector3.z`. */
+export function northFromSceneZ(z: number): number {
+  return -z
+}
+
+/** Named East/North from a scene XZ pair (`x=East`, `z=−North`). */
+export function eastNorthFromScene(p: {
+  x: number
+  z: number
+}): { east: number; north: number } {
+  return { east: p.x, north: northFromSceneZ(p.z) }
+}
+
+/** GPS with HAE altitude → ENU Vector3 (x=East, y=Up, z=−North). */
 export function gpsToEnu(
   lat: number,
   lon: number,
@@ -151,8 +173,9 @@ function geodeticFromEcef(
 }
 
 /**
- * Local ENU (x=East, y=Up, z=North) → GPS with HAE altitude.
- * Inverse of `gpsToEnu`. Unset origin → (0,0,0) and warn.
+ * Local ENU named scalars (east, up, geographic north) → GPS with HAE altitude.
+ * Inverse of `gpsToEnu`. Pass geographic north, not raw `Vector3.z`
+ * (`northFromSceneZ(enu.z)`). Unset origin → (0,0,0) and warn.
  */
 export function enuToGps(
   east: number,

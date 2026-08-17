@@ -1,3 +1,6 @@
+/**
+ * @vitest-environment happy-dom
+ */
 import { describe, expect, it } from 'vitest'
 import * as THREE from 'three'
 import {
@@ -6,6 +9,7 @@ import {
 } from '../assets/boatVisualOffset.ts'
 import { createProceduralBoatVisual } from '../assets/createProceduralBoatVisual.ts'
 import { boatTagWorldHeight } from './boatTag.ts'
+import { createBoatEntity } from './boatEntity.ts'
 
 describe('boat visual', () => {
   it('procedural hull has clear bow/stern children and +Z length bias', () => {
@@ -32,6 +36,37 @@ describe('boat visual', () => {
     expect(g.position.length()).toBe(0)
     expect(g.rotation.x).toBe(0)
     expect(g.scale.z).toBe(1)
+  })
+
+  it('yaw 0 points geographic north (−Z); yaw 90 points east (+X)', () => {
+    const boat = createBoatEntity({ id: '21', tryGltf: false })
+    const forward = new THREE.Vector3()
+
+    boat.applyPose({
+      id: '21',
+      kind: 'boat',
+      position: { x: 0, y: 0, z: 0 },
+      rotation: { yawDeg: 0, pitchDeg: 0, rollDeg: 0 },
+      fovHDeg: 66.8832,
+      ts: 0,
+    })
+    boat.root.getWorldDirection(forward)
+    expect(forward.z).toBeLessThan(-0.98)
+    expect(Math.abs(forward.x)).toBeLessThan(0.05)
+
+    boat.applyPose({
+      id: '21',
+      kind: 'boat',
+      position: { x: 0, y: 0, z: 0 },
+      rotation: { yawDeg: 90, pitchDeg: 0, rollDeg: 0 },
+      fovHDeg: 66.8832,
+      ts: 0,
+    })
+    boat.root.getWorldDirection(forward)
+    expect(forward.x).toBeGreaterThan(0.98)
+    expect(Math.abs(forward.z)).toBeLessThan(0.05)
+
+    boat.dispose()
   })
 })
 

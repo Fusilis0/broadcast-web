@@ -29,7 +29,7 @@ export type SponsorsData = {
   sponsors: SponsorEntry[]
 }
 
-/** ENU meters after GEO + water-Y force (x=East, y=Up, z=North). */
+/** ENU meters after GEO + water-Y force (x=East, y=Up, z=−North). */
 export type SponsorEnuEndpoints = {
   id: string
   label: string

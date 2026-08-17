@@ -46,6 +46,14 @@ contextBridge.exposeInMainWorld('broadcastStudio', {
     read: (id) => ipcRenderer.invoke('races:read', id),
     getRoot: () => ipcRenderer.invoke('races:root'),
   },
+  /**
+   * Studio config writes. Dev/Vite → repo `public/config.json` (git-share).
+   * `--file` → `userData/config.json`.
+   */
+  config: {
+    setCesiumIonToken: (token) =>
+      ipcRenderer.invoke('config:setCesiumIonToken', token),
+  },
   /** Main-process clock — stays at ~30 fps when the window is minimized. */
   onStudioTick: (cb) => {
     const handler = () => {

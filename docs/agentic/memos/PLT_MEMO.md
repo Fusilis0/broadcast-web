@@ -1,7 +1,20 @@
 # PLT_MEMO
 
-**Last updated:** 2026-08-12  
-**Status:** Idle — `DSP-PLT-20260812-02` **accepted** (Electron Project Save UX)
+**Last updated:** 2026-08-17  
+**Status:** Idle — ion token git-share via `public/config.json` + Ops Apply
+
+## Ion token persist 2026-08-17
+- BW policy: `cesiumIonToken` **may** be committed (private studio repo).
+- Electron `config:setCesiumIonToken` → `desktop/configFs.cjs` patches
+  `public/config.json` in `desktop:dev` (`--file` → userData, not git).
+- Resolve order: config.json, then sessionStorage, then `VITE_CESIUM_ION_TOKEN`.
+
+## Phase 14.1 accepted 2026-08-17 (SCN-led, PLT files)
+- `AppConfig.cesiumIonToken`, `cesiumIonAssetId` default 1,
+  `cesiumIonImageryAssetId` default 2; `.env.example` `VITE_CESIUM_ION_TOKEN=`
+  (fallback only).
+- New dep `3d-tiles-renderer@0.5.1`. Optional follow-up: persist `terrainAltitudeNudgeM`
+  on `RaceProject`.
 
 ## Phase 13 follow-up — PLT-02 accepted 2026-08-12
 - `done/DSP-PLT-20260812-02-electron-project-save-ux` — Electron Save primary = `races.save`;

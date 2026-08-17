@@ -21,6 +21,7 @@ import {
   gpsToEnu,
   gpsToEnuAmsl,
   gpsToEnuRelative,
+  northFromSceneZ,
 } from './geoUtils.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -88,7 +89,7 @@ describe('GeoOrigin + GeoUtils ENU', () => {
     expect(p.z).toBeCloseTo(0, 5)
   })
 
-  it('small east offset → +x; small north offset → +z; up → +y', () => {
+  it('small east offset → +x; small north offset → −z; up → +y', () => {
     const lat0 = 41.0
     const lon0 = 29.0
     const alt = 100
@@ -99,11 +100,37 @@ describe('GeoOrigin + GeoUtils ENU', () => {
     expect(Math.abs(east.z)).toBeLessThan(5)
 
     const north = gpsToEnu(lat0 + 0.001, lon0, alt)
-    expect(north.z).toBeGreaterThan(50)
+    expect(north.z).toBeLessThan(-50)
     expect(Math.abs(north.x)).toBeLessThan(5)
 
     const up = gpsToEnu(lat0, lon0, alt + 10)
     expect(up.y).toBeCloseTo(10, 1)
+  })
+
+  it('Bosphorus origin: 500 m east × 500 m north ≈ +Y; north is −Z', () => {
+    const lat0 = 41.08673822819249
+    const lon0 = 29.061803205100848
+    const alt = 0
+    GeoOrigin.setOriginHAE(lat0, lon0, alt)
+
+    const metersPerDegLat = 111_320
+    const metersPerDegLon =
+      metersPerDegLat * Math.cos((lat0 * Math.PI) / 180)
+    const east = gpsToEnu(lat0, lon0 + 500 / metersPerDegLon, alt)
+    const north = gpsToEnu(lat0 + 500 / metersPerDegLat, lon0, alt)
+
+    expect(east.x).toBeGreaterThan(0)
+    expect(north.z).toBeLessThan(0)
+    expect(east.x).toBeCloseTo(500, -1)
+    expect(north.z).toBeCloseTo(-500, -1)
+
+    const cross = east.clone().cross(north).normalize()
+    expect(cross.y).toBeCloseTo(1, 2)
+    expect(Math.abs(cross.x)).toBeLessThan(0.05)
+    expect(Math.abs(cross.z)).toBeLessThan(0.05)
+    console.log(
+      `[test] handedness east×north ≈ (${cross.x.toFixed(3)}, ${cross.y.toFixed(3)}, ${cross.z.toFixed(3)}); north.z=${north.z.toFixed(1)}`,
+    )
   })
 
   it('unset origin returns zero and does not throw', () => {
@@ -181,14 +208,14 @@ describe('GeoOrigin + GeoUtils ENU', () => {
     const amsl = 0
     GeoOrigin.setOriginAMSL(41.008, 28.978, 0)
     const enu = gpsToEnuAmsl(lat, lon, amsl)
-    const back = enuToGpsAmsl(enu.x, enu.y, enu.z)
+    const back = enuToGpsAmsl(enu.x, enu.y, northFromSceneZ(enu.z))
     expect(back.lat).toBeCloseTo(lat, 5)
     expect(back.lon).toBeCloseTo(lon, 5)
     expect(back.alt).toBeCloseTo(amsl, 2)
 
     const hae = amslToHae(lat, lon, amsl)
     const enuHae = gpsToEnu(lat, lon, hae)
-    const backHae = enuToGps(enuHae.x, enuHae.y, enuHae.z)
+    const backHae = enuToGps(enuHae.x, enuHae.y, northFromSceneZ(enuHae.z))
     expect(backHae.lat).toBeCloseTo(lat, 5)
     expect(backHae.lon).toBeCloseTo(lon, 5)
     expect(backHae.alt).toBeCloseTo(hae, 2)

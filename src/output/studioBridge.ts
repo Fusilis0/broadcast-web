@@ -63,11 +63,26 @@ export type StudioNdiBridge = {
   getStatusAll: () => Promise<StudioNdiStatusAll>
 }
 
+export type StudioConfigKind = 'public' | 'userData'
+
+export type StudioConfigSetTokenResult =
+  | { ok: true; path: string; kind?: StudioConfigKind }
+  | { ok: false; error: string }
+
+export type StudioConfigBridge = {
+  setCesiumIonToken: (token: string) => Promise<StudioConfigSetTokenResult>
+}
+
 export type BroadcastStudioBridge = {
   isStudio: true
   ndi: StudioNdiBridge
   /** Local RaceProject folder writes (Phase 13.8). Optional for typing; Electron preload provides it. */
   races?: StudioRacesBridge
+  /**
+   * Patch `config.json` (Phase 14 ion token). Dev → repo `public/config.json`
+   * (commit to share). `--file` → userData (not git).
+   */
+  config?: StudioConfigBridge
   /**
    * Main-process ~30 fps clock (not throttled when minimized).
    * Returns an unsubscribe function.

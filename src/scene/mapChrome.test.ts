@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { knotsToMs, windTravelSceneXZ } from '../telemetry/windDirection.ts'
 import {
+  formatMapWindLabel,
   mapChromeMetrics,
   parseArrowBearingDeg,
+  windTravelToMapCanvasDelta,
   yawDegToCanvasRad,
 } from './mapChrome.ts'
 
@@ -44,7 +47,50 @@ describe('mapChromeMetrics', () => {
     expect(stream.droneR).toBeGreaterThan(ops.droneR)
     expect(stream.labelH).toBeGreaterThan(ops.labelH)
     expect(stream.courseLine).toBeGreaterThan(ops.courseLine)
+    expect(stream.windArrowLen).toBeGreaterThan(ops.windArrowLen)
     expect(ops.variant).toBe('ops')
     expect(stream.variant).toBe('stream')
+  })
+})
+
+describe('map wind readout (14.3d)', () => {
+  it('from 000° (N) travels screen-down on the north-up map', () => {
+    const d = windTravelToMapCanvasDelta(windTravelSceneXZ(0))
+    expect(d.dx).toBeCloseTo(0, 10)
+    expect(d.dy).toBeGreaterThan(0.9)
+  })
+
+  it('from 090° (E) travels screen-left on the north-up map', () => {
+    const d = windTravelToMapCanvasDelta(windTravelSceneXZ(90))
+    expect(d.dx).toBeLessThan(-0.9)
+    expect(d.dy).toBeCloseTo(0, 10)
+  })
+
+  it('from 180° (S) travels screen-up; from 270° (W) travels screen-right', () => {
+    const south = windTravelToMapCanvasDelta(windTravelSceneXZ(180))
+    expect(south.dx).toBeCloseTo(0, 10)
+    expect(south.dy).toBeLessThan(-0.9)
+    const west = windTravelToMapCanvasDelta(windTravelSceneXZ(270))
+    expect(west.dx).toBeGreaterThan(0.9)
+    expect(west.dy).toBeCloseTo(0, 10)
+  })
+
+  it('label is meteorological from-deg + kt (not travel)', () => {
+    expect(
+      formatMapWindLabel({
+        directionFromDeg: 0,
+        speedMs: knotsToMs(6),
+        source: 'default',
+        updatedAtMs: 1,
+      }),
+    ).toBe('from 000° · 6 kt')
+    expect(
+      formatMapWindLabel({
+        directionFromDeg: 90,
+        speedMs: knotsToMs(12),
+        source: 'operator',
+        updatedAtMs: 1,
+      }),
+    ).toBe('from 090° · 12 kt')
   })
 })

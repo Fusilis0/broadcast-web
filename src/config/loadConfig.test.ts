@@ -267,6 +267,26 @@ describe('normalizeConfig projectsRole / projectsApiToken', () => {
   })
 })
 
+describe('normalizeConfig cesium ion', () => {
+  it('defaults empty token and World Terrain asset 1 + Bing Aerial 2', () => {
+    const cfg = normalizeConfig({})
+    expect(cfg.cesiumIonToken).toBe('')
+    expect(cfg.cesiumIonAssetId).toBe(1)
+    expect(cfg.cesiumIonImageryAssetId).toBe(2)
+  })
+
+  it('trims token and parses asset ids', () => {
+    const cfg = normalizeConfig({
+      cesiumIonToken: '  abc  ',
+      cesiumIonAssetId: 1,
+      cesiumIonImageryAssetId: 0,
+    })
+    expect(cfg.cesiumIonToken).toBe('abc')
+    expect(cfg.cesiumIonAssetId).toBe(1)
+    expect(cfg.cesiumIonImageryAssetId).toBe(0)
+  })
+})
+
 describe('normalizeConfig timecode', () => {
   it('defaults timecodeEnabled true, bottom-right, 96px', () => {
     const cfg = normalizeConfig({})

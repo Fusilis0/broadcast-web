@@ -21,7 +21,7 @@ Geodesy & World Frame Orchestrator
 TEL, SCN, CAL, PLT (public EGM96 path)
 
 ## Axis contract (locked)
-Three.js: `x = East`, `y = Up`, `z = North` (Unity ENU parity).
+Three.js: `x = East`, `y = Up`, `z = −North` (right-handed Three / glTF). Unity `z = North` is the trap — do not copy it.
 
 ## First dispatches
 1. Port EGM96 + GeoOrigin + GeoUtils with tests  

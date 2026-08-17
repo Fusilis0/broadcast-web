@@ -1,6 +1,7 @@
 import type { LayoutFeature } from './features/types.ts'
 import { filterFeaturesFor2d } from './features/featureVisibility.ts'
 import type { EnuPosition, PoseEvent, PoseKind } from '../pose/types.ts'
+import { eastNorthFromScene, northFromSceneZ } from '../geodesy/index.ts'
 import {
   createTileCache,
   drawOsmBasemap,
@@ -24,6 +25,7 @@ import {
   drawMapDroneIcon,
   drawMapFleetLabel,
   drawMapLayoutFeatures,
+  drawMapWindReadout,
   drawStreamCompass,
   drawStreamMapBackdrop,
   loadMapSprite,
@@ -31,6 +33,8 @@ import {
   MAP_BOAT_SPRITE_URL,
   MAP_SAIL_SPRITE_URL,
 } from './mapChrome.ts'
+import { windBus } from '../telemetry/windBus.ts'
+import type { WindFrame } from '../telemetry/windTypes.ts'
 
 export type { MapBounds, MapViewState } from './map2dView.ts'
 export type { BasemapGeoBridge } from './map2dBasemap.ts'
@@ -82,7 +86,7 @@ function collectLayoutEnu(
   const out: Array<{ east: number; north: number }> = []
   for (const f of features) {
     for (const p of f.points) {
-      out.push({ east: p.x, north: p.z })
+      out.push(eastNorthFromScene(p))
     }
   }
   return out
@@ -155,7 +159,8 @@ export function boundsFromPoints(
   }
 }
 
-/** ENU x=East, z=North → panel px (origin top-left). */
+/** Geographic East/North metres → panel px (origin top-left). North-up, East-right.
+ * Scene Vector3 is x=East, z=−North — convert with `northFromSceneZ` / `eastNorthFromScene`. */
 export function enuToMapPx(
   east: number,
   north: number,
@@ -340,6 +345,8 @@ export type Map2dOptions = {
  * Shared chrome (`mapChrome`) draws course overlays + sailboat icons for
  * both ops and stream variants. Stream adds broadcast backdrop/compass;
  * ops map supports pan/zoom + optional OSM and stays utilitarian.
+ * Both variants subscribe to `windBus` (no fetch) and draw a travel arrow
+ * + from-deg/kt readout.
  */
 export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
   const variant: Map2dVariant = options.variant ?? 'ops'
@@ -422,6 +429,7 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
   let boatSprite: HTMLImageElement | null = null
   let sailSprite: HTMLImageElement | null = null
   let disposed = false
+  let windFrame: WindFrame | null = windBus.getSnapshot()
   let basemapEnabled = false
   let geoBridge: BasemapGeoBridge | null = null
   const tileCache = createTileCache()
@@ -454,7 +462,7 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
       id: pose.id,
       kind: pose.kind,
       east: pos.x,
-      north: pos.z,
+      north: northFromSceneZ(pos.z),
       up: pos.y,
       yawDeg: pose.rotation.yawDeg,
     }
@@ -685,6 +693,11 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
       ctx.arc(x, y, 5, 0, Math.PI * 2)
       ctx.stroke()
     }
+
+    // HUD chrome: travel arrow + from/kt. Default/stale still draws.
+    if (windFrame) {
+      drawMapWindReadout(ctx, w, h, windFrame, chrome)
+    }
   }
 
   function canvasLocal(ev: { clientX: number; clientY: number }): {
@@ -793,6 +806,11 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
   canvas.addEventListener('pointercancel', onPointerUp)
   canvas.addEventListener('wheel', onWheel, { passive: false })
 
+  const unsubWind = windBus.subscribe((frame) => {
+    windFrame = frame
+    if (!disposed) redraw()
+  })
+
   redraw()
 
   return {
@@ -875,7 +893,7 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
       let bestD = maxDistPx
       for (const f of layoutFeatures) {
         for (const p of f.points) {
-          const px = enuToMapPx(p.x, p.z, lastBounds, w, h)
+          const px = enuToMapPx(p.x, northFromSceneZ(p.z), lastBounds, w, h)
           const d = Math.hypot(px.x - click.x, px.y - click.y)
           if (d <= bestD) {
             bestD = d
@@ -886,8 +904,20 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
           (f.type === 'sponsor' || f.type === 'billboardChain') &&
           f.points.length >= 2
         ) {
-          const a = enuToMapPx(f.points[0]!.x, f.points[0]!.z, lastBounds, w, h)
-          const b = enuToMapPx(f.points[1]!.x, f.points[1]!.z, lastBounds, w, h)
+          const a = enuToMapPx(
+            f.points[0]!.x,
+            northFromSceneZ(f.points[0]!.z),
+            lastBounds,
+            w,
+            h,
+          )
+          const b = enuToMapPx(
+            f.points[1]!.x,
+            northFromSceneZ(f.points[1]!.z),
+            lastBounds,
+            w,
+            h,
+          )
           const mx = (a.x + b.x) / 2
           const my = (a.y + b.y) / 2
           const d = Math.hypot(mx - click.x, my - click.y)
@@ -923,7 +953,7 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
         for (const f of features) {
           for (let i = 0; i < f.points.length; i++) {
             const p = f.points[i]!
-            const px = enuToMapPx(p.x, p.z, lastBounds, w, h)
+            const px = enuToMapPx(p.x, northFromSceneZ(p.z), lastBounds, w, h)
             const d = Math.hypot(px.x - click.x, px.y - click.y)
             if (d <= bestD) {
               bestD = d
@@ -931,7 +961,7 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
                 featureId: f.id,
                 pointIndex: i,
                 east: p.x,
-                north: p.z,
+                north: northFromSceneZ(p.z),
               }
             }
           }
@@ -954,11 +984,11 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
       let bestD = maxDistPx
       for (const f of layoutFeatures) {
         for (const p of f.points) {
-          const px = enuToMapPx(p.x, p.z, lastBounds, w, h)
+          const px = enuToMapPx(p.x, northFromSceneZ(p.z), lastBounds, w, h)
           const d = Math.hypot(px.x - click.x, px.y - click.y)
           if (d <= bestD) {
             bestD = d
-            best = { east: p.x, north: p.z }
+            best = eastNorthFromScene(p)
           }
         }
       }
@@ -1033,6 +1063,7 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
     redraw,
     dispose(): void {
       disposed = true
+      unsubWind()
       canvas.removeEventListener('click', onCanvasClick)
       canvas.removeEventListener('pointermove', onCanvasPointerMove)
       canvas.removeEventListener('pointerdown', onPointerDown)

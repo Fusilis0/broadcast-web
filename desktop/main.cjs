@@ -29,6 +29,7 @@ const path = require('node:path')
 const fs = require('node:fs')
 const ndiSender = require('./ndiSender.cjs')
 const racesFs = require('./racesFs.cjs')
+const configFs = require('./configFs.cjs')
 
 const DEV_URL = 'http://127.0.0.1:5173'
 const PREVIEW_URL = 'http://127.0.0.1:4173'
@@ -245,6 +246,33 @@ function registerRacesIpc() {
   })
 }
 
+function getConfigPath() {
+  return configFs.resolveConfigPath(resolveLoadTarget().kind, {
+    desktopDir: __dirname,
+    userDataPath: app.getPath('userData'),
+  })
+}
+
+function getConfigKind() {
+  return configFs.resolveConfigKind(resolveLoadTarget().kind)
+}
+
+/** Patch git-shared `public/config.json` (dev) or userData copy (--file). */
+function registerConfigIpc() {
+  ipcMain.handle('config:setCesiumIonToken', async (_evt, token) => {
+    try {
+      const result = await configFs.setCesiumIonToken(getConfigPath(), token)
+      if (!result.ok) return result
+      return { ...result, kind: getConfigKind() }
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      }
+    }
+  })
+}
+
 /**
  * OS minimize freezes WebGL/GPU on Windows even when JS still ticks.
  * Park off-screen instead: window stays "shown", NDI keeps ~30 fps.
@@ -441,8 +469,12 @@ function stopStudioClock() {
 app.whenReady().then(async () => {
   registerNdiIpc()
   registerRacesIpc()
+  registerConfigIpc()
   console.info(
     `[desktop] races dir (${getRacesKind()}): ${getRacesDir()}`,
+  )
+  console.info(
+    `[desktop] config.json (${getConfigKind()}): ${getConfigPath()}`,
   )
   console.info(
     `[desktop] GPU preference: ${useIntegratedGpu ? 'integrated (opt-out)' : 'high-performance (discrete preferred)'}`,

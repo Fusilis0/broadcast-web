@@ -15,6 +15,11 @@ Owned by **TEL**. WebSocket-shaped ingest: DTOs, JSON router, mock / replay / li
 | `liveSource.ts` | Browser WebSocket client(s) for live mode (drone + optional boat) |
 | `bus.ts` | Typed pub-sub |
 | `ingest.ts` | Start ingest from `telemetryMode`; route JSON onto the bus; live `getLiveStatus` / `onLiveStatus`; replay `getReplayStatus` |
+| `windTypes.ts` | Wind DTOs (`WindFrame.directionFromDeg`, `speedMs`, `source`) |
+| `windBus.ts` | Sticky `windBus`: `publish` / `subscribe` / `getSnapshot` (default 6 kt from 000°) |
+| `windDirection.ts` | `windTravelSceneXZ` (from→to, post-14.0 `x=East z=−North`) + knots↔m/s |
+| `windOpsRow.ts` | Ops row: from-deg + speed kt + source/age + hold/Follow API |
+| `windOpenMeteo.ts` | Open-Meteo poll (~10 min) → `source: 'api'` on `windBus` |
 | `index.ts` | Public exports |
 
 ## Events
@@ -40,6 +45,33 @@ Buoys reuse the **boat GPS packet** — no new wire format and **no drag physics
 | Live (boat WS) | Boat-shaped frame on `channel: "boat"` whose `id` ∈ `buoyIds` allow-list |
 
 Empty / absent `buoyIds` → **no buoy channel** (no sockets, no mock emit). Keep buoy ids **disjoint** from `boatIds`.
+
+## Wind (`windBus`, Phase 14.3a + 14.3b)
+
+Operator + Open-Meteo on the same bus. No anemometer socket in this slice (14.3c).
+API / operator / default publish `WindFrame`; SCN ocean should only `subscribe`.
+
+**Open-Meteo** forecast at `config.origin` (`current=wind_speed_10m,wind_direction_10m,wind_gusts_10m`,
+`wind_speed_unit=ms`) polls every ~10 minutes. Last good snapshot is kept on fetch failure
+(Ops age line goes `api · stale`). Optional marine current (wave height/direction/period) is
+stored additively on the frame. **Operator hold beats API** until 30 minutes elapse or the
+operator clicks **API** (Follow). Typing in the Ops row sets hold. Default/API update when
+not holding.
+
+Attribution: Open-Meteo data is **CC BY 4.0**. The free tier is **non-commercial** (studio/dev
+OK). No `customer-` key in this slice. Credit lives in README + the Ops wind-row title — not
+as a broadcast burn-in.
+
+| Export | Role |
+| --- | --- |
+| `windBus.publish` / `subscribe` / `getSnapshot` | Sticky last `WindFrame` (or `null` on a fresh `WindBus`). Shared `windBus` is seeded with **6 kt from 000°**, `source: 'default'`. `subscribe` replays the snapshot immediately. |
+| `WindFrame.directionFromDeg` | Meteorological **from**, true north, clockwise, `[0, 360)`. Never a bare `direction`. |
+| `windTravelSceneXZ(directionFromDeg)` | Unit travel vector in scene XZ. Post-14.0: `x=East`, `z=−North`. **From north (0) travels +Z.** |
+| `knotsToMs` / `msToKnots` | One conversion site (`kt * 0.514444`). Ops shows **kt**. |
+| `mountWindOpsRow` | Stub HUD Ops row. Empty/invalid input keeps last or default; does not throw. **hold** / **API** toggles operator hold vs Follow Open-Meteo. |
+| `startOpenMeteoWind` / `createOpenMeteoWindProvider` | Poll Open-Meteo; `publish` only when operator is not holding. Tests inject `fetchImpl` (no live network in CI). |
+
+SCN ocean (14.2b) should `windBus.subscribe` and call `windTravelSceneXZ(frame.directionFromDeg)`. Config seed (`windDirectionFromDeg` / `windSpeedKt`) is a follow-up — hardcoded default until API or operator lands a frame.
 
 ## Config
 

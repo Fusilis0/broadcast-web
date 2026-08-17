@@ -29,6 +29,9 @@ export {
   gpsToEnuBatch,
   enuToGps,
   enuToGpsAmsl,
+  sceneZFromNorth,
+  northFromSceneZ,
+  eastNorthFromScene,
   type GpsPoint,
 } from './geoUtils.ts'
 

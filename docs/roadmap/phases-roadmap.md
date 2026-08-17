@@ -28,7 +28,8 @@ breaking billboard chain, boat/drone/buoy placement, Save as, Rename, Duplicate 
 after BW drove the real Electron renderer end-to-end) all accepted. See
 `docs/architecture/world-authoring-workspace.md`. Phase 12 cloud still deferred.  
 **Active:** human **Phase 10.1** (Unity vs broadcast-web parallel air).  
-**Done:** Phase 11 (**V1-D**) + follow-ups; **Phase 13 complete** (13.1–13.8). Phase 12 deferred.
+**Done:** Phase 11 (**V1-D**) + follow-ups; **Phase 13 complete** (13.1–13.8). Phase 12 deferred.  
+**Next up:** **Phase 14 engineering done.** Human: 10.1 cutover, ion-token smoke, CAL yaw, Open-Meteo commercial key.
 
 ---
 
@@ -163,6 +164,61 @@ warn &gt;3s; Electron saves → `public/races/` (dev) / `userData/races` (`--fil
 
 ---
 
+### Phase 14 — Geospatial terrain, real ocean, wind *(design — no dispatches yet)*
+
+**Requested:** 2026-08-17 (user). "In Unity we used Cesium. It was a static model. Fine to use
+Cesium 3D but we need waves, wind (with direction input) and a good looking sea model." Reference
+image supplied; explicit brief: **"this is our bare minimum goal, we need something even better."**
+
+**Design:**
+[`../architecture/enu-frame-handedness.md`](../architecture/enu-frame-handedness.md) (prerequisite
+frame fix) ·
+[`../architecture/geospatial-terrain-cesium.md`](../architecture/geospatial-terrain-cesium.md)
+(Cesium ion 3D Tiles in Three.js) ·
+[`../architecture/ocean-waves-and-sea-state.md`](../architecture/ocean-waves-and-sea-state.md)
+(Gerstner ocean, sea state) ·
+[`../architecture/wind-data-and-vfx.md`](../architecture/wind-data-and-vfx.md) (wind sources +
+visualisation).
+
+**Goal:** replace the flat tinted pad + un-displaced `Water` plane with a real venue: streamed
+Cesium ion terrain and imagery, an animated ocean whose swell follows a live wind vector, and wind
+readouts/VFX — all inside the existing WebGL2 renderer and the existing three-channel NDI pipeline.
+
+**BW locks (2026-08-17, user):** Cesium **ion** (World Terrain + aerial imagery), **not** Google
+Photorealistic (attribution burn-in) · **WebGL2** renderer, no WebGPU migration · venue is
+**online** · wave **direction follows wind = P0**, wave height/period = P1 *and droppable if
+expensive* · wind source **undecided — build all three and test on site** · attribution shown on
+the **3D channel + ops preview only, never on the AR plate**; broadcaster sign-off still required
+before air · ion account/token **reused from the Unity project** (asset IDs pending) · **our ocean
+renders on top of Cesium's baked water level** so the tileset's flat sea stays behind it (matches
+`geospatial-terrain-cesium.md` §4) · 14.1 and 14.2 run **in parallel**.
+
+**14.0 confirmed 2026-08-17:** the mirror is real, not theoretical — probe against the live
+geodesy returned `East × North = −Y`, and no compensating negative scale exists anywhere in `src/`.
+
+| # | Work | Owner | Notes |
+| --- | --- | --- | --- |
+| 14.0 | **ENU handedness fix** | GEO + SCN | **Accepted** `done/DSP-GEO-20260817-01` |
+| 14.1 | Cesium ion 3D Tiles terrain + imagery | SCN + GEO + PLT | **Accepted** `done/DSP-SCN-20260817-01` |
+| 14.2a | Gerstner ocean (clipmap, whitecaps, glitter) | SCN | **Accepted** `done/DSP-SCN-20260817-02` |
+| 14.2b | Wind coupling + sea-state presets | SCN | **Accepted** `done/DSP-SCN-20260817-03` (ramp + foam; no named UI) |
+| 14.2c | Terrain↔ocean depth: shore foam, shallow tint | SCN | **Accepted** `done/DSP-SCN-20260817-04` |
+| 14.2d/e | *(optional)* FFT cascade · boat wakes | SCN | Only if look-dev demands it |
+| 14.3a | `windBus` + from/to convention helper + operator entry | TEL + SCN | **Accepted** `done/DSP-TEL-20260817-01` |
+| 14.3b | Open-Meteo wind + marine provider | TEL | **Accepted** `done/DSP-TEL-20260817-02` |
+| 14.3c | Anemometer telemetry channel | TEL | Not issued — needs on-site hardware |
+| 14.3d/e | 2D map wind readout · wind streaks in shader | SCN | **Accepted** `done/DSP-SCN-20260817-05` + `done/DSP-SCN-20260817-06` |
+| 14.3f | *(optional)* 3D wind indicator, flags, spray | SCN | |
+
+**Open decisions:** ion **asset IDs** from the Unity project (needed to finish 14.1, not to start
+it) · broadcaster sign-off on the 3D-channel attribution line before air · Open-Meteo commercial
+key before air (14.3b works on the free tier during development).
+
+**Dispatch order:** 14.0 first and alone (`DSP-GEO-20260817-01`). Then 14.1 + 14.2a + 14.3a in
+parallel (`DSP-SCN-20260817-01`, `DSP-SCN-20260817-02`, `DSP-TEL-20260817-01`).
+
+---
+
 ## Air / output priority (unchanged)
 
 1. **Electron + alpha NDI** — preferred studio air  
@@ -202,4 +258,5 @@ Do not re-open unless a regression. Details live in `docs/agentic/dispatches/don
 | Unity cutover + console deep-link | **10** *(active: 10.1 human)* |
 | Unified ops sidebar / asset pipeline | **11** *(done — V1-D)* |
 | Public host / WSS TLS | **12** (deferred) |
-| Multi-channel output (2D/3D/AR), NDI delay, AR calib overlay | **13** *(planned — design only)* |
+| Multi-channel output (2D/3D/AR), NDI delay, AR calib overlay | **13** *(done)* |
+| Cesium terrain, real ocean + waves, wind data & VFX | **14** *(engineering done; 14.3c not issued)* |

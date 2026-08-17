@@ -1,11 +1,12 @@
 import type { AppConfig, ConfigOrigin } from '../config/types.ts'
-import { parseConfigOriginFields } from '../geodesy/index.ts'
+import { parseConfigOriginFields, eastNorthFromScene } from '../geodesy/index.ts'
 import { poseBus, type PoseEvent } from '../pose/index.ts'
 import {
   mountLocalProjectControls,
   type LocalProjectControlsHandle,
 } from '../projects/localProjectControls.ts'
 import {
+  mountWindOpsRow,
   telemetryBus,
   type LiveIdSocketStatus,
   type LiveWsStatus,
@@ -23,6 +24,11 @@ import {
   normalizeEnvironmentMode,
   type EnvironmentMode,
 } from './environment/index.ts'
+import {
+  DEFAULT_TERRAIN_ENABLED,
+  TERRAIN_SESSION_LOCK_KEY,
+  TERRAIN_SESSION_NUDGE_KEY,
+} from './terrain/index.ts'
 import { createMap2d, type Map2dHandle } from './map2d.ts'
 import { formatPovStatus, resolvePovIdList } from './povSwitcher.ts'
 import { createStreamMap2d } from './streamMap.ts'
@@ -121,13 +127,28 @@ export type StubHudOptions = {
   onOpsViewChange?: (mode: OpsViewMode) => void
   /** Initial ops view mode (default `follow`). */
   opsViewMode?: OpsViewMode
-  /**
-   * Scene sea/sky dressing (`simple` | `realistic`). Temporary Ops control
+  /** Scene sea/sky dressing (`simple` | `realistic`). Temporary Ops control
    * until the Phase 13.5 channel switcher owns it.
    */
   onEnvironmentModeChange?: (mode: EnvironmentMode) => void
   /** Initial environment mode (default `simple`). */
   environmentMode?: EnvironmentMode
+  /** Cesium ion terrain (default off). */
+  onTerrainEnabledChange?: (enabled: boolean) => void
+  terrainEnabled?: boolean
+  onTerrainAltitudeNudgeChange?: (nudgeM: number) => void
+  terrainAltitudeNudgeM?: number
+  onTerrainTilesLockedChange?: (locked: boolean) => void
+  terrainTilesLocked?: boolean
+  /** Initial status line (token missing, etc.). */
+  terrainStatus?: string
+  /**
+   * Ion access token already resolved at boot (config / session / env).
+   * Shown in the Ops password field; Apply remounts terrain.
+   */
+  cesiumIonToken?: string
+  /** Persist + remount terrain. Empty string clears the token. */
+  onCesiumIonTokenApply?: (token: string) => void
   /** Countdown flag controls (Phase 2.6). */
   onCountdownControl?: (
     action: 'start' | 'pause' | 'reset' | 'restart',
@@ -205,6 +226,14 @@ export type StubHudHandle = {
   setOpsViewMode: (mode: OpsViewMode) => void
   /** Sync environment select without firing `onEnvironmentModeChange`. */
   setEnvironmentMode: (mode: EnvironmentMode) => void
+  setTerrainEnabled: (enabled: boolean) => void
+  setTerrainAltitudeNudgeM: (nudgeM: number) => void
+  setTerrainTilesLocked: (locked: boolean) => void
+  setTerrainStatus: (msg: string) => void
+  /** Fill the Ops ion token field (does not Apply). */
+  setCesiumIonToken: (token: string) => void
+  getTerrainAltitudeNudgeM: () => number
+  getTerrainTilesLocked: () => boolean
   /** Static course mark dots on the 2D map (ENU east/north). Legacy. */
   setCourseMarks: (
     marks: readonly { name: string; x: number; z: number }[],
@@ -483,6 +512,163 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   envHint.textContent =
     environmentMode === 'realistic' ? '3D dress · AR-gated' : 'AR-safe'
   envRow.appendChild(envHint)
+
+  const terrainRow = document.createElement('div')
+  terrainRow.className = 'ops-hud__mode-row'
+  opsHud.appendChild(terrainRow)
+
+  const terrainLabel = document.createElement('label')
+  terrainLabel.className = 'ops-hud__mode-label'
+  terrainLabel.htmlFor = 'ops-terrain-mode'
+  terrainLabel.textContent = 'terrain'
+  terrainRow.appendChild(terrainLabel)
+
+  const terrainSelect = document.createElement('select')
+  terrainSelect.id = 'ops-terrain-mode'
+  terrainSelect.className = 'ops-hud__mode-select'
+  terrainSelect.title =
+    'Cesium ion World Terrain. Default off. Opaque/3D only — forced off for transparent/chroma AR. Needs an ion token (Ops field or public/config.json).'
+  for (const m of ['off', 'on'] as const) {
+    const opt = document.createElement('option')
+    opt.value = m
+    opt.textContent = m
+    terrainSelect.appendChild(opt)
+  }
+  let terrainEnabled = options.terrainEnabled ?? DEFAULT_TERRAIN_ENABLED
+  terrainSelect.value = terrainEnabled ? 'on' : 'off'
+  terrainRow.appendChild(terrainSelect)
+
+  const lockTilesLabel = document.createElement('label')
+  lockTilesLabel.className = 'ops-hud__mode-label'
+  lockTilesLabel.htmlFor = 'ops-terrain-lock-tiles'
+  lockTilesLabel.textContent = 'lock tiles'
+  terrainRow.appendChild(lockTilesLabel)
+
+  const lockTilesCheck = document.createElement('input')
+  lockTilesCheck.id = 'ops-terrain-lock-tiles'
+  lockTilesCheck.type = 'checkbox'
+  lockTilesCheck.className = 'ops-hud__checkbox'
+  lockTilesCheck.title =
+    'Freeze terrain LOD once the shot is framed (broadcast air mode).'
+  let terrainTilesLocked = options.terrainTilesLocked === true
+  try {
+    if (options.terrainTilesLocked === undefined) {
+      terrainTilesLocked = sessionStorage.getItem(TERRAIN_SESSION_LOCK_KEY) === '1'
+    }
+  } catch {
+    // sessionStorage may be blocked
+  }
+  lockTilesCheck.checked = terrainTilesLocked
+  terrainRow.appendChild(lockTilesCheck)
+
+  const nudgeLabel = document.createElement('label')
+  nudgeLabel.className = 'ops-hud__mode-label'
+  nudgeLabel.htmlFor = 'ops-terrain-nudge'
+  nudgeLabel.textContent = 'nudge m'
+  terrainRow.appendChild(nudgeLabel)
+
+  const nudgeInput = document.createElement('input')
+  nudgeInput.id = 'ops-terrain-nudge'
+  nudgeInput.className = 'ops-hud__input ops-hud__input--nudge'
+  nudgeInput.type = 'number'
+  nudgeInput.step = '0.1'
+  nudgeInput.title =
+    'Terrain altitude nudge (metres, +Y). Residual ion/geoid offset; session-only this slice.'
+  let terrainNudgeM =
+    typeof options.terrainAltitudeNudgeM === 'number' &&
+    Number.isFinite(options.terrainAltitudeNudgeM)
+      ? options.terrainAltitudeNudgeM
+      : 0
+  try {
+    if (options.terrainAltitudeNudgeM === undefined) {
+      const raw = sessionStorage.getItem(TERRAIN_SESSION_NUDGE_KEY)
+      if (raw != null && raw !== '') {
+        const n = Number(raw)
+        if (Number.isFinite(n)) terrainNudgeM = n
+      }
+    }
+  } catch {
+    // sessionStorage may be blocked
+  }
+  nudgeInput.value = String(terrainNudgeM)
+  terrainRow.appendChild(nudgeInput)
+
+  const terrainHint = document.createElement('span')
+  terrainHint.className = 'ops-hud__mode-hint'
+  terrainHint.textContent = options.terrainStatus ?? 'AR-gated · default off'
+  terrainRow.appendChild(terrainHint)
+
+  const ionRow = document.createElement('div')
+  ionRow.className = 'ops-hud__mode-row'
+  opsHud.appendChild(ionRow)
+
+  const ionLabel = document.createElement('label')
+  ionLabel.className = 'ops-hud__mode-label'
+  ionLabel.htmlFor = 'ops-ion-token'
+  ionLabel.textContent = 'ion token'
+  ionRow.appendChild(ionLabel)
+
+  const ionInput = document.createElement('input')
+  ionInput.id = 'ops-ion-token'
+  ionInput.className = 'ops-hud__input ops-hud__input--ion'
+  ionInput.type = 'password'
+  ionInput.autocomplete = 'off'
+  ionInput.spellcheck = false
+  ionInput.placeholder = 'paste Cesium ion token'
+  ionInput.title =
+    'Same Unity ion account. Apply writes public/config.json in the studio app so git can share it. Empty Apply clears.'
+  ionInput.value = options.cesiumIonToken ?? ''
+  ionRow.appendChild(ionInput)
+
+  const ionApply = document.createElement('button')
+  ionApply.type = 'button'
+  ionApply.className = 'ops-hud__btn'
+  ionApply.textContent = 'Apply'
+  ionApply.title = 'Remount terrain with this token and save to config.json (Electron).'
+  ionRow.appendChild(ionApply)
+
+  const applyIonToken = (): void => {
+    options.onCesiumIonTokenApply?.(ionInput.value)
+  }
+  ionApply.addEventListener('click', applyIonToken)
+  ionInput.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') {
+      ev.preventDefault()
+      applyIonToken()
+    }
+  })
+
+  terrainSelect.addEventListener('change', () => {
+    const next = terrainSelect.value === 'on'
+    if (next === terrainEnabled) return
+    terrainEnabled = next
+    options.onTerrainEnabledChange?.(next)
+  })
+  lockTilesCheck.addEventListener('change', () => {
+    terrainTilesLocked = lockTilesCheck.checked
+    try {
+      sessionStorage.setItem(
+        TERRAIN_SESSION_LOCK_KEY,
+        terrainTilesLocked ? '1' : '0',
+      )
+    } catch {
+      // ignore
+    }
+    options.onTerrainTilesLockedChange?.(terrainTilesLocked)
+  })
+  nudgeInput.addEventListener('change', () => {
+    const n = Number(nudgeInput.value)
+    if (!Number.isFinite(n)) return
+    terrainNudgeM = n
+    try {
+      sessionStorage.setItem(TERRAIN_SESSION_NUDGE_KEY, String(n))
+    } catch {
+      // ignore
+    }
+    options.onTerrainAltitudeNudgeChange?.(n)
+  })
+
+  const windOps = mountWindOpsRow({ container: opsHud })
 
   const localProject: LocalProjectControlsHandle = mountLocalProjectControls({
     container: projectHud,
@@ -850,11 +1036,30 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
       envHint.textContent =
         environmentMode === 'realistic' ? '3D dress · AR-gated' : 'AR-safe'
     },
+    setTerrainEnabled(enabled: boolean): void {
+      terrainEnabled = enabled === true
+      terrainSelect.value = terrainEnabled ? 'on' : 'off'
+    },
+    setTerrainAltitudeNudgeM(nudgeM: number): void {
+      terrainNudgeM = Number.isFinite(nudgeM) ? nudgeM : 0
+      nudgeInput.value = String(terrainNudgeM)
+    },
+    setTerrainTilesLocked(locked: boolean): void {
+      terrainTilesLocked = locked === true
+      lockTilesCheck.checked = terrainTilesLocked
+    },
+    setTerrainStatus(msg: string): void {
+      terrainHint.textContent = msg
+    },
+    setCesiumIonToken(token: string): void {
+      ionInput.value = token
+    },
+    getTerrainAltitudeNudgeM: () => terrainNudgeM,
+    getTerrainTilesLocked: () => terrainTilesLocked,
     setCourseMarks(marks): void {
       const mapped = marks.map((m) => ({
         name: m.name,
-        east: m.x,
-        north: m.z,
+        ...eastNorthFromScene(m),
       }))
       map.setCourseMarks(mapped)
       streamMap.setCourseMarks(mapped)
@@ -904,6 +1109,7 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
       window.removeEventListener('keydown', onKeyDown)
       unsubPose()
       for (const u of unsubTel) u()
+      windOps.dispose()
       map.dispose()
       streamMap.dispose()
       localProject.dispose()

@@ -156,10 +156,11 @@ npm run desktop:file
 
 | File | Role |
 | --- | --- |
-| `main.cjs` | BrowserWindow + NDI IPC (per-channel) + `races:*` IPC |
-| `preload.cjs` | `window.broadcastStudio` bridge (`ndi` + `races`) |
+| `main.cjs` | BrowserWindow + NDI IPC (per-channel) + `races:*` + `config:setCesiumIonToken` IPC |
+| `preload.cjs` | `window.broadcastStudio` bridge (`ndi` + `races` + `config`) |
 | `ndiSender.cjs` | Multi-sender `grandi` Map (`ar`/`3d`/`2d` → BGRA) |
 | `racesFs.cjs` | Local RaceProject folder write/list/read |
+| `configFs.cjs` | Patch `cesiumIonToken` in `public/config.json` (dev) or userData (`--file`) |
 
 ## Local RaceProject saves (Phase 13.8)
 
@@ -193,6 +194,21 @@ studio; commit demo packs intentionally. No new ignore scheme in this slice.
 
 **API coexistence:** when `projectsApiBase` is set, HTTP POST/PUT still runs; Electron Save
 writes the local folder when the `races` bridge is present (folder + API; Export… = download).
+
+## Cesium ion token (git-share)
+
+Ops **ion token + Apply** calls `config:setCesiumIonToken`. That patches
+`cesiumIonToken` in `config.json` without dropping other keys.
+
+| Mode | Write path | Git |
+| --- | --- | --- |
+| `desktop:dev` / Vite URL | repo **`public/config.json`** | **Yes** — commit after Apply |
+| `--file` / packaged | `userData/config.json` | No (`dist/` is not writable) |
+
+Chrome without the studio bridge keeps the token in **sessionStorage** only until
+you paste the same value into `public/config.json` and commit.
+
+Do not log the token. Do not upload a filled token to a public Hetzner SPA.
 
 ## Non-goals (this slice)
 

@@ -25,6 +25,16 @@ import {
 /** Mock boat id from TEL (`src/telemetry/mockSource.ts`). */
 export const DEFAULT_BOAT_ID = '21'
 
+/**
+ * Hull / glTF forward is +Z; geographic north is scene −Z. Compass yaw is
+ * negated (same as the POV camera) then this 180° Y maps +Z-forward meshes
+ * onto −Z-north. Pose `yawDeg` stays geographic for the 2D map.
+ */
+const HULL_PLUSZ_TO_NORTH = new THREE.Quaternion().setFromAxisAngle(
+  new THREE.Vector3(0, 1, 0),
+  Math.PI,
+)
+
 export type BoatEntityOptions = {
   id?: string
   /** Display name from catalogue (default `Boat {id}`). */
@@ -132,7 +142,13 @@ export function createBoatEntity(
     applyPose(pose: PoseEvent): void {
       const { x, y, z } = pose.position
       root.position.set(x, y, z)
-      root.quaternion.copy(poseRotationToQuaternion(pose.rotation))
+      root.quaternion.copy(
+        poseRotationToQuaternion({
+          ...pose.rotation,
+          yawDeg: -pose.rotation.yawDeg,
+        }),
+      )
+      root.quaternion.multiply(HULL_PLUSZ_TO_NORTH)
       // Root show-on-first-pose; hull/tag stay under setVisibilityMode.
       root.visible = true
     },

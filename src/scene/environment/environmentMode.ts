@@ -4,7 +4,7 @@
  * | Mode | Behaviour |
  * | --- | --- |
  * | `simple` | Clear color + localized `waterCue` pad only (AR-safe default) |
- * | `realistic` | Three.js `Water` + `Sky` (+ fog) when opaque clear allows it |
+ * | `realistic` | Gerstner ocean + `Sky` (+ fog) when opaque clear allows it |
  *
  * Realistic meshes must **never** draw under `transparent` / `chroma` clears —
  * they would paint opaque sea/sky into the AR alpha plate.

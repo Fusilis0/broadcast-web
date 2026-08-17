@@ -23,7 +23,7 @@ export type CourseData = {
   appearance: CourseAppearance
 }
 
-/** ENU meters after GEO conversion (x=East, y=Up, z=North). */
+/** ENU meters after GEO conversion (x=East, y=Up, z=−North). */
 export type CourseEnuPoint = {
   name: string
   type: CourseWaypointType

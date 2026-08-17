@@ -2,7 +2,7 @@
 
 export type PoseKind = 'drone' | 'boat' | 'buoy'
 
-/** ENU meters: x=East, y=Up, z=North. */
+/** ENU meters: x=East, y=Up, z=−North. */
 export type EnuPosition = {
   x: number
   y: number

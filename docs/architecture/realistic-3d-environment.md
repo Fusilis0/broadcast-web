@@ -1,6 +1,14 @@
 # Realistic 3D environment (toggleable) — sea + sky for the **3D** channel
 
 **Status:** Landed — `DSP-SCN-20260812-01` (toggleable; default `simple`; forced off for transparent/chroma).  
+**Superseded by Phase 14 (2026-08-17):** this document describes the *first pass* — a stylized
+`Water` + `Sky` with no terrain and no wave displacement. The user has since asked for real venue
+geography and a wind-driven sea. The `Water` plane here is replaced in
+[`ocean-waves-and-sea-state.md`](./ocean-waves-and-sea-state.md); terrain is added in
+[`geospatial-terrain-cesium.md`](./geospatial-terrain-cesium.md); the "no Cesium" stance in §1 and
+Phase 8.8 no longer holds. The `Sky` dome, the `setEnvironmentOpaqueClearSafe` gate and the
+`'simple' | 'realistic'` mode shape all **survive** and are reused — Phase 14 extends this design
+rather than discarding it.  
 **Owner:** SCN.  
 **Depends on:** [`multi-output-streaming.md`](./multi-output-streaming.md) §2 (this is the content
 that fills the new **3D** channel's opaque render).  

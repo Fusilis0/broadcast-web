@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { sceneZFromNorth } from '../geodesy/index.ts'
 import { COURSE_WATER_Y } from './course/courseLayout.ts'
 import { gateBaseName } from './course/gatePairing.ts'
 import { getLayoutFeatures } from './features/layoutStore.ts'
@@ -174,9 +175,9 @@ function buildGrid(
     const t = i * spacingM
     const major = i % majorEvery === 0
     const buf = major ? majorPos : minorPos
-    // Line parallel to East (varying x, fixed z=t)
+    // Line parallel to East (varying x, fixed scene-z)
     buf.push(-halfExtentM, COURSE_WATER_Y, t, halfExtentM, COURSE_WATER_Y, t)
-    // Line parallel to North (fixed x=t, varying z)
+    // Line parallel to North (fixed x=t, varying scene-z)
     buf.push(t, COURSE_WATER_Y, -halfExtentM, t, COURSE_WATER_Y, halfExtentM)
   }
 
@@ -232,7 +233,7 @@ function buildGrid(
     east.scale.set(10, 2.5, 1)
     parent.add(east)
     const north = makeLabelSprite(`N ${t}m`, CALIBRATION_OVERLAY_DEFAULTS.majorGridColor, bag)
-    north.position.set(0, COURSE_WATER_Y + 1.5, t)
+    north.position.set(0, COURSE_WATER_Y + 1.5, sceneZFromNorth(t))
     north.scale.set(10, 2.5, 1)
     parent.add(north)
   }

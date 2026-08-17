@@ -97,7 +97,7 @@ Hetzner is **not** a render farm.
 
 ### 5.2 Geodesy
 
-- ENU: `x=East, y=Up, z=North`. Drones: relative + takeoff + EGM96. Boats: HAE for now. Declination default `0`.
+- ENU: `x=East, y=Up, z=−North` (right-handed Three / glTF). Drones: relative + takeoff + EGM96. Boats: HAE for now. Declination default `0`.
 
 ### 5.3 Calibration
 

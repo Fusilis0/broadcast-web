@@ -1,3 +1,5 @@
+import { eastNorthFromScene } from '../../../geodesy/index.ts'
+
 /** ENU East/North vertex for snap candidates. */
 export type SnapVertex = {
   east: number
@@ -90,7 +92,7 @@ export function applySnap(
   return { east, north, mode: 'none' }
 }
 
-/** Collect unique ENU vertices from layout-style point lists (x=E, z=N). */
+/** Collect unique ENU vertices from layout-style point lists (scene x=E, z=−N). */
 export function verticesFromLayoutPoints(
   features: readonly { points: readonly { x: number; z: number }[] }[],
 ): SnapVertex[] {
@@ -101,7 +103,7 @@ export function verticesFromLayoutPoints(
       const key = `${p.x.toFixed(3)},${p.z.toFixed(3)}`
       if (seen.has(key)) continue
       seen.add(key)
-      out.push({ east: p.x, north: p.z })
+      out.push(eastNorthFromScene(p))
     }
   }
   return out

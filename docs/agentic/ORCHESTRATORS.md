@@ -17,7 +17,7 @@ Every orchestrator must know this table. Wrong-domain → refuse and redirect.
 
 - **BW** — “What next, who owns it, are we allowed to proceed?”
 - **TEL** — “Bytes from VPS become typed telemetry events.”
-- **GEO** — “Lat/lon/alt become stable Unity-compatible ENU.”
+- **GEO** — “Lat/lon/alt become stable right-handed Three ENU (`z=−North`).”
 - **SCN** — “ENU + telemetry become things you see.”
 - **OUT** — “Pixels leave the app toward preview or vMix.”
 - **CON** — “Console can open and talk to us safely.”

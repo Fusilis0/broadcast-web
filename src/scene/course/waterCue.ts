@@ -5,8 +5,8 @@ import { COURSE_WATER_Y } from './courseLayout.ts'
  * Mild water / shore cue under the race area (Phase 8.8).
  * Not a globe / Cesium terrain — a localized pad so air clear stays clean outside.
  *
- * When realistic sea/sky is on (`environment` mode), this pad stays as a crisp
- * local race-area tint **on top of** the large ocean mesh (not hidden).
+ * When realistic Gerstner ocean is mounted, the pad is **hidden** (createScene
+ * calls `setVisible(false)`). `simple` mode keeps today's pad.
  *
  * **Clear behaviour (document for ops):**
  * - `preview` — teal pad visible under course on dark clear.
@@ -54,6 +54,7 @@ export type WaterCueBounds = {
 export type WaterShoreCueHandle = {
   root: THREE.Group
   bounds: WaterCueBounds
+  setVisible: (visible: boolean) => void
   dispose: () => void
 }
 
@@ -162,6 +163,9 @@ export function createWaterShoreCue(
   return {
     root,
     bounds,
+    setVisible(visible: boolean): void {
+      root.visible = visible
+    },
     dispose(): void {
       for (const d of disposers) d()
       disposers.length = 0

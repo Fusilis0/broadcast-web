@@ -72,3 +72,50 @@ export {
   type LiveStatusMap,
   type StartTelemetryIngestOptions,
 } from './ingest.ts'
+export type { WindFrame, WindSource, WindTravelXZ } from './windTypes.ts'
+export {
+  DEFAULT_WIND_DIRECTION_FROM_DEG,
+  DEFAULT_WIND_SPEED_KT,
+  KT_TO_MS,
+} from './windTypes.ts'
+export {
+  WindBus,
+  resetWindBusForTests,
+  windBus,
+} from './windBus.ts'
+export {
+  createDefaultWindFrame,
+  formatWindSourceAge,
+  knotsToMs,
+  msToKnots,
+  normalizeDirectionFromDeg,
+  parseOperatorWindInput,
+  windTravelSceneXZ,
+} from './windDirection.ts'
+export {
+  mountWindOpsRow,
+  type WindOpsRowHandle,
+  type WindOpsRowOptions,
+} from './windOpsRow.ts'
+export {
+  OPERATOR_HOLD_MS,
+  ORIGIN_DEBOUNCE_MS,
+  WIND_POLL_INTERVAL_MS,
+  buildOpenMeteoForecastUrl,
+  buildOpenMeteoMarineUrl,
+  createOpenMeteoWindProvider,
+  getWindHoldMode,
+  isValidWindOrigin,
+  mapOpenMeteoForecastToWindFrame,
+  operatorHoldBlocksApi,
+  requestOpenMeteoPoll,
+  resetWindHoldForTests,
+  setWindHoldMode,
+  startOpenMeteoWind,
+  stopOpenMeteoWind,
+  subscribeWindHoldMode,
+  type OpenMeteoWindHandle,
+  type OpenMeteoWindOptions,
+  type WindHoldMode,
+  type WindOrigin,
+} from './windOpenMeteo.ts'

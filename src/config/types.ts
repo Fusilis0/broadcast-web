@@ -90,6 +90,23 @@ export type AppConfig = {
    * Empty in git; set locally on editor PCs only. Never required for reads.
    */
   projectsApiToken: string
+  /**
+   * Cesium ion access token for World Terrain (Phase 14.1).
+   * Git-shared on this private studio repo via `public/config.json`.
+   * Enter it in Ops (ion token + Apply) or paste here, then commit.
+   * Empty → terrain stays off. Never log the value. Do not ship a filled
+   * token on a public Hetzner SPA.
+   */
+  cesiumIonToken: string
+  /**
+   * Cesium ion terrain asset id. Default `1` (Cesium World Terrain).
+   */
+  cesiumIonAssetId: number
+  /**
+   * Cesium ion imagery overlay asset id. Default `2` (Bing Maps Aerial).
+   * `0` skips the overlay (bare terrain).
+   */
+  cesiumIonImageryAssetId: number
 }
 
 /** @deprecated Prefer `AppConfig`. */

@@ -1,7 +1,65 @@
 # BW_MEMO — Broadcast-Web Master Orchestrator
 
-**Last updated:** 2026-08-11  
+**Last updated:** 2026-08-17  
 **Session role:** BW
+
+## Phase 14 — planned 2026-08-17 (design only, no dispatches)
+
+User asked to improve the 3D environment: Cesium (as in the Unity project, but no longer static),
+waves, wind with a direction input, and a better sea model — reference image supplied with the
+brief "this is our bare minimum goal, we need something even better." Four questions were asked
+directly: Cesium with Three.js, Cesium 3D, wind from an API with VFX, and whether an LLM can
+generate a sea model.
+
+**Answers researched, not assumed:** CesiumJS the *engine* is rejected (own renderer/camera, would
+need a second WebGL context — fatal for the NDI readback path); 3D Tiles the *format* is accepted
+via `3d-tiles-renderer` (NASA-AMMOS, Apache-2.0, `three >= 0.167`, we are on 0.178). Wind: Open-Meteo
+forecast + marine, free/no-key but **non-commercial** — needs a paid key for air. LLM-generated sea
+model: **no** — an ocean is a simulation plus a shader, not a mesh; generative 3D gives a static
+mesh that cannot animate, tile, LOD or follow the wind. AI helps by writing the GLSL.
+
+**User locks:** Cesium **ion** (World Terrain + aerial, not Google Photorealistic — attribution
+burn-in) · **WebGL2**, no WebGPU migration · venue **online** · wave **direction follows wind =
+P0**, height/period P1 and droppable if expensive · wind source undecided, **build all three and
+test on site** · attribution acceptability **unconfirmed** — flagged as a pre-air decision.
+
+**P0 finding — the scene frame is a mirror of the real world.** While mapping the geodesy for
+terrain alignment, found that `geoUtils.ts` packs the right-handed (east, north, up) triple into
+Three as `(east, up, north)`, so `East × North = −Up` in scene space — a reflection, not a
+rotation, and no camera quaternion can undo it. It is a literal port of Unity's left-handed
+convention into right-handed Three.js. Cross-checked against `map2d.ts`'s `enuToMapPx`, which
+projects the *same* ENU numbers conventionally (North up, East right) — so the 2D authoring map and
+a north-up 3D view are currently mirror images of each other. Invisible today because every object
+goes through the same transform and there is no photographic ground truth on screen; it becomes
+visibly wrong the moment real Istanbul terrain lands. Written up as
+`docs/architecture/enu-frame-handedness.md` with a **cheap empirical check to run before any
+dispatch** — BW is not accepting the math as sufficient evidence. Risk flagged to CAL: saved
+per-POV yaw offsets may need re-derivation.
+
+Four design docs written, cross-referenced, each with an open-questions table:
+`enu-frame-handedness.md` (GEO+SCN, prerequisite) · `geospatial-terrain-cesium.md` (SCN+GEO+PLT) ·
+`ocean-waves-and-sea-state.md` (SCN) · `wind-data-and-vfx.md` (TEL+SCN+PLT).
+`realistic-3d-environment.md` marked superseded-but-reused (Sky, the `opaqueClearSafe` gate and the
+`simple|realistic` mode shape all survive). Roadmap: new **Phase 14** (14.0–14.3f).
+
+**14.0 CONFIRMED same day.** BW ran a throwaway probe against the live `geoOrigin`/`gpsToEnu` code
+(Bosphorus origin, points 500 m due east and due north): `East × North → (0, −1, 0)`. Real ENU
+requires `+Up`; the scene gives `−Up`. Also grepped all of `src/` for a compensating negative scale
+on any scene root — no matches, so nothing un-mirrors it downstream. Probe deleted after reading;
+its assertions become permanent tests in the 14.0 dispatch. Doc status flipped to CONFIRMED.
+
+**User decisions 2026-08-17 (round 2):** attribution → **3D channel + ops preview only, never the
+AR plate**, broadcaster sign-off deferred to pre-air · ion token **reused from Unity**, asset IDs
+to follow · terrain and ocean **in parallel** · our ocean sits **on top of Cesium's baked water
+level** so the tileset's flat sea stays hidden behind it — which is what `geospatial-terrain-cesium.md`
+§4 already specifies, so no design change.
+
+**14.3e accepted 2026-08-17.** Gust streaks are a Gerstner fragment mask (from-000° +Z, fade
+at 0 m/s). **Phase 14 engineering is complete.** No active workers. Not issued: 14.3c
+anemometer, 14.2d/e FFT/wakes, 14.3f ribbons/flags/spray.
+
+**CAL risk:** saved per-POV yaw offsets in `calibration.byPovId` may need re-derivation once the
+mirror is removed. Handoff written (`HO-BW-CAL-20260817-01`).
 
 ## Strategy (v1)
 Local studio first; Hetzner = Phase 12 deferred.
@@ -162,14 +220,29 @@ Four design docs now exist (cross-referenced, each with its own open-questions t
 
 Roadmap: new **Phase 13** (13.1–13.8) added, explicitly marked "not scheduled for workers."
 
+## Ion token git-share (2026-08-17 follow-up)
+
+User asked that the Unity ion token **transfer with git** and be enterable in the
+studio app. BW override of RULES §11: `public/config.json` `cesiumIonToken` **may**
+be committed on this private repo. Ops **ion token + Apply** writes that file in
+`desktop:dev`. Chrome stays session-only until the same field is pasted/committed.
+Do not deploy a filled token to a public Hetzner SPA.
+
 ## Next (human)
-1. Smoke the three fixes: sidebar FPS (2D off / 3D@10), place+delete boats on authoring map,
-   Project Save→`public/races/<id>/` + Load dropdown.
-2. If UI still unusable → say so; BW will issue “3D NDI default off”.
-3. **10.1** — Unity vs broadcast-web air decision.
+1. Smoke: environment **realistic**, terrain **on** (paste ion token in Ops → Apply →
+   commit `public/config.json`), Ops from-deg rotates swell + streaks, map wind pill,
+   shore foam along the coast (if foam covers the whole sea, tweak **nudge m**).
+2. **10.1** Unity cutover. CAL yaw eyeball after the ENU mirror fix (`HO-BW-CAL-20260817-01`).
+3. Open-Meteo commercial `customer-` key before air.
 
 ## Idle
-Worker queue clear. Open human: **10.1** + smokes above.
+Worker queue **clear**. Open human: **10.1**, commit ion token, CAL yaw, Open-Meteo licence.
 
 ## Compaction recovery
-`BOOTSTRAP_BW.md` → this memo → roadmap (Phase 13 + follow-ups done; 10.1 human)
+`BOOTSTRAP_BW.md` → this memo → roadmap Phase 14 engineering done; 10.1 human
+
+## Idle
+Worker queue: **14.0 GEO only**. Parallel 14.1–14.3a written but blocked. Open human: **10.1**.
+
+## Compaction recovery
+`BOOTSTRAP_BW.md` → this memo → roadmap Phase 14 (14.0 dispatched; 14.1–14.3a blocked; 10.1 human)

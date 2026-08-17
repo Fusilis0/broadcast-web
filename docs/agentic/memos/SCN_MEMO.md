@@ -1,7 +1,45 @@
 # SCN_MEMO
 
-**Last updated:** 2026-08-12  
-**Status:** Idle — SCN-03 fleet-map pose sync **accepted**
+**Last updated:** 2026-08-17  
+**Status:** Idle — Phase 14 accepted; ion token Ops field + remount landed
+
+## Ion token studio field 2026-08-17
+- Ops **ion token** password + Apply. `SceneHandle.setCesiumIonToken` remounts
+  tiles (auth plugin is baked at create). Empty → off, no throw. Never log.
+
+## Phase 14.3e accepted 2026-08-17
+
+## Phase 14.3e accepted 2026-08-17
+- `done/DSP-SCN-20260817-06-wind-streaks` — Gerstner fragment `windStreak`: anisotropic
+  value-noise scrolled along `uDirectionRad`; from-000° **+Z**. `setWindSpeed` drives
+  intensity + scroll; fade to 0 below ~0.4 m/s. Two noise taps; no extra FBO / particles /
+  `readPixels`. Shore foam + 3 s wind ramp unchanged. Suite 549+23, build green.
+
+## Phase 14.2c + 14.3d accepted 2026-08-17
+- `done/DSP-SCN-20260817-04-shore-foam` — half-res terrain-only depth FBO in Gerstner
+  `onBeforeRender`; foam/shallow from reconstructed land Y; gated on terrain + realistic +
+  opaque-safe. No tileset clip; no extra `readPixels`. Extra cost: one terrain draw at ¼
+  pixels per ocean-visible pass. Nudge too far from y=0 can false-flag the whole sea as land.
+- `done/DSP-SCN-20260817-05-map-wind-readout` — ops + stream maps subscribe to `windBus`
+  only. Travel arrow via `windTravelSceneXZ`; label `from NNN° · XX kt`. From-000°
+  screen-down, from-090° screen-left. Ops top-left dense; stream bottom-left broadcast pill.
+
+## Phase 14.2b accepted 2026-08-17
+- `done/DSP-SCN-20260817-03-wind-coupled-ocean` — env handle subscribes to `windBus`;
+  `windTravelSceneXZ` → `atan2`; from-000° **+Z**; 3 s shortest-arc ramp; foam = `speedMs`;
+  mild amplitude 0.65–1.25. No SceneHandle wind API. No `createScene.ts` / terrain edits.
+
+## Phase 14.1 + 14.2a accepted 2026-08-17
+- `done/DSP-SCN-20260817-01-cesium-ion-terrain` — `src/scene/terrain/`; default off; ion 1+Bing 2;
+  HAE + azimuth π; DOM credits on local 3D only; token never in git. Suite 512+23, build green.
+- `done/DSP-SCN-20260817-02-gerstner-ocean` — Gerstner clipmap (5 waves, 7 rings, lift 0.25 m,
+  default −Z); `waterCue` hidden when realistic; shared-clock `onBeforeRender` (3D NDI freeze
+  closed). `setDirectionRad` / `setWindSpeed` ready for 14.2b.
+Coexisted in `createScene.ts` (hooks only).
+
+## Phase 14.0 accepted 2026-08-17 (GEO worker, SCN files)
+GEO-led 14.0: 2D map / chrome / snap convert scene `.z` → north. POV: no `UNITY_CAM_TO_THREE`;
+negate yaw+pitch. Boats: negate yaw + 180° Y. Pose `yawDeg` still geographic for map icons.
 
 ## Phase 13 follow-up — SCN-03 accepted 2026-08-12
 - `done/DSP-SCN-20260812-03-fleet-map-pose-sync` — `removePose` / `retainPoseIds` (buoys kept);

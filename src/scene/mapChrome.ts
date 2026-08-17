@@ -4,11 +4,15 @@
  *
  * Ops metrics stay dense/utilitarian. Stream metrics favor glanceability;
  * stream-only helpers (`drawStreamMapBackdrop`, `drawStreamCompass`) must not
- * be called from the ops redraw path.
+ * be called from the ops redraw path. Wind readout (`drawMapWindReadout`) is
+ * shared; arrow is travel, label is from-deg + kt.
  */
 
 import type { LayoutFeature } from './features/types.ts'
 import { pairLayoutGates } from './features/layoutFeatures.ts'
+import { northFromSceneZ } from '../geodesy/index.ts'
+import { msToKnots, normalizeDirectionFromDeg, windTravelSceneXZ } from '../telemetry/windDirection.ts'
+import type { WindFrame, WindTravelXZ } from '../telemetry/windTypes.ts'
 
 /** Mirror of map2d variant — kept local to avoid import cycles. */
 export type MapChromeVariant = 'ops' | 'stream'
@@ -17,6 +21,13 @@ export type MapProjectFn = (
   east: number,
   north: number,
 ) => { x: number; y: number }
+
+function projectScene(
+  project: MapProjectFn,
+  p: { x: number; z: number },
+): { x: number; y: number } {
+  return project(p.x, northFromSceneZ(p.z))
+}
 
 /** Demo boat hull sprite (Unity `tekne_yeni` / 2DMapBoat). */
 export const MAP_BOAT_SPRITE_URL = '/textures/map/tekne_yeni.png'
@@ -41,6 +52,8 @@ export type MapChromeMetrics = {
   labelH: number
   /** Label pill horizontal padding (px). */
   labelPadX: number
+  /** Wind readout arrow half-length (px). */
+  windArrowLen: number
 }
 
 export function mapChromeMetrics(variant: MapChromeVariant): MapChromeMetrics {
@@ -63,7 +76,127 @@ export function mapChromeMetrics(variant: MapChromeVariant): MapChromeMetrics {
     gateEndR: stream ? 4 : 2.5,
     labelH: stream ? 16 : 12,
     labelPadX: stream ? 5 : 3,
+    windArrowLen: stream ? 16 : 10,
   }
+}
+
+/**
+ * Scene XZ travel (`windTravelSceneXZ`) → north-up map canvas delta.
+ * +dx = screen right (east), +dy = screen down (south).
+ */
+export function windTravelToMapCanvasDelta(travel: WindTravelXZ): {
+  dx: number
+  dy: number
+} {
+  return {
+    dx: travel.x,
+    dy: -northFromSceneZ(travel.z),
+  }
+}
+
+/** On-air / ops label: meteorological from + knots. */
+export function formatMapWindLabel(frame: WindFrame): string {
+  const from = Math.round(normalizeDirectionFromDeg(frame.directionFromDeg))
+  const padded = String(from).padStart(3, '0')
+  const kt = Math.round(msToKnots(frame.speedMs) * 10) / 10
+  const ktText = Number.isInteger(kt) ? String(kt) : kt.toFixed(1)
+  return `from ${padded}° · ${ktText} kt`
+}
+
+const WIND_STALE_AFTER_MS = 10 * 60 * 1000
+
+function windReadoutAlpha(frame: WindFrame, nowMs: number): number {
+  if (frame.source === 'default') return 0.78
+  if (nowMs - frame.updatedAtMs >= WIND_STALE_AFTER_MS) return 0.78
+  return 1
+}
+
+function drawWindTravelArrow(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  len: number,
+  dx: number,
+  dy: number,
+  fill: string,
+): void {
+  const mag = Math.hypot(dx, dy)
+  if (mag < 1e-9) return
+  ctx.save()
+  ctx.translate(cx, cy)
+  ctx.rotate(Math.atan2(dy, dx))
+  ctx.fillStyle = fill
+  ctx.strokeStyle = fill
+  ctx.lineWidth = Math.max(1.4, len * 0.12)
+  ctx.lineJoin = 'round'
+  ctx.lineCap = 'round'
+  ctx.beginPath()
+  ctx.moveTo(-len, 0)
+  ctx.lineTo(len * 0.28, 0)
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.moveTo(len, 0)
+  ctx.lineTo(len * 0.18, len * 0.42)
+  ctx.lineTo(len * 0.18, -len * 0.42)
+  ctx.closePath()
+  ctx.fill()
+  ctx.restore()
+}
+
+/**
+ * Corner wind chrome for ops + stream maps. Arrow is **travel** (from
+ * `windTravelSceneXZ`); label is meteorological **from** + kt.
+ * Stream: larger pill, bottom-left (clear of the north compass).
+ * Ops: dense top-left (clear of OSM attribution).
+ */
+export function drawMapWindReadout(
+  ctx: CanvasRenderingContext2D,
+  _w: number,
+  h: number,
+  frame: WindFrame,
+  metrics: MapChromeMetrics,
+  nowMs = Date.now(),
+): void {
+  const stream = metrics.variant === 'stream'
+  const label = formatMapWindLabel(frame)
+  const travel = windTravelToMapCanvasDelta(
+    windTravelSceneXZ(frame.directionFromDeg),
+  )
+  const arrowLen = metrics.windArrowLen
+  const slot = arrowLen * 2 + (stream ? 10 : 6)
+  const padX = stream ? 10 : 5
+  const padY = stream ? 7 : 4
+  const boxH = Math.max(metrics.labelH + padY * 2, slot + 4)
+
+  ctx.save()
+  ctx.font = metrics.labelFont
+  const textW = ctx.measureText(label).width
+  const boxW = padX + slot + 6 + textW + padX
+  const x0 = stream ? 12 : 6
+  const y0 = stream ? h - boxH - 12 : 6
+
+  ctx.globalAlpha = windReadoutAlpha(frame, nowMs)
+  ctx.fillStyle = stream
+    ? 'rgba(6, 12, 20, 0.82)'
+    : 'rgba(10, 14, 20, 0.72)'
+  ctx.fillRect(x0, y0, boxW, boxH)
+
+  if (stream) {
+    ctx.strokeStyle = 'rgba(140, 180, 210, 0.28)'
+    ctx.lineWidth = 1
+    ctx.strokeRect(x0 + 0.5, y0 + 0.5, boxW - 1, boxH - 1)
+  }
+
+  const ax = x0 + padX + slot / 2
+  const ay = y0 + boxH / 2
+  const fill = stream ? '#e8f2fa' : '#9ec4e8'
+  drawWindTravelArrow(ctx, ax, ay, arrowLen, travel.dx, travel.dy, fill)
+
+  ctx.fillStyle = stream ? '#eef4fa' : '#c0ccd8'
+  ctx.textAlign = 'start'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(label, x0 + padX + slot + 6, ay)
+  ctx.restore()
 }
 
 /**
@@ -486,8 +619,8 @@ export function drawMapLayoutFeatures(
     const a = gate.left.points[0]
     const b = gate.right.points[0]
     if (!a || !b) continue
-    const pa = project(a.x, a.z)
-    const pb = project(b.x, b.z)
+    const pa = projectScene(project, a)
+    const pb = projectScene(project, b)
     ctx.strokeStyle = hexFill(gate.left.color ?? gate.right.color, '#00ff80')
     ctx.lineWidth = metrics.gateLine
     ctx.setLineDash([6, 4])
@@ -507,8 +640,8 @@ export function drawMapLayoutFeatures(
     ) {
       const a = f.points[0]!
       const b = f.points[1]!
-      const pa = project(a.x, a.z)
-      const pb = project(b.x, b.z)
+      const pa = projectScene(project, a)
+      const pb = projectScene(project, b)
       const isSF = f.type === 'start' || f.type === 'finish'
       const fallback = isSF ? '#c01010' : '#2a8f9a'
       ctx.strokeStyle = hexFill(f.color, fallback)
@@ -561,22 +694,22 @@ export function drawMapLayoutFeatures(
       ctx.lineCap = 'round'
       ctx.lineJoin = 'round'
       ctx.beginPath()
-      const pFirst = project(f.points[0]!.x, f.points[0]!.z)
+      const pFirst = projectScene(project, f.points[0]!)
       ctx.moveTo(pFirst.x, pFirst.y)
       for (let i = 1; i < f.points.length; i++) {
-        const pi = project(f.points[i]!.x, f.points[i]!.z)
+        const pi = projectScene(project, f.points[i]!)
         ctx.lineTo(pi.x, pi.y)
       }
       ctx.stroke()
       for (const pt of f.points) {
-        const { x, y } = project(pt.x, pt.z)
+        const { x, y } = projectScene(project, pt)
         ctx.fillStyle = hexFill(f.color, '#4a9fb0')
         ctx.beginPath()
         ctx.arc(x, y, 2.5, 0, Math.PI * 2)
         ctx.fill()
       }
       const mid = f.points[Math.floor(f.points.length / 2)]!
-      const pm = project(mid.x, mid.z)
+      const pm = projectScene(project, mid)
       if (selected) drawSelectionRing(ctx, pm.x, pm.y, 9)
       if (f.label) {
         drawLabelPill(
@@ -596,7 +729,7 @@ export function drawMapLayoutFeatures(
 
     const p0 = f.points[0]
     if (!p0) continue
-    const { x, y } = project(p0.x, p0.z)
+    const { x, y } = projectScene(project, p0)
 
     if (f.type === 'mark' || f.type === 'buoy') {
       ctx.fillStyle = hexFill(

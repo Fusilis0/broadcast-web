@@ -11,7 +11,7 @@ import {
 } from '../calibration/index.ts'
 import type { EnuPosition, PoseRotation } from './types.ts'
 
-/** ENU pose for apply: position metres (x=E,y=U,z=N), rotation as Three quaternion. */
+/** ENU pose for apply: position metres (x=E, y=U, z=−N), rotation as Three quaternion. */
 export type EnuPose = {
   position: EnuPosition
   rotation: Quaternion

@@ -1,7 +1,14 @@
 # CAL_MEMO
 
-**Last updated:** 2026-08-12  
-**Status:** Idle — Phase 11 CAL accepted; Phase 13.7 overlay shipped by SCN (Calib checkbox)
+**Last updated:** 2026-08-17  
+**Status:** Idle — FYI `HO-BW-CAL-20260817-01` (do not dispatch until 14.0 accepted + a real yaw check)
+
+## Phase 14.0 FYI 2026-08-17
+Scene ENU packing will change to `z = −North`. Saved `calibration.byPovId` / offsetsStore yaw
+may have been compensating the old mirror. GEO worker will **not** migrate numbers. After 14.0
+lands: eyeball one POV yaw on the Bosphorus origin before issuing any CAL DSP.
+
+Handoff: `docs/agentic/handoffs/HO-BW-CAL-20260817-01.md`
 
 ## Phase 13 — overlay landed via SCN (2026-08-12)
 - `done/DSP-SCN-20260812-02` mounts **“Calibration overlay”** in the Calib sidebar next to offset

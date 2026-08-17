@@ -22,10 +22,52 @@ Orchestrators save concrete `DSP-*.md` files into:
 
 Templates: see `../DISPATCH_PROTOCOL.md`.
 
-### Active 2026-08-12 (follow-ups)
+### Active 2026-08-17 (Phase 14)
 
-**No active worker dispatches.** Soft: if Electron UI still janks after OUT-06, default **3D NDI off**.
-Human **10.1** (Unity cutover) still open. Human smokes recommended (FPS, place/delete boats, Project Save).
+**No active worker dispatches.** Phase 14 engineering is complete (14.3c anemometer not issued — needs hardware). Optional later: FFT/wakes, 3D ribbons/flags/spray.
+
+Human **10.1** (Unity cutover) still open.
+
+### Accepted 2026-08-17 (Phase 14.3e)
+
+| DSP | Result |
+| --- | --- |
+| [`done/DSP-SCN-20260817-06-wind-streaks.md`](./done/DSP-SCN-20260817-06-wind-streaks.md) | Gerstner fragment gust mask; from-000° +Z; fade at ~0 m/s; no extra FBO |
+
+### Accepted 2026-08-17 (Phase 14.2c + 14.3d)
+
+| DSP | Result |
+| --- | --- |
+| [`done/DSP-SCN-20260817-04-shore-foam.md`](./done/DSP-SCN-20260817-04-shore-foam.md) | Half-res terrain depth FBO; shore foam/shallow tint; no readPixels |
+| [`done/DSP-SCN-20260817-05-map-wind-readout.md`](./done/DSP-SCN-20260817-05-map-wind-readout.md) | Ops + stream wind pills; travel arrow; from-000° screen-down |
+
+### Accepted 2026-08-17 (Phase 14.2b + 14.3b)
+
+| DSP | Result |
+| --- | --- |
+| [`done/DSP-SCN-20260817-03-wind-coupled-ocean.md`](./done/DSP-SCN-20260817-03-wind-coupled-ocean.md) | Gerstner follows `windBus`; 3 s ramp; from-000° → +Z |
+| [`done/DSP-TEL-20260817-02-open-meteo-wind.md`](./done/DSP-TEL-20260817-02-open-meteo-wind.md) | Open-Meteo poll ~10 min; operator hold 30 min; marine optional |
+
+### Accepted 2026-08-17 (Phase 14.1 / 14.2a / 14.3a)
+
+| DSP | Result |
+| --- | --- |
+| [`done/DSP-SCN-20260817-01-cesium-ion-terrain.md`](./done/DSP-SCN-20260817-01-cesium-ion-terrain.md) | ion World Terrain + Bing drape; default off; DOM credits 3D-only |
+| [`done/DSP-SCN-20260817-02-gerstner-ocean.md`](./done/DSP-SCN-20260817-02-gerstner-ocean.md) | Gerstner clipmap; shared-clock; `waterCue` hidden when realistic |
+| [`done/DSP-TEL-20260817-01-wind-bus.md`](./done/DSP-TEL-20260817-01-wind-bus.md) | `windBus` + `windTravelSceneXZ` (from-N → +Z) + Ops row |
+
+### Accepted 2026-08-17 (Phase 14.0)
+
+| DSP | Result |
+| --- | --- |
+| [`done/DSP-GEO-20260817-01-enu-handedness-fix.md`](./done/DSP-GEO-20260817-01-enu-handedness-fix.md) | Scene ENU `x=East, y=Up, z=−North`; `East × North = +Y` |
+
+Human **10.1** (Unity cutover) still open.
+
+### Active 2026-08-12 (follow-ups) — closed
+
+Soft: if Electron UI still janks after OUT-06, default **3D NDI off**.
+Human smokes recommended (FPS, place/delete boats, Project Save).
 
 ### Accepted 2026-08-12 (follow-up trio)
 

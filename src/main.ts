@@ -17,6 +17,7 @@ import {
   ensureEgm96Loaded,
   enuToGpsAmsl,
   gpsToEnuAmsl,
+  northFromSceneZ,
   type ConfigOrigin,
 } from './geodesy/index.ts'
 import {
@@ -97,6 +98,11 @@ import {
   resolveAuthoringInitiallyOpen,
   STREAM_MAP_SIZE_PX,
   WORLD_AUTHORING_MAP_SIZE,
+  createTerrainAttributionOverlay,
+  CESIUM_ION_TOKEN_MAX_LEN,
+  readSessionCesiumIonToken,
+  resolveCesiumIonToken,
+  writeSessionCesiumIonToken,
   type AssetInspectorHandle,
 
   type AssetRowId,
@@ -110,7 +116,9 @@ import {
 } from './scene/index.ts'
 import {
   DEFAULT_LIVE_WS_BASE,
+  startOpenMeteoWind,
   startTelemetryIngest,
+  stopOpenMeteoWind,
   stripLiveWsId,
   type IngestHandle,
   type LiveStatusSnapshot,
@@ -313,7 +321,7 @@ function focusAssetRow(target: AssetRowId): void {
     return
   }
   scene.frameEnuPoint(enu, 80)
-  hud.getMap().focusEnu(enu.x, enu.z, 80)
+  hud.getMap().focusEnu(enu.x, northFromSceneZ(enu.z), 80)
   hud.setOpsViewMode('free')
   fleetPanel?.setOpsViewMode('free')
 }
@@ -393,6 +401,8 @@ function applyLocalChannelFocus(focus: LocalChannelFocus): void {
   if (canvas) {
     canvas.classList.toggle('local-channel-webgl--hidden', !presentation.showWebgl)
   }
+
+  syncTerrainAttribution()
 }
 
 function clearLiveStatusSub(): void {
@@ -480,7 +490,7 @@ function syncMapGeoBridge(maps: {
     },
     latLonToEnu: (lat: number, lon: number) => {
       const v = gpsToEnuAmsl(lat, lon, 0)
-      return { east: v.x, north: v.z }
+      return { east: v.x, north: northFromSceneZ(v.z) }
     },
   }
   maps.ops.setGeoBridge(bridge)
@@ -1001,6 +1011,7 @@ async function applyWorldOrigin(origin: ConfigOrigin): Promise<void> {
   config.origin = { ...origin }
   applyConfigOrigin(config.origin)
   hud.setOrigin(config.origin)
+  startOpenMeteoWind({ origin: config.origin })
 
   syncMapGeoBridge({ ops: hud.getMap(), stream: hud.getStreamMap() })
 
@@ -1035,6 +1046,7 @@ async function applyLoadedRaceProject(project: RaceProject): Promise<void> {
 
   applyConfigOrigin(config.origin)
   hud.setOrigin(config.origin)
+  startOpenMeteoWind({ origin: config.origin })
   await scene.loadBoatNamesFromUrl(boatNamesUrl)
   syncMapBoatDotColors()
 
@@ -1165,6 +1177,19 @@ async function loadVenuePackFromFile(file: File): Promise<void> {
 }
 
 const opsSidebar = createSidebar({ container: app })
+
+const terrainAttrib = createTerrainAttributionOverlay()
+opsSidebar.getOverlayHost().appendChild(terrainAttrib.el)
+
+function syncTerrainAttribution(): void {
+  const lines = scene?.getTerrainCredits() ?? []
+  const show =
+    localChannelFocus === '3d' &&
+    (scene?.getTerrainEnabled() ?? false) &&
+    lines.length > 0
+  terrainAttrib.setLines(lines)
+  terrainAttrib.setVisible(show)
+}
 
 const authoringShell = createWorldAuthoringWorkspace({
   container: opsSidebar.getOverlayHost(),
@@ -1363,6 +1388,19 @@ const hud = startStubHud({
   onEnvironmentModeChange: (mode) => {
     scene?.setEnvironmentMode(mode)
   },
+  onTerrainEnabledChange: (enabled) => {
+    scene?.setTerrainEnabled(enabled)
+    syncTerrainAttribution()
+  },
+  onTerrainAltitudeNudgeChange: (nudgeM) => {
+    scene?.setTerrainAltitudeNudgeM(nudgeM)
+  },
+  onTerrainTilesLockedChange: (locked) => {
+    scene?.setTerrainTilesLocked(locked)
+  },
+  onCesiumIonTokenApply: (token) => {
+    void persistAndApplyIonToken(token)
+  },
   onCountdownControl: (action) => {
     scene?.controlCountdown(action)
   },
@@ -1392,6 +1430,41 @@ const hud = startStubHud({
     void applyWorldOrigin(origin)
   },
 })
+
+async function persistAndApplyIonToken(token: string): Promise<void> {
+  const trimmed = token.trim()
+  if (trimmed.length > CESIUM_ION_TOKEN_MAX_LEN) {
+    hud.setTerrainStatus('Terrain: ion token too long')
+    return
+  }
+  writeSessionCesiumIonToken(trimmed)
+  if (bootConfig) bootConfig.cesiumIonToken = trimmed
+  scene?.setCesiumIonToken(trimmed)
+  const status = scene?.getTerrainStatusMessage() ?? ''
+  const setter = getStudioBridge()?.config?.setCesiumIonToken
+  if (typeof setter !== 'function') {
+    hud.setTerrainStatus(
+      trimmed === ''
+        ? `${status} · session cleared — also clear public/config.json to git-share`
+        : `${status} · session only — studio app saves public/config.json for git`,
+    )
+    syncTerrainAttribution()
+    return
+  }
+  const result = await setter(trimmed)
+  if (result.ok) {
+    const share =
+      result.kind === 'public'
+        ? 'saved public/config.json — commit to share with git'
+        : 'saved userData/config.json (packaged app, not git)'
+    hud.setTerrainStatus(`${status} · ${share}`)
+  } else {
+    hud.setTerrainStatus(
+      `${status} · save failed: ${result.error ?? 'unknown'}`,
+    )
+  }
+  syncTerrainAttribution()
+}
 
 authoringShell.onOpenChange((open) => {
   mapEditor?.setOpen(open)
@@ -1542,11 +1615,18 @@ void (async () => {
   // Clear color from OUT (preview / chroma / transparent).
   // Electron studio: lock WebGL/NDI to 1920×1080; main-process clock when minimized.
   const studioBridge = getStudioBridge()
+  const cesiumIonToken = resolveCesiumIonToken(
+    config.cesiumIonToken,
+    readSessionCesiumIonToken(),
+  )
   scene = startScene({
     container: app,
     boatIds,
     povIds,
     clearColor: clear.color,
+    cesiumIonToken,
+    cesiumIonAssetId: config.cesiumIonAssetId,
+    cesiumIonImageryAssetId: config.cesiumIonImageryAssetId,
     ...(studioBridge
       ? {
           outputSize: {
@@ -1569,6 +1649,14 @@ void (async () => {
   })
   // Realistic sea/sky only when clear is opaque-safe (preview today).
   scene.setEnvironmentOpaqueClearSafe(outputMode === 'preview')
+  scene.setTerrainAltitudeNudgeM(hud.getTerrainAltitudeNudgeM())
+  scene.setTerrainTilesLocked(hud.getTerrainTilesLocked())
+  scene.setTerrainCreditsListener(() => {
+    hud.setTerrainStatus(scene?.getTerrainStatusMessage() ?? '')
+    syncTerrainAttribution()
+  })
+  hud.setTerrainStatus(scene.getTerrainStatusMessage())
+  hud.setCesiumIonToken(cesiumIonToken)
   const envFromQuery = parseEnvironmentModeQuery(window.location.search)
   if (envFromQuery) {
     scene.setEnvironmentMode(envFromQuery)
@@ -1700,6 +1788,7 @@ void (async () => {
   await ensureEgm96Loaded()
   applyConfigOrigin(config.origin)
   hud.setOrigin(config.origin)
+  startOpenMeteoWind({ origin: config.origin })
 
   // Shared GPS→ENU layout: one list for 2D map + editor.
   const world = await loadWorldForProject(raceProject)
@@ -2030,6 +2119,7 @@ void (async () => {
     wsUrl,
     wsBoatUrl,
   })
+  startOpenMeteoWind({ origin: config.origin })
   startPosePipeline({ takeoffAltitudeMSL: config.takeoffAltitudeMSL })
   applyIngestConnectionStatus(ingest)
   hud.setMode(config.telemetryMode)
@@ -2038,6 +2128,7 @@ void (async () => {
     stopPosePipeline()
     clearLiveStatusSub()
     ingest?.stop()
+    stopOpenMeteoWind()
     ndiController?.dispose()
     ndiController = null
     ndiPump?.stop()
@@ -2063,6 +2154,7 @@ void (async () => {
     fleetPanel?.stop()
     fleetPanel = null
     hud.stop()
+    terrainAttrib.dispose()
     opsSidebar.dispose()
     scene?.stop()
   })

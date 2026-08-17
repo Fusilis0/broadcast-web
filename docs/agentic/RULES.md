@@ -75,5 +75,9 @@ No **in-browser** NDI without a native bridge. Electron is allowed as a **studio
 ## 11. Safety
 
 1. No secrets in git. Use `.env.example` only.
+   **Exception (BW 2026-08-17):** Cesium ion access token MAY be committed in
+   `public/config.json` (`cesiumIonToken`) so studio machines share the Unity
+   ion account. Enter it in Ops or paste that field, then commit. Never log it.
+   Do not ship a filled token on a public Hetzner SPA.
 2. Do not commit large binaries without BW/PLT decision on Git LFS.
 3. Do not call production VPS destructively; live telemetry is opt-in via config.

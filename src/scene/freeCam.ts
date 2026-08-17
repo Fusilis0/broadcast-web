@@ -28,7 +28,7 @@ export type FreeCamHandle = {
   dispose: () => void
 }
 
-const DEFAULT_EYE = new THREE.Vector3(120, 80, 120)
+const DEFAULT_EYE = new THREE.Vector3(120, 80, -120)
 const TARGET = new THREE.Vector3(0, 0, 0)
 /** Race-scale ENU — boats may be km from origin until ops Apply a local anchor. */
 const FAR_PLANE_M = 80_000
@@ -80,7 +80,7 @@ export function createFreeCam(
       controls.target.copy(center)
       const eye = center
         .clone()
-        .add(new THREE.Vector3(r * 1.2, r * 0.7, r * 1.2))
+        .add(new THREE.Vector3(r * 1.2, r * 0.7, -r * 1.2))
       camera.position.copy(eye)
       camera.lookAt(center)
       controls.update()

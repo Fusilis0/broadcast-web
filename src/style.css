@@ -1024,6 +1024,18 @@ body.output-transparent,
   width: 72px;
 }
 
+.ops-hud__input--nudge {
+  width: 64px;
+}
+
+.ops-hud__input--ion {
+  width: 220px;
+}
+
+.ops-hud__input--wind {
+  width: 52px;
+}
+
 .ops-hud__btn {
   pointer-events: auto;
   background: #222830;
@@ -1871,4 +1883,25 @@ body.local-focus-2d .ops-sidebar-root:not(.ops-sidebar-root--collapsed) .stream-
 
 .prompt-modal__btn--ok:hover {
   border-color: #e0c060;
+}
+
+/*
+ * Cesium ion / Bing credits — DOM overlay on the 3D local channel only.
+ * Never drawn into the WebGL framebuffer (NDI AR is readPixels of that buffer).
+ */
+.terrain-attribution {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 3;
+  max-width: min(420px, 42vw);
+  color: rgba(255, 255, 255, 0.88);
+  font: 11px/1.35 ui-sans-serif, system-ui, sans-serif;
+  text-shadow: 0 1px 2px #000;
+  pointer-events: none;
+  display: none;
+}
+
+.terrain-attribution--visible {
+  display: block;
 }

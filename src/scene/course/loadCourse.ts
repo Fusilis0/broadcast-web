@@ -27,6 +27,8 @@ export type CourseHandle = {
   worldFeatures: readonly WorldFeature[]
   /** Normalized appearance (editor remount). */
   appearance: CourseAppearance
+  /** Hide the AABB pad while realistic ocean is mounted. */
+  setWaterCueVisible: (visible: boolean) => void
   dispose: () => void
 }
 
@@ -109,6 +111,9 @@ export function mountCourse(
     mapPoints: buoyPoints,
     worldFeatures: adaptCourseToFeatures(course),
     appearance: { ...course.appearance },
+    setWaterCueVisible(visible: boolean): void {
+      waterCue?.setVisible(visible)
+    },
     dispose(): void {
       scene.remove(root)
       waterCue?.dispose()

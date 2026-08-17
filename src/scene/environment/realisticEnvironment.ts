@@ -1,21 +1,33 @@
 import * as THREE from 'three'
 import { Sky } from 'three/examples/jsm/objects/Sky.js'
-import { Water } from 'three/examples/jsm/objects/Water.js'
-import { COURSE_WATER_Y } from '../course/courseLayout.ts'
+import { windBus, type WindBus } from '../../telemetry/windBus.ts'
+import {
+  GERSTNER_OCEAN_DEFAULTS,
+  createGerstnerOcean,
+  type GerstnerOceanHandle,
+  type GerstnerOceanOptions,
+} from './gerstnerOcean.ts'
+import {
+  WIND_OCEAN_RAMP_SECONDS,
+  createWindOceanDriver,
+  type WindOceanDriver,
+} from './windOceanCoupling.ts'
 
 /**
- * Fixed look tuned toward a shaded grey-blue sea (reference: stylized model,
- * not photoreal). No weather UI in v1.
+ * Realistic sea + sky (Phase 13.2 Sky + 14.2a Gerstner + 14.2b wind bus +
+ * 14.2c shore foam).
+ *
+ * Replaces `three/examples/jsm/objects/Water` (flat normal-mapped plane).
+ * Wave time is a shared clock — see `gerstnerOcean.ts` header. Do not re-open
+ * the OUT “call tick from the 3D pump” follow-up unless that clock is removed.
+ *
+ * **Wind (14.2b):** this handle subscribes to `windBus` (snapshot on create,
+ * unsubscribe on dispose). `createScene` does not grow new wind methods —
+ * Ops / API publish on the bus and the sea follows. Direction/speed ramp
+ * over `WIND_OCEAN_RAMP_SECONDS` (shortest arc). Default wind from 000°
+ * travels **+Z**, not the uncoupled Gerstner −Z default.
  */
 export const REALISTIC_ENVIRONMENT_DEFAULTS = {
-  /** Large ocean plane edge length (meters). */
-  waterSizeM: 10_000,
-  waterY: COURSE_WATER_Y - 0.2,
-  waterColor: 0x4a6578,
-  sunColor: 0xe8eef5,
-  distortionScale: 3.2,
-  /** Mirror RT resolution (lower = cheaper). */
-  textureSize: 256,
   skyScale: 10_000,
   /** Preetham sky — muted / slightly overcast. */
   turbidity: 6,
@@ -28,17 +40,14 @@ export const REALISTIC_ENVIRONMENT_DEFAULTS = {
   fogColor: 0x8a9aaa,
   fogNear: 900,
   fogFar: 5200,
-  /** Procedural normal map size. */
-  normalsSize: 256,
+  sunColor: GERSTNER_OCEAN_DEFAULTS.sunColor,
+  liftY: GERSTNER_OCEAN_DEFAULTS.liftY,
+  directionRad: GERSTNER_OCEAN_DEFAULTS.directionRad,
+  windSpeed: GERSTNER_OCEAN_DEFAULTS.windSpeed,
+  windRampSeconds: WIND_OCEAN_RAMP_SECONDS,
 } as const
 
 export type RealisticEnvironmentOptions = {
-  waterSizeM: number
-  waterY: number
-  waterColor: number
-  sunColor: number
-  distortionScale: number
-  textureSize: number
   skyScale: number
   turbidity: number
   rayleigh: number
@@ -49,52 +58,46 @@ export type RealisticEnvironmentOptions = {
   fogColor: number
   fogNear: number
   fogFar: number
-  normalsSize: number
+  sunColor: number
+  liftY: number
+  directionRad: number
+  windSpeed: number
+  /** Shared clock in ms; forwarded to the ocean (tests). */
+  now?: () => number
+  ocean?: Partial<GerstnerOceanOptions>
+  /** Wind bus to follow. Default shared `windBus`. */
+  wind?: WindBus
+  /** Direction/speed lerp duration. Default 3 s. */
+  windRampSeconds?: number
+  /**
+   * Subscribe to the wind bus (default true). Tests that need the uncoupled
+   * Gerstner default can pass false.
+   */
+  coupleWind?: boolean
 }
 
 export type RealisticEnvironmentHandle = {
   root: THREE.Group
-  water: Water
+  ocean: THREE.Mesh
   sky: Sky
   /** Fog to assign on `scene.fog` while mounted (caller owns scene.fog). */
   fog: THREE.Fog
-  /** Advance water time uniform. */
+  getDirectionRad: () => number
+  setDirectionRad: (rad: number) => void
+  getWindSpeed: () => number
+  setWindSpeed: (ms: number) => void
+  /**
+   * Samples the shared wave clock and advances the wind ramp. `dt` is ignored
+   * for wave time (shared clock); it is used for the ramp when `now` is frozen.
+   */
   tick: (dtSeconds: number) => void
+  /**
+   * Terrain group for 14.2c shore foam. `null` drops the extra depth FBO.
+   */
+  setShoreContact: (terrainRoot: THREE.Object3D | null) => void
+  getShoreFoamEnabled: () => boolean
+  getShoreDepthTarget: () => THREE.WebGLRenderTarget | null
   dispose: () => void
-}
-
-/**
- * Soft procedural normals so we do not ship a binary waternormals.jpg.
- * Enough for shaded ripples; not a photo-sourced map.
- * Uses `DataTexture` (no DOM) so unit tests can construct without canvas.
- */
-export function createProceduralWaterNormals(
-  size: number = REALISTIC_ENVIRONMENT_DEFAULTS.normalsSize,
-): THREE.DataTexture {
-  const dim = Math.max(32, size | 0)
-  const data = new Uint8Array(dim * dim * 4)
-  for (let y = 0; y < dim; y++) {
-    for (let x = 0; x < dim; x++) {
-      const i = (y * dim + x) * 4
-      const nx =
-        128 +
-        Math.sin(x * 0.05) * 22 +
-        Math.sin(y * 0.08 + x * 0.02) * 18
-      const ny =
-        128 +
-        Math.cos(x * 0.06) * 20 +
-        Math.sin(y * 0.04) * 24
-      data[i] = Math.max(0, Math.min(255, nx))
-      data[i + 1] = Math.max(0, Math.min(255, ny))
-      data[i + 2] = 255
-      data[i + 3] = 255
-    }
-  }
-  const tex = new THREE.DataTexture(data, dim, dim)
-  tex.wrapS = THREE.RepeatWrapping
-  tex.wrapT = THREE.RepeatWrapping
-  tex.needsUpdate = true
-  return tex
 }
 
 function sunDirectionFromSpherical(phi: number, theta: number): THREE.Vector3 {
@@ -105,11 +108,10 @@ function sunDirectionFromSpherical(phi: number, theta: number): THREE.Vector3 {
 }
 
 /**
- * Create sea + sky (+ fog handle). Caller adds `root` to the scene and sets
- * `scene.fog = handle.fog` while mounted; clears fog on dispose.
+ * Create Gerstner sea + sky (+ fog handle). Caller adds `root` to the scene
+ * and sets `scene.fog = handle.fog` while mounted; clears fog on dispose.
  *
- * Course `waterCue` pad stays mounted as a crisp local tint **on top of** this
- * ocean (slightly higher Y) — not hidden when realistic mode is on.
+ * Course `waterCue` is hidden while this is mounted (createScene hook).
  */
 export function createRealisticEnvironment(
   options?: Partial<RealisticEnvironmentOptions>,
@@ -123,25 +125,17 @@ export function createRealisticEnvironment(
   root.name = 'realisticEnvironment'
 
   const sunDir = sunDirectionFromSpherical(opts.sunPhi, opts.sunTheta)
-  const normals = createProceduralWaterNormals(opts.normalsSize)
 
-  const waterGeo = new THREE.PlaneGeometry(opts.waterSizeM, opts.waterSizeM)
-  const water = new Water(waterGeo, {
-    textureWidth: opts.textureSize,
-    textureHeight: opts.textureSize,
-    waterNormals: normals,
-    sunDirection: sunDir.clone(),
+  const oceanHandle: GerstnerOceanHandle = createGerstnerOcean({
+    ...opts.ocean,
+    liftY: opts.liftY,
+    directionRad: opts.directionRad,
+    windSpeed: opts.windSpeed,
     sunColor: opts.sunColor,
-    waterColor: opts.waterColor,
-    distortionScale: opts.distortionScale,
-    fog: true,
+    sunDirection: sunDir,
+    ...(opts.now ? { now: opts.now } : {}),
   })
-  water.name = 'realisticWater'
-  water.rotation.x = -Math.PI / 2
-  water.position.y = opts.waterY
-  // Below course waterCue pads (renderOrder -10) so the local tint stays readable.
-  water.renderOrder = -20
-  root.add(water)
+  root.add(oceanHandle.mesh)
 
   const sky = new Sky()
   sky.name = 'realisticSky'
@@ -156,33 +150,77 @@ export function createRealisticEnvironment(
 
   const fog = new THREE.Fog(opts.fogColor, opts.fogNear, opts.fogFar)
 
+  const now = opts.now ?? (() => performance.now())
+  const coupleWind = opts.coupleWind !== false
+  let driver: WindOceanDriver | null = null
+  let unsubWind: (() => void) | null = null
+
+  if (coupleWind) {
+    driver = createWindOceanDriver({
+      apply: {
+        setDirectionRad: (rad) => oceanHandle.setDirectionRad(rad),
+        setWindSpeed: (ms) => oceanHandle.setWindSpeed(ms),
+        setAmplitudeScale: (scale) => oceanHandle.setAmplitudeScale(scale),
+      },
+      now,
+      rampSeconds: opts.windRampSeconds,
+    })
+    const bus = opts.wind ?? windBus
+    let first = true
+    unsubWind = bus.subscribe((frame) => {
+      driver?.setTarget(frame, first)
+      first = false
+    })
+  }
+
+  const prevBeforeRender = oceanHandle.mesh.onBeforeRender
+  oceanHandle.mesh.onBeforeRender = (renderer, scene, camera, geometry, material, group) => {
+    driver?.step(0)
+    prevBeforeRender.call(
+      oceanHandle.mesh,
+      renderer,
+      scene,
+      camera,
+      geometry,
+      material,
+      group,
+    )
+  }
+
   let disposed = false
 
   return {
     root,
-    water,
+    ocean: oceanHandle.mesh,
     sky,
     fog,
+    getDirectionRad: () => oceanHandle.getDirectionRad(),
+    setDirectionRad(rad: number): void {
+      oceanHandle.setDirectionRad(rad)
+    },
+    getWindSpeed: () => oceanHandle.getWindSpeed(),
+    setWindSpeed(ms: number): void {
+      oceanHandle.setWindSpeed(ms)
+    },
     tick(dtSeconds: number): void {
       if (disposed) return
-      const mat = water.material as THREE.ShaderMaterial
-      const u = mat.uniforms['time']
-      if (u) u.value += dtSeconds
+      driver?.step(dtSeconds)
+      oceanHandle.tick(dtSeconds)
     },
+    setShoreContact(terrainRoot: THREE.Object3D | null): void {
+      oceanHandle.setShoreContact(terrainRoot)
+    },
+    getShoreFoamEnabled: () => oceanHandle.getShoreFoamEnabled(),
+    getShoreDepthTarget: () => oceanHandle.getShoreDepthTarget(),
     dispose(): void {
       if (disposed) return
       disposed = true
+      unsubWind?.()
+      unsubWind = null
+      driver = null
+      oceanHandle.mesh.onBeforeRender = () => {}
       root.clear()
-      waterGeo.dispose()
-      normals.dispose()
-      const mat = water.material as THREE.ShaderMaterial
-      // Water keeps its mirror RT private; disposing the mirror sampler
-      // texture is best-effort (full RT cleanup needs a three.js dispose hook).
-      const mirror = mat.uniforms['mirrorSampler']?.value
-      if (mirror && typeof (mirror as THREE.Texture).dispose === 'function') {
-        ;(mirror as THREE.Texture).dispose()
-      }
-      mat.dispose()
+      oceanHandle.dispose()
       const skyMat = sky.material as THREE.ShaderMaterial
       skyMat.dispose()
       sky.geometry.dispose()

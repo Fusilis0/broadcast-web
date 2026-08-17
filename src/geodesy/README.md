@@ -4,13 +4,15 @@ Owned by **GEO**. WGS84 origin, EGM96 undulation, GPS → ENU.
 
 ## Axis contract
 
-Three.js / Unity-compatible ENU:
+Right-handed Three.js / glTF ENU:
 
 | Axis | Direction |
 | --- | --- |
 | `x` | East |
 | `y` | Up |
-| `z` | North |
+| `z` | **−North** |
+
+Named-scalar APIs (`enuToGps(east, up, north)`) stay geographic. Convert with `sceneZFromNorth` / `northFromSceneZ` when reading a scene `Vector3`. Unity’s `x=East, y=Up, z=North` is left-handed and must not be copied into Three.
 
 Boats use **HAE** altitudes (provisional). Drones: `takeoffAMSL + relativeAlt + N` (EGM96).
 
@@ -22,7 +24,9 @@ Boats use **HAE** altitudes (provisional). Drones: `takeoffAMSL + relativeAlt + 
 | `getUndulation` / `amslToHae` / `relativeToHae` | Geoid N and altitude bridges |
 | `setOriginHAE` / `setOriginAMSL` / `isOriginValid` | Explicit origin (no Cesium / scene lookup) |
 | `onOriginChanged` | Optional change subscription |
-| `gpsToEnu` / `gpsToEnuAmsl` / `gpsToEnuRelative` / `gpsToEnuBatch` | GPS → `THREE.Vector3` ENU |
+| `gpsToEnu` / `gpsToEnuAmsl` / `gpsToEnuRelative` / `gpsToEnuBatch` | GPS → `THREE.Vector3` ENU (`x=East`, `y=Up`, `z=−North`) |
+| `enuToGps` / `enuToGpsAmsl` | Named-scalar inverse (positive `north` = north) |
+| `sceneZFromNorth` / `northFromSceneZ` / `eastNorthFromScene` | Scene Z ↔ geographic north |
 | `applyConfigOrigin` | Apply `{ lat, lon, altMsl }` from config shape (AMSL) |
 | `parseConfigOriginFields` | Parse HUD/form lat/lon/altMsl strings → `ConfigOrigin` or `null` |
 

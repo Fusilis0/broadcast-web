@@ -24,6 +24,23 @@ export {
   type RealisticEnvironmentHandle,
 } from './environment/index.ts'
 export {
+  CESIUM_ION_BING_AERIAL_ASSET_ID,
+  CESIUM_ION_WORLD_TERRAIN_ASSET_ID,
+  DEFAULT_TERRAIN_ENABLED,
+  TERRAIN_SESSION_LOCK_KEY,
+  TERRAIN_SESSION_NUDGE_KEY,
+  TERRAIN_VRAM_BYTES_TARGET,
+  createTerrainAttributionOverlay,
+  CESIUM_ION_TOKEN_MAX_LEN,
+  parseCesiumIonAssetId,
+  readSessionCesiumIonToken,
+  resolveCesiumIonToken,
+  writeSessionCesiumIonToken,
+  shouldShowTerrain,
+  type TerrainAttributionHandle,
+  type TerrainHandle,
+} from './terrain/index.ts'
+export {
   createFreeCam,
   formatOpsViewStatus,
   isOpsViewMode,
@@ -158,6 +175,8 @@ export {
   mapChromeMetrics,
   yawDegToCanvasRad,
   parseArrowBearingDeg,
+  windTravelToMapCanvasDelta,
+  formatMapWindLabel,
   MAP_BOAT_SPRITE_URL,
   MAP_SAIL_SPRITE_URL,
   type MapChromeMetrics,

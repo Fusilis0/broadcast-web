@@ -52,6 +52,9 @@ const DEFAULT_CONFIG: AppConfig = {
   projectsApiBase: '',
   projectsRole: 'editor',
   projectsApiToken: '',
+  cesiumIonToken: '',
+  cesiumIonAssetId: 1,
+  cesiumIonImageryAssetId: 2,
 }
 
 function parseTimecodeEnabled(value: unknown): boolean {
@@ -71,6 +74,17 @@ function parseTimecodeSizePx(value: unknown): number {
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
+}
+
+function parseCesiumIonAssetIdField(raw: unknown, fallback: number): number {
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw >= 0) {
+    return Math.floor(raw)
+  }
+  if (typeof raw === 'string' && raw.trim() !== '') {
+    const n = Number(raw.trim())
+    if (Number.isFinite(n) && n >= 0) return Math.floor(n)
+  }
+  return fallback
 }
 
 function parseOrigin(raw: unknown): ConfigOrigin {
@@ -221,6 +235,13 @@ export function normalizeConfig(raw: unknown): AppConfig {
     projectsRole: normalizeProjectsRoleField(o.projectsRole),
     projectsApiToken:
       typeof o.projectsApiToken === 'string' ? o.projectsApiToken.trim() : '',
+    cesiumIonToken:
+      typeof o.cesiumIonToken === 'string' ? o.cesiumIonToken.trim() : '',
+    cesiumIonAssetId: parseCesiumIonAssetIdField(o.cesiumIonAssetId, 1),
+    cesiumIonImageryAssetId: parseCesiumIonAssetIdField(
+      o.cesiumIonImageryAssetId,
+      2,
+    ),
   }
 }
 
