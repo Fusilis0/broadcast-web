@@ -113,6 +113,34 @@ function finiteNudge(nudgeM: number): number {
   return Number.isFinite(nudgeM) ? nudgeM : 0
 }
 
+const ION_ERROR_DETAIL_MAX = 120
+
+/**
+ * Root tileset failures (`tile == null`) are operator-visible.
+ * Per-tile 404s are logged only — World Terrain often misses a skirt tile
+ * without the whole mount being dead.
+ */
+export function describeIonLoadError(event: unknown): {
+  rootFailed: boolean
+  detail: string
+} {
+  const rec =
+    event && typeof event === 'object'
+      ? (event as { error?: unknown; tile?: unknown })
+      : null
+  const err = rec?.error ?? event
+  let detail = 'check token / network'
+  if (err instanceof Error && err.message.trim() !== '') {
+    detail = err.message.trim()
+  } else if (typeof err === 'string' && err.trim() !== '') {
+    detail = err.trim()
+  }
+  if (detail.length > ION_ERROR_DETAIL_MAX) {
+    detail = `${detail.slice(0, ION_ERROR_DETAIL_MAX)}…`
+  }
+  return { rootFailed: rec == null || rec.tile == null, detail }
+}
+
 /**
  * Reorient from the live GeoOrigin. Height is `GeoOrigin.altitudeHAE`, which
  * is `amslToHae(lat, lon, altMsl)` after `setOriginAMSL` / `applyConfigOrigin`.
@@ -188,28 +216,40 @@ export function createTerrain(options: CreateTerrainOptions): TerrainHandle {
   }
 
   function onLoadError(event: unknown): void {
-    const err =
-      event && typeof event === 'object' && 'error' in event
-        ? (event as { error: unknown }).error
-        : event
-    const msg = err instanceof Error ? err.message : String(err)
-    console.warn('[terrain] ion load-error', msg)
-    statusExtra = 'ion load failed (check token / network)'
+    const { rootFailed, detail } = describeIonLoadError(event)
+    console.warn('[terrain] ion load-error', detail)
+    if (!rootFailed) return
+    statusExtra = `ion load failed (${detail})`
   }
 
   if (!options.skipIonPlugins && token !== '') {
-    tiles.registerPlugin(
-      new QuantizedMeshPlugin({
-        // JS default is generateNormals: true (missing from 0.5.1 .d.ts).
-        useRecommendedSettings: true,
-        smoothSkirtNormals: true,
-      }),
-    )
+    // Do not register QuantizedMeshPlugin up front. It has priority -1000, so
+    // TilesRenderer would call its loadRootTileset *before* ion auth, parse the
+    // endpoint JSON as layer.json, and throw `available.length` (null).
+    // Register it from assetTypeHandler after rootURL is the terrain CDN.
     tiles.registerPlugin(
       new CesiumIonAuthPlugin({
         apiToken: token,
         assetId: String(assetId),
         autoRefreshToken: true,
+        assetTypeHandler: (type, renderer) => {
+          if (type !== 'TERRAIN') {
+            console.warn(
+              `[terrain] ion asset type "${type}" unhandled (expected TERRAIN)`,
+            )
+            return
+          }
+          const hasMesh =
+            typeof renderer.getPluginByName === 'function' &&
+            renderer.getPluginByName('QUANTIZED_MESH_PLUGIN') != null
+          if (hasMesh) return
+          renderer.registerPlugin(
+            new QuantizedMeshPlugin({
+              useRecommendedSettings: true,
+              smoothSkirtNormals: true,
+            }),
+          )
+        },
       }),
     )
     tiles.registerPlugin(new TilesFadePlugin({ fadeDuration: 250 }))

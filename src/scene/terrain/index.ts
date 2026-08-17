@@ -19,6 +19,7 @@ export {
 } from './attribution.ts'
 export {
   createTerrain,
+  describeIonLoadError,
   reorientArgsFromGeoOrigin,
   type CreateTerrainOptions,
   type TerrainHandle,

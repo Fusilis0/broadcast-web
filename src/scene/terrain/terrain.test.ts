@@ -14,7 +14,7 @@ import {
   DEFAULT_TERRAIN_ENABLED,
   REORIENTATION_AZIMUTH_RAD,
 } from './constants.ts'
-import { createTerrain, type TerrainTilesAdapter } from './createTerrain.ts'
+import { createTerrain, describeIonLoadError, type TerrainTilesAdapter } from './createTerrain.ts'
 import { pluginFrameToScene, reorientationHeightHae } from './reorient.ts'
 import { shouldShowTerrain } from './terrainGate.ts'
 
@@ -200,5 +200,21 @@ describe('attribution strings', () => {
 describe('ion asset defaults', () => {
   it('defaults World Terrain to asset 1', () => {
     expect(CESIUM_ION_WORLD_TERRAIN_ASSET_ID).toBe(1)
+  })
+})
+
+describe('describeIonLoadError', () => {
+  it('treats tile=null as a root failure and keeps the ion message', () => {
+    const err = new Error('CesiumIonAuthPlugin: Failed to load data with error code 401')
+    expect(describeIonLoadError({ tile: null, error: err })).toEqual({
+      rootFailed: true,
+      detail: err.message,
+    })
+  })
+
+  it('does not treat a missing child tile as a dead mount', () => {
+    expect(
+      describeIonLoadError({ tile: { content: { uri: 'x.terrain' } }, error: '404' }),
+    ).toEqual({ rootFailed: false, detail: '404' })
   })
 })
