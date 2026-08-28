@@ -21,10 +21,10 @@ Prefer real textures/glTF from Unity over more procedural stubs. This doc tracks
 | --- | --- | --- | --- | --- |
 | Start line | `Assets/Prefabs/Start.prefab` + `BillboardBetweenTwoPoints.cs` | World-space canvas (flat water “START” + red bar) | **Ported** — `src/scene/lineSigns/` procedural plane | Optional TMP font parity |
 | Finish line | `Assets/Prefabs/Finish.prefab` | Same as Start (“FINISH”) | **Ported** — same module | — |
-| Sponsor logos on sea | `Assets/Prefabs/Sponsors/*LogoOnSea.prefab` | Canvas + sprite | **Partial** — texture slots + 3 demo PNGs; procedural fallback polished | Full logo pack + BillboardChain tiling |
-| Billboard panel tex | `Assets/Sprites/billboard1.png` | PNG (~887 KB) | Not copied (size); procedural frame used | Optional panel chrome |
+| Sponsor logos on sea | `Assets/Prefabs/Sponsors/*LogoOnSea.prefab` | Canvas + sprite | **Board frame (16.4)** — canvas compose: opaque panel `#f4f4f2` + dark slate frame + contain-fit logo (or label). Optional `panelColor` / `frameColor`. 3 demo PNGs | Full logo pack |
+| Billboard panel tex | `Assets/Sprites/billboard1.png` | PNG (~887 KB) | Not copied (size); canvas-composed frame used (`src/scene/sponsors/boardCompose.ts`) | Optional Unity PNG chrome |
 | Position / distance marks | `Assets/Prefabs/Distances.prefab` | TMP numbers 100–1000 on water | **Ported visual** — `src/scene/positionMarkers/` + demo fixture | Editor WorldFeature type; pull GPS from Unity scenes |
-| CW / RCW arrows | `Assets/Prefabs/CWArrow.prefab`, `RCWArrow.prefab` + sprites | Canvas icons | **Map glyphs** — procedural chevron / arc (`mapChrome`); Unity PNGs (~110 KB) not copied | Optional PNG port; 3D water icons still stub |
+| CW / RCW arrows | `Assets/Prefabs/CWArrow.prefab`, `RCWArrow.prefab` + sprites | Canvas icons | **3D on buoys** — procedural two-arrow ring (`src/scene/course/roundingArrows.ts`) + Assets Details Off/CW/CCW. Map chevrons remain for `arrow` / `rotation` types. Unity PNGs (~110 KB) not copied | Optional PNG port for map chrome |
 | Countdown flags | Flag_* prefabs + PNGs | Canvas flags | Procedural planes already (Phase 2.6) | Optional PNG dump |
 | Boat hull | Models / Boat.prefab | Mesh | `public/models/boat.glb` shipped | Category hull variants (8.3) |
 | Ghost / invisible boats | Boat scripts / materials | Runtime mode | **Landed** (DSP-06) — see backlog note | — |
@@ -64,6 +64,7 @@ If the pad looks too heavy on alpha air, lower `waterOpacity` / `shoreOpacity` (
 4. **Sponsors** — three panels show logo textures (or branded procedural if texture 404).
 5. **Position markers** — semi-transparent meter labels (100 / 200 / 300) on water near course.
 6. **Buoys (8.8)** — marks read as yellow float+cap (not plain stub cylinders); gate ends show green accent band/cap.
+6b. **Rounding arrows (15.3)** — Istanbul corner marks show a spinning two-arrow ring on the water (CW from above). Assets → Details → Rounding Off/CW/CCW. `none` / omit = no glyph.
 7. **Gates (8.8)** — green horizontal tubes across Gate1 (not hairline-only).
 8. **Water/shore cue (8.8)** — teal pad under course AABB; shore tint slightly larger; does not fill the whole frame.
 9. Map: start/finish thicker red bars + **START/FINISH** pills; boats as category-tinted sail icons (yaw); ops + stream share `mapChrome`.
@@ -87,10 +88,11 @@ If the pad looks too heavy on alpha air, lower `waterOpacity` / `shoreOpacity` (
 - [x] Buoy / gate materials + scale pass
 - [x] Mild water/shore cue (no Cesium)
 - [x] Lighting tweak for hull/sponsors on transparent/chroma
-- Optional later: BillboardChain tiling for long sponsor runs; arrow/rotation water icons (`CWArrow` / `RCWArrow`).
+- Optional later: BillboardChain tiling for long sponsor runs.
+- `arrow` / `rotation` 3D water icons (separate from per-buoy rounding rings).
 
 ### Still stub / not in this slice
-- `arrow` / `rotation` 3D (editor may place; no Unity icon mesh yet).
+- `arrow` / `rotation` 3D (editor may place; no Unity icon mesh yet). Per-buoy CW/CCW rings are **done** (15.3).
 - Position markers not yet a `WorldFeature` editor tool (fixture-only).
 - Full sponsor logo library + BillboardChain.
 - Landmark props (bridge, Kız Kulesi).

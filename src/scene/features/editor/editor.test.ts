@@ -301,6 +301,41 @@ describe('serializeWorldFeaturesExport', () => {
     expect(parsed.features).toHaveLength(1)
     expect(parsed.features[0]!.type).toBe('mark')
   })
+
+  it('round-trips rounding on export JSON', () => {
+    const features: WorldFeature[] = [
+      {
+        id: 'course:Mark-1',
+        name: 'Mark-1',
+        type: 'mark',
+        points: [{ lat: 41, lon: 29, altMsl: 0 }],
+        rounding: 'cw',
+      },
+    ]
+    const text = serializeWorldFeaturesExport(features)
+    const parsed = JSON.parse(text) as { features: WorldFeature[] }
+    expect(parsed.features[0]!.rounding).toBe('cw')
+  })
+
+  it('round-trips panelColor / frameColor on export JSON', () => {
+    const features: WorldFeature[] = [
+      {
+        id: 'sponsor:sp1',
+        name: 'sp1',
+        type: 'sponsor',
+        points: [
+          { lat: 41, lon: 29, altMsl: 0 },
+          { lat: 41.01, lon: 29, altMsl: 0 },
+        ],
+        panelColor: 0xf4f4f2,
+        frameColor: 0x2c3338,
+      },
+    ]
+    const text = serializeWorldFeaturesExport(features)
+    const parsed = JSON.parse(text) as { features: WorldFeature[] }
+    expect(parsed.features[0]!.panelColor).toBe(0xf4f4f2)
+    expect(parsed.features[0]!.frameColor).toBe(0x2c3338)
+  })
 })
 
 describe('reverseAdapters', () => {
@@ -313,6 +348,7 @@ describe('reverseAdapters', () => {
         points: [{ lat: 41.01, lon: 28.97, altMsl: 0 }],
         heightM: 5,
         color: 0xffdd33,
+        rounding: 'ccw',
       },
       {
         id: 'sponsor:sp1',
@@ -325,6 +361,8 @@ describe('reverseAdapters', () => {
         label: 'Acme',
         color: 0x123456,
         heightM: 8,
+        panelColor: 0xf4f4f2,
+        frameColor: 0x2c3338,
       },
       {
         id: 'flags:p1',
@@ -345,10 +383,13 @@ describe('reverseAdapters', () => {
     const course = featuresToCourseData(features)
     expect(course.waypoints).toHaveLength(1)
     expect(course.waypoints[0]!.name).toBe('Mark-NW')
+    expect(course.waypoints[0]!.rounding).toBe('ccw')
 
     const sponsors = featuresToSponsorsData(features)
     expect(sponsors.sponsors).toHaveLength(1)
     expect(sponsors.sponsors[0]!.label).toBe('Acme')
+    expect(sponsors.sponsors[0]!.panelColor).toBe(0xf4f4f2)
+    expect(sponsors.sponsors[0]!.frameColor).toBe(0x2c3338)
 
     const flags = featuresToFlagsData(features)
     expect(flags).not.toBeNull()

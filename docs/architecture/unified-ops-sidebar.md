@@ -1,6 +1,6 @@
 # Unified ops sidebar & universal asset pipeline (Phase 11)
 
-**Status:** Locked (BW decision) — 2026-08-11
+**Status:** Locked (BW decision) — 2026-08-11; **ops chrome grouping superseded 2026-08-18** by Phase 16.6 two-rail layout (`docs/architecture/phase16-visual-upgrade.md` §7, `DSP-SCN-20260818-09`).
 **Owner:** BW (design) → SCN / PLT / OUT / TEL (implementation)
 **Supersedes:** old Phase 11 bullets (11.1 hide-HUD, 11.2 rename/archive, 11.4 boat-id validation, 11.5 basemap) — folded into this doc.
 
@@ -26,9 +26,24 @@ state.
 
 ## 3. Sidebar shell contract
 
-One shell (`src/scene/sidebar/` — new), collapsible, ~340px, docked left, overlaying the canvas
-(same z-layer trick as today's `.ops-overlay`, not a flex reflow of the canvas — avoids resize
-churn). Sections register into the shell instead of each panel creating its own floating box:
+One shell (`src/scene/sidebar/`), overlaying the canvas (same z-layer trick as today's
+`.ops-overlay`, not a flex reflow of the canvas — avoids resize churn / studio 1920×1080 lock).
+Sections register into the shell instead of each panel creating its own floating box.
+
+**Phase 16.6 (SCN-09):** two independent rails. Grouping is by task (BW-locked); this is a
+**re-homing** of existing DOM modules, not a rewrite of panel internals. Section **ids** stay
+stable (`data-ops-section`). Accordion open/closed + each rail's width/collapse persist in
+`sessionStorage` for the tab.
+
+| Zone | Sections (id) |
+| --- | --- |
+| **Left — Race setup** | Project (`project`) · Fleet & Live (`live`) · Assets (`assets`) · World authoring launcher (`world-map`) · Library (`library`, pragmatic) · leftover Race ops (`ops`, pragmatic) |
+| **Right — Broadcast** | Output (`ndi` — mode/NDI/delay) · Calibration (`calib`) · Environment (`environment`, incl. terrain water-discard m) · Wind (`wind`) |
+| **Top strip** | Local view switcher · preview fps / boot status stay as existing overlay hosts |
+
+`library` and leftover `ops` (telemetry / POV / view / countdown / stream-map / status) are not
+named in the BW table; they stay on the left so those mounts keep working. Origin Apply remains
+in Project. Backtick collapses **both** rails (air/show); each rail also has its own chrome.
 
 ```ts
 type SidebarSection = {
@@ -39,10 +54,11 @@ type SidebarSection = {
   order: number
 }
 sidebar.registerSection(section: SidebarSection): void
-sidebar.setCollapsed(collapsed: boolean): void // air/show mode — replaces old 11.1
+sidebar.setCollapsed(collapsed: boolean): void // left rail; backtick toggles both
+sidebar.setRailCollapsed(rail, collapsed): void
 ```
 
-Top-to-bottom layout:
+Phase 11 single-rail top-to-bottom list (historical — see table above for current homes):
 
 1. **Header** — project name + switcher + Save / Save as / Load / Rename / Duplicate / Archive
    (PLT-02).
@@ -55,9 +71,9 @@ Top-to-bottom layout:
 7. **Ops** — leftover misc controls from `stubHud` (mode select, POV switch, ops view, countdown,
    origin Apply) that don't fit elsewhere — smallest possible section, mostly a lift-and-shift.
 
-A collapse toggle (button + hotkey, e.g. `` ` `` or `Tab`) hides the whole rail for air/show — this
+A collapse toggle (button + hotkey `` ` ``) hides **both** rails for air/show — this
 *is* old roadmap item **11.1**. Collapsed state does not stop telemetry/editor state; it only hides
-chrome.
+chrome. Each rail can also collapse independently.
 
 ## 4. 2D map authoring upgrade (SCN-02)
 

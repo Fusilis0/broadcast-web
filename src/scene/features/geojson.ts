@@ -1,4 +1,5 @@
 import type { WorldFeature, WorldFeatureType, WorldGpsPoint } from './types.ts'
+import { parseRounding } from './rounding.ts'
 
 /** GeoJSON position: [lon, lat] or [lon, lat, alt]. */
 export type GeoJsonPosition = [number, number] | [number, number, number]
@@ -127,8 +128,15 @@ function worldFeatureToGeoJsonFeature(f: WorldFeature): GeoJsonFeature {
   }
   if (f.label !== undefined) props.label = f.label
   if (f.textureUrl !== undefined) props.textureUrl = f.textureUrl
+  if (f.panelColor !== undefined) {
+    props.panelColor = `#${f.panelColor.toString(16).padStart(6, '0')}`
+  }
+  if (f.frameColor !== undefined) {
+    props.frameColor = `#${f.frameColor.toString(16).padStart(6, '0')}`
+  }
   if (f.spacingM !== undefined) props.spacingM = f.spacingM
   if (f.telemetryId !== undefined) props.telemetryId = f.telemetryId
+  if (f.rounding !== undefined) props.rounding = f.rounding
 
   const coords = f.points.map(pointToPosition)
   let geometry: GeoJsonGeometry
@@ -308,11 +316,27 @@ function optionalProps(
   props: Record<string, unknown>,
 ): Pick<
   WorldFeature,
-  'heightM' | 'color' | 'label' | 'textureUrl' | 'spacingM' | 'telemetryId'
+  | 'heightM'
+  | 'color'
+  | 'label'
+  | 'textureUrl'
+  | 'panelColor'
+  | 'frameColor'
+  | 'spacingM'
+  | 'telemetryId'
+  | 'rounding'
 > {
   const out: Pick<
     WorldFeature,
-    'heightM' | 'color' | 'label' | 'textureUrl' | 'spacingM' | 'telemetryId'
+    | 'heightM'
+    | 'color'
+    | 'label'
+    | 'textureUrl'
+    | 'panelColor'
+    | 'frameColor'
+    | 'spacingM'
+    | 'telemetryId'
+    | 'rounding'
   > = {}
   const heightM = readNumber(props.heightM)
   if (heightM !== undefined) out.heightM = heightM
@@ -326,6 +350,10 @@ function optionalProps(
   } else if (props.textureUrl === null) {
     out.textureUrl = null
   }
+  const panelColor = readColor(props.panelColor)
+  if (panelColor !== undefined) out.panelColor = panelColor
+  const frameColor = readColor(props.frameColor)
+  if (frameColor !== undefined) out.frameColor = frameColor
   const spacingM = readNumber(props.spacingM)
   if (spacingM !== undefined && spacingM > 0) out.spacingM = spacingM
   if (typeof props.telemetryId === 'string') {
@@ -334,6 +362,8 @@ function optionalProps(
   } else if (props.telemetryId === null) {
     out.telemetryId = null
   }
+  const rounding = parseRounding(props.rounding)
+  if (rounding !== undefined) out.rounding = rounding
   return out
 }
 

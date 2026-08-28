@@ -17,6 +17,7 @@ import {
 import { createTerrain, describeIonLoadError, type TerrainTilesAdapter } from './createTerrain.ts'
 import { pluginFrameToScene, reorientationHeightHae } from './reorient.ts'
 import { shouldShowTerrain } from './terrainGate.ts'
+import { DEFAULT_TERRAIN_WATER_DISCARD_Y, shouldHideTerrainWater } from './terrainWaterMask.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const BIN_PATH = resolve(__dirname, '../../../public/EGM96_1deg.bin')
@@ -179,6 +180,53 @@ describe('createTerrain (stubbed tileset, no ion network)', () => {
     handle.setTilesLocked(true)
     handle.tick(cam, cam, fakeRenderer())
     expect(updateCount.n).toBe(1)
+    handle.dispose()
+  })
+
+  it('hides water only when asked; default threshold is +0.5 m', () => {
+    const { adapter } = stubTiles()
+    const handle = createTerrain({
+      renderer: fakeRenderer(),
+      token: 'test-token',
+      skipIonPlugins: true,
+      tilesFactory: () => adapter,
+    })
+    expect(handle.getHideWater()).toBe(false)
+    expect(handle.getWaterDiscardYM()).toBe(DEFAULT_TERRAIN_WATER_DISCARD_Y)
+    expect(shouldHideTerrainWater({ realisticOceanMounted: false })).toBe(false)
+
+    const mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(2, 2),
+      new THREE.MeshStandardMaterial(),
+    )
+    handle.root.add(mesh)
+    handle.setHideWater(true)
+    expect(handle.getHideWater()).toBe(true)
+    expect(shouldHideTerrainWater({ realisticOceanMounted: true })).toBe(true)
+
+    const shader = {
+      uniforms: {} as Record<string, { value: unknown }>,
+      vertexShader: '#include <begin_vertex>\nvoid main() { }',
+      fragmentShader: 'void main() { }',
+    }
+    ;(mesh.material as THREE.MeshStandardMaterial).onBeforeCompile(
+      shader as never,
+      {} as THREE.WebGLRenderer,
+    )
+    expect(shader.uniforms['uHideTerrainWater']?.value).toBe(1)
+    expect(shader.fragmentShader).toContain('discard')
+
+    handle.setHideWater(false)
+    expect(handle.getHideWater()).toBe(false)
+    expect(shader.uniforms['uHideTerrainWater']?.value).toBe(0)
+
+    handle.setWaterDiscardYM(1.5)
+    expect(handle.getWaterDiscardYM()).toBe(1.5)
+    handle.setAltitudeNudgeM(2)
+    expect(shader.uniforms['uTerrainWaterY']?.value).toBe(3.5)
+
+    mesh.geometry.dispose()
+    ;(mesh.material as THREE.Material).dispose()
     handle.dispose()
   })
 })

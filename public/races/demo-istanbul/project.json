@@ -2,24 +2,307 @@
   "schemaVersion": 1,
   "id": "demo-istanbul",
   "name": "Demo Istanbul",
-  "updatedAt": "2026-07-30T00:00:00.000Z",
-  "revision": 1,
   "origin": {
     "lat": 41.0082,
     "lon": 28.9784,
     "altMsl": 0
   },
-  "takeoffAltitudeMSL": 0,
   "fleet": {
-    "boatIds": ["21", "22", "23", "24"],
+    "boatIds": [
+      "21",
+      "22",
+      "23",
+      "24"
+    ],
+    "boats": [
+      {
+        "id": "21",
+        "name": "Bora",
+        "category": "Pembe Kategori"
+      },
+      {
+        "id": "22",
+        "name": "Aksu",
+        "category": "Pembe Kategori"
+      },
+      {
+        "id": "23",
+        "name": "Mira",
+        "category": "Mavi Kategori"
+      },
+      {
+        "id": "24",
+        "name": "Lira",
+        "category": "Mavi Kategori"
+      }
+    ],
     "boatNamesUrl": "/fixtures/boats/demo-istanbul-names.json"
   },
-  "povIds": ["1", "2"],
-  "replayUrl": "/fixtures/telemetry/spine-demo.json",
+  "povIds": [
+    "1",
+    "2"
+  ],
+  "updatedAt": "2026-08-26T18:24:48.296Z",
+  "takeoffAltitudeMSL": 0,
+  "features": [
+    {
+      "id": "course:Mark-NW",
+      "name": "Mark-NW",
+      "type": "mark",
+      "points": [
+        {
+          "lat": 41.0087,
+          "lon": 28.9778,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 5,
+      "color": 16768307
+    },
+    {
+      "id": "course:Mark-NE",
+      "name": "Mark-NE",
+      "type": "mark",
+      "points": [
+        {
+          "lat": 41.0087,
+          "lon": 28.979,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 5,
+      "color": 16768307
+    },
+    {
+      "id": "course:Mark-SE",
+      "name": "Mark-SE",
+      "type": "mark",
+      "points": [
+        {
+          "lat": 41.00719999999965,
+          "lon": 28.979000000000198,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 5,
+      "color": 16768307,
+      "rounding": "ccw"
+    },
+    {
+      "id": "course:Mark-SW",
+      "name": "Mark-SW",
+      "type": "mark",
+      "points": [
+        {
+          "lat": 41.0072,
+          "lon": 28.9778,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 5,
+      "color": 16768307
+    },
+    {
+      "id": "course:Gate1-Left",
+      "name": "Gate1-Left",
+      "type": "gateLeft",
+      "points": [
+        {
+          "lat": 41.00795,
+          "lon": 28.9778,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 5,
+      "color": 65408
+    },
+    {
+      "id": "course:Gate1-Right",
+      "name": "Gate1-Right",
+      "type": "gateRight",
+      "points": [
+        {
+          "lat": 41.00795,
+          "lon": 28.979,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 5,
+      "color": 65408
+    },
+    {
+      "id": "sponsor:sp-west",
+      "name": "sp-west",
+      "type": "sponsor",
+      "points": [
+        {
+          "lat": 41.00855,
+          "lon": 28.97755,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.00745,
+          "lon": 28.97755,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 8,
+      "color": 1985932,
+      "label": "Rolex",
+      "textureUrl": "/textures/sponsors/rolex.png"
+    },
+    {
+      "id": "sponsor:sp-north",
+      "name": "sp-north",
+      "type": "sponsor",
+      "points": [
+        {
+          "lat": 41.00884999999972,
+          "lon": 28.977900000000208,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.00885,
+          "lon": 28.9789,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 7,
+      "color": 9121311,
+      "label": "Vodafone",
+      "textureUrl": "/textures/sponsors/vodafone.png"
+    },
+    {
+      "id": "sponsor:sp-east",
+      "name": "sp-east",
+      "type": "sponsor",
+      "points": [
+        {
+          "lat": 41.00745,
+          "lon": 28.97925,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.00855,
+          "lon": 28.97925,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 8,
+      "color": 1731402,
+      "label": "Senexus",
+      "textureUrl": "/textures/sponsors/senexus.png"
+    },
+    {
+      "id": "flags:demo-istanbul-countdown:p1",
+      "name": "demo-istanbul-countdown-P1",
+      "type": "flagP1",
+      "points": [
+        {
+          "lat": 41.00795,
+          "lon": 28.9775,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 10,
+      "label": "P1"
+    },
+    {
+      "id": "flags:demo-istanbul-countdown:p2",
+      "name": "demo-istanbul-countdown-P2",
+      "type": "flagP2",
+      "points": [
+        {
+          "lat": 41.00795,
+          "lon": 28.9793,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 10,
+      "label": "P2"
+    },
+    {
+      "id": "start:gate-south",
+      "name": "Start",
+      "type": "start",
+      "points": [
+        {
+          "lat": 41.00795,
+          "lon": 28.9778,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.00795,
+          "lon": 28.979,
+          "altMsl": 0
+        }
+      ],
+      "color": 11337728,
+      "label": "START"
+    },
+    {
+      "id": "finish:marks-north",
+      "name": "Finish",
+      "type": "finish",
+      "points": [
+        {
+          "lat": 41.0087,
+          "lon": 28.9778,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.0087,
+          "lon": 28.979,
+          "altMsl": 0
+        }
+      ],
+      "color": 11337728,
+      "label": "FINISH"
+    },
+    {
+      "id": "buoy:3",
+      "name": "buoy-3",
+      "type": "buoy",
+      "points": [
+        {
+          "lat": 41.00685543213101,
+          "lon": 28.977907919810686,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 5,
+      "color": 16757248,
+      "label": "buoy"
+    }
+  ],
   "courseUrl": "/fixtures/course/demo-istanbul.json",
   "sponsorsUrl": "/fixtures/sponsors/demo-istanbul.json",
   "flagsUrl": "/fixtures/flags/demo-istanbul-countdown.json",
+  "replayUrl": "/fixtures/telemetry/spine-demo.json",
   "output": {
-    "outputMode": "preview"
+    "outputMode": "transparent",
+    "timecodeEnabled": true,
+    "timecodeCorner": "bottom-right",
+    "timecodeSizePx": 96
+  },
+  "calibration": {
+    "byPovId": {
+      "1": {
+        "yawDeg": 0,
+        "pitchDeg": 0,
+        "rollDeg": 0,
+        "fovHDeg": 66.8832,
+        "altMeters": 0,
+        "syncTrimMs": 0
+      },
+      "2": {
+        "yawDeg": 0,
+        "pitchDeg": 0,
+        "rollDeg": 0,
+        "fovHDeg": 66.8832,
+        "altMeters": 0,
+        "syncTrimMs": 0
+      }
+    }
   }
 }

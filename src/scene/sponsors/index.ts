@@ -11,9 +11,22 @@ export {
 export {
   createSponsorBillboard,
   createProceduralSponsorTexture,
+  createSponsorBoardTexture,
   facingBasisFromSpan,
   type SponsorBillboardHandle,
 } from './sponsorBillboard.ts'
+export {
+  containFitRect,
+  DEFAULT_FRAME_COLOR,
+  DEFAULT_PANEL_COLOR,
+  hexToCss,
+  parseOptionalHexColor,
+  planSponsorBoard,
+  recordSponsorBoardDraws,
+  type ComposeSponsorBoardInput,
+  type SponsorBoardDrawCall,
+  type SponsorBoardPlan,
+} from './boardCompose.ts'
 export {
   loadSponsors,
   mountSponsors,

@@ -20,6 +20,9 @@ Owned by **TEL**. WebSocket-shaped ingest: DTOs, JSON router, mock / replay / li
 | `windDirection.ts` | `windTravelSceneXZ` (from→to, post-14.0 `x=East z=−North`) + knots↔m/s |
 | `windOpsRow.ts` | Ops row: from-deg + speed kt + source/age + hold/Follow API |
 | `windOpenMeteo.ts` | Open-Meteo poll (~10 min) → `source: 'api'` on `windBus` |
+| `ptsNtpMap.ts` | Per-`stream_id` PTS→NTP fit. Bus-wired by the pose pipeline (TEL-08). LUT key is **SRT id**. |
+| `telemetryHistory.ts` | NTP-keyed ring + `sampleDroneAt` / `sampleBoatAt`. Bus-wired by the pose pipeline (TEL-08). |
+| `flowTap.ts` | Last-N ring per id for SCN-10 Flow inspector. TEL-10 wires ingest; SCN-10 pushes `kind:'srt'` (redacted). |
 | `index.ts` | Public exports |
 
 ## Events
@@ -275,3 +278,40 @@ Must succeed with no TypeScript errors; Vitest covers fixture parse/playback and
 ## Out of this module (other orchestrators)
 
 No ECEF/ENU (GEO), no Three boat/drone meshes / fleet registry / POV camera switch (SCN), no fixture recorder, no live multi-URL (multi-drone or multi-boat). WSS/proxy ops live under PLT [`docs/ops/wss-live-telemetry.md`](../../docs/ops/wss-live-telemetry.md) — this module only consumes URL strings.
+
+## NTP-indexed history (`telemetryHistory.ts`, Phase 17.1 + TEL-08)
+
+Sampler: **where was every tracked entity at NTP instant `t`?** No ENU, no Three.js, no timers. TEL-08’s pose pipeline subscribes `drone` / `boat` / `buoy` onto this buffer and, in matched mode, converts `sampleAt(t_ntp)` through `droneRawPose` / `boatRawPose`.
+
+`createTelemetryHistory({ windowMs = 30000 })` keeps a per-id ring (hard cap `maxSamplesPerEntity = 512`). Inserts key drones on `packet.ts` and boats/buoys on `packet.time`. Out-of-order arrivals insert by stamp; duplicate stamps last-win. **Drones store on `id` + finite `ts` even without GPS and even when `ntp_synced` is false** (TEL-10). Missing `pos` defaults to `{lat:0,lon:0,alt:0}`. Unsynced / `ntp_err_ms === 2147483647` packets are kept and sampled as `quality.degraded`. Boats/buoys still require NTP lock (`t_sync` / `t_err`); missing lat/lon copies the last usable fix (do not drop a packet that has `time` because GPS is late).
+
+| Call | Policy |
+| --- | --- |
+| `sampleDroneAt(id, ntpMs)` | Bracket A ≤ t ≤ B. GPS: **cubic Hermite** on lat/lon/alt from NED `vel` at A and B (C1). If either vel is unusable (non-finite), **linear** lerp for that segment. GPS only when **both** samples have usable lat/lon; otherwise last usable fix is held (do not walk toward 0,0). Attitude: shortest-path Euler **and** xyzw **slerp** (not nearer-copy). Constant-velocity + matching vel ⇒ Hermite ≡ linear (midpoint is the linear midpoint — no extra lag). No B: NED `vel` extrapolate ≤ **150 ms** only if GPS is usable, then `held` until **2 s**, then `unavailable`. Cubic does **not** extend that window. Gap > **500 ms** or unsynced → `degraded`. `vel` is **NED** (x north, y east, z down); projected position stays lat/lon/alt — converters own ENU. Pipeline `holdDroneEnu` still blocks GEO-projecting 0,0. |
+| `sampleBoatAt` / `sampleBuoyAt` | Last fix A with `A.time ≤ t`. **Never wait for B.** If `A.spd < 0.3` or `A.brg === 0`, **do not project** (`brg === 0` means bearing unknown, not north). Else `dist = spd * dt` along `brg` (deg east of true north). If B exists and **both** ends have usable GPS + valid brg/spd, cubic Hermite on lat/lon (alt stays linear); otherwise blend DR toward B so the projection cannot overshoot as t → B. `fix_age_ms` is read off the object (not on the TS type); `0` = unknown; **> 200 ms** skips DR. |
+| `prune(nowNtpMs?)` / `reset()` / `stats()` | Window trim; clear; per-entity `{ count, oldestNtpMs, newestNtpMs, lastGapMs }` for the ops HUD. |
+
+Each sample is the interpolated **DTO plus** `{ mode, sourceAgeMs, degraded }`. `mode` is `'interpolated' \| 'extrapolated' \| 'held' \| 'unavailable'`. Unknown id / no data / t before the first stamp → `null` (no throw). Unknown id and empty history are `null`; a stale-but-known entity returns a DTO labelled `unavailable` so callers can badge without guessing.
+
+## PTS→NTP map (`ptsNtpMap.ts`, Phase 17.1 + TEL-08)
+
+LUT: **given a 90 kHz PTS on stream `S`, what NTP ms was that frame captured?** No I/O, no timers. The pose pipeline subscribes `telemetryBus` `'stream_anchor'` and calls `getPtsNtpMap(anchor.stream_id).addAnchor`, **and** aliases into the mapped SRT id / telem id when Fleet has a POV mapping, **and** aliases producer `dji-N` / `djiN` into the digit id (`dji-1` → `"1"`). **Lookup tries SRT id first, then telemetry `povId`.**
+
+`t_ntp = toNtp(pts) + syncTrimMs` (CAL-05 sign: positive = AR leads video) is applied in the pose pipeline, not inside `toNtp`.
+
+`createPtsNtpMap(options?)` is one instance per `stream_id`. `getPtsNtpMap(streamId)` / `clearPtsNtpMaps()` is the small registry so callers do not hand-roll a `Map`.
+
+| Call | Behaviour |
+| --- | --- |
+| `addAnchor(anchor)` | `kind ∈ dji \| periodic \| gopro` → **pacing** (feeds the fit). `kind:frame` → **truth** (validation only) when pacing already has ≥2 samples; if pacing has < 2, `kind:frame` **is** the fit series (same OLS / unwrap / 2 s extra — no fake `kind: dji`). Prefer `pts_90khz`, else `pts_basis_90khz`; mask to unsigned 33-bit and unwrap with shortest signed difference. Reject `ntp_synced === false`, non-finite NTP, or unusable PTS (counted on `health().rejected`). |
+| `toNtp(pts90k)` | `{ ntpMs, mode, extrapolatedByMs }`. In-span → `interpolated`. Newer than last fit sample, ≤ **2000 ms** → `extrapolated` (the live case; §4.a reject-after-last is wrong here). Beyond that / no fit / before first → `unavailable`, `ntpMs: null`. Frame-only needs two `kind:frame` samples; periodic-only is unchanged. |
+| `health()` | `{ pacingCount, frameCount, slope, lastAnchorNtpMs, lastPacingPts90k, lastAnchorAgeMs?, rejected, residualMs }`. `pacingCount` / `lastPacingPts90k` follow the **fit series** (frames when frame-only). `slope` is NTP-ms vs PTS-ms (≈ **1.0**). `residualMs` is MAE of `kind:frame` vs the fit. Plain serialisable object for OUT-07. |
+| `reset()` / `dispose()` | Clear; `dispose` also unregisters from the registry. |
+
+**Fit:** least-squares line over the fit series in a **30 s** NTP window (count cap 64 pacing / 512 frame). Fit series is pacing when it has ≥2 samples, else `kind:frame` when that has ≥2. Second pass drops points with residual > **1000 ms**, then refits — a single seconds-off `ntp_capture_ms` cannot hinge the line. Backwards NTP vs the fit by > **1000 ms** drops the window and rebuilds (clock step). JS bitwise `&` is 32-bit, so wrap uses modulo `2^33`.
+
+This is the amended live behaviour vs `ntp-matching.md` §4.a (pairwise interpolate + reject after last). See `docs/architecture/ar-video-underlay-ntp-sync.md` §4.2.
+
+## Flow tap (`flowTap.ts`, TEL-10)
+
+Per-id ring of the last **12** JSON-safe events (`drone` / `boat` / `buoy` / `anchor` / `srt`) for the SCN-10 Flow panel. `push` copies enumerable JSON fields only and redacts `streamid` last segment / `passphrase` in any string. `snapshot()` returns a serialisable list (newest first). Pose pipeline pushes accepted packets and every `stream_anchor`. SCN may `push` `kind:'srt'` with an already-redacted body. **No DOM here.**

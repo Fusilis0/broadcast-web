@@ -13,12 +13,14 @@ import {
   resetOriginForTests,
 } from '../geodesy/index.ts'
 import { TelemetryBus } from '../telemetry/bus.ts'
+import { clearPtsNtpMaps } from '../telemetry/ptsNtpMap.ts'
 import type { BoatTelemetry, TelemetryData, TelemetryQuaternion } from '../telemetry/types.ts'
 import { PoseBus } from './bus.ts'
 import { boatRawPose, droneRawPose } from './convert.ts'
 import { MidpointLerp } from './lerp.ts'
 import { startPosePipeline, stopPosePipeline } from './pipeline.ts'
 import { clearAllOffsets, DEFAULT_HFOV_DEG } from '../calibration/index.ts'
+import { resetFlowTap } from '../telemetry/flowTap.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const BIN_PATH = resolve(__dirname, '../../public/EGM96_1deg.bin')
@@ -84,6 +86,8 @@ beforeAll(() => {
 
 afterEach(() => {
   stopPosePipeline()
+  clearPtsNtpMaps()
+  resetFlowTap()
   clearAllOffsets()
   resetOriginForTests()
   resetEgm96ForTests()
@@ -206,7 +210,7 @@ describe('pose pipeline', () => {
     handle.stop()
   })
 
-  it('emits drone/boat/buoy poses; ignores stream_anchor', () => {
+  it('emits drone/boat/buoy poses; stream_anchor does not create an ENU entity', () => {
     applyConfigOrigin(ORIGIN)
     const tel = new TelemetryBus()
     const poses = new PoseBus()

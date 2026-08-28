@@ -1,9 +1,10 @@
 /**
  * Cesium ion World Terrain + alignment constants (Phase 14.1).
  *
- * Ocean (sibling 14.2) draws at scene `y ≈ 0` plus a small lift (0.1–0.5 m)
- * on top of Cesium's baked sea. This module does not clip or mask the
- * tileset; land stays visible because it is above MSL.
+ * Ocean (sibling 14.2 / 16.1) draws at scene `y ≈ 0` plus a tiny z-fight lift.
+ * While realistic ocean is mounted, this module discards Cesium **water**
+ * fragments (quantized-mesh water mask, height fallback ~+0.5 m AMSL) so land
+ * is the only tileset surface.
  */
 
 /** Ops default — terrain stays off until the operator turns it on. */

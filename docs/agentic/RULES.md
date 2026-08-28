@@ -4,7 +4,7 @@ Hard rules. All BW, domain orchestrators, and workers must follow.
 
 ## 1. Identity
 
-1. Every session declares its role at the start: `BW` | `TEL` | `GEO` | `SCN` | `OUT` | `CON` | `CAL` | `PLT` | `WORKER(<dispatch-id>)`.
+1. Every session declares its role at the start: `BW` | `TEL` | `GEO` | `SCN` | `OUT` | `CON` | `CAL` | `PLT` | `PRF` | `SRT` | `WORKER(<dispatch-id>)`.
 2. If role is unclear, ask once, then stop productive work until assigned.
 
 ## 2. Orchestrators do not implement

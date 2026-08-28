@@ -6,7 +6,7 @@ This repository uses a **multi-orchestrator agentic workflow**.
 
 Ask the user which role this chat is:
 
-`BW` | `TEL` | `GEO` | `SCN` | `OUT` | `CON` | `CAL` | `PLT` | `WORKER`
+`BW` | `TEL` | `GEO` | `SCN` | `OUT` | `CON` | `CAL` | `PLT` | `PRF` | `SRT` | `WORKER`
 
 Then open the matching bootstrap under `docs/agentic/dispatches/BOOTSTRAP_*.md` or the worker’s `DSP-*.md`.
 

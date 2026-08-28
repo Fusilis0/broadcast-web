@@ -28,7 +28,14 @@ const mockEnu: GpsToEnuAmslFn = (lat, lon, alt) => ({
 const courseSlice = {
   name: 'demo',
   waypoints: [
-    { name: 'Mark-NW', type: 'mark', lat: 41.0087, lon: 28.9778, altMsl: 0 },
+    {
+      name: 'Mark-NW',
+      type: 'mark',
+      lat: 41.0087,
+      lon: 28.9778,
+      altMsl: 0,
+      rounding: 'cw',
+    },
     { name: 'Mark-NE', type: 'mark', lat: 41.0087, lon: 28.979, altMsl: 0 },
     {
       name: 'Gate1-Left',
@@ -57,6 +64,8 @@ const sponsorsSlice = {
       b: { lat: 41.00745, lon: 28.97755, altMsl: 0 },
       heightM: 8,
       color: '#1e4d8c',
+      panelColor: '#f4f4f2',
+      frameColor: '#2c3338',
     },
   ],
 }
@@ -81,11 +90,17 @@ describe('feature adapters', () => {
     expect(courseFeatures.filter((f) => f.type === 'mark')).toHaveLength(2)
     expect(courseFeatures.filter((f) => f.type === 'gateLeft')).toHaveLength(1)
     expect(courseFeatures.filter((f) => f.type === 'gateRight')).toHaveLength(1)
+    expect(courseFeatures.find((f) => f.name === 'Mark-NW')?.rounding).toBe('cw')
+    expect(
+      courseFeatures.find((f) => f.name === 'Mark-NE')?.rounding,
+    ).toBeUndefined()
 
     expect(sponsorFeatures).toHaveLength(1)
     expect(sponsorFeatures[0]!.type).toBe('sponsor')
     expect(sponsorFeatures[0]!.points).toHaveLength(2)
     expect(sponsorFeatures[0]!.label).toBe('Fusilis')
+    expect(sponsorFeatures[0]!.panelColor).toBe(0xf4f4f2)
+    expect(sponsorFeatures[0]!.frameColor).toBe(0x2c3338)
 
     expect(flagFeatures).toHaveLength(2)
     expect(flagFeatures.map((f) => f.type)).toEqual(['flagP1', 'flagP2'])
@@ -105,6 +120,7 @@ describe('layoutFeatures', () => {
 
     const layout = layoutFeatures(world, mockEnu)
     expect(layout).toHaveLength(7)
+    expect(layout.find((f) => f.name === 'Mark-NW')?.rounding).toBe('cw')
     expect(layout.every((f) => f.points.every((p) => p.y === FEATURE_WATER_Y))).toBe(
       true,
     )
@@ -121,6 +137,8 @@ describe('layoutFeatures', () => {
     expect(sponsor.points).toHaveLength(2)
     expect(sponsor.points[0]!.x).toBeCloseTo(sponsor.points[1]!.x)
     expect(sponsor.rawPoints[0]!.lat).toBeCloseTo(41.00855)
+    expect(sponsor.panelColor).toBe(0xf4f4f2)
+    expect(sponsor.frameColor).toBe(0x2c3338)
 
     clearLayoutFeatures()
     setLayoutFeatures(layout)

@@ -25,6 +25,7 @@ function baseConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     },
     takeoffAltitudeMSL: 0,
     outputMode: 'preview',
+    arBackground: 'alpha',
     chromaKey: '',
     timecodeEnabled: true,
     timecodeCorner: 'bottom-right',

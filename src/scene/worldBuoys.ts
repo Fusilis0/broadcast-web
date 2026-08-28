@@ -44,6 +44,7 @@ export function mountWorldBuoys(
       x: p.x,
       y: p.y,
       z: p.z,
+      rounding: f.rounding,
     })
   }
 

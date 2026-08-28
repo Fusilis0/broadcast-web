@@ -6,16 +6,17 @@ Unity asset inventory + backlog: [`docs/ops/unity-asset-port.md`](../../docs/ops
 
 ## Consume contract
 
-SCN draws fleet from **`poseBus`** (`src/pose/`) only — ENU meters `x=East, y=Up, z=−North`.
+SCN draws fleet from **`poseBus`** (`src/pose/`) for **live** boat packets — ENU meters `x=East, y=Up, z=−North`. Allow-listed boats also spawn **without telemetry** via `syncFleetHulls` / `upsertStaticBoat` (planned ENU from GEO in `main`, or an origin grid). Live packets override that static pose; after telem, the last live pose is held (no snap-back to planned).
 
-Do **not** call `gpsToEnu` for boats, subscribe to `telemetryBus` for positions, or invent calibration math here.
+Do **not** call `gpsToEnu` inside `src/scene/` for boats. `main` converts planned lat/lon with GEO **`gpsToEnuAmsl`**. Do not subscribe to `telemetryBus` for positions or invent calibration math here.
 
 **Course**, **sponsors**, and **countdown flags** are the exception for static world content: lat/lon waypoints are converted with GEO **`gpsToEnuAmsl` only** (no ECEF reimplementation in `src/scene/`). Call after `applyConfigOrigin` + EGM96. Fixtures also adapt into a shared **`WorldFeature[]`** → **`layoutFeatures`** list for the 2D map and **map feature editor**; see `src/scene/features/`.
 
 `telemetryBus` may be used for **packet counts only** in the stub HUD.
 
-**Ops sidebar (Phase 11.1+):** `createSidebar` mounts a collapsible left rail over the canvas
-(does not reflow WebGL). Sections: Project / World Map / **Assets** / Library / Live / NDI / Ops.
+**Ops sidebar (Phase 11.1 + 16.6):** `createSidebar` mounts **two** collapsible rails over the canvas
+(does not reflow WebGL). Left = race setup (Project / Fleet & Live / Assets / World / Library /
+leftover Race ops). Right = broadcast (Output `ndi` / Flow `flow` / Calibration / Environment / Wind).
 `startAssetInspector` (11.7) lists every boat/POV/feature with Focus / Show-3D / Show-2D / Details.
 NDI AR never reads this DOM (`ndiFramePump` / WebGL only). Channel `'2d'` samples
 the stream-map canvas bitmap separately (`streamMapNdiPump`). Text prompts (billboard texture/spacing,
@@ -41,12 +42,13 @@ Mock ids: POVs from `povIds` (default `1`,`2`), boats from `boatIds` (default `2
 | `getActivePovCamera` | Active POV camera — air / NDI source (OUT); never free cam |
 | `orientOpsBillboards(camera)` | Distance-scale boat tags + countdown plate for the camera about to render (dual-render hook) |
 | `setFleetAllowLists({ boatIds, povIds })` | Soft race switch: replace allow-lists, drop orphan boats, prune/clamp POV |
+| `syncFleetHulls` / `upsertStaticBoat` | Spawn/move hulls from planned ENU without poseBus (15.4). Live packets still update the same entity |
 | `loadCourse` / `mountCourse` | Fetch/normalize course JSON → GEO ENU → water cue + boundary/gates/buoys |
 | `loadSponsors` / `mountSponsors` | Fetch/normalize sponsors JSON → GEO ENU → fixed world panels |
 | `loadCountdownFlags` / `mountCountdownFlags` | Fetch/normalize flags JSON → GEO ENU → poles + phase timer |
 | `loadBoatNames` / `normalizeBoatNames` | Fetch/normalize Unity category→id→name JSON → tag identity map |
 | `startStubHud(options)` | Ops controls + status + ops/stream 2D maps; optional `hosts` split into sidebar sections |
-| `createSidebar(options)` | Collapsible left ops sidebar shell; `registerSection` for panels (Phase 11.1) |
+| `createSidebar(options)` | Two-rail ops sidebar shell; `registerSection` for panels (Phase 11.1 / 16.6) |
 
 **Project section (Phase 11.4):** `startProjectManagerPanel` (PLT) mounts above Load/Save in the sidebar Project section — API list with rename / duplicate / archive + “Show archived”. Static-only mode disables those controls. Save still lives in `stubHud` and warns on boat ids missing from the catalogue.
 
@@ -67,11 +69,12 @@ Mock ids: POVs from `povIds` (default `1`,`2`), boats from `boatIds` (default `2
 | `setEnvironmentOpaqueClearSafe` | Gate realistic env: `true` only for opaque clears (`preview`) |
 | `setTerrainEnabled` / `getTerrainEnabled` | Cesium ion World Terrain (14.1). Default **off**. Hidden when opaque-unsafe |
 | `setTerrainAltitudeNudgeM` / `getTerrainAltitudeNudgeM` | Extra +Y metres after HAE reorientation (session nudge) |
+| `setTerrainWaterDiscardYM` / `getTerrainWaterDiscardYM` | Height-fallback AMSL (m) for hiding Cesium water on tiles with no water mask (default +0.5). Auto-on only while realistic ocean is mounted |
 | `setTerrainTilesLocked` / `getTerrainTilesLocked` | Freeze tile LOD once the shot is framed |
 | `getTerrainCredits` / `setTerrainCreditsListener` | ion attribution strings for the **DOM** overlay (never WebGL / AR) |
 | `setCalibrationOverlayEnabled` / `getCalibrationOverlayEnabled` | ENU grid + force-visible mark helpers for AR calib (13.7; default off) |
 | `refreshCalibrationOverlay` | Rebuild overlay from layout store when enabled |
-| `createBoatTag()` | Canvas sprite label (catalogue name + category tint, or `Boat {id}` stub) |
+| `createBoatTag()` | Canvas sprite label + mast-top leader line (catalogue name + category tint, or `Boat {id}` stub) |
 | `createDroneCamera()` | PerspectiveCamera + ENU apply |
 | `createFreeCam()` | OrbitControls free look around ENU origin (ops preview only) |
 | `boatIdAllowSet` / `isAllowedBoatId` / `formatBoatEnuStatus` | Fleet allow-list + HUD helpers |
@@ -93,18 +96,19 @@ Renders an ENU grid (50 m / ±1 km), origin pole, and high-contrast helpers for 
 - Waypoints: `mark` | `gateLeft` | `gateRight` — see fixture README for schema + gate pairing (Unity name-prefix).
 - **Water Y:** course lines and buoy bases forced to **`y = 0`** (Unity `waterSurfaceY`). Converted AMSL ENU `y` is ignored for graphics so Istanbul geoid offset does not float the course.
 - Boundary: `LineLoop` through marks (fixture order). Gates: horizontal **tubes** (MeshStandard) per Left/Right pair. Buoys: float body + band + stem + cap + name sprites (gate ends use gate-colour accent).
+- **Rounding arrows (15.3 / 16.5):** per-feature `rounding: 'cw' | 'ccw' | 'none'` on `mark` / `buoy` / `gateLeft` / `gateRight` (**omit = CW**). Explicit `'none'` hides the glyph. A procedural water-level ring (white torus + red heads, ~8 m radius) with **two** arrow heads spins in that sense. Clock is from **above the water** (look −Y): `cw` = clock = **negative** `rotation.y`. Shared clock (`performance.now` in `onBeforeRender`) so 3D NDI `directRender` still animates. Inspector Details: Off / CW / CCW (CW on an omitted field stays omitted; only CCW / Off persist).
 - **Water / shore cue (8.8):** localized semi-transparent pads under course AABB (`WATER_CUE_DEFAULTS` in `course/waterCue.ts`) — not Cesium. Clear behaviour: see [`docs/ops/unity-asset-port.md`](../../docs/ops/unity-asset-port.md) + air runbook.
-- **Realistic sea + sky (13.2 / 14.2a / 14.2b / 14.2c / 14.3e):** Gerstner clipmap ocean + `Sky` (`src/scene/environment/`) behind Ops **environment** `simple` \| `realistic` (also `?env=realistic`). Default **`simple`**. Hard constraint: realistic meshes are **forced off** whenever the active clear is `transparent` or `chroma` (`setEnvironmentOpaqueClearSafe(false)`) so AR alpha plates stay clean. Course `waterCue` pad is **hidden** while the Gerstner ocean is mounted; `simple` keeps the pad. Wave time is a **shared clock** (`performance.now` in `onBeforeRender`), not accumulated `dt` on the preview tick — 3D NDI `directRender` still animates without an OUT pump change. **Wind coupling (14.2b):** `createRealisticEnvironment` subscribes to `windBus` (snapshot on create, unsubscribe on `dispose` / `scene.stop()`). `SceneHandle` has no extra wind methods — Ops publishes on the bus. Mapping is `directionFromDeg` → `windTravelSceneXZ` → `atan2` (do not re-derive from/to): from **000° travels +Z** (south), from **090° travels −X**. Direction and `speedMs` (foam + a mild clamped amplitude scale) **ramp ~3 s** on shortest arc so a 90° operator step is not a snap. Uncoupled Gerstner default remains −Z if `coupleWind: false`. Clipmap default: 48×48 inner / 7 rings / 24 seg (see `GERSTNER_OCEAN_DEFAULTS`). **Shore foam (14.2c):** when terrain **and** realistic ocean are both mounted (opaque-clear only), one **half-res depth FBO** of the Cesium tileset group is rendered just before the ocean (`onBeforeRender`). The Gerstner fragment reconstructs terrain world **Y** and adds foam + a shallow tint where neighbouring pixels are land. Terrain off / `simple` / transparent-chroma: no extra FBO, sea looks as 14.2b. Tileset is **not** clipped; ocean still sits 0.25 m above baked sea. Extra cost: one terrain-only draw at ½ resolution (¼ pixels) per ocean-visible pass — no extra `readPixels`. **Wind streaks (14.3e):** the same Gerstner fragment scrolls an anisotropic gust mask along `uDirectionRad` (same XZ travel as swell; from-000° → **+Z**). Intensity and scroll come from `setWindSpeed` / `speedMs` and fade to 0 below ~0.4 m/s so calm wind does not leave a static texture. Darkens albedo and knocks down glitter; shore-foam path unchanged. Cost: one 2D value-noise in the fragment (two taps) — no particles, no extra FBO, no `readPixels`.
-- **Cesium ion terrain (14.1):** `src/scene/terrain/` streams **World Terrain** (ion asset `1`) plus optional **Bing Aerial** drape (asset `2`) via `3d-tiles-renderer` — not CesiumJS. Default **off** (Ops **terrain** `off` \| `on`, next to Environment). Token from Ops **ion token + Apply** → `public/config.json` (git-shared on this private repo), else session, else `VITE_CESIUM_ION_TOKEN`. Empty token → stays off with an Ops status line, no throw. Alignment: `ReorientationPlugin` + `amslToHae` height + **180° azimuth** so plugin X-west/Z-north matches scene **X east, Z −north**. Residual vertical error: Ops **nudge m** (session-only this slice). **Lock tiles** freezes LOD. Same opaque-clear gate as sea/sky — terrain never draws into transparent/chroma. Attribution is a **DOM** line on local **3D** focus only, never burned into the AR WebGL plate. Ocean (14.2) sits at `y ≈ 0` + 0.1–0.5 m over Cesium’s baked sea; this module does not clip the tileset. Shore foam (14.2c) depth-prepasses this group at half-res when realistic ocean is also mounted. VRAM budget: `UnloadTilesPlugin` `bytesTarget` **384 MiB**.
+- **Realistic sea + sky (13.2 / 14.2 / 14.3e / 15.2 / 16.1):** Gerstner clipmap ocean + `Sky` (`src/scene/environment/`) behind Ops **environment** `simple` \| `realistic` (also `?env=realistic`). Default **`simple`**. Hard constraint: realistic meshes are **forced off** whenever the active clear is `transparent` or `chroma` (`setEnvironmentOpaqueClearSafe(false)`) so AR alpha plates stay clean. Course `waterCue` pad is **hidden** while the Gerstner ocean is mounted; `simple` keeps the pad. Wave time is a **shared clock** (`performance.now` in `onBeforeRender`), not accumulated `dt` on the preview tick — 3D NDI `directRender` still animates without an OUT pump change. **Wind coupling (14.2b):** `createRealisticEnvironment` subscribes to `windBus` (snapshot on create, unsubscribe on `dispose` / `scene.stop()`). `SceneHandle` has no extra wind methods — Ops publishes on the bus. Mapping is `directionFromDeg` → `windTravelSceneXZ` → `atan2` (do not re-derive from/to): from **000° travels +Z** (south), from **090° travels −X**. Direction and `speedMs` (foam + a mild clamped amplitude scale) **ramp ~3 s** on shortest arc so a 90° operator step is not a snap. Uncoupled Gerstner default remains −Z if `coupleWind: false`. **Clipmap (15.2):** default **inner 32×32** over ±48 m (~3 m) / **7 rings** / 24 seg. Inner 48→32 cuts near-field verts 49²→33²; rings stay at 7 so the rim (48×2^7 = 6144 m) stays past fogFar (5200). `seaQuality` **high** (default) vs **low** (Ops **sea** or `?sea=low`): low drops to **5 rings** (rim 1536 m — edge can show) + **quarter-res** shore foam. Coarser rings **overlap ≥ one finer cell** so T-junctions sit inside the denser patch (no white hairline seams). Follow remains per-pass `uClipmapCenter` (not `mesh.position.xz`). **Glitter / streaks / whitecaps (16.1):** single Blinn lobe at `glitterIntensity 0.16` / `glitterSharpness 78`; foam/streak/glitter masks sample a 256² tileable **mipmapped** noise texture in **world XZ**, with `fwidth()` edges and a distance+graze fade so far rings carry almost no high-frequency shading (no extra `readPixels`). **Shore foam (14.2c):** when terrain **and** realistic ocean are both mounted (opaque-clear only), one **half-res depth FBO** (low: quarter-res) of the Cesium tileset group is rendered just before the ocean (`onBeforeRender`). The Gerstner fragment reconstructs terrain world **Y** and adds foam + a shallow tint where neighbouring pixels are land. Terrain off / `simple` / transparent-chroma: no extra FBO. Cesium **water** is discarded in the tileset shader while the ocean is mounted, so the depth prepass sees land only; ocean lift is **0.08 m** (z-fight only). Extra cost: one terrain-only draw at ½ (or ¼) resolution per ocean-visible pass. **Wind streaks (14.3e, cranked 15.2):** the same Gerstner fragment scrolls a high-contrast anisotropic gust mask along `uDirectionRad` (from-000° → **+Z**). Intensity and scroll come from `setWindSpeed` / `speedMs` and fade to 0 below ~0.4 m/s. **3D vane (14.3f lite):** pole + two-sided arrow (`windVane.ts`) at a fixed origin offset (16, 12) m; yaw follows ramped travel; length scales with kt with a **minimum** so a set from-deg is never invisible. **Wind strings (14.3f / 16.2):** Windy-style streamlines (`windStrings.ts`) — ~180 short additive ribbons in an ~800 m disc around the camera, 4–10 m above water, drifting along the same ramped travel as swell/vane. Visible count / length / speed scale with `speedMs`; gone below ~0.5 m/s. One draw call; ticked from the ocean `onBeforeRender` so 3D NDI `directRender` animates. Inherits the realistic-env gate (ops preview + 3D NDI, never AR/chroma). No particles, flags, or spray.
+- **Cesium ion terrain (14.1 / 16.1):** `src/scene/terrain/` streams **World Terrain** (ion asset `1`) plus optional **Bing Aerial** drape (asset `2`) via `3d-tiles-renderer` — not CesiumJS. Default **off** (Ops **terrain** `off` \| `on`, next to Environment). Token from Ops **ion token + Apply** → `public/config.json` (git-shared on this private repo), else session, else `VITE_CESIUM_ION_TOKEN`. Empty token → stays off with an Ops status line, no throw. Alignment: `ReorientationPlugin` + `amslToHae` height + **180° azimuth** so plugin X-west/Z-north matches scene **X east, Z −north**. Residual vertical error: Ops **nudge m** (session-only this slice). **Lock tiles** freezes LOD. Same opaque-clear gate as sea/sky — terrain never draws into transparent/chroma. Attribution is a **DOM** line on local **3D** focus only, never burned into the AR WebGL plate. **Water hide (16.1):** while realistic ocean is mounted, tile materials `discard` Cesium water (quantized-mesh water mask on `roughnessMap`; height fallback default +0.5 m AMSL via `setTerrainWaterDiscardYM`). `simple` env leaves terrain untouched. Ocean lift is 0.08 m for z-fight only. Shore foam (14.2c) depth-prepasses this group at half-res when realistic ocean is also mounted — discarded water no longer counts as land. VRAM budget: `UnloadTilesPlugin` `bytesTarget` **384 MiB**.
 - Not `poseBus`-driven; dispose on `scene.stop()`.
 
 ## Sponsors (Phase 2.5)
 
 - Fixture: `public/fixtures/sponsors/demo-istanbul.json` (config key `sponsorsUrl`) — **2–4** demo panels near the course.
-- Schema: `a`/`b` GPS anchors + `heightM` + optional `textureUrl` / `label` / `color` — see fixture README.
+- Schema: `a`/`b` GPS anchors + `heightM` + optional `textureUrl` / `label` / `color` / `panelColor` / `frameColor` — see fixture README.
 - Placement: **`gpsToEnuAmsl` only**; panel baseline **water Y = 0** (same as course).
 - Mesh: vertical quad spanning A↔B; **fixed** world orientation (not camera-billboard). Face normal = flatten(A→B) × up (left of A→B). Order points so the course is on the facing side.
-- Missing texture → procedural canvas with `label` (brand fill + inner plate). Demo logos under `public/textures/sponsors/` (Unity Sprites copy — see unity-asset-port).
+- **Board (16.4):** every panel is a composed canvas — opaque background (default `#f4f4f2`), dark slate frame, then contain-fit `textureUrl` or procedural `label`. Optional additive `panelColor` / `frameColor`. Missing/failed texture → label on the same board (not a floating transparent logo). Demo logos under `public/textures/sponsors/` (Unity Sprites copy — see unity-asset-port).
 - Dispose on `scene.stop()`. Full Unity Sponsors pack / BillboardChain tiling remain backlog.
 
 ## Start / finish line signs (Phase 8.5)
@@ -130,11 +134,13 @@ Renders an ENU grid (50 m / ±1 km), origin pole, and high-contrast helpers for 
 - Demo speed: fixture **`demoTimeScale: 20`** (~18 s for a 6-min sequence). Set `1` for real-time. HUD: Start / Pause / Reset / Restart.
 - Procedural colored planes — no Unity FBX/PNG dump. Dispose on `scene.stop()`.
 
-## Fleet registry (Phase 2.2)
+## Fleet registry (Phase 2.2 + 15.4)
 
 - `startScene({ boatIds })` maintains `Map<string, BoatEntityHandle>`.
-- On `poseBus` boat pose: ignore ids not in `boatIds`; otherwise create (clone 2.1 template + tag) then `applyPose`.
-- Soft race switch: `setFleetAllowLists` rebuilds the allow-set and disposes ids that leave the pack; new ids spawn on the next allowed pose.
+- On `poseBus` boat pose: ignore ids not in `boatIds`; otherwise create (clone 2.1 template + tag) then `applyPose`. Marks the id as live so planned GPS will not snap it back.
+- After allow-list change / add-boat: `syncFleetHulls` ensures every allow-listed id has a mesh. Planned ENU from the Fleet row, or a default origin grid (offset by index). Map place uses click ENU via `upsertStaticBoat`.
+- Soft race switch: `setFleetAllowLists` rebuilds the allow-set and disposes ids that leave the pack; new ids spawn on `syncFleetHulls` (or the next allowed pose).
+- `frameFleet` counts spawned hulls (static or live) — no packets required.
 - Each RAF: `orientOpsBillboards(previewCamera)` (boat tags + countdown plate). NDI dual-render re-orients for air before the FBO pass.
 - `stop()` disposes all entities and clears the map.
 - Names/colours: **2.7** catalogue via `boatNamesUrl` (see below).
@@ -143,11 +149,14 @@ Renders an ENU grid (50 m / ±1 km), origin pole, and high-contrast helpers for 
 
 - Fixture: `public/fixtures/boats/demo-istanbul-names.json` (config key **`boatNamesUrl`**).
 - Schema: Unity `BoatNameAssigner` nested map — category → `{ "<id>": "<name>" }` (covers default `21`–`24`).
-- Colour from category Turkish keywords (`pembe`/`mavi`/`sarı`/`sari`/`yeşil`/`yesil`/`turuncu`; else white). Optional `_color` / per-entry hex overrides.
+- Colour from category Turkish keywords (`pembe`/`mavi`/`sarı`/`sari`/`yeşil`/`yesil`/`turuncu`; else white) **unless** the fleet row has an explicit palette `color`. Optional `_color` / per-entry hex overrides in the names JSON.
 - Boot: `loadBoatNamesFromUrl` before TEL; `ensureBoat` resolves on create; late load / Fleet upsert re-applies via `setTagIdentity` (tag canvas + **hull tint** + **map dots**).
 - Unknown id → stub `Boat {id}` / neutral plate; hull keeps procedural default; map dot uses orange fallback.
-- **Hull tint (8.3):** catalogue `#rrggbb` applied to procedural hull materials (`userData.categoryTint`) and to glTF MeshStandard colour + emissive (Three colour × albedo map; see `src/assets/tintBoatVisual.ts` + `src/assets/README.md`).
+- **Hull / sail tint (8.3 + 16.3):** catalogue `#rrggbb` applied to procedural hull (`userData.categoryTint`) and a lighter sail fabric (`userData.sailTint`). See `src/assets/tintBoatVisual.ts` + `src/assets/README.md`.
+- **Category palette (16.3):** Fleet row colour `<select>` (~10 presets) → `upsertBoatName({ color })`. Persisted as additive `fleet.boats[].color`.
+- **Nametag leader (16.3):** line from named `mastTop` (glTF: bounding-box top) to the tag plate; hidden with the tag (ghost/hidden unchanged).
 - **Map dots (8.3):** same id→colour via `map.setBoatDotColors(boatColorsFromCatalogue(…))` from `main` after load / Fleet edits.
+- **Pack persist (15.4 + 16.3):** RaceProject `fleet.boats` stores id/name/category/`color`/visibility/map/planned GPS. Load rebuilds the Fleet panel from that array (names URL is fallback). sessionStorage is a tab cache only.
 - Details: [`boatNames/README.md`](./boatNames/README.md).
 
 ## Ghost / invisible boats (Phase 8.6)
@@ -170,7 +179,7 @@ Per-boat draw mode: **`solid`** | **`ghost`** | **`hidden`** (`BoatVisibilityMod
 
 - `startScene({ povIds })` caches last `poseBus` drone pose per id ∈ `povIds`.
 - Only **`activePovId`** (default `povIds[0]`) drives the **air** Three `PerspectiveCamera` (`getActivePovCamera` / `scene.camera`).
-- `setActivePovId(id)` switches immediately using the cached pose when available (no wait for next packet). Does **not** leave free-cam preview mode.
+- `setActivePovId(id)` switches immediately using the cached pose when available (no wait for next packet). Does **not** leave free-cam preview mode. Optional `onActivePovChange(id)` fires after a real change (and after allow-list clamp) so OUT can swap the warm video texture and TEL can `tick(0)` resample at the new LUT + presented PTS — camera and video move together, no black frame.
 - Soft race switch: `setFleetAllowLists` updates `povIds`, drops cached poses for removed ids, and clamps `activePovId` into the new list (HUD/calib sync via `setPovIds`).
 - Deprecated `droneId` remains as a single-id / initial-active alias when needed.
 - Cam ids `11`/`12` use the same `kind: 'drone'` path when listed in `povIds` — no second pipeline.

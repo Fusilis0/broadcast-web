@@ -74,6 +74,28 @@ $env:BROADCAST_USE_INTEGRATED_GPU="1"; npm run desktop:dev
 On boot the shell logs `GPU preference:` and `GPU info (basic):` — check which adapter Chromium
 reports. You can also open DevTools and go to `chrome://gpu`.
 
+### HEVC (H.265) WebCodecs
+
+DJI SRT is HEVC on the wire. **H.264 always works** in Chromium. Electron is not
+Chrome-branded, so `PlatformHEVCDecoderSupport` is off unless we enable it
+(`desktop/main.cjs`). Even then, Windows **HEVC Video Extensions** are only for
+WebCodecs / Media Foundation — **you do not need them**.
+
+OBS can play the same stream because it uses **ffmpeg’s** HEVC decoder. Studio
+does the same fallback: if WebCodecs rejects HEVC **or** SRT is live with
+bitrate but `decoded=0` for ~2.5 s, Electron ffmpeg decodes HEVC and remuxes
+**H.264** (`libx264` ultrafast, `-copyts`, `repeat-headers=1`) into the existing
+WebCodecs path. Transcode must not start a new PTS origin: `-copytb 1` and
+`-enc_time_base 1:90000` keep the same 90 kHz PTS as the input access units.
+Race ops will say `ffmpeg decoding HEVC→H.264` and show
+`codec` / `demux` / `decoded`. Colour bars with `decoded=0` are the compositor
+placeholder, not the drone.
+
+If that still fails after ~8 s, Race ops names a missing `libx264` (gyan
+`full_build`). Same as OUT-03: ffmpeg on PATH must be a **full** build.
+
+Dual-GPU: pin `electron.exe` to the discrete GPU if WebGL/NDI is on the iGPU.
+
 **If Task Manager still shows the iGPU** (common with Optimus): Chromium’s preference is not
 enough — pin the process in Windows / NVIDIA:
 
@@ -156,9 +178,11 @@ npm run desktop:file
 
 | File | Role |
 | --- | --- |
-| `main.cjs` | BrowserWindow + NDI IPC (per-channel) + `races:*` + `config:setCesiumIonToken` IPC |
-| `preload.cjs` | `window.broadcastStudio` bridge (`ndi` + `races` + `config`) |
+| `main.cjs` | BrowserWindow + NDI IPC (per-channel) + `races:*` + `config:setCesiumIonToken` + `srt:*` IPC |
+| `preload.cjs` | `window.broadcastStudio` bridge (`ndi` + `races` + `config` + `srt`) |
 | `ndiSender.cjs` | Multi-sender `grandi` Map (`ar`/`3d`/`2d` → BGRA) |
+| `srtReader.cjs` | Per-POV SRT caller → raw MPEG-TS over IPC (ffmpeg `-c copy` child) |
+| `srtHelpers.cjs` | URL validation, ffmpeg argv (PTS-safe), status normalisation |
 | `racesFs.cjs` | Local RaceProject folder write/list/read |
 | `configFs.cjs` | Patch `cesiumIonToken` in `public/config.json` (dev) or userData (`--file`) |
 
@@ -209,6 +233,86 @@ Chrome without the studio bridge keeps the token in **sessionStorage** only unti
 you paste the same value into `public/config.json` and commit.
 
 Do not log the token. Do not upload a filled token to a public Hetzner SPA.
+
+## SRT ingest (Phase 17.1)
+
+Electron main is a **dumb MPEG-TS byte pipe**. It does not demux, decode, or
+transcode. Demux/decode is renderer-side (OUT-06). Design:
+[`../docs/architecture/ar-video-underlay-ntp-sync.md`](../docs/architecture/ar-video-underlay-ntp-sync.md) §3.2.
+
+We are the **caller** (L3): we dial `srt://host:port`. No listener mode.
+
+### Native dependency (decided)
+
+**ffmpeg child process**, not a Node SRT binding.
+
+| Candidate | Verdict |
+| --- | --- |
+| **ffmpeg** `spawn` + `-c copy -f mpegts pipe:1` | **Chosen.** No Electron native-addon ABI. This machine’s gyan `full_build` is on PATH with `--enable-libsrt` (`ffmpeg -protocols` lists `srt`). PTS is preserved by the argv below. |
+| `@eyevinn/srt` (or similar) | **Rejected.** Compiles libsrt at install (CMake + VS). No Windows prebuilds. Would need `@electron/rebuild` against Electron `^37.2.6`. That is the historical failure mode in §3.2. CMake is not even on PATH here. |
+
+Resolution order for the binary:
+
+1. `BROADCAST_FFMPEG` (full path to `ffmpeg.exe`)
+2. Packaged `extraResources/ffmpeg/ffmpeg.exe` (PLT — not shipped in this slice)
+3. `ffmpeg.exe` / `ffmpeg` on `PATH`
+
+`npm run desktop:dev` does **not** require ffmpeg until `srt:open`. A missing or
+non-libsrt binary surfaces as `state: 'error'` with `lastError`, then retries
+with backoff. Do not add `ffmpeg-static` to `desktop/package.json` in this slice
+(GPL wrapper + ~80 MB download on every `npm install --prefix desktop`); PLT
+owns shipping a gyan **full** (not essentials) build next to the app.
+
+### PTS-safe argv
+
+Exact argv from `srtHelpers.cjs` `buildFfmpegArgv`:
+
+```text
+ffmpeg -hide_banner -loglevel error -nostdin -copyts
+  -fflags +nobuffer -analyzeduration 0 -probesize 65536
+  -f mpegts -i srt://host:port?latency=<µs>
+  -map 0 -c copy -f mpegts
+  -mpegts_copyts 1 -muxdelay 0 -muxpreload 0
+  -avoid_negative_ts disabled
+  pipe:1
+```
+
+`-c copy` is load-bearing (no transcode). Input `-f mpegts` tells ffmpeg the SRT
+payload is already MPEG-TS so it does not hang on a live probe — it is not a
+remux/transcode. `-mpegts_copyts 1` plus mux delay 0 stops the mpegts muxer
+shifting PCR/PTS (default mux delay is 0.7 s, which would desync `stream_anchor`).
+`-avoid_negative_ts disabled` prevents a restamp to hide negative timestamps.
+There is no `-fflags +genpts`.
+
+`streamid` / `passphrase` / `latency` are **URL query** SRT socket options, never
+ffmpeg `-streamid` (that flag is an MPEG-TS PID map and would be the wrong layer).
+
+### Preload API (`window.broadcastStudio.srt`)
+
+| Method | Notes |
+| --- | --- |
+| `open({ povId, url, streamId?, latencyMs?, passphrase? })` | Caller `srt://host:port`. Cap **4** concurrent sessions (L5). Re-open same `povId` replaces. |
+| `close(povIdOrOpts?)` | `{ povId }` → that session; `'all'` / `{ povId: 'all' }` → every session |
+| `getStatus()` | `Record<povId, { state, bitrateKbps, lastError }>` |
+| `onSrtData(cb)` | `{ povId, chunk: Uint8Array }` raw MPEG-TS. Returns unsubscribe. |
+| `onSrtStatus(cb)` | `{ povId, state, bitrateKbps, lastError }`. Returns unsubscribe. |
+
+`state`: `'idle' \| 'connecting' \| 'live' \| 'error'`. Unreachable URL → `error`
++ `lastError`, then backoff retry (1s … 30s). Renderer backpressure: one queued
+chunk; further stdout is dropped and counted, never buffered unboundedly.
+
+Teardown: window `closed` (sessions owned by that renderer) and `before-quit`
+kill the ffmpeg **process tree** (`taskkill /T /F` on Windows) so a child cannot
+outlive the app. Park/minimize does **not** stop SRT (studio stays up, same as NDI).
+
+URL scheme assumed: `srt://<host>:<port>` with optional `?streamid=&latency=&passphrase=`.
+`latencyMs` on `open` is converted to SRT `latency` microseconds.
+
+### Overrides
+
+```bash
+$env:BROADCAST_FFMPEG="C:\ffmpeg\bin\ffmpeg.exe"; npm run desktop:dev
+```
 
 ## Non-goals (this slice)
 

@@ -1,9 +1,18 @@
 /**
  * Ops Fleet / Live panel — register/edit boats & drones; base WS URLs.
  * Live connect opens one socket per **enabled** id (`base?type=client&subscribe=<id>`).
- * Runtime-only (sessionStorage); does not write config.json.
+ * SRT: per-drone SRT id (≠ telemetry id); empty template → catalog; filled `{srtId}` template is the escape hatch.
+ * Video checkbox is independent of Live WS. sessionStorage is a tab cache only;
+ * RaceProject `fleet.boats` + `output.srtUrlTemplate` / `srtByPovId` are persist (Save/Load).
+ * Relay token in the template is session-only — Save redacts it.
  */
 
+import {
+  buildSrtCallerUrl,
+  shouldUseSrtCatalog,
+  SRT_WARM_POV_CAP,
+} from '../output/srtCallerUrl.ts'
+import { resolveSrtUrlForId } from '../output/srtStreamCatalog.ts'
 import { DEFAULT_LIVE_WS_BASE, stripLiveWsId } from '../telemetry/liveWsUrl.ts'
 import type { LiveStatusSnapshot } from '../telemetry/liveSource.ts'
 import type { OpsViewMode } from './freeCam.ts'
@@ -12,11 +21,17 @@ import {
   normalizeBoatVisibilityMode,
   type BoatVisibilityMode,
 } from './boatVisibility.ts'
+import { parseHexColorCss } from './boatNames/categoryColor.ts'
+import { BOAT_COLOR_PALETTE } from './boatNames/colorPalette.ts'
 
 export type FleetBoatRow = {
   id: string
   name: string
   category: string
+  /**
+   * Explicit palette `#rrggbb`. Omit → colour from category keywords (legacy).
+   */
+  color?: string
   /**
    * Air/ops draw mode — session-persisted; default `solid`.
    * `ghost` = translucent hull + ring; `hidden` = no 3D hull/tag (map still tracks).
@@ -55,6 +70,15 @@ export type FleetLivePanelState = {
   activePovId: string
   /** Map-placed drone/POV GPS hints (session). */
   plannedPovs?: FleetPlannedPov[]
+  /**
+   * Shared SRT caller template (`{srtId}` / `{id}`). Session may hold the
+   * relay token; race-pack save redacts it.
+   */
+  srtUrlTemplate?: string
+  /** Per-POV SRT camera id — independent of telemetry `id`. */
+  srtByPovId?: Record<string, string>
+  /** Subset of povIds used for SRT video (independent of Live WS). */
+  enabledSrtPovIds?: string[]
 }
 
 export type FleetLivePanelOptions = {
@@ -86,6 +110,14 @@ export type FleetLivePanelOptions = {
     povIds: string[]
     goLive: boolean
   }) => void
+  /**
+   * SRT video apply — independent of Live WS. Empty SRT id rows are omitted.
+   * URLs are composed; the token stays in the URL (do not log it).
+   */
+  onSrtApply?: (state: {
+    srtUrlTemplate: string
+    streams: { povId: string; srtId: string; url: string }[]
+  }) => void
 }
 
 export type FleetLivePanelHandle = {
@@ -108,12 +140,22 @@ export type FleetLivePanelHandle = {
     plannedLat?: number
     plannedLon?: number
   }) => { ok: boolean; created: boolean }
-  /** Programmatic add from World Map place-drone tool. */
+  /** Update planned GPS (inspector lat/lon). Persists session + emits fleet change. */
+  setBoatPlannedGps: (
+    id: string,
+    plannedLat: number,
+    plannedLon: number,
+  ) => boolean
+  /**
+   * Programmatic add from World Map place-drone tool.
+   */
   addDrone: (input: {
     id: string
     plannedLat?: number
     plannedLon?: number
   }) => { ok: boolean; created: boolean }
+  /** Live SRT caller / decode lines (Race ops + Fleet). Never include raw tokens. */
+  setSrtSituation: (text: string) => void
   /** Expand panel and flash a boat row (Assets Details deep-link). */
   highlightBoat: (id: string) => void
   stop: () => void
@@ -124,6 +166,9 @@ const STORAGE_KEY = 'broadcast-web.fleetLive.v1'
 type SessionShape = Partial<FleetLivePanelState> & {
   enabledBoatIds?: string[]
   enabledPovIds?: string[]
+  enabledSrtPovIds?: string[]
+  srtUrlTemplate?: string
+  srtByPovId?: Record<string, string>
 }
 
 export function loadFleetLiveFromSession(): SessionShape | null {
@@ -151,6 +196,9 @@ export function saveFleetLiveToSession(state: FleetLivePanelState): void {
         boats: state.boats,
         activePovId: state.activePovId,
         plannedPovs: state.plannedPovs,
+        srtUrlTemplate: state.srtUrlTemplate ?? '',
+        srtByPovId: { ...(state.srtByPovId ?? {}) },
+        enabledSrtPovIds: state.enabledSrtPovIds ?? [],
       }),
     )
   } catch {
@@ -189,6 +237,8 @@ function normalizeFleetBoatRow(row: FleetBoatRow): FleetBoatRow {
       row.visibility ?? DEFAULT_BOAT_VISIBILITY_MODE,
     ),
   }
+  const color = parseHexColorCss(row.color)
+  if (color) out.color = color
   if (row.mapVisible === false) out.mapVisible = false
   if (
     typeof row.plannedLat === 'number' &&
@@ -206,6 +256,31 @@ function fmtPktAge(ageMs: number | null): string {
   if (ageMs === null) return 'nopkt'
   if (ageMs < 1000) return `${Math.round(ageMs)}ms`
   return `${(ageMs / 1000).toFixed(1)}s`
+}
+
+function createColorSelect(current?: string): HTMLSelectElement {
+  const sel = document.createElement('select')
+  sel.className = 'fleet-live__input fleet-live__color'
+  sel.title = 'Category colour (palette). Auto = parse category keywords'
+  const auto = document.createElement('option')
+  auto.value = ''
+  auto.textContent = 'Auto'
+  sel.appendChild(auto)
+  for (const swatch of BOAT_COLOR_PALETTE) {
+    const opt = document.createElement('option')
+    opt.value = swatch.hex
+    opt.textContent = swatch.label
+    sel.appendChild(opt)
+  }
+  const hex = parseHexColorCss(current)
+  if (hex && !BOAT_COLOR_PALETTE.some((s) => s.hex === hex)) {
+    const custom = document.createElement('option')
+    custom.value = hex
+    custom.textContent = 'Custom'
+    sel.appendChild(custom)
+  }
+  sel.value = hex ?? ''
+  return sel
 }
 
 /**
@@ -231,6 +306,12 @@ export function startFleetLivePanel(
     boats: options.initial.boats.map((b) => normalizeFleetBoatRow(b)),
     activePovId: options.initial.activePovId,
     plannedPovs: (options.initial.plannedPovs ?? []).map((p) => ({ ...p })),
+    srtUrlTemplate: options.initial.srtUrlTemplate ?? '',
+    srtByPovId: { ...(options.initial.srtByPovId ?? {}) },
+    enabledSrtPovIds: clampEnabled(
+      options.initial.enabledSrtPovIds ?? [],
+      initPovs,
+    ),
   }
 
   let liveStatus: LiveStatusSnapshot | null = null
@@ -280,6 +361,22 @@ export function startFleetLivePanel(
   boatUrlInput.value = state.wsBoatUrl
   liveSec.appendChild(labelWrap('Boat base', boatUrlInput))
 
+  const srtTemplateInput = document.createElement('input')
+  srtTemplateInput.className = 'fleet-live__input fleet-live__input--wide'
+  srtTemplateInput.placeholder = 'leave empty for catalog (cams 1–27)'
+  srtTemplateInput.spellcheck = false
+  srtTemplateInput.autocomplete = 'off'
+  srtTemplateInput.value = state.srtUrlTemplate ?? ''
+  srtTemplateInput.title =
+    'Leave empty to look up SRT id in the cam 1–27 catalog. A filled {srtId} template on a real host is an escape hatch. Do not paste srt://host:… — that hostname is a placeholder.'
+  liveSec.appendChild(labelWrap('SRT template', srtTemplateInput))
+
+  const srtHint = document.createElement('div')
+  srtHint.className = 'fleet-live__hint'
+  srtHint.textContent =
+    'Empty template + SRT id (e.g. 18) uses the catalog. Vid is independent of Live WS. Dummy srt://host:… is ignored. Token stays in this tab only.'
+  liveSec.appendChild(srtHint)
+
   const liveRow = document.createElement('div')
   liveRow.className = 'fleet-live__row'
   const applyLiveBtn = document.createElement('button')
@@ -290,8 +387,21 @@ export function startFleetLivePanel(
   reconnectBtn.type = 'button'
   reconnectBtn.className = 'fleet-live__btn'
   reconnectBtn.textContent = 'Reconnect'
-  liveRow.append(applyLiveBtn, reconnectBtn)
+  const applySrtBtn = document.createElement('button')
+  applySrtBtn.type = 'button'
+  applySrtBtn.className = 'fleet-live__btn fleet-live__btn--primary'
+  applySrtBtn.textContent = 'Connect SRT'
+  applySrtBtn.title =
+    'Open SRT caller for Video-checked POVs with an SRT id (cap 4). Independent of Connect live.'
+  liveRow.append(applyLiveBtn, reconnectBtn, applySrtBtn)
   liveSec.appendChild(liveRow)
+
+  const srtSitEl = document.createElement('pre')
+  srtSitEl.className = 'fleet-live__srt-sit'
+  srtSitEl.setAttribute('data-ops', 'srt-situation')
+  srtSitEl.textContent =
+    'SRT  click Connect SRT after Vid + SRT id. Colour bars mean no decoded frame yet.'
+  liveSec.appendChild(srtSitEl)
 
   // —— Boats ——
   const boatSec = document.createElement('section')
@@ -317,11 +427,12 @@ export function startFleetLivePanel(
   boatCatIn.className = 'fleet-live__input'
   boatCatIn.placeholder = 'category'
   boatCatIn.style.width = '80px'
+  const boatColorIn = createColorSelect()
   const boatAddBtn = document.createElement('button')
   boatAddBtn.type = 'button'
   boatAddBtn.className = 'fleet-live__btn'
   boatAddBtn.textContent = 'Add'
-  boatAddRow.append(boatIdIn, boatNameIn, boatCatIn, boatAddBtn)
+  boatAddRow.append(boatIdIn, boatNameIn, boatCatIn, boatColorIn, boatAddBtn)
   boatSec.appendChild(boatAddRow)
 
   // —— Ops preview helpers (Free/Follow live in Ops sidebar section — 11.1) ——
@@ -415,13 +526,16 @@ export function startFleetLivePanel(
   function syncInputsFromState(): void {
     droneUrlInput.value = state.wsUrl
     boatUrlInput.value = state.wsBoatUrl
+    srtTemplateInput.value = state.srtUrlTemplate ?? ''
   }
 
   function readUrls(): void {
     state.wsUrl = stripLiveWsId(droneUrlInput.value) || DEFAULT_LIVE_WS_BASE
     state.wsBoatUrl = stripLiveWsId(boatUrlInput.value) || DEFAULT_LIVE_WS_BASE
+    state.srtUrlTemplate = srtTemplateInput.value.trim()
     droneUrlInput.value = state.wsUrl
     boatUrlInput.value = state.wsBoatUrl
+    srtTemplateInput.value = state.srtUrlTemplate
   }
 
   function persist(): void {
@@ -469,6 +583,39 @@ export function startFleetLivePanel(
       state.enabledPovIds = state.enabledPovIds.filter((x) => x !== id)
     }
     persist()
+  }
+
+  function setEnabledSrtPov(id: string, on: boolean): void {
+    const list = state.enabledSrtPovIds ?? []
+    if (on) {
+      if (!list.includes(id)) list.push(id)
+      state.enabledSrtPovIds = list
+    } else {
+      state.enabledSrtPovIds = list.filter((x) => x !== id)
+    }
+    persist()
+  }
+
+  function setSrtId(povId: string, srtId: string): void {
+    const map = { ...(state.srtByPovId ?? {}) }
+    const trimmed = srtId.trim()
+    if (trimmed === '') delete map[povId]
+    else map[povId] = trimmed
+    state.srtByPovId = map
+    persist()
+  }
+
+  function remapPovKey(
+    map: Record<string, string> | undefined,
+    oldId: string,
+    newId: string,
+  ): Record<string, string> {
+    const next = { ...(map ?? {}) }
+    if (oldId !== newId && Object.prototype.hasOwnProperty.call(next, oldId)) {
+      next[newId] = next[oldId]!
+      delete next[oldId]
+    }
+    return next
   }
 
   function liveHintFor(
@@ -523,7 +670,19 @@ export function startFleetLivePanel(
       catIn.className = 'fleet-live__input'
       catIn.style.width = '72px'
       catIn.value = row.category
-      catIn.title = 'Category (colour keyword)'
+      catIn.title = 'Category (colour keyword fallback)'
+
+      const colorSel = createColorSelect(row.color)
+      colorSel.addEventListener('change', () => {
+        const hex = parseHexColorCss(colorSel.value)
+        if (hex) row.color = hex
+        else delete row.color
+        persist()
+        emitFleet()
+        statusEl.textContent = hex
+          ? `Boat ${id} colour ${hex}`
+          : `Boat ${id} colour auto (category)`
+      })
 
       const visSel = document.createElement('select')
       visSel.className = 'fleet-live__input fleet-live__vis'
@@ -576,6 +735,7 @@ export function startFleetLivePanel(
           id: newId,
           name: nameIn.value.trim() || newId,
           category: catIn.value.trim(),
+          color: parseHexColorCss(colorSel.value) ?? undefined,
           visibility,
           plannedLat: row.plannedLat,
           plannedLon: row.plannedLon,
@@ -604,7 +764,7 @@ export function startFleetLivePanel(
         statusEl.textContent = `Boat ${id} removed`
       })
 
-      el.append(en, idIn, nameIn, catIn, visSel, sock, saveBtn, rm)
+      el.append(en, idIn, nameIn, catIn, colorSel, visSel, sock, saveBtn, rm)
       boatList.appendChild(el)
     }
   }
@@ -629,6 +789,31 @@ export function startFleetLivePanel(
       idIn.className = 'fleet-live__input'
       idIn.style.width = '48px'
       idIn.value = id
+      idIn.title = 'Telemetry / POV id (not the SRT camera id)'
+
+      const srtIn = document.createElement('input')
+      srtIn.className = 'fleet-live__input fleet-live__srt'
+      srtIn.style.width = '48px'
+      srtIn.value = state.srtByPovId?.[id] ?? ''
+      srtIn.placeholder = 'srt'
+      srtIn.title = 'SRT camera id on the wire (e.g. 30). Independent of telemetry id.'
+      srtIn.addEventListener('change', () => {
+        setSrtId(id, srtIn.value)
+      })
+
+      const vid = document.createElement('input')
+      vid.type = 'checkbox'
+      vid.className = 'fleet-live__enable'
+      vid.title = 'Enable SRT video (independent of Live WS)'
+      vid.checked = (state.enabledSrtPovIds ?? []).includes(id)
+      vid.addEventListener('change', () => {
+        setEnabledSrtPov(id, vid.checked)
+        renderPovs()
+      })
+      const vidLab = document.createElement('span')
+      vidLab.className = 'fleet-live__srt-lab'
+      vidLab.textContent = 'Vid'
+      vidLab.title = 'SRT video enable — independent of Live WS'
 
       const sock = document.createElement('span')
       sock.className = 'fleet-live__sock'
@@ -652,6 +837,11 @@ export function startFleetLivePanel(
         state.enabledPovIds = state.enabledPovIds.map((x) =>
           x === id ? newId : x,
         )
+        state.enabledSrtPovIds = (state.enabledSrtPovIds ?? []).map((x) =>
+          x === id ? newId : x,
+        )
+        state.srtByPovId = remapPovKey(state.srtByPovId, id, newId)
+        setSrtId(newId, srtIn.value)
         if (state.plannedPovs?.length) {
           state.plannedPovs = state.plannedPovs.map((p) =>
             p.id === id ? { ...p, id: newId } : p,
@@ -692,6 +882,14 @@ export function startFleetLivePanel(
         }
         state.povIds = state.povIds.filter((x) => x !== id)
         state.enabledPovIds = state.enabledPovIds.filter((x) => x !== id)
+        state.enabledSrtPovIds = (state.enabledSrtPovIds ?? []).filter(
+          (x) => x !== id,
+        )
+        if (state.srtByPovId) {
+          const next = { ...state.srtByPovId }
+          delete next[id]
+          state.srtByPovId = next
+        }
         if (state.plannedPovs?.length) {
           state.plannedPovs = state.plannedPovs.filter((p) => p.id !== id)
         }
@@ -704,7 +902,7 @@ export function startFleetLivePanel(
         statusEl.textContent = `Drone ${id} removed`
       })
 
-      el.append(en, idIn, sock, saveBtn, sw, rm)
+      el.append(en, idIn, srtIn, vid, vidLab, sock, saveBtn, sw, rm)
       povList.appendChild(el)
     }
   }
@@ -718,11 +916,13 @@ export function startFleetLivePanel(
     if (!state.boatIds.includes(id)) state.boatIds.push(id)
     const name = boatNameIn.value.trim() || id
     const category = boatCatIn.value.trim()
+    const color = parseHexColorCss(boatColorIn.value) ?? undefined
     const existing = state.boats.findIndex((b) => b.id === id)
     const row = normalizeFleetBoatRow({
       id,
       name,
       category,
+      color,
       visibility: state.boats[existing]?.visibility,
     })
     if (existing >= 0) state.boats[existing] = row
@@ -731,6 +931,7 @@ export function startFleetLivePanel(
     boatIdIn.value = ''
     boatNameIn.value = ''
     boatCatIn.value = ''
+    boatColorIn.value = ''
     renderBoats()
     emitFleet()
     statusEl.textContent = `Boat ${id} added (Live on) — Connect to open id=${id}`
@@ -778,6 +979,64 @@ export function startFleetLivePanel(
   applyLiveBtn.addEventListener('click', () => applyLive(true))
   reconnectBtn.addEventListener('click', () => applyLive(false))
 
+  function applySrt(): void {
+    readUrls()
+    persist()
+    const enabled = [...(state.enabledSrtPovIds ?? [])]
+    if (enabled.length === 0) {
+      statusEl.textContent = 'Enable Video on at least one drone and set its SRT id'
+      return
+    }
+    const streams: { povId: string; srtId: string; url: string }[] = []
+    const skipped: string[] = []
+    const template = (state.srtUrlTemplate ?? '').trim()
+    const useCatalog = shouldUseSrtCatalog(template)
+    if (useCatalog && template) {
+      state.srtUrlTemplate = ''
+      srtTemplateInput.value = ''
+      persist()
+    }
+    for (const povId of enabled) {
+      if (streams.length >= SRT_WARM_POV_CAP) break
+      const srtId = (state.srtByPovId?.[povId] ?? '').trim()
+      if (!srtId) {
+        skipped.push(povId)
+        continue
+      }
+      const composed = useCatalog
+        ? resolveSrtUrlForId(srtId)
+        : buildSrtCallerUrl(template, srtId)
+      if (!composed.ok) {
+        skipped.push(`${povId} (${composed.error})`)
+        continue
+      }
+      streams.push({ povId, srtId, url: composed.href })
+    }
+    if (streams.length === 0) {
+      statusEl.textContent =
+        skipped.length > 0
+          ? `SRT skipped: ${skipped.join(', ')}`
+          : 'No SRT streams to open (empty SRT id)'
+      return
+    }
+    options.onSrtApply?.({
+      srtUrlTemplate: state.srtUrlTemplate ?? '',
+      streams,
+    })
+    statusEl.textContent = `SRT · ${streams.length} caller(s)${
+      skipped.length ? ` · skipped ${skipped.length}` : ''
+    } · cap ${SRT_WARM_POV_CAP}${
+      shouldUseSrtCatalog(state.srtUrlTemplate) ? ' · catalog' : ''
+    }`
+  }
+
+  applySrtBtn.addEventListener('click', () => applySrt())
+
+  srtTemplateInput.addEventListener('change', () => {
+    state.srtUrlTemplate = srtTemplateInput.value.trim()
+    persist()
+  })
+
   renderBoats()
   renderPovs()
   syncInputsFromState()
@@ -823,9 +1082,27 @@ export function startFleetLivePanel(
       if (partial.plannedPovs !== undefined) {
         state.plannedPovs = partial.plannedPovs.map((p) => ({ ...p }))
       }
+      if (partial.srtUrlTemplate !== undefined) {
+        state.srtUrlTemplate = partial.srtUrlTemplate
+      }
+      if (partial.srtByPovId !== undefined) {
+        state.srtByPovId = { ...partial.srtByPovId }
+      }
+      if (partial.enabledSrtPovIds !== undefined) {
+        state.enabledSrtPovIds = clampEnabled(
+          partial.enabledSrtPovIds,
+          state.povIds,
+        )
+      } else if (partial.povIds !== undefined) {
+        state.enabledSrtPovIds = clampEnabled(
+          state.enabledSrtPovIds ?? [],
+          state.povIds,
+        )
+      }
       syncInputsFromState()
       renderBoats()
       renderPovs()
+      persist()
     },
     getState: () => ({
       wsUrl: state.wsUrl,
@@ -837,6 +1114,9 @@ export function startFleetLivePanel(
       boats: state.boats.map((b) => ({ ...b })),
       activePovId: state.activePovId,
       plannedPovs: (state.plannedPovs ?? []).map((p) => ({ ...p })),
+      srtUrlTemplate: state.srtUrlTemplate ?? '',
+      srtByPovId: { ...(state.srtByPovId ?? {}) },
+      enabledSrtPovIds: [...(state.enabledSrtPovIds ?? [])],
     }),
     setStatus(msg): void {
       statusEl.textContent = msg
@@ -848,6 +1128,9 @@ export function startFleetLivePanel(
       liveStatus = status
       renderBoats()
       renderPovs()
+    },
+    setSrtSituation(text): void {
+      srtSitEl.textContent = text
     },
     addBoat(input): { ok: boolean; created: boolean } {
       const id = input.id.trim()
@@ -863,6 +1146,7 @@ export function startFleetLivePanel(
         name: input.name?.trim() || state.boats[existing]?.name || id,
         category:
           input.category?.trim() || state.boats[existing]?.category || '',
+        color: state.boats[existing]?.color,
         visibility: state.boats[existing]?.visibility,
         plannedLat: input.plannedLat ?? state.boats[existing]?.plannedLat,
         plannedLon: input.plannedLon ?? state.boats[existing]?.plannedLon,
@@ -877,6 +1161,22 @@ export function startFleetLivePanel(
         ? `Boat ${id} added from map`
         : `Boat ${id} already in fleet — planned position updated`
       return { ok: true, created }
+    },
+    setBoatPlannedGps(id, plannedLat, plannedLon): boolean {
+      const trimmed = id.trim()
+      if (trimmed === '') return false
+      if (!Number.isFinite(plannedLat) || !Number.isFinite(plannedLon)) {
+        return false
+      }
+      if (!state.boatIds.includes(trimmed)) state.boatIds.push(trimmed)
+      const row = ensureBoatRow(trimmed)
+      row.plannedLat = plannedLat
+      row.plannedLon = plannedLon
+      renderBoats()
+      emitFleet()
+      persist()
+      statusEl.textContent = `Boat ${trimmed} planned GPS updated`
+      return true
     },
     addDrone(input): { ok: boolean; created: boolean } {
       const id = input.id.trim()

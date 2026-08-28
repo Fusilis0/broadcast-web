@@ -1,7 +1,12 @@
 # CAL_MEMO
 
-**Last updated:** 2026-08-17  
-**Status:** Idle — FYI `HO-BW-CAL-20260817-01` (do not dispatch until 14.0 accepted + a real yaw check)
+**Last updated:** 2026-08-26  
+**Status:** Phase 17.1 `syncTrimMs` stored; TEL-08 applies it. FOV/distortion (C6) still open.
+
+## Phase 17.1 accepted 2026-08-26 (BW)
+
+- `done/DSP-CAL-20260826-05` — sixth knob `syncTrimMs` on `CalibrationOffsets`, Calib slider, `calibration.byPovId` round-trip. `0` = today’s behaviour; old packs default to 0.
+- **Sign (locked):** `t_ntp = toNtp(pts) + syncTrimMs`. Positive = AR leads video. Range ±500 ms, step 5. TEL-08 applies it; `applyCalibration` does not.
 
 ## Phase 14.0 FYI 2026-08-17
 Scene ENU packing will change to `z = −North`. Saved `calibration.byPovId` / offsetsStore yaw

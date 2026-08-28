@@ -20,12 +20,17 @@ import {
 } from './freeCam.ts'
 import {
   DEFAULT_ENVIRONMENT_MODE,
+  DEFAULT_SEA_QUALITY,
   isEnvironmentMode,
+  isSeaQuality,
   normalizeEnvironmentMode,
+  normalizeSeaQuality,
   type EnvironmentMode,
+  type SeaQuality,
 } from './environment/index.ts'
 import {
   DEFAULT_TERRAIN_ENABLED,
+  DEFAULT_TERRAIN_WATER_DISCARD_Y,
   TERRAIN_SESSION_LOCK_KEY,
   TERRAIN_SESSION_NUDGE_KEY,
 } from './terrain/index.ts'
@@ -90,12 +95,22 @@ function formatChannelCompact(
 export type StubHudMountHosts = {
   /** Race Load/Save/Pack + world-anchor origin. */
   project: HTMLElement
-  /** Mode / POV / view / countdown / editor + stream toggles / status. */
+  /** Leftover race-ops rows: telemetry / POV / view / countdown / stream / status. */
   ops: HTMLElement
+  /** Environment + terrain + ion token (right rail). Falls back to `ops`. */
+  environment?: HTMLElement
+  /** Wind from-deg / hold row (right rail). Falls back to `ops`. */
+  wind?: HTMLElement
   /** Ops 2D map root. */
   map: HTMLElement
   /** Stream / PiP map host (outside the sidebar rail). */
   streamMapHost: HTMLElement
+}
+
+/** Clamp Environment water-discard threshold (m AMSL). Range 0–5, default 0.5. */
+export function clampTerrainWaterDiscardYM(yM: number): number {
+  if (!Number.isFinite(yM)) return DEFAULT_TERRAIN_WATER_DISCARD_Y
+  return Math.min(5, Math.max(0, yM))
 }
 
 export type StubHudOptions = {
@@ -133,6 +148,9 @@ export type StubHudOptions = {
   onEnvironmentModeChange?: (mode: EnvironmentMode) => void
   /** Initial environment mode (default `simple`). */
   environmentMode?: EnvironmentMode
+  /** Gerstner sea LOD (`high` | `low`). */
+  onSeaQualityChange?: (quality: SeaQuality) => void
+  seaQuality?: SeaQuality
   /** Cesium ion terrain (default off). */
   onTerrainEnabledChange?: (enabled: boolean) => void
   terrainEnabled?: boolean
@@ -140,6 +158,9 @@ export type StubHudOptions = {
   terrainAltitudeNudgeM?: number
   onTerrainTilesLockedChange?: (locked: boolean) => void
   terrainTilesLocked?: boolean
+  /** Height-fallback AMSL (m) for hiding Cesium water. Default 0.5. */
+  onTerrainWaterDiscardYChange?: (yM: number) => void
+  terrainWaterDiscardYM?: number
   /** Initial status line (token missing, etc.). */
   terrainStatus?: string
   /**
@@ -226,14 +247,25 @@ export type StubHudHandle = {
   setOpsViewMode: (mode: OpsViewMode) => void
   /** Sync environment select without firing `onEnvironmentModeChange`. */
   setEnvironmentMode: (mode: EnvironmentMode) => void
+  setSeaQuality: (quality: SeaQuality) => void
   setTerrainEnabled: (enabled: boolean) => void
   setTerrainAltitudeNudgeM: (nudgeM: number) => void
   setTerrainTilesLocked: (locked: boolean) => void
+  setTerrainWaterDiscardYM: (yM: number) => void
   setTerrainStatus: (msg: string) => void
+  /** Smoothed on-screen WebGL preview fps (1 s window). */
+  setPreviewFps: (fps: number) => void
+  /** WebGL unmasked renderer short string (`GPU · NVIDIA …` / `GPU · unknown`). */
+  setGpuLabel: (label: string) => void
+  /** Preview hitch counts in the same 1 s window (does not replace average fps). */
+  setHitchCounts: (counts: { over33: number; over50: number }) => void
   /** Fill the Ops ion token field (does not Apply). */
   setCesiumIonToken: (token: string) => void
+  /** Live SRT caller / decode (ops-only). Never include raw tokens. */
+  setSrtSituation: (text: string) => void
   getTerrainAltitudeNudgeM: () => number
   getTerrainTilesLocked: () => boolean
+  getTerrainWaterDiscardYM: () => number
   /** Static course mark dots on the 2D map (ENU east/north). Legacy. */
   setCourseMarks: (
     marks: readonly { name: string; x: number; z: number }[],
@@ -288,6 +320,13 @@ export function formatConnectionStatus(status: ConnectionStatusUi): string {
   return `ws ${d} ${b}`
 }
 
+/** Hitch row: `2 / 1s (>50ms)` or `0`. Average preview fps stays on the row above. */
+export function formatHitchLabel(over50: number): string {
+  const n50 = Number.isFinite(over50) ? Math.max(0, Math.floor(over50)) : 0
+  if (n50 <= 0) return '0'
+  return `${n50} / 1s (>50ms)`
+}
+
 /**
  * Ops overlay: stub HUD (mode + POV + TEL counts + last ENU) and 2D fleet map.
  * Positions from poseBus only. Mode select restarts ingest via `onModeChange`.
@@ -327,6 +366,18 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
     legacyRoot.appendChild(opsHud)
     disposableRoots.push(legacyRoot)
   }
+
+  let envHud: HTMLElement
+  if (hosts?.environment) {
+    envHud = document.createElement('div')
+    envHud.className = 'ops-hud ops-hud--environment'
+    hosts.environment.appendChild(envHud)
+    disposableRoots.push(envHud)
+  } else {
+    envHud = opsHud
+  }
+
+  const windHost = hosts?.wind ?? opsHud
 
   const modeRow = document.createElement('div')
   modeRow.className = 'ops-hud__mode-row'
@@ -411,6 +462,48 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   viewHint.textContent = 'orbit · drag canvas'
   viewRow.appendChild(viewHint)
 
+  const fpsRow = document.createElement('div')
+  fpsRow.className = 'ops-hud__mode-row'
+  opsHud.appendChild(fpsRow)
+
+  const fpsLabel = document.createElement('span')
+  fpsLabel.className = 'ops-hud__mode-label'
+  fpsLabel.textContent = 'preview'
+  fpsRow.appendChild(fpsLabel)
+
+  const fpsHint = document.createElement('span')
+  fpsHint.className = 'ops-hud__mode-hint'
+  fpsHint.setAttribute('data-ops', 'preview-fps')
+  fpsHint.title =
+    'On-screen WebGL present rate (rAF when visible). NDI AR ~30 / 3D ~10 stay on studio tick.'
+  fpsHint.textContent = '— fps'
+  fpsRow.appendChild(fpsHint)
+
+  const gpuHint = document.createElement('span')
+  gpuHint.className = 'ops-hud__mode-hint'
+  gpuHint.setAttribute('data-ops', 'gpu-renderer')
+  gpuHint.title =
+    'WebGL unmasked renderer (WEBGL_debug_renderer_info). Intel here on a NVIDIA/AMD machine means the iGPU.'
+  gpuHint.textContent = 'GPU · —'
+  fpsRow.appendChild(gpuHint)
+
+  const hitchRow = document.createElement('div')
+  hitchRow.className = 'ops-hud__mode-row'
+  opsHud.appendChild(hitchRow)
+
+  const hitchLabel = document.createElement('span')
+  hitchLabel.className = 'ops-hud__mode-label'
+  hitchLabel.textContent = 'hitch'
+  hitchRow.appendChild(hitchLabel)
+
+  const hitchHint = document.createElement('span')
+  hitchHint.className = 'ops-hud__mode-hint'
+  hitchHint.setAttribute('data-ops', 'preview-hitch')
+  hitchHint.title =
+    'Preview frames with dt > 50 ms in the last 1 s (tile compile hitch-then-recover). Average fps is the row above.'
+  hitchHint.textContent = '0'
+  hitchRow.appendChild(hitchHint)
+
   const countdownRow = document.createElement('div')
   countdownRow.className = 'ops-hud__mode-row'
   opsHud.appendChild(countdownRow)
@@ -482,7 +575,7 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
 
   const envRow = document.createElement('div')
   envRow.className = 'ops-hud__mode-row'
-  opsHud.appendChild(envRow)
+  envHud.appendChild(envRow)
 
   const envLabel = document.createElement('label')
   envLabel.className = 'ops-hud__mode-label'
@@ -507,6 +600,29 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   envSelect.value = environmentMode
   envRow.appendChild(envSelect)
 
+  const seaLabel = document.createElement('label')
+  seaLabel.className = 'ops-hud__mode-label'
+  seaLabel.htmlFor = 'ops-sea-quality'
+  seaLabel.textContent = 'sea'
+  envRow.appendChild(seaLabel)
+
+  const seaSelect = document.createElement('select')
+  seaSelect.id = 'ops-sea-quality'
+  seaSelect.className = 'ops-hud__mode-select'
+  seaSelect.title =
+    'high = 7-ring clipmap + half-res foam (rim past fog); low = 5 rings + quarter-res foam (`?sea=low`)'
+  for (const q of ['high', 'low'] as const) {
+    const opt = document.createElement('option')
+    opt.value = q
+    opt.textContent = q
+    seaSelect.appendChild(opt)
+  }
+  let seaQuality: SeaQuality = normalizeSeaQuality(
+    options.seaQuality ?? DEFAULT_SEA_QUALITY,
+  )
+  seaSelect.value = seaQuality
+  envRow.appendChild(seaSelect)
+
   const envHint = document.createElement('span')
   envHint.className = 'ops-hud__mode-hint'
   envHint.textContent =
@@ -515,7 +631,7 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
 
   const terrainRow = document.createElement('div')
   terrainRow.className = 'ops-hud__mode-row'
-  opsHud.appendChild(terrainRow)
+  envHud.appendChild(terrainRow)
 
   const terrainLabel = document.createElement('label')
   terrainLabel.className = 'ops-hud__mode-label'
@@ -593,6 +709,30 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   nudgeInput.value = String(terrainNudgeM)
   terrainRow.appendChild(nudgeInput)
 
+  const waterYLabel = document.createElement('label')
+  waterYLabel.className = 'ops-hud__mode-label'
+  waterYLabel.htmlFor = 'ops-terrain-water-y'
+  waterYLabel.textContent = 'water m'
+  terrainRow.appendChild(waterYLabel)
+
+  const waterYInput = document.createElement('input')
+  waterYInput.id = 'ops-terrain-water-y'
+  waterYInput.className = 'ops-hud__input ops-hud__input--nudge'
+  waterYInput.type = 'number'
+  waterYInput.min = '0'
+  waterYInput.max = '5'
+  waterYInput.step = '0.1'
+  waterYInput.setAttribute('data-ops', 'terrain-water-discard')
+  waterYInput.title =
+    'Cesium water height-discard threshold (metres AMSL). Fallback when a tile has no water mask. Default 0.5.'
+  let terrainWaterDiscardYM = clampTerrainWaterDiscardYM(
+    typeof options.terrainWaterDiscardYM === 'number'
+      ? options.terrainWaterDiscardYM
+      : DEFAULT_TERRAIN_WATER_DISCARD_Y,
+  )
+  waterYInput.value = String(terrainWaterDiscardYM)
+  terrainRow.appendChild(waterYInput)
+
   const terrainHint = document.createElement('span')
   terrainHint.className = 'ops-hud__mode-hint'
   terrainHint.textContent = options.terrainStatus ?? 'AR-gated · default off'
@@ -600,7 +740,7 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
 
   const ionRow = document.createElement('div')
   ionRow.className = 'ops-hud__mode-row'
-  opsHud.appendChild(ionRow)
+  envHud.appendChild(ionRow)
 
   const ionLabel = document.createElement('label')
   ionLabel.className = 'ops-hud__mode-label'
@@ -667,8 +807,14 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
     }
     options.onTerrainAltitudeNudgeChange?.(n)
   })
+  waterYInput.addEventListener('change', () => {
+    const n = clampTerrainWaterDiscardYM(Number(waterYInput.value))
+    terrainWaterDiscardYM = n
+    waterYInput.value = String(n)
+    options.onTerrainWaterDiscardYChange?.(n)
+  })
 
-  const windOps = mountWindOpsRow({ container: opsHud })
+  const windOps = mountWindOpsRow({ container: windHost })
 
   const localProject: LocalProjectControlsHandle = mountLocalProjectControls({
     container: projectHud,
@@ -808,6 +954,13 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
       }
     })
   }
+
+  const srtSitEl = document.createElement('pre')
+  srtSitEl.className = 'ops-hud__status ops-hud__srt-sit'
+  srtSitEl.setAttribute('data-ops', 'srt-situation')
+  srtSitEl.textContent =
+    'SRT  click Connect SRT in Fleet / Live. Colour bars mean no decoded frame yet.'
+  opsHud.appendChild(srtSitEl)
 
   const statusEl = document.createElement('pre')
   statusEl.className = 'ops-hud__status'
@@ -951,6 +1104,13 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
     options.onEnvironmentModeChange?.(next)
   })
 
+  seaSelect.addEventListener('change', () => {
+    const next = seaSelect.value
+    if (!isSeaQuality(next) || next === seaQuality) return
+    seaQuality = next
+    options.onSeaQualityChange?.(next)
+  })
+
   function onKeyDown(ev: KeyboardEvent): void {
     if (ev.altKey || ev.ctrlKey || ev.metaKey) return
     const target = ev.target as HTMLElement | null
@@ -1036,6 +1196,10 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
       envHint.textContent =
         environmentMode === 'realistic' ? '3D dress · AR-gated' : 'AR-safe'
     },
+    setSeaQuality(quality: SeaQuality): void {
+      seaQuality = normalizeSeaQuality(quality)
+      seaSelect.value = seaQuality
+    },
     setTerrainEnabled(enabled: boolean): void {
       terrainEnabled = enabled === true
       terrainSelect.value = terrainEnabled ? 'on' : 'off'
@@ -1048,14 +1212,47 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
       terrainTilesLocked = locked === true
       lockTilesCheck.checked = terrainTilesLocked
     },
+    setTerrainWaterDiscardYM(yM: number): void {
+      terrainWaterDiscardYM = clampTerrainWaterDiscardYM(yM)
+      waterYInput.value = String(terrainWaterDiscardYM)
+    },
     setTerrainStatus(msg: string): void {
       terrainHint.textContent = msg
+    },
+    setPreviewFps(fps: number): void {
+      const next =
+        !Number.isFinite(fps) || fps <= 0
+          ? '— fps'
+          : `${Math.round(fps)} fps`
+      if (fpsHint.textContent === next) return
+      fpsHint.textContent = next
+    },
+    setGpuLabel(label: string): void {
+      const next = label.trim() === '' ? 'GPU · unknown' : label
+      if (gpuHint.textContent === next) return
+      gpuHint.textContent = next
+    },
+    setHitchCounts(counts): void {
+      const over33 = Number.isFinite(counts.over33)
+        ? Math.max(0, Math.floor(counts.over33))
+        : 0
+      const over50 = Number.isFinite(counts.over50)
+        ? Math.max(0, Math.floor(counts.over50))
+        : 0
+      const next = formatHitchLabel(over50)
+      hitchHint.title =
+        `dt>33ms: ${over33} · dt>50ms: ${over50} (1 s window). Average preview fps is the row above.`
+      if (hitchHint.textContent !== next) hitchHint.textContent = next
     },
     setCesiumIonToken(token: string): void {
       ionInput.value = token
     },
+    setSrtSituation(text: string): void {
+      srtSitEl.textContent = text
+    },
     getTerrainAltitudeNudgeM: () => terrainNudgeM,
     getTerrainTilesLocked: () => terrainTilesLocked,
+    getTerrainWaterDiscardYM: () => terrainWaterDiscardYM,
     setCourseMarks(marks): void {
       const mapped = marks.map((m) => ({
         name: m.name,

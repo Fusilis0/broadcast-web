@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PREVIEW_CLEAR_COLOR, TRANSPARENT_CLEAR_COLOR } from './types.ts'
 import {
   applyOpaque3dPassState,
+  isOpaque3dPassActive,
   NDI_3D_OPAQUE_CLEAR_COLOR,
   restoreClearPass,
   snapshotClearPass,
@@ -9,6 +10,19 @@ import {
 } from './ndiOpaquePass.ts'
 
 describe('ndiOpaquePass helpers', () => {
+  afterEach(() => {
+    const writer = {
+      setClearColor: () => {},
+      setOpaqueClearSafe: () => {},
+    }
+    while (isOpaque3dPassActive()) {
+      restoreClearPass(writer, {
+        color: 0,
+        alpha: 0,
+        opaqueClearSafe: false,
+      })
+    }
+  })
   it('snapshots clear + opaque-safe gate', () => {
     const snap = snapshotClearPass({
       getClearColorHex: () => TRANSPARENT_CLEAR_COLOR,
@@ -96,5 +110,21 @@ describe('ndiOpaquePass helpers', () => {
     expect(result).toBe(42)
     expect(writer.setOpaqueClearSafe).toHaveBeenCalledWith(true)
     expect(writer.setOpaqueClearSafe).toHaveBeenLastCalledWith(false)
+  })
+
+  it('isOpaque3dPassActive is true only between apply and restore', () => {
+    expect(isOpaque3dPassActive()).toBe(false)
+    const writer = {
+      setClearColor: vi.fn(),
+      setOpaqueClearSafe: vi.fn(),
+    }
+    applyOpaque3dPassState(writer)
+    expect(isOpaque3dPassActive()).toBe(true)
+    restoreClearPass(writer, {
+      color: TRANSPARENT_CLEAR_COLOR,
+      alpha: 0,
+      opaqueClearSafe: false,
+    })
+    expect(isOpaque3dPassActive()).toBe(false)
   })
 })

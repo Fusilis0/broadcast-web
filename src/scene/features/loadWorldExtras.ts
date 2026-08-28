@@ -1,3 +1,4 @@
+import { parseRounding } from './rounding.ts'
 import type { WorldFeature, WorldFeatureType } from './types.ts'
 
 export const DEFAULT_WORLD_EXTRAS_URL =
@@ -49,6 +50,8 @@ function parseFeature(raw: unknown): WorldFeature | null {
   }
   if (isFiniteNumber(o.color)) feature.color = o.color >>> 0
   if (isFiniteNumber(o.heightM)) feature.heightM = o.heightM
+  const rounding = parseRounding(o.rounding)
+  if (rounding !== undefined) feature.rounding = rounding
   return feature
 }
 

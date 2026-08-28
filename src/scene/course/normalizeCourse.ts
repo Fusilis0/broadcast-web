@@ -1,3 +1,4 @@
+import { parseRounding } from '../features/rounding.ts'
 import type {
   CourseAppearance,
   CourseData,
@@ -44,13 +45,16 @@ function parseWaypoint(raw: unknown): CourseWaypoint | null {
     return null
   }
   if (!isFiniteNumber(o.lat) || !isFiniteNumber(o.lon)) return null
-  return {
+  const waypoint: CourseWaypoint = {
     name,
     type: type as CourseWaypointType,
     lat: o.lat,
     lon: o.lon,
     altMsl: isFiniteNumber(o.altMsl) ? o.altMsl : 0,
   }
+  const rounding = parseRounding(o.rounding)
+  if (rounding !== undefined) waypoint.rounding = rounding
+  return waypoint
 }
 
 function parseAppearance(raw: unknown): CourseAppearance {

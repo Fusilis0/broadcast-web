@@ -30,6 +30,7 @@ const fs = require('node:fs')
 const ndiSender = require('./ndiSender.cjs')
 const racesFs = require('./racesFs.cjs')
 const configFs = require('./configFs.cjs')
+const srtReader = require('./srtReader.cjs')
 
 const DEV_URL = 'http://127.0.0.1:5173'
 const PREVIEW_URL = 'http://127.0.0.1:4173'
@@ -54,6 +55,12 @@ if (!useIntegratedGpu) {
   app.commandLine.appendSwitch('ignore-gpu-blocklist')
 }
 
+// Electron is not Chrome-branded, so HEVC WebCodecs is off unless we opt in.
+// Chrome on the same PC can decode DJI HEVC via Windows Media Foundation;
+// without this switch, `VideoDecoder.isConfigSupported({codec:'hev1…'})` is false
+// and the AR underlay stays on colour bars. H.264 does not need this.
+app.commandLine.appendSwitch('enable-features', 'PlatformHEVCDecoderSupport')
+
 // Keep renderer eligible while occluded; Windows occlusion can still freeze GPU.
 app.commandLine.appendSwitch('disable-renderer-backgrounding')
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
@@ -76,7 +83,11 @@ let preParkBounds = null
 let parked = false
 let quitting = false
 
-const STUDIO_TICK_FPS = 30
+// NDI stagger clock only (DSP-OUT-20260828-04). Ops preview stays rAF when
+// visible (`startDualFrameClock`) — this constant does not drive preview.
+// 60 Hz + one FBO render per tick spreads AR 30 + 3D 30 on alternate ticks.
+// Do not also allow two FBO renders on one tick.
+const STUDIO_TICK_FPS = 60
 
 // Minimal PNG for the tray — Windows requires a real image.
 const TRAY_PNG_DATA_URL =
@@ -273,6 +284,17 @@ function registerConfigIpc() {
   })
 }
 
+/** SRT ingest — dumb MPEG-TS byte pipe. Per-POV; `close('all')` like `ndi:stop`. */
+function registerSrtIpc() {
+  ipcMain.handle('srt:open', (evt, opts) => {
+    return srtReader.open(evt.sender, opts)
+  })
+  ipcMain.handle('srt:close', (_evt, arg) => {
+    return srtReader.close(arg)
+  })
+  ipcMain.handle('srt:status', () => srtReader.getStatusAll())
+}
+
 /**
  * OS minimize freezes WebGL/GPU on Windows even when JS still ticks.
  * Park off-screen instead: window stays "shown", NDI keeps ~30 fps.
@@ -388,6 +410,7 @@ function createWindow() {
   })
 
   win.on('closed', () => {
+    srtReader.closeForWebContents(win.webContents)
     if (mainWindow === win) mainWindow = null
   })
 
@@ -470,6 +493,7 @@ app.whenReady().then(async () => {
   registerNdiIpc()
   registerRacesIpc()
   registerConfigIpc()
+  registerSrtIpc()
   console.info(
     `[desktop] races dir (${getRacesKind()}): ${getRacesDir()}`,
   )
@@ -512,6 +536,7 @@ app.on('before-quit', () => {
   quitting = true
   stopStudioClock()
   stopPowerBlocker()
+  srtReader.shutdown()
   ndiSender.shutdown()
   if (tray) {
     tray.destroy()
@@ -523,6 +548,7 @@ app.on('window-all-closed', () => {
   if (quitting || !ndiEnabled) {
     stopStudioClock()
     stopPowerBlocker()
+    srtReader.shutdown()
     ndiSender.shutdown()
     if (process.platform !== 'darwin') app.quit()
   }

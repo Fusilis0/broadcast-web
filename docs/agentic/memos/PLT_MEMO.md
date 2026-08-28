@@ -1,7 +1,11 @@
 # PLT_MEMO
 
-**Last updated:** 2026-08-17  
-**Status:** Idle — ion token git-share via `public/config.json` + Ops Apply
+**Last updated:** 2026-08-18 (pm)  
+**Status:** Idle — FYI: SCN-06 (Phase 16) adds additive `color?: string` to `fleet.boats[]` rows (no PLT worker)
+
+## Phase 15.4 accepted 2026-08-18 (SCN-led, PLT files)
+
+- `done/DSP-SCN-20260818-03` — additive `fleet.boats` on RaceProject (`id`, `name`, `category`, optional visibility / mapVisible / planned lat/lon). Parse/build round-trip. Old packs without the array still load via `boatIds` + names URL. Follow-up (pre-existing): `boatIds` still filters to band 21–52.
 
 ## Ion token persist 2026-08-17
 - BW policy: `cesiumIonToken` **may** be committed (private studio repo).

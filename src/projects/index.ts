@@ -1,5 +1,12 @@
 export { parseRaceProject, isSafeRaceId } from './parseRaceProject.ts'
 export {
+  resolveLoadedFleetBoats,
+  serializeFleetBoat,
+  snapshotFleetBoats,
+  type FleetBoatNameEntry,
+  type FleetBoatSnapshotInput,
+} from './fleetBoats.ts'
+export {
   loadRaceProject,
   raceProjectApiUrl,
   raceProjectUrl,
@@ -106,6 +113,7 @@ export type {
   RaceProjectCalibration,
   RaceProjectOrigin,
   RaceProjectFleet,
+  RaceProjectFleetBoat,
   RaceProjectOutputDefaults,
   WorldFeature,
 } from './types.ts'

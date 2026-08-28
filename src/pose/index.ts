@@ -27,6 +27,9 @@ export {
 export {
   startPosePipeline,
   stopPosePipeline,
+  type PoseMatchClock,
   type PosePipelineHandle,
   type PosePipelineOptions,
+  type PoseSyncBoatRow,
+  type PoseSyncDebug,
 } from './pipeline.ts'

@@ -79,6 +79,8 @@ function panelEndpointsFromSample(
     heightM: number
     textureUrl: string | null
     color: number
+    panelColor?: number
+    frameColor?: number
   },
 ): SponsorEnuEndpoints {
   const half = widthM / 2
@@ -86,7 +88,7 @@ function panelEndpointsFromSample(
   const az = sample.z - sample.alongZ * half
   const bx = sample.x + sample.alongX * half
   const bz = sample.z + sample.alongZ * half
-  return {
+  const endpoints: SponsorEnuEndpoints = {
     id: meta.id,
     label: meta.label,
     heightM: meta.heightM,
@@ -100,6 +102,9 @@ function panelEndpointsFromSample(
     midZ: sample.z,
     widthM,
   }
+  if (meta.panelColor !== undefined) endpoints.panelColor = meta.panelColor
+  if (meta.frameColor !== undefined) endpoints.frameColor = meta.frameColor
+  return endpoints
 }
 
 /** Default instance panel width along-track (meters). */
@@ -168,6 +173,8 @@ async function mountOneChain(
       heightM,
       textureUrl,
       color,
+      panelColor: f.panelColor,
+      frameColor: f.frameColor,
     })
     idx += 1
     try {

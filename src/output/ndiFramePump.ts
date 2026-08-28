@@ -1,6 +1,7 @@
+import { createSendFpsCounter } from './perfCounters.ts'
 import type { Camera, Object3D, WebGLRenderer } from 'three'
 import { Color, WebGLRenderTarget } from 'three'
-import { planNdiCapture } from './airCameraLock.ts'
+import { createNdiAsyncReadback } from './ndiAsyncReadback.ts'
 import { tryClaimNdiHeavyCapture } from './ndiCaptureStagger.ts'
 import { NdiDelayBuffer } from './ndiDelayBuffer.ts'
 import {
@@ -15,8 +16,8 @@ import {
 } from './studioBridge.ts'
 
 /**
- * Temporary AR-plate clear for an air-target capture when the **screen**
- * clear differs (e.g. local 3D focus is opaque). Restored after capture.
+ * Temporary AR-plate clear for the air FBO (local 3D opaque screen, etc.).
+ * Restored after capture so the ops preview keep its own clear.
  */
 export type ArAirPlateClear = {
   color: number
@@ -27,25 +28,22 @@ export type ArAirPlateClear = {
 export type NdiFramePumpOptions = {
   renderer: WebGLRenderer
   /**
-   * Active POV camera for air / NDI. When the screen `renderer.render`
-   * camera differs (ops free cam), NDI dual-renders this camera to an
-   * offscreen target and captures that — never the free-cam framebuffer.
+   * Scene graph for the studio-tick air FBO. AR no longer captures from the
+   * screen present (preview is rAF when visible — DSP-OUT-20260818-01).
+   */
+  scene: Object3D
+  /**
+   * Active POV camera for air / NDI. Free cam must not drive this capture.
    */
   getAirCamera?: () => Camera | null | undefined
   /**
-   * SCN hook: orient ops billboards (tag distance-scale) for the camera
-   * about to render. Required for dual-render so air/NDI tags match active
-   * POV while the screen keeps preview (free cam) scales.
+   * SCN hook: orient ops billboards (tag distance-scale) for the air camera
+   * before the FBO pass.
    */
   prepareCameraPass?: (camera: Camera) => void
   /**
-   * When true (local 3D opaque screen, etc.), always capture via air FBO
-   * and apply `getAirPlateClear` for that pass so AR alpha stays correct.
-   */
-  forceAirTargetCapture?: () => boolean
-  /**
-   * Clear + opaque-safe gate for the AR air FBO when forced (or when
-   * free-cam dual-render runs under a non-AR screen clear).
+   * Clear + opaque-safe gate for the AR air FBO (transparent plate vs
+   * local 3D opaque screen).
    */
   getAirPlateClear?: () => ArAirPlateClear | null | undefined
   /** SCN: gate realistic sea/sky during AR air capture. */
@@ -53,7 +51,7 @@ export type NdiFramePumpOptions = {
   getEnvironmentOpaqueClearSafe?: () => boolean
   /**
    * Target send rate. Default **30** (air path). Dropped when previous IPC
-   * is still busy, or when staggered behind a deferred 3D capture.
+   * is still busy, or when another NDI FBO already claimed this stagger window.
    */
   fps?: number
   /** NDI source name (hostname is prepended by the SDK). Default `broadcast-web`. */
@@ -76,6 +74,8 @@ export type NdiFramePumpHandle = {
   getError: () => string | null
   getDelayMs: () => number
   setDelayMs: (ms: number) => number
+  /** Successful sends in the last 1 s (not staggered-away claims). */
+  getSendFps: () => number
   stop: () => void
 }
 
@@ -84,20 +84,28 @@ export const NDI_AR_DEFAULT_FPS = 30
 const DEFAULT_NAME = 'broadcast-web'
 
 /**
- * Electron-only: after each WebGL present (including visual timecode wrap),
- * read RGBA pixels and push to main-process NDI sender (BGRA + alpha).
+ * Electron-only: on each `studio:tick` (60 Hz NDI stagger clock), render the
+ * active POV into an FBO, pack RGBA via WebGL2 PBO (sync
+ * `readRenderTargetPixels` fallback), and push to the main-process NDI sender
+ * (BGRA + alpha). One frame of capture latency on the PBO path is expected.
  *
- * **Air lock:** capture is always the active POV (`getAirCamera`). If the
- * screen render used another camera, a second pass renders air into an FBO
- * for readback so ops free cam cannot hijack NDI. Optional `prepareCameraPass`
- * re-orients SCN billboard scales for each camera before that pass.
+ * Does **not** monkey-patch `renderer.render` and does **not** subscribe to
+ * rAF — ops preview stays rAF. `tryClaimNdiHeavyCapture` is the FBO-render
+ * slot: a true claim means this pump **will render** this tick. AR and 3D
+ * alternate (~30 Send each). PBO drain/poll may still run on a skipped tick
+ * (`DSP-OUT-20260828-04`).
+ *
+ * **Air lock:** capture is always the active POV (`getAirCamera`). Optional
+ * `prepareCameraPass` re-orients SCN billboard scales for that camera.
  *
  * **Sidebar invariant (Phase 11):** NDI never reads ops sidebar / HUD DOM —
- * only `readRenderTargetPixels` on the WebGL path. Collapsing or growing the
- * ops sidebar must not change air pixels. Regression: `sidebar/sidebar.test.ts`.
+ * only WebGL FBO readback (`createNdiAsyncReadback`). Collapsing or growing
+ * the ops sidebar must not change air pixels. Regression: `sidebar/sidebar.test.ts`.
  *
  * No-ops when `window.broadcastStudio` is missing (Chrome path).
- * Start **after** `startVisualTimecode` so the barcode is in the framebuffer.
+ * Start **after** `startVisualTimecode` so the barcode is in the FBO pass
+ * (this pump binds `renderer.render` at start — typically the timecode wrap).
+ * Start **before** `startNdi3dChannelPump` (subscriber order unchanged).
  */
 export function startNdiFramePump(
   options: NdiFramePumpOptions,
@@ -108,9 +116,9 @@ export function startNdiFramePump(
 
   const {
     renderer,
+    scene: sceneRoot,
     getAirCamera,
     prepareCameraPass,
-    forceAirTargetCapture,
     getAirPlateClear,
     setEnvironmentOpaqueClearSafe,
     getEnvironmentOpaqueClearSafe,
@@ -124,6 +132,10 @@ export function startNdiFramePump(
   const channel: NdiChannelId = options.channel ?? DEFAULT_NDI_CHANNEL
   const delayBuffer = new NdiDelayBuffer()
   if (options.delayMs !== undefined) delayBuffer.setDelayMs(options.delayMs)
+  const sendFps = createSendFpsCounter()
+
+  // Timecode wrap (caller starts this pump after startVisualTimecode).
+  const tickRender = renderer.render.bind(renderer)
 
   let stopped = false
   let sourceName: string | null = null
@@ -131,14 +143,11 @@ export function startNdiFramePump(
   let error: string | null = null
   let lastCaptureMs = 0
   let busy = false
-  let rgba: Uint8Array | null = null
-  let rgbaW = 0
-  let rgbaH = 0
   let airTarget: WebGLRenderTarget | null = null
   let airTargetW = 0
   let airTargetH = 0
+  const readback = createNdiAsyncReadback({ renderer })
 
-  const originalRender = renderer.render.bind(renderer)
   const _clearColor = new Color()
 
   const clearReader = {
@@ -172,7 +181,6 @@ export function startNdiFramePump(
     const plate = getAirPlateClear?.()
     if (!plate) return null
     if (!setEnvironmentOpaqueClearSafe || !getEnvironmentOpaqueClearSafe) {
-      // Still apply clear color/alpha without opaque gate when SCN hooks absent.
       const snapshot = snapshotClearPass(clearReader)
       renderer.setClearColor(plate.color, plate.alpha)
       return snapshot
@@ -190,15 +198,6 @@ export function startNdiFramePump(
       return
     }
     restoreClearPass(clearWriter, snapshot)
-  }
-
-  function ensureBuffer(w: number, h: number): Uint8Array {
-    if (!rgba || rgbaW !== w || rgbaH !== h) {
-      rgba = new Uint8Array(w * h * 4)
-      rgbaW = w
-      rgbaH = h
-    }
-    return rgba
   }
 
   function ensureAirTarget(w: number, h: number): WebGLRenderTarget {
@@ -229,10 +228,10 @@ export function startNdiFramePump(
         data,
         bottomUp,
       })
+      sendFps.record(performance.now())
     } catch (err) {
       error = err instanceof Error ? err.message : String(err)
     } finally {
-      // Main drops if busy; allow next frame shortly either way.
       busy = false
     }
   }
@@ -270,35 +269,11 @@ export function startNdiFramePump(
     }
   }
 
-  function beginCaptureSlot(): number | null {
-    if (stopped || busy) return null
-    const now = performance.now()
-    flushDelay(now)
-    if (now - lastCaptureMs < minIntervalMs) return null
-    if (!tryClaimNdiHeavyCapture('ar', now)) return null
-    return now
-  }
-
-  function captureDefaultFb(): void {
-    const now = beginCaptureSlot()
-    if (now === null) return
-
-    const canvas = renderer.domElement
-    const w = canvas.width
-    const h = canvas.height
-    if (w < 1 || h < 1) return
-
-    const buf = ensureBuffer(w, h)
-    const gl = renderer.getContext() as WebGLRenderingContext
-    try {
-      gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, buf)
-    } catch (err) {
-      error = err instanceof Error ? err.message : String(err)
-      return
-    }
-
-    lastCaptureMs = now
-    enqueueRgba(w, h, buf, true, now)
+  function drainReadback(nowMs: number): void {
+    if (stopped || busy) return
+    const pixels = readback.poll(nowMs)
+    if (!pixels) return
+    enqueueRgba(pixels.width, pixels.height, pixels.data, true, nowMs)
   }
 
   function captureAirTarget(
@@ -308,82 +283,56 @@ export function startNdiFramePump(
     nowMs: number,
   ): void {
     if (stopped || busy) return
+    if (!readback.begin(target, w, h, nowMs)) return
+    lastCaptureMs = nowMs
+    drainReadback(nowMs)
+  }
 
-    const buf = ensureBuffer(w, h)
-    try {
-      // Same origin as gl.readPixels: bottom-left row first (WebGL / Three).
-      renderer.readRenderTargetPixels(target, 0, 0, w, h, buf)
-    } catch (err) {
-      error = err instanceof Error ? err.message : String(err)
+  function captureFrame(): void {
+    if (stopped || busy) return
+    const now = performance.now()
+    flushDelay(now)
+    drainReadback(now)
+    if (stopped || busy) return
+    if (now - lastCaptureMs < minIntervalMs) return
+
+    const airCamera = getAirCamera?.() ?? null
+    if (!airCamera) return
+
+    const canvas = renderer.domElement
+    const w = canvas.width
+    const h = canvas.height
+    if (w < 1 || h < 1) return
+    if (
+      !tryClaimNdiHeavyCapture('ar', now, {
+        blocking: readback.mode === 'sync',
+      })
+    ) {
+      // Another FBO already rendered this window. Drain above still ran.
       return
     }
 
-    // Match captureDefaultFb — sender flips bottom-up RGBA → top-down BGRA.
-    lastCaptureMs = nowMs
-    enqueueRgba(w, h, buf, true, nowMs)
-  }
-
-  function renderAirToTarget(
-    sceneRoot: Object3D,
-    airCamera: Camera,
-    w: number,
-    h: number,
-  ): WebGLRenderTarget {
-    const target = ensureAirTarget(w, h)
+    const plateSnap = beginAirPlateClear()
     const prevTarget = renderer.getRenderTarget()
     const prevXrEnabled = renderer.xr.enabled
     renderer.xr.enabled = false
     try {
+      preparePass(airCamera)
+      const target = ensureAirTarget(w, h)
       renderer.setRenderTarget(target)
-      originalRender(sceneRoot, airCamera)
+      tickRender(sceneRoot, airCamera)
+      captureAirTarget(target, w, h, now)
     } finally {
       renderer.setRenderTarget(prevTarget)
       renderer.xr.enabled = prevXrEnabled
+      endAirPlateClear(plateSnap)
     }
-    return target
   }
 
-  renderer.render = ((sceneRoot, camera) => {
-    if (stopped) {
-      originalRender(sceneRoot, camera)
-      return
-    }
-
-    const airCamera = getAirCamera?.() ?? null
-    const forceAir = forceAirTargetCapture?.() === true
-    const plan = planNdiCapture({
-      renderCamera: camera,
-      airCamera,
-    })
-    const useAirTarget = forceAir || plan.mode === 'air-target'
-
-    if (!useAirTarget) {
-      originalRender(sceneRoot, camera)
-      captureDefaultFb()
-      return
-    }
-
-    // Air FBO path: free cam ≠ POV, and/or local screen clear ≠ AR plate
-    // (e.g. local 3D opaque focus). Apply AR clear only for the air pass.
-    // Claim before the expensive dual-render so a 3D-yield tick skips it.
-    const canvas = renderer.domElement
-    const w = canvas.width
-    const h = canvas.height
-    const captureNow =
-      w >= 1 && h >= 1 && airCamera ? beginCaptureSlot() : null
-    if (captureNow !== null && airCamera) {
-      const plateSnap = beginAirPlateClear()
-      try {
-        preparePass(airCamera)
-        const target = renderAirToTarget(sceneRoot, airCamera, w, h)
-        captureAirTarget(target, w, h, captureNow)
-      } finally {
-        endAirPlateClear(plateSnap)
-      }
-    }
-    preparePass(camera)
-    originalRender(sceneRoot, camera)
-  }) as typeof renderer.render
+  const unsubTick = studio.onStudioTick(() => {
+    if (stopped) return
+    captureFrame()
+  })
 
   void ndi
     .start({ channel, name: sourceNameOpt })
@@ -396,7 +345,7 @@ export function startNdiFramePump(
         console.info(
           `[output] NDI[${channel}] send active: ${sourceName}` +
             (sdkVersion ? ` (${sdkVersion})` : '') +
-            ' (air=active POV)',
+            ' (air=active POV, studio-tick)',
         )
       } else {
         error = res.error ?? 'NDI start failed'
@@ -414,12 +363,13 @@ export function startNdiFramePump(
     getError: () => error,
     getDelayMs: () => delayBuffer.getDelayMs(),
     setDelayMs: (ms: number) => delayBuffer.setDelayMs(ms),
+    getSendFps: () => sendFps.getFps(performance.now()),
     stop(): void {
       if (stopped) return
       stopped = true
-      renderer.render = originalRender as typeof renderer.render
+      unsubTick()
       delayBuffer.clear()
-      rgba = null
+      readback.dispose()
       airTarget?.dispose()
       airTarget = null
       void ndi.stop({ channel }).catch(() => {

@@ -40,7 +40,16 @@ export type {
   WorldFeature,
   LayoutEnuPoint,
   LayoutFeature,
+  RoundingSense,
 } from './types.ts'
+export {
+  parseRounding,
+  effectiveRounding,
+  persistRoundingSelection,
+  roundingYawRad,
+  isRoundingFeatureType,
+  ROUNDING_REVOLUTION_SEC,
+} from './rounding.ts'
 export {
   startMapFeatureEditor,
   serializeWorldFeaturesExport,

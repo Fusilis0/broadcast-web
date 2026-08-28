@@ -23,8 +23,9 @@ function isFiniteNumber(value: unknown): value is number {
 
 /**
  * Soft-parse one offsets object. Accepts store field names and short aliases
- * (`yaw` / `pitch` / `roll` / `fov` / `alt`). Unknown keys ignored.
- * Returns null if nothing usable.
+ * (`yaw` / `pitch` / `roll` / `fov` / `alt` / `syncTrim` / `trimMs`).
+ * Unknown keys ignored. Missing knobs keep `zeroOffsets()` defaults (`syncTrimMs`
+ * → 0). Returns null if nothing usable.
  */
 export function parseCalibrationOffsets(
   raw: unknown,
@@ -68,6 +69,11 @@ export function parseCalibrationOffsets(
     base.altMeters = alt
     any = true
   }
+  const sync = read(['syncTrimMs', 'syncTrim', 'trimMs'])
+  if (sync !== undefined) {
+    base.syncTrimMs = sync
+    any = true
+  }
 
   return any ? base : null
 }
@@ -95,7 +101,7 @@ export function parseRaceProjectCalibration(
   return Object.keys(byPovId).length > 0 ? { byPovId } : undefined
 }
 
-/** Snapshot current store offsets for the given POV ids (full five knobs each). */
+/** Snapshot current store offsets for the given POV ids (all knobs each). */
 export function snapshotCalibrationByPovId(
   povIds: readonly string[],
 ): RaceProjectCalibration | undefined {

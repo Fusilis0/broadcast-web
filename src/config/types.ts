@@ -51,6 +51,11 @@ export type AppConfig = {
    */
   outputMode: string
   /**
+   * AR background (Phase 17.1 / L1). `"alpha"` \| `"video"`.
+   * Unknown / missing → `"alpha"` (today's transparent plate). OUT normalizes.
+   */
+  arBackground: string
+  /**
    * Optional chroma key hex when `outputMode` is `chroma` (e.g. `"#00ff00"`).
    * Empty → OUT default `(0, 255, 0)`.
    */

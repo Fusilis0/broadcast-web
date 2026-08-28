@@ -1,16 +1,18 @@
 # Ops sidebar shell
 
-Owned by **SCN**. Collapsible left rail that hosts ops panels as **registered sections**.
-Phase 11.1 (`DSP-SCN-20260811-01`); later dispatches (library, inspector, NDI tab, map authoring)
-mount additional sections into this shell.
+Owned by **SCN**. Two collapsible rails that host ops panels as **registered sections**.
+Phase 11.1 (`DSP-SCN-20260811-01`); Phase 16.6 (`DSP-SCN-20260818-09`) split left = race setup /
+right = broadcast. Later dispatches (library, inspector, NDI tab, map authoring) still mount
+into this shell — ids stay stable.
 
-Design: [`docs/architecture/unified-ops-sidebar.md`](../../../docs/architecture/unified-ops-sidebar.md).
+Design: [`docs/architecture/unified-ops-sidebar.md`](../../../docs/architecture/unified-ops-sidebar.md)
+(§3 grouping superseded by [`phase16-visual-upgrade.md`](../../../docs/architecture/phase16-visual-upgrade.md) §7).
 
 ## Hard invariant — NDI is never the sidebar
 
 The sidebar is a **DOM overlay**. NDI (`ndiFramePump.ts`) reads the **WebGL framebuffer** only.
-Do not move ops controls into the Three.js scene graph. Collapsing / expanding the rail must not
-change air/NDI pixels.
+Do not move ops controls into the Three.js scene graph. Collapsing / expanding the rails must not
+change air/NDI pixels. Studio canvas lock / letterbox is untouched (`createScene.resize`).
 
 ## Public API
 
@@ -20,9 +22,9 @@ import { createSidebar, type SidebarSection } from '../sidebar'
 const sidebar = createSidebar({ container: app })
 
 sidebar.registerSection({
-  id: 'library',          // stable id
+  id: 'library',          // stable id — also selects left vs right rail
   label: 'Library',       // accordion header
-  order: 40,              // lower = higher in the rail
+  order: 40,              // lower = higher in that rail
   mount(container) {
     // Build your panel into `container` (appendChild root, etc.)
     const panel = startMyPanel({ container, /* … */ })
@@ -34,7 +36,8 @@ sidebar.registerSection({
   },
 })
 
-sidebar.setCollapsed(true)   // air/show — hides rail; sections stay alive
+sidebar.setCollapsed(true)              // left rail (compat)
+sidebar.setRailCollapsed('right', true) // independent
 sidebar.isCollapsed()
 sidebar.getOverlayHost()     // full-viewport host for PiP overlays (stream map)
 sidebar.dispose()
@@ -42,31 +45,41 @@ sidebar.dispose()
 
 ### Collapse
 
-- Button in the rail chrome + edge tab when collapsed.
-- Hotkey: `` ` `` (backtick / Backquote). Skipped when focus is in an input/select/textarea.
+- Button in each rail's chrome + edge tab when that rail is collapsed.
+- Hotkey: `` ` `` (backtick / Backquote) toggles **both** rails (air/show). Skipped when focus is in an input/select/textarea.
 - Collapse does **not** call section `dispose()` and does **not** stop telemetry/editor.
 - CSS: `.ops-sidebar[hidden] { display: none }` — required because the rail uses author
   `display: flex`, which otherwise beats the UA `[hidden]` rule.
+- Collapse flags persist (`bw.opsSidebar.leftCollapsed` / `rightCollapsed`).
 
 ### Resize
 
-- Drag the **right-edge handle** (`.ops-sidebar__resize`) to set rail width (clamped ~280–560px).
-- Width persists in `sessionStorage` (`bw.opsSidebar.widthPx`) for the tab session.
-- Sets CSS var `--ops-sidebar-width` on the root so World Authoring / stream-map left offsets track.
+- Left rail: drag the **right-edge** handle. Right rail: drag the **left-edge** handle.
+- Width clamped ~280–560px; independent; persist `bw.opsSidebar.widthPx` / `bw.opsSidebar.rightWidthPx`.
+- Inset CSS vars `--ops-sidebar-inset-left` / `--ops-sidebar-inset-right` are **0 when that rail is collapsed** so World Authoring / stream-map / top strip track 0/1/2 rails without reflowing WebGL.
 
+### Accordion
 
-### Default section order (11.1+)
+- Per-section open/closed persists in `bw.opsSidebar.accordion`.
+- Defaults: Project + Fleet & Live open on the left; Output (`ndi`) open on the right.
 
-| order | id | label | Content |
-| --- | --- | --- | --- |
-| 10 | `project` | Project | Race Load/Save/Pack + world origin |
-| 20 | `world-map` | World Map | **Open authoring** launcher + status (tools live in World Authoring workspace) |
-| 30 | `assets` | Assets | Per-entity Focus / Show-3D / Show-2D / Details (SCN-03) |
-| 35 | `calib` | Calib | CAL offset sliders + SCN **Calibration overlay** checkbox (ENU grid/marks) |
-| 40 | `library` | Library | Universal asset browse/upload (PLT-01) |
-| 50 | `live` | Live | Fleet / Live panel |
-| 55 | `ndi` | NDI | Air source status (OUT); 2D-map second source stubbed |
-| 60 | `ops` | Ops | Output mode (OUT), mode, POV, view, countdown, stream-map toggle, status |
+### Default section order (16.6)
+
+| rail | order | id | label | Content |
+| --- | --- | --- | --- | --- |
+| left | 10 | `project` | Project | Race Load/Save/Pack + world origin |
+| left | 20 | `live` | Fleet & Live | Fleet / Live panel |
+| left | 30 | `assets` | Assets | Per-entity Focus / Show-3D / Show-2D / Details (SCN-03) |
+| left | 40 | `world-map` | World | **Open authoring** launcher + status |
+| left | 50 | `library` | Library | Universal asset browse/upload (PLT-01; pragmatic left) |
+| left | 60 | `ops` | Race ops | Leftover stubHud: telemetry, POV, view, countdown, stream-map, status |
+| right | 10 | `ndi` | Output | Output mode (OUT) + NDI controller / delay |
+| right | 15 | `flow` | Flow | Per-entity telem + SRT JSON inspector (SCN-10; DOM-only; default off) |
+| right | 20 | `calib` | Calibration | CAL offset sliders + SCN **Calibration overlay** checkbox |
+| right | 30 | `environment` | Environment | simple/realistic, sea, terrain, ion token, **water m** discard |
+| right | 40 | `wind` | Wind | source / from-deg / hold |
+
+Section **ids** (`data-ops-section`) are unchanged so existing hooks keep working. Output mode moved into `ndi`; env/wind rows moved out of `ops`.
 
 ### Assets section (`startAssetInspector`)
 
@@ -99,12 +112,12 @@ mountWorldMapAuthoringLauncher(worldMapSection, workspace)
 
 ## Stream / PiP map
 
-The on-air stream map stays **outside** the rail (absolute PiP). Mount it under
+The on-air stream map stays **outside** the rails (absolute PiP). Mount it under
 `sidebar.getOverlayHost()` (still a DOM overlay — never WebGL). Only the show/hide checkbox
-belongs in the Ops section.
+belongs in the leftover Race ops section.
 
 ## CSS
 
-Shell: `.ops-sidebar-root`, `.ops-sidebar`, `.ops-sidebar__*`.
+Shell: `.ops-sidebar-root`, `.ops-sidebar`, `.ops-sidebar--right`, `.ops-sidebar__*`.
 Panels keep their existing classes (`ops-hud__*`, `ops-editor__*`, `fleet-live__*`, `calib-panel`); sidebar-scoped
 rules neutralize legacy `position: fixed/absolute` so controls flow in the accordion body.

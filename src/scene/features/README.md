@@ -30,7 +30,7 @@ Existing `courseUrl` / `sponsorsUrl` / `flagsUrl` fixtures remain the V1 source 
 }
 ```
 
-Sponsor example: `type: "sponsor"`, `points: [a, b]`, `label` + `color`.
+Sponsor example: `type: "sponsor"`, `points: [a, b]`, `label` + `color`. Additive board chrome: optional `panelColor` / `frameColor` (`#rrggbb`); omit → white board + dark slate frame.
 
 Soft visibility (Phase 11.7): optional `visible3d` / `visible2d` (default true). Assets inspector
 toggles these; 3D remount skips `visible3d: false`; map draw skips `visible2d: false`.

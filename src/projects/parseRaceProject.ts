@@ -1,9 +1,14 @@
 import { parseRaceProjectCalibration } from '../calibration/projectCalibration.ts'
+import { parseRounding } from '../scene/features/rounding.ts'
+import { parseHexColorCss } from '../scene/boatNames/categoryColor.ts'
 import type { WorldFeature, WorldFeatureType } from '../scene/features/types.ts'
+import { parseOptionalHexColor } from '../scene/sponsors/boardCompose.ts'
 import { normalizeBoatIds, normalizePovIds } from '../config/loadConfig.ts'
+import { parseSrtByPovId } from '../output/srtCallerUrl.ts'
 import type {
   RaceProject,
   RaceProjectFleet,
+  RaceProjectFleetBoat,
   RaceProjectOrigin,
   RaceProjectOutputDefaults,
 } from './types.ts'
@@ -55,6 +60,45 @@ function parseBoatVisibility(
     out[id] = value as 'solid' | 'ghost' | 'hidden'
   }
   return Object.keys(out).length > 0 ? out : undefined
+}
+
+/** Soft optional fleet.boats — invalid entries dropped; omit if empty. */
+function parseFleetBoats(raw: unknown): RaceProjectFleetBoat[] | undefined {
+  if (!Array.isArray(raw)) return undefined
+  const out: RaceProjectFleetBoat[] = []
+  const seen = new Set<string>()
+  for (const item of raw) {
+    if (item === null || typeof item !== 'object' || Array.isArray(item)) {
+      continue
+    }
+    const o = item as Record<string, unknown>
+    const id = nonEmptyString(o.id)
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    const row: RaceProjectFleetBoat = {
+      id,
+      name: nonEmptyString(o.name) ?? id,
+      category: typeof o.category === 'string' ? o.category.trim() : '',
+    }
+    const color = parseHexColorCss(o.color)
+    if (color) row.color = color
+    if (
+      typeof o.visibility === 'string' &&
+      BOAT_VISIBILITY_MODES.has(o.visibility)
+    ) {
+      row.visibility = o.visibility as 'solid' | 'ghost' | 'hidden'
+    }
+    if (typeof o.mapVisible === 'boolean') row.mapVisible = o.mapVisible
+    if (
+      isFiniteNumber(o.plannedLat) &&
+      isFiniteNumber(o.plannedLon)
+    ) {
+      row.plannedLat = o.plannedLat
+      row.plannedLon = o.plannedLon
+    }
+    out.push(row)
+  }
+  return out.length > 0 ? out : undefined
 }
 
 /** Soft id→boolean map (map visibility). Non-boolean values dropped; omit if empty. */
@@ -123,6 +167,10 @@ function parseWorldFeature(raw: unknown): WorldFeature | null {
   } else if (o.textureUrl === null) {
     feature.textureUrl = null
   }
+  const panelColor = parseOptionalHexColor(o.panelColor)
+  if (panelColor !== undefined) feature.panelColor = panelColor
+  const frameColor = parseOptionalHexColor(o.frameColor)
+  if (frameColor !== undefined) feature.frameColor = frameColor
   if (isFiniteNumber(o.spacingM) && o.spacingM > 0) {
     feature.spacingM = o.spacingM
   }
@@ -135,6 +183,8 @@ function parseWorldFeature(raw: unknown): WorldFeature | null {
   // Soft visibility (SCN 11.7) — omit → visible; only persist false typically.
   if (typeof o.visible3d === 'boolean') feature.visible3d = o.visible3d
   if (typeof o.visible2d === 'boolean') feature.visible2d = o.visible2d
+  const rounding = parseRounding(o.rounding)
+  if (rounding !== undefined) feature.rounding = rounding
   return feature
 }
 
@@ -172,6 +222,10 @@ function parseOutput(raw: unknown): RaceProjectOutputDefaults | undefined {
     out.timecodeCorner = o.timecodeCorner.trim()
   }
   if (isFiniteNumber(o.timecodeSizePx)) out.timecodeSizePx = o.timecodeSizePx
+  const srtUrlTemplate = parseOptionalUrl(o.srtUrlTemplate)
+  if (srtUrlTemplate !== undefined) out.srtUrlTemplate = srtUrlTemplate
+  const srtByPovId = parseSrtByPovId(o.srtByPovId)
+  if (srtByPovId !== undefined) out.srtByPovId = srtByPovId
   return out
 }
 
@@ -210,6 +264,8 @@ export function parseRaceProject(raw: unknown): RaceProject {
   }
   const boatIds = normalizeBoatIds(fleetRaw.boatIds)
   const fleet: RaceProjectFleet = { boatIds }
+  const boats = parseFleetBoats(fleetRaw.boats)
+  if (boats !== undefined) fleet.boats = boats
   const boatNamesUrl = parseOptionalUrl(fleetRaw.boatNamesUrl)
   if (boatNamesUrl !== undefined) fleet.boatNamesUrl = boatNamesUrl
   const boatVisibility = parseBoatVisibility(fleetRaw.boatVisibility)

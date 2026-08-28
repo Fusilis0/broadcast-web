@@ -8,6 +8,16 @@ import {
   type GerstnerOceanOptions,
 } from './gerstnerOcean.ts'
 import {
+  SEA_QUALITY_PRESETS,
+  normalizeSeaQuality,
+  type SeaQuality,
+} from './environmentMode.ts'
+import { createWindVane, type WindVaneHandle } from './windVane.ts'
+import {
+  createWindStrings,
+  type WindStringsHandle,
+} from './windStrings.ts'
+import {
   WIND_OCEAN_RAMP_SECONDS,
   createWindOceanDriver,
   type WindOceanDriver,
@@ -15,7 +25,7 @@ import {
 
 /**
  * Realistic sea + sky (Phase 13.2 Sky + 14.2a Gerstner + 14.2b wind bus +
- * 14.2c shore foam).
+ * 14.2c shore foam + 14.3f strings).
  *
  * Replaces `three/examples/jsm/objects/Water` (flat normal-mapped plane).
  * Wave time is a shared clock — see `gerstnerOcean.ts` header. Do not re-open
@@ -26,6 +36,13 @@ import {
  * Ops / API publish on the bus and the sea follows. Direction/speed ramp
  * over `WIND_OCEAN_RAMP_SECONDS` (shortest arc). Default wind from 000°
  * travels **+Z**, not the uncoupled Gerstner −Z default.
+ *
+ * **Vane (14.3f lite):** a tens-of-tris shaft+arrow at a fixed origin offset,
+ * yawed to the same ramped travel as the sea. Length scales with kt (min
+ * length so from-deg is never invisible).
+ *
+ * **Strings (14.3f / 16.2):** Windy-style streamlines above the water, same
+ * ramped travel as the sea. Ops preview + 3D NDI only (inherits this mount).
  */
 export const REALISTIC_ENVIRONMENT_DEFAULTS = {
   skyScale: 10_000,
@@ -74,6 +91,11 @@ export type RealisticEnvironmentOptions = {
    * Gerstner default can pass false.
    */
   coupleWind?: boolean
+  /**
+   * Clipmap / shore-foam LOD. Default `high` (7 rings, half-res foam).
+   * `low` drops two rings and uses quarter-res foam (`?sea=low` / Ops).
+   */
+  seaQuality?: SeaQuality
 }
 
 export type RealisticEnvironmentHandle = {
@@ -97,6 +119,7 @@ export type RealisticEnvironmentHandle = {
   setShoreContact: (terrainRoot: THREE.Object3D | null) => void
   getShoreFoamEnabled: () => boolean
   getShoreDepthTarget: () => THREE.WebGLRenderTarget | null
+  getSeaQuality: () => SeaQuality
   dispose: () => void
 }
 
@@ -124,9 +147,15 @@ export function createRealisticEnvironment(
   const root = new THREE.Group()
   root.name = 'realisticEnvironment'
 
+  const seaQuality = normalizeSeaQuality(opts.seaQuality)
+  const qualityPreset = SEA_QUALITY_PRESETS[seaQuality]
+
   const sunDir = sunDirectionFromSpherical(opts.sunPhi, opts.sunTheta)
 
   const oceanHandle: GerstnerOceanHandle = createGerstnerOcean({
+    innerSegments: qualityPreset.innerSegments,
+    ringCount: qualityPreset.ringCount,
+    shoreDepthScale: qualityPreset.shoreDepthScale,
     ...opts.ocean,
     liftY: opts.liftY,
     directionRad: opts.directionRad,
@@ -136,6 +165,14 @@ export function createRealisticEnvironment(
     ...(opts.now ? { now: opts.now } : {}),
   })
   root.add(oceanHandle.mesh)
+
+  const vaneHandle: WindVaneHandle = createWindVane({ liftY: opts.liftY })
+  root.add(vaneHandle.root)
+
+  const _camWorld = new THREE.Vector3()
+  let lastCenterX = 0
+  let lastCenterY = 40
+  let lastCenterZ = 0
 
   const sky = new Sky()
   sky.name = 'realisticSky'
@@ -151,6 +188,12 @@ export function createRealisticEnvironment(
   const fog = new THREE.Fog(opts.fogColor, opts.fogNear, opts.fogFar)
 
   const now = opts.now ?? (() => performance.now())
+  const stringsHandle: WindStringsHandle = createWindStrings({
+    liftY: opts.liftY,
+    now,
+  })
+  root.add(stringsHandle.root)
+
   const coupleWind = opts.coupleWind !== false
   let driver: WindOceanDriver | null = null
   let unsubWind: (() => void) | null = null
@@ -173,9 +216,30 @@ export function createRealisticEnvironment(
     })
   }
 
+  function syncWindVfx(dtSeconds: number): void {
+    const dir = oceanHandle.getDirectionRad()
+    const speed = oceanHandle.getWindSpeed()
+    vaneHandle.setTravel(dir, speed)
+    stringsHandle.tick(
+      dtSeconds,
+      dir,
+      speed,
+      lastCenterX,
+      lastCenterY,
+      lastCenterZ,
+    )
+  }
+
+  syncWindVfx(0)
+
   const prevBeforeRender = oceanHandle.mesh.onBeforeRender
   oceanHandle.mesh.onBeforeRender = (renderer, scene, camera, geometry, material, group) => {
     driver?.step(0)
+    camera.getWorldPosition(_camWorld)
+    lastCenterX = _camWorld.x
+    lastCenterY = _camWorld.y
+    lastCenterZ = _camWorld.z
+    syncWindVfx(0)
     prevBeforeRender.call(
       oceanHandle.mesh,
       renderer,
@@ -197,21 +261,25 @@ export function createRealisticEnvironment(
     getDirectionRad: () => oceanHandle.getDirectionRad(),
     setDirectionRad(rad: number): void {
       oceanHandle.setDirectionRad(rad)
+      syncWindVfx(0)
     },
     getWindSpeed: () => oceanHandle.getWindSpeed(),
     setWindSpeed(ms: number): void {
       oceanHandle.setWindSpeed(ms)
+      syncWindVfx(0)
     },
     tick(dtSeconds: number): void {
       if (disposed) return
       driver?.step(dtSeconds)
       oceanHandle.tick(dtSeconds)
+      syncWindVfx(dtSeconds)
     },
     setShoreContact(terrainRoot: THREE.Object3D | null): void {
       oceanHandle.setShoreContact(terrainRoot)
     },
     getShoreFoamEnabled: () => oceanHandle.getShoreFoamEnabled(),
     getShoreDepthTarget: () => oceanHandle.getShoreDepthTarget(),
+    getSeaQuality: () => seaQuality,
     dispose(): void {
       if (disposed) return
       disposed = true
@@ -220,6 +288,8 @@ export function createRealisticEnvironment(
       driver = null
       oceanHandle.mesh.onBeforeRender = () => {}
       root.clear()
+      stringsHandle.dispose()
+      vaneHandle.dispose()
       oceanHandle.dispose()
       const skyMat = sky.material as THREE.ShaderMaterial
       skyMat.dispose()

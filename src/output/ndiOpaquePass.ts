@@ -1,6 +1,19 @@
 import { PREVIEW_CLEAR_COLOR } from './types.ts'
 
 /**
+ * Depth of `applyOpaque3dPassState` not yet restored. Video background reads
+ * this so the 3D NDI FBO never composites the AR underlay (DSP-OUT-04).
+ * `restoreClearPass` is also used by the AR air-plate path — depth stays 0
+ * there because that path never calls `applyOpaque3dPassState`.
+ */
+let opaque3dPassDepth = 0
+
+/** True while a 3D NDI opaque pass is applying (between apply and restore). */
+export function isOpaque3dPassActive(): boolean {
+  return opaque3dPassDepth > 0
+}
+
+/**
  * Snapshot of WebGL clear + SCN opaque-clear gate around a 3D NDI pass.
  * Restore after the opaque FBO so AR / screen clears stay correct.
  */
@@ -41,6 +54,7 @@ export function applyOpaque3dPassState(
   writer: ClearPassWriter,
   clearColor: number = NDI_3D_OPAQUE_CLEAR_COLOR,
 ): void {
+  opaque3dPassDepth += 1
   writer.setClearColor(clearColor, 1)
   writer.setOpaqueClearSafe(true)
 }
@@ -50,6 +64,7 @@ export function restoreClearPass(
   writer: ClearPassWriter,
   snapshot: ClearPassSnapshot,
 ): void {
+  if (opaque3dPassDepth > 0) opaque3dPassDepth -= 1
   writer.setClearColor(snapshot.color, snapshot.alpha)
   writer.setOpaqueClearSafe(snapshot.opaqueClearSafe)
 }

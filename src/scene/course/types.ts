@@ -1,3 +1,5 @@
+import type { RoundingSense } from '../features/rounding.ts'
+
 /** Course waypoint kinds (Unity `CourseWaypointType`). */
 export type CourseWaypointType = 'mark' | 'gateLeft' | 'gateRight'
 
@@ -8,6 +10,11 @@ export type CourseWaypoint = {
   lon: number
   /** AMSL meters; default 0. */
   altMsl: number
+  /**
+   * Optional rounding arrows (Phase 15.3 / 16.5). Omit → CW ring;
+   * `'none'` hides. Copied through WorldFeature on adapt / remount.
+   */
+  rounding?: RoundingSense
 }
 
 export type CourseAppearance = {
@@ -30,6 +37,7 @@ export type CourseEnuPoint = {
   x: number
   y: number
   z: number
+  rounding?: RoundingSense
 }
 
 export type GatePair = {

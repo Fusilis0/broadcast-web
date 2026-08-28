@@ -13,7 +13,8 @@ Static race course waypoints for SCN (Phase 2.3).
       "type": "mark" | "gateLeft" | "gateRight",
       "lat": 41.0087,
       "lon": 28.9778,
-      "altMsl": 0
+      "altMsl": 0,
+      "rounding": "cw"
     }
   ],
   "appearance": {
@@ -24,6 +25,8 @@ Static race course waypoints for SCN (Phase 2.3).
   }
 }
 ```
+
+Optional waypoint `rounding`: `"cw"` \| `"ccw"` \| `"none"` (**omit = CW**). Explicit `"none"` hides the 3D two-arrow ring on that mark / gate end. Demo Istanbul omits the field except one `"ccw"` example on Mark-SE.
 
 ### Waypoint types
 

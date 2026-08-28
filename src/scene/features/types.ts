@@ -1,3 +1,7 @@
+import type { RoundingSense } from './rounding.ts'
+
+export type { RoundingSense } from './rounding.ts'
+
 /** Injected GEO convert — keep ECEF out of scene (same as course/sponsors/flags). */
 export type GpsToEnuAmslFn = (
   lat: number,
@@ -50,6 +54,16 @@ export type WorldFeature = {
   /** Optional texture under `public/` (sponsors / billboardChain). */
   textureUrl?: string | null
   /**
+   * Additive board fill 0xRRGGBB (sponsor / billboardChain).
+   * Omit → default white `#f4f4f2`.
+   */
+  panelColor?: number
+  /**
+   * Additive frame stroke 0xRRGGBB (sponsor / billboardChain).
+   * Omit → default dark slate.
+   */
+  frameColor?: number
+  /**
    * Billboard-chain spacing along the polyline (meters).
    * Only for `type: 'billboardChain'`. Default applied at create time.
    */
@@ -70,6 +84,13 @@ export type WorldFeature = {
    * Independent of `visible3d`.
    */
   visible2d?: boolean
+  /**
+   * Water-level circular two-arrow rounding glyph (Phase 15.3 / 16.5).
+   * Applies to `mark` / `buoy` / `gateLeft` / `gateRight`.
+   * Omit → CW; `'none'` hides; unknown JSON parses as `'none'`.
+   * Sense is per feature (not wind-coupled). From above the water (look −Y): `cw` = clock.
+   */
+  rounding?: RoundingSense
 }
 
 /** ENU meters after GEO + water-Y force (x=East, y=Up, z=−North). */
@@ -92,9 +113,12 @@ export type LayoutFeature = {
   color?: number
   label?: string
   textureUrl?: string | null
+  panelColor?: number
+  frameColor?: number
   spacingM?: number
   telemetryId?: string | null
   visible3d?: boolean
   visible2d?: boolean
+  rounding?: RoundingSense
   rawPoints: WorldGpsPoint[]
 }

@@ -15,8 +15,29 @@ export type RaceProjectOrigin = {
   altMsl: number
 }
 
+/**
+ * Embedded Live-fleet row (SCN 15.4). Additive — old packs omit `fleet.boats`.
+ * `fleet.boatIds` stays required and must match `boats[].id` order on save.
+ */
+export type RaceProjectFleetBoat = {
+  id: string
+  name: string
+  category: string
+  /** Explicit `#rrggbb` palette colour. Omit → category keyword parse. */
+  color?: string
+  visibility?: 'solid' | 'ghost' | 'hidden'
+  mapVisible?: boolean
+  plannedLat?: number
+  plannedLon?: number
+}
+
 export type RaceProjectFleet = {
   boatIds: string[]
+  /**
+   * Full Live-fleet rows (ids, names, category, colour, visibility, map flag, planned GPS).
+   * Source of truth on Load when present. Names URL is fallback for missing ids.
+   */
+  boats?: RaceProjectFleetBoat[]
   /** Boat name/colour catalogue JSON URL. */
   boatNamesUrl?: string
   /**
@@ -43,6 +64,16 @@ export type RaceProjectOutputDefaults = {
   timecodeEnabled?: boolean
   timecodeCorner?: string
   timecodeSizePx?: number
+  /**
+   * Shared SRT caller template with `{srtId}` (L9). Soft — old packs omit.
+   * Do **not** commit a filled relay token; session may hold the secret.
+   */
+  srtUrlTemplate?: string
+  /**
+   * Per-POV SRT camera id (independent of telemetry `povId`).
+   * Soft map; junk / empty dropped. Old packs omit.
+   */
+  srtByPovId?: Record<string, string>
 }
 
 /**

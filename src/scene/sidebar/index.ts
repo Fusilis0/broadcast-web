@@ -11,6 +11,22 @@ export {
   SIDEBAR_COLLAPSE_HOTKEY,
 } from './hotkey.ts'
 export {
+  defaultSectionExpanded,
+  OPS_RAIL_SECTIONS,
+  parseAccordionState,
+  railForSection,
+  resolveSectionExpanded,
+  sectionsForRail,
+  SIDEBAR_ACCORDION_STORAGE_KEY,
+  SIDEBAR_LEFT_COLLAPSE_STORAGE_KEY,
+  SIDEBAR_LEFT_WIDTH_STORAGE_KEY,
+  SIDEBAR_RIGHT_COLLAPSE_STORAGE_KEY,
+  SIDEBAR_RIGHT_WIDTH_STORAGE_KEY,
+  specForSection,
+  type OpsRailId,
+  type OpsRailSectionSpec,
+} from './railLayout.ts'
+export {
   featureAssetKind,
   resolveAssetFocusEnu,
   startAssetInspector,

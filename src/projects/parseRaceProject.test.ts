@@ -32,6 +32,7 @@ function baseConfig(): AppConfig {
     origin: { lat: 0, lon: 0, altMsl: 0 },
     takeoffAltitudeMSL: 0,
     outputMode: 'preview',
+    arBackground: 'alpha',
     chromaKey: '',
     timecodeEnabled: true,
     timecodeCorner: 'bottom-right',
@@ -101,6 +102,48 @@ describe('parseRaceProject', () => {
     })
   })
 
+  it('soft-parses optional fleet.boats (drops junk; old packs omit the field)', () => {
+    const p = parseRaceProject({
+      ...minimal,
+      fleet: {
+        boatIds: ['25', '26'],
+        boats: [
+          {
+            id: '25',
+            name: 'Custom One',
+            category: 'pembe',
+            color: '#1e88e5',
+            visibility: 'ghost',
+            plannedLat: 41.01,
+            plannedLon: 29.02,
+          },
+          { id: '26', name: 'Custom Two', category: 'mavi', mapVisible: false, color: 'red' },
+          { name: 'no-id' },
+          null,
+        ],
+      },
+    })
+    expect(p.fleet.boats).toEqual([
+      {
+        id: '25',
+        name: 'Custom One',
+        category: 'pembe',
+        color: '#1e88e5',
+        visibility: 'ghost',
+        plannedLat: 41.01,
+        plannedLon: 29.02,
+      },
+      {
+        id: '26',
+        name: 'Custom Two',
+        category: 'mavi',
+        mapVisible: false,
+      },
+    ])
+    const old = parseRaceProject(minimal)
+    expect(old.fleet.boats).toBeUndefined()
+  })
+
   it('soft-parses fleet.boatMapVisible / povMapVisible and feature visible* flags', () => {
     const p = parseRaceProject({
       ...minimal,
@@ -126,6 +169,80 @@ describe('parseRaceProject', () => {
     expect(p.features?.[0]?.visible2d).toBe(true)
   })
 
+  it('soft-parses feature rounding (unknown → none; omit stays unset)', () => {
+    const p = parseRaceProject({
+      ...minimal,
+      features: [
+        {
+          id: 'course:Mark-NW',
+          name: 'Mark-NW',
+          type: 'mark',
+          points: [{ lat: 41, lon: 29, altMsl: 0 }],
+          rounding: 'cw',
+        },
+        {
+          id: 'buoy:1',
+          name: 'B1',
+          type: 'buoy',
+          points: [{ lat: 41, lon: 29, altMsl: 0 }],
+          rounding: 'spinwise',
+        },
+        {
+          id: 'course:Mark-SE',
+          name: 'Mark-SE',
+          type: 'mark',
+          points: [{ lat: 41, lon: 29, altMsl: 0 }],
+        },
+      ],
+    })
+    expect(p.features?.[0]?.rounding).toBe('cw')
+    expect(p.features?.[1]?.rounding).toBe('none')
+    expect(p.features?.[2]?.rounding).toBeUndefined()
+  })
+
+  it('soft-parses additive panelColor / frameColor (hex or number; omit stays unset)', () => {
+    const p = parseRaceProject({
+      ...minimal,
+      features: [
+        {
+          id: 'sponsor:sp1',
+          name: 'sp1',
+          type: 'sponsor',
+          points: [
+            { lat: 41, lon: 29, altMsl: 0 },
+            { lat: 41.01, lon: 29, altMsl: 0 },
+          ],
+          panelColor: '#f4f4f2',
+          frameColor: 0x2c3338,
+        },
+        {
+          id: 'sponsor:sp2',
+          name: 'sp2',
+          type: 'sponsor',
+          points: [
+            { lat: 41, lon: 29, altMsl: 0 },
+            { lat: 41.01, lon: 29, altMsl: 0 },
+          ],
+        },
+        {
+          id: 'chain:1',
+          name: 'chain-1',
+          type: 'billboardChain',
+          points: [
+            { lat: 41, lon: 29, altMsl: 0 },
+            { lat: 41.01, lon: 29.01, altMsl: 0 },
+          ],
+          panelColor: 'not-a-color',
+        },
+      ],
+    })
+    expect(p.features?.[0]?.panelColor).toBe(0xf4f4f2)
+    expect(p.features?.[0]?.frameColor).toBe(0x2c3338)
+    expect(p.features?.[1]?.panelColor).toBeUndefined()
+    expect(p.features?.[1]?.frameColor).toBeUndefined()
+    expect(p.features?.[2]?.panelColor).toBeUndefined()
+  })
+
   it('accepts embedded WorldFeature list', () => {
     const p = parseRaceProject({
       ...minimal,
@@ -144,6 +261,24 @@ describe('parseRaceProject', () => {
     expect(p.features?.[0]?.type).toBe('mark')
     expect(p.courseUrl).toBe('/fixtures/course/demo-istanbul.json')
     expect(p.output?.outputMode).toBe('chroma')
+  })
+
+  it('soft-parses optional output.srtUrlTemplate + srtByPovId; old packs omit them', () => {
+    const p = parseRaceProject({
+      ...minimal,
+      output: {
+        outputMode: 'preview',
+        srtUrlTemplate:
+          'srt://49.13.20.49:9000?mode=caller&streamid=read:cam{srtId}:pub{srtId}:',
+        srtByPovId: { '5': '30', '6': ' 31 ', '': 'x', junk: 2 },
+      },
+    })
+    expect(p.output?.srtUrlTemplate).toContain('{srtId}')
+    expect(p.output?.srtByPovId).toEqual({ '5': '30', '6': '31' })
+    const old = parseRaceProject(minimal)
+    expect(old.output).toBeUndefined()
+    expect(old.output?.srtUrlTemplate).toBeUndefined()
+    expect(old.output?.srtByPovId).toBeUndefined()
   })
 
   it('rejects garbage / non-objects', () => {

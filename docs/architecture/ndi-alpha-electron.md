@@ -26,22 +26,28 @@
 
 ## 2. Clear / compositing modes
 
+AR has **two** contracts. `alpha` is the default and the documented fallback (L1 /
+`arBackground`). `video` is an operator-selected mode, not a replacement.
+
 | Path | Clear | Alpha | Studio use |
 | --- | --- | --- | --- |
 | Chrome air (fallback) | Solid green `#00ff00` (`outputMode=chroma`) | Opaque plate | Window capture → chroma key in OBS/vMix |
 | Ops preview | Dark `#1a1a1a` (`outputMode=preview`) | Opaque | Local ops; optional WHEP underlay |
-| **NDI production (A)** | Transparent plate (`outputMode=transparent`) | **Alpha out** | Electron → NDI BGRA |
+| **NDI production (A) — `arBackground: alpha`** | Transparent plate (`outputMode=transparent`) | **Alpha out** | Electron → NDI BGRA; vMix keys AR over camera |
+| **NDI production (A) — `arBackground: video`** | In-WebGL fullscreen texture, then AR, then timecode | **Opaque program** | Electron → NDI BGRA already composited; no vMix key |
 
-Contrast: chroma is an **opaque keyed plate** for capture tools that cannot take alpha. NDI path **A** clears to **transparent** so only AR (boats, course, overlays, visual timecode) has coverage; empty sky/sea is alpha = 0.
+Contrast: chroma is an **opaque keyed plate** for capture tools that cannot take alpha. NDI path **A** in `alpha` mode clears to **transparent** so only AR (boats, course, overlays, visual timecode) has coverage; empty sky/sea is alpha = 0. In `video` mode the compositor draws the texture *inside* the WebGL pass (before the scene) so the AR NDI FBO readback includes it — a DOM `<video>` never would.
 
-Timecode stays burned into the **same** WebGL canvas (NearestFilter) so NDI frames keep barcode sharpness.
+Missing / unknown `arBackground` → `alpha` (today's behaviour). Switch the mode back to `alpha` if the in-app composite fails; there is no dual-send channel.
+
+Timecode stays burned into the **same** WebGL canvas (NearestFilter) so NDI frames keep barcode sharpness — it draws **after** both background and scene.
 
 ## 3. Frame path (implemented)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │ Electron renderer                                            │
-│   SPA → Three.js WebGL (transparent clear + AR + timecode)   │
+│   SPA → Three.js WebGL (alpha plate *or* in-WebGL video bg + AR + timecode)   │
 │   startNdiFramePump: gl.readPixels RGBA (after timecode)     │
 └────────────────────────────┬────────────────────────────────┘
                              │ IPC (ndi:frame)

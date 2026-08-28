@@ -1,3 +1,4 @@
+import { parseOptionalHexColor } from './boardCompose.ts'
 import type {
   SponsorEntry,
   SponsorGpsPoint,
@@ -45,7 +46,7 @@ function parseSponsor(raw: unknown): SponsorEntry | null {
     textureUrl = o.textureUrl.trim()
   }
 
-  return {
+  const entry: SponsorEntry = {
     id,
     label,
     a,
@@ -56,6 +57,11 @@ function parseSponsor(raw: unknown): SponsorEntry | null {
     textureUrl,
     color: parseHexColor(o.color, DEFAULT_SPONSOR_COLOR),
   }
+  const panelColor = parseOptionalHexColor(o.panelColor)
+  if (panelColor !== undefined) entry.panelColor = panelColor
+  const frameColor = parseOptionalHexColor(o.frameColor)
+  if (frameColor !== undefined) entry.frameColor = frameColor
+  return entry
 }
 
 /**

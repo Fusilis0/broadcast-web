@@ -10,6 +10,12 @@ export {
   CATEGORY_COLOR_TURUNCU,
 } from './categoryColor.ts'
 export {
+  BOAT_COLOR_PALETTE,
+  isPaletteHex,
+  paletteSwatchByHex,
+  type BoatPaletteSwatch,
+} from './colorPalette.ts'
+export {
   normalizeBoatNames,
   lookupBoatName,
   CATEGORY_COLOR_OVERRIDE_KEY,

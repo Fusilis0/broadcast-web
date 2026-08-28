@@ -6,6 +6,15 @@ import {
   SPONSOR_WATER_Y,
 } from './sponsorLayout.ts'
 import { facingBasisFromSpan } from './sponsorBillboard.ts'
+import {
+  containFitRect,
+  DEFAULT_FRAME_COLOR,
+  DEFAULT_PANEL_COLOR,
+  hexToCss,
+  parseOptionalHexColor,
+  planSponsorBoard,
+  recordSponsorBoardDraws,
+} from './boardCompose.ts'
 import type { GpsToEnuAmslFn } from './types.ts'
 
 describe('normalizeSponsors', () => {
@@ -52,6 +61,25 @@ describe('normalizeSponsors', () => {
       color: 0xaabbcc,
       a: { altMsl: 2 },
     })
+    expect(data.sponsors[0]!.panelColor).toBeUndefined()
+    expect(data.sponsors[0]!.frameColor).toBeUndefined()
+  })
+
+  it('parses optional panelColor / frameColor additively', () => {
+    const data = normalizeSponsors({
+      sponsors: [
+        {
+          id: 'sp1',
+          label: 'A',
+          a: { lat: 41, lon: 29 },
+          b: { lat: 41.01, lon: 29 },
+          panelColor: '#ffeeaa',
+          frameColor: '0x112233',
+        },
+      ],
+    })
+    expect(data.sponsors[0]!.panelColor).toBe(0xffeeaa)
+    expect(data.sponsors[0]!.frameColor).toBe(0x112233)
   })
 
   it('returns empty for junk', () => {
@@ -101,6 +129,24 @@ describe('buildSponsorLayout', () => {
     expect(layout[0]!.midZ).toBeCloseTo(10)
     expect(SPONSOR_WATER_Y).toBe(0)
   })
+
+  it('passes optional panelColor / frameColor through to ENU endpoints', () => {
+    const data = normalizeSponsors({
+      sponsors: [
+        {
+          id: 'ok',
+          label: 'Ok',
+          a: { lat: 0.01, lon: 0.02 },
+          b: { lat: 0.01, lon: 0.05 },
+          panelColor: '#f4f4f2',
+          frameColor: 0x2c3338,
+        },
+      ],
+    })
+    const layout = buildSponsorLayout(data, mockEnu)
+    expect(layout[0]!.panelColor).toBe(0xf4f4f2)
+    expect(layout[0]!.frameColor).toBe(0x2c3338)
+  })
 })
 
 describe('facingBasisFromSpan', () => {
@@ -111,5 +157,100 @@ describe('facingBasisFromSpan', () => {
     expect(basis!.along.z).toBeCloseTo(-1)
     expect(basis!.normal.x).toBeCloseTo(1)
     expect(basis!.normal.y).toBeCloseTo(0)
+  })
+})
+
+describe('parseOptionalHexColor', () => {
+  it('accepts #rrggbb, 0x, bare hex, and numbers; rejects junk', () => {
+    expect(parseOptionalHexColor('#f4f4f2')).toBe(0xf4f4f2)
+    expect(parseOptionalHexColor('0x2c3338')).toBe(0x2c3338)
+    expect(parseOptionalHexColor('aabbcc')).toBe(0xaabbcc)
+    expect(parseOptionalHexColor(0xff0000)).toBe(0xff0000)
+    expect(parseOptionalHexColor(undefined)).toBeUndefined()
+    expect(parseOptionalHexColor('#fff')).toBeUndefined()
+    expect(parseOptionalHexColor('red')).toBeUndefined()
+  })
+})
+
+describe('containFitRect', () => {
+  it('preserves aspect and centers inside the box (no stretch)', () => {
+    // Wide source in a square box → letterbox top/bottom
+    const wide = containFitRect(200, 100, 0, 0, 400, 400)
+    expect(wide.dw).toBe(400)
+    expect(wide.dh).toBe(200)
+    expect(wide.dx).toBe(0)
+    expect(wide.dy).toBe(100)
+    expect(wide.dw / wide.dh).toBeCloseTo(2)
+
+    // Tall source → pillarbox left/right
+    const tall = containFitRect(100, 200, 10, 20, 400, 400)
+    expect(tall.dw).toBe(200)
+    expect(tall.dh).toBe(400)
+    expect(tall.dx).toBe(110)
+    expect(tall.dy).toBe(20)
+    expect(tall.dw / tall.dh).toBeCloseTo(0.5)
+  })
+})
+
+describe('recordSponsorBoardDraws', () => {
+  it('fills the default white board then strokes the dark frame', () => {
+    const calls = recordSponsorBoardDraws({ label: 'Acme' })
+    expect(calls[0]).toMatchObject({
+      op: 'fillRect',
+      x: 0,
+      y: 0,
+      w: 1024,
+      h: 512,
+      fill: hexToCss(DEFAULT_PANEL_COLOR),
+    })
+    expect(calls[1]).toMatchObject({
+      op: 'strokeRect',
+      stroke: hexToCss(DEFAULT_FRAME_COLOR),
+    })
+    expect(calls[2]).toMatchObject({ op: 'fillText', text: 'Acme' })
+    expect(calls.some((c) => c.op === 'drawImage')).toBe(false)
+  })
+
+  it('contain-fits a logo onto the board instead of the label', () => {
+    const plan = planSponsorBoard({
+      label: 'Acme',
+      logo: { width: 400, height: 100 },
+    })
+    expect(plan.label).toBeNull()
+    expect(plan.logoDest).not.toBeNull()
+    const dest = plan.logoDest!
+    expect(dest.dw / dest.dh).toBeCloseTo(4)
+    expect(dest.dx).toBeGreaterThanOrEqual(plan.innerRect.x - 1e-6)
+    expect(dest.dy).toBeGreaterThanOrEqual(plan.innerRect.y - 1e-6)
+    expect(dest.dx + dest.dw).toBeLessThanOrEqual(
+      plan.innerRect.x + plan.innerRect.w + 1e-6,
+    )
+    expect(dest.dy + dest.dh).toBeLessThanOrEqual(
+      plan.innerRect.y + plan.innerRect.h + 1e-6,
+    )
+
+    const calls = recordSponsorBoardDraws({
+      label: 'Acme',
+      logo: { width: 400, height: 100 },
+    })
+    expect(calls.some((c) => c.op === 'fillText')).toBe(false)
+    const draw = calls.find((c) => c.op === 'drawImage')
+    expect(draw).toMatchObject({
+      op: 'drawImage',
+      dx: dest.dx,
+      dy: dest.dy,
+      dw: dest.dw,
+      dh: dest.dh,
+    })
+  })
+
+  it('uses additive panelColor / frameColor when set', () => {
+    const calls = recordSponsorBoardDraws({
+      label: 'X',
+      panelColor: 0xffeeaa,
+      frameColor: 0x112233,
+    })
+    expect(calls[0]).toMatchObject({ op: 'fillRect', fill: '#ffeeaa' })
+    expect(calls[1]).toMatchObject({ op: 'strokeRect', stroke: '#112233' })
   })
 })

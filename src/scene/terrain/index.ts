@@ -26,6 +26,14 @@ export {
   type TerrainTilesAdapter,
 } from './createTerrain.ts'
 export {
+  DEFAULT_TERRAIN_WATER_DISCARD_Y,
+  createTerrainWaterUniforms,
+  patchTerrainWaterMaterial,
+  patchTerrainWaterMaterials,
+  shouldHideTerrainWater,
+  type TerrainWaterUniforms,
+} from './terrainWaterMask.ts'
+export {
   CESIUM_ION_SESSION_KEY,
   CESIUM_ION_TOKEN_MAX_LEN,
   parseCesiumIonAssetId,

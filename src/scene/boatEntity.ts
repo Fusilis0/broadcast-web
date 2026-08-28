@@ -11,6 +11,7 @@ import {
 } from '../pose/index.ts'
 import {
   createBoatTag,
+  resolveBoatMastTopWorld,
   type BoatTagHandle,
   type BoatTagIdentity,
 } from './boatTag.ts'
@@ -39,7 +40,7 @@ export type BoatEntityOptions = {
   id?: string
   /** Display name from catalogue (default `Boat {id}`). */
   displayName?: string
-  /** Category tint `#rrggbb` for tag plate + hull. */
+  /** Category tint `#rrggbb` for tag plate + hull + sail. */
   color?: string
   /**
    * When true (default), start with procedural hull and swap to glTF clone
@@ -66,7 +67,7 @@ export type BoatEntityHandle = {
 
 function disposeObject3D(root: THREE.Object3D): void {
   root.traverse((obj) => {
-    if (obj instanceof THREE.Mesh) {
+    if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
       obj.geometry.dispose()
       const mat = obj.material
       if (Array.isArray(mat)) mat.forEach((m) => m.dispose())
@@ -106,6 +107,8 @@ export function createBoatEntity(
     color: options.color,
   })
   root.add(tag.root)
+
+  const _mastWorld = new THREE.Vector3()
 
   root.visible = false
 
@@ -154,7 +157,8 @@ export function createBoatEntity(
     },
     updateTag(camera: THREE.Camera, viewportHeightPx: number): void {
       if (visibilityMode === 'hidden') return
-      tag.update(camera, viewportHeightPx)
+      resolveBoatMastTopWorld(visual, _mastWorld)
+      tag.update(camera, viewportHeightPx, _mastWorld)
     },
     setTagIdentity(identity: BoatTagIdentity): void {
       hullColor = identity.color

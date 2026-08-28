@@ -6,7 +6,13 @@ polls `config.origin` onto `windBus` (`source: 'api'`). Operator hold beats API.
 travel arrow + `from NNN° · XX kt` from `windBus` (no map-side fetch).
 **14.3e landed** (2026-08-17, `DSP-SCN-20260817-06`) — Gerstner fragment scrolls a
 gust mask along `uDirectionRad` (from-000° → +Z); intensity fades at calm
-`speedMs`. 14.3c anemometer still open. Phase 14.3.
+`speedMs`. **14.3f lite landed** (2026-08-18, `DSP-SCN-20260818-01`) — streaks
+cranked for 5–12 m/s readability + a cheap 3D vane (shaft + two-sided arrow,
+tens of tris) at a fixed origin offset; yaw follows travel; length scales with
+kt with a minimum so from-deg is never invisible. **14.3f strings landed**
+(2026-08-18, `DSP-SCN-20260818-05`) — Windy-style moving streamlines above the
+water on ops preview + 3D NDI only (never the AR plate). 14.3c anemometer still
+open. Phase 14.3 / 15.2 / 16.2.
 **Owner:** TEL (data ingest) + SCN (VFX) + PLT (config).
 **Related:** [`ocean-waves-and-sea-state.md`](./ocean-waves-and-sea-state.md) (wind's first and most
 important consumer is the wave direction).
@@ -92,13 +98,14 @@ vocabulary — the viewer reads it instantly.
 
 ### P1 — wind streaks on the water
 
-**Landed (14.3e).** Dark directional gust streaks on the Gerstner surface: an
+**Landed (14.3e, cranked 15.2).** Dark directional gust streaks on the Gerstner surface: an
 anisotropic value-noise in the fragment shader, scrolled along the existing
-`uDirectionRad` travel vector (same as swell; from-000° → **+Z**). The mask
-darkens albedo and reduces glitter (roughness). Intensity and scroll scale
-from `setWindSpeed` / `speedMs` and fade to 0 below ~0.4 m/s so calm wind
-does not leave a static texture. No particles, no extra FBO, no `readPixels`.
-Shore foam (14.2c) and wind coupling (14.2b) are unchanged.
+`uDirectionRad` travel vector (same as swell; from-000° → **+Z**). Contrast and
+cross-wind stretch are high enough to read on grey water at typical Bosphorus
+~5–12 m/s. The mask darkens albedo, tints faint lanes, and reduces glitter.
+Intensity and scroll scale from `setWindSpeed` / `speedMs` and fade to 0 below
+~0.4 m/s so calm wind does not leave a static texture. No particles, no extra
+FBO, no `readPixels`. Shore foam (14.2c) and wind coupling (14.2b) are unchanged.
 
 ### P1 — a wind readout graphic
 
@@ -110,9 +117,20 @@ pill sits bottom-left (opposite the north compass) so it stays readable on NDI
 
 ### P2 — 3D wind indicator over the course
 
-A ribbon, arrow, or drifting particle field in world space. Attractive but easy to get wrong:
-world-space particles read as visual noise on a moving drone shot and can obscure the boats. If
-built, it should be an operator-toggleable overlay, not always-on.
+**14.3f lite landed (15.2).** A cheap pole + two-sided arrow (`src/scene/environment/windVane.ts`)
+at a fixed ENU offset from the geo origin (so it does not sit under a mark at 0,0). Yaw follows
+the same ramped `uDirectionRad` travel as the sea (`windTravelSceneXZ` / from-000° → +Z). Length
+scales with kt with a **minimum length** so a set from-deg is never invisible at 0 m/s. Tens of
+tris; `MeshBasicMaterial` double-sided.
+
+**14.3f strings landed (16.2, `DSP-SCN-20260818-05`).** Windy-style moving streamlines
+(`src/scene/environment/windStrings.ts`): ~180 short ribbon strings in an ~800 m disc around
+the camera, 4–10 m above water, drifting along the same ramped travel as swell/vane. One draw
+call (merged quads, additive, `depthWrite: false`). Speed / length / visible count scale with
+`speedMs`; fully faded below ~0.5 m/s. Mounted inside the realistic environment → ops preview +
+3D NDI only, never the AR plate. No GPU particles, extra FBO, or `readPixels`. The vane stays.
+
+Map pills (14.3d) do not count as 3D.
 
 ### P2 — flags and telltales
 
@@ -150,7 +168,9 @@ budget the NDI channels are already fighting for. Last.
 5. **14.3e — wind streaks in the ocean shader.** **Landed** (`DSP-SCN-20260817-06`):
    Gerstner fragment `windStreak` along `uDirectionRad`; `setWindSpeed` drives
    intensity + scroll; from-000° travels **+Z**.
-6. **14.3f (optional) — 3D indicator, flags, spray.**
+6. **14.3f (optional) — 3D indicator, flags, spray.** **Lite landed** (`DSP-SCN-20260818-01`):
+   3D vane + stronger streaks. **Strings landed** (`DSP-SCN-20260818-05`): moving streamlines
+   on ops + 3D NDI. Flags and spray remain later.
 
 14.3a is the only part the ocean work strictly depends on; the rest can land in any order.
 

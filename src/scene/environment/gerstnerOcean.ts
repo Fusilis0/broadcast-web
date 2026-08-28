@@ -6,7 +6,6 @@ import {
   currentDrawingSize,
   disposeShoreDepthTarget,
   renderTerrainDepthPrepass,
-  resizeShoreDepthTarget,
   shoreDepthSize,
 } from './shoreFoam.ts'
 
@@ -24,18 +23,30 @@ import {
  * (toward −Z). 14.2b `windOceanCoupling` drives this from `windBus` so default
  * wind from 000° travels **+Z**, not the old northward swell.
  *
- * **Clipmap (conservative, 10 fps NDI / ~30 fps preview):** inner 48×48 over
- * ±48 m (~2 m spacing), 7 concentric rings, 24 segments/ring. Outer half-extent
- * 48 × 2^7 = 6144 m; scene fog hides the far edge. No extra `readPixels`.
- * Shore foam (14.2c) adds **one half-res depth FBO** of the terrain group
- * only while terrain + realistic ocean are both mounted (skipped on
- * transparent/chroma).
+ * **Clipmap (15.2, 60 fps preview budget after OUT-01):** inner 32×32 over
+ * ±48 m (~3 m spacing), 7 concentric rings, 24 segments/ring. Outer half-extent
+ * 48 × 2^7 = 6144 m; scene fog (far 5200) hides the far edge. Inner 48→32 is
+ * the default cost cut (near-field verts 49²→33² ≈ −55%). Rings stay at 7 so
+ * the rim stays past fog — `seaQuality: 'low'` drops to 5 rings (rim 1536 m)
+ * plus quarter-res shore foam. Follow is a **per-pass `uClipmapCenter` uniform**
+ * (quantized to the inner cell), not `mesh.position` — preview and NDI air
+ * cameras must not fight over one mesh transform. Coarser rings overlap the
+ * finer level by ≥ one finer cell so T-junctions sit inside the denser patch
+ * (no white hairline seams). No extra `readPixels`. Shore foam (14.2c) adds
+ * **one half-res depth FBO** of the terrain group only while terrain +
+ * realistic ocean are both mounted (skipped on transparent/chroma). Preview vs
+ * NDI drawing sizes keep **two** cached depth targets so the RT is not resized
+ * every dual-render.
  *
- * **Wind streaks (14.3e):** one anisotropic value-noise in the fragment
- * shader, scrolled along `uDirectionRad` (same XZ travel as swell). Intensity
- * and scroll scale from `setWindSpeed`; calm wind fades the mask to 0 so it
- * does not sit as a static texture. No particles, no extra FBO, no
- * `readPixels`.
+ * **Wind streaks (14.3e, cranked 15.2 / 16.1):** anisotropic gust mask scrolled
+ * along `uDirectionRad` (same XZ travel as swell). Procedural value-noise is
+ * replaced by a 256² tileable **mipmapped** noise texture so camera motion
+ * does not boil; `fwidth()` widens foam/streak/glitter edges, and a distance +
+ * grazing fade kills high-frequency shading before the outer rings. Masks
+ * sample **world XZ** (`vWorldPos`), never clipmap-local coords. Intensity and
+ * scroll scale from `setWindSpeed`; calm wind fades the mask to 0. No particles,
+ * no extra FBO, no `readPixels`. A cheap 3D vane (14.3f lite) lives in
+ * `windVane.ts`.
  */
 
 export const GERSTNER_WAVE_COUNT = 5 as const
@@ -43,18 +54,21 @@ export const GERSTNER_WAVE_COUNT = 5 as const
 export const GERSTNER_OCEAN_DEFAULTS = {
   /** Inner grid half-extent (meters) at the camera. */
   innerHalfExtentM: 48,
-  /** Inner subdivisions — ~2 m near-field spacing. */
-  innerSegments: 48,
+  /**
+   * Inner subdivisions. 48→32 is the 15.2 default cost cut (~3 m spacing;
+   * 49²→33² verts). Keep 7 rings so the rim stays past fog — see header.
+   */
+  innerSegments: 32,
   /** Concentric rings beyond the inner grid. Outer half-extent = inner × 2^n. */
   ringCount: 7,
   /** Segments along each ring's long edge (half of the outer span uses 2×). */
   ringSegments: 24,
   /**
-   * Lift above local MSL (`COURSE_WATER_Y` = 0) so this surface draws on top
-   * of Cesium's baked water. Terrain is not clipped; 14.2c shore foam uses a
-   * terrain-only depth prepass (half-res FBO) when both are mounted.
+   * Tiny lift above local MSL (`COURSE_WATER_Y` = 0) so the Gerstner surface
+   * does not z-fight land skirts. Terrain **water** is discarded in the tileset
+   * shader (16.1) — do not raise this to cover Cesium's baked sea.
    */
-  liftY: 0.25,
+  liftY: 0.08,
   /**
    * Wave travel in scene XZ (radians). `waveDirectionXZ(θ) = (cos θ, sin θ)`.
    * Default −π/2 = toward −Z = geographic north.
@@ -68,13 +82,17 @@ export const GERSTNER_OCEAN_DEFAULTS = {
   horizonColor: 0x8a9aaa,
   foamColor: 0xe8eef2,
   sunColor: 0xe8eef5,
-  glitterSharpness: 220,
-  glitterIntensity: 0.55,
+  /** Mild sun sparkle (was 220 / 0.55 + a second glint — blew out a quadrant). */
+  glitterSharpness: 78,
+  glitterIntensity: 0.16,
+  /** Shore-foam depth RT scale vs drawing buffer. High 0.5; low 0.25. */
+  shoreDepthScale: 0.5,
 } as const
 
 /**
- * 14.3e gust-mask knobs. Spatial stretch lives in the fragment shader
- * (~0.012 /m along-wind, ~0.10 /m across) so streaks stay elongated.
+ * 14.3e gust-mask knobs (15.2: higher contrast + tighter cross-wind scale so
+ * travel reads on grey water at ~5–12 m/s). Spatial stretch lives in the
+ * fragment shader (~0.016 /m along-wind, ~0.22 /m across).
  */
 export const WIND_STREAK_DEFAULTS = {
   /** At or below this speed (m/s), streak intensity is 0. */
@@ -82,9 +100,22 @@ export const WIND_STREAK_DEFAULTS = {
   /** Full streak intensity (m/s). */
   fadeMsHi: 5,
   /** World-space scroll (m/s) per 1 m/s of wind. */
-  scrollPerWind: 1.5,
+  scrollPerWind: 1.8,
   /** How hard the mask darkens albedo / kills glitter (0–1). */
-  contrast: 0.62,
+  contrast: 0.88,
+} as const
+
+/** Edge length of the tileable foam/streak/glitter noise texture. */
+export const OCEAN_NOISE_SIZE = 256 as const
+
+/**
+ * High-frequency foam / streaks / glitter fade to 0 well before the outer
+ * clipmap rings (rim 6144 m). Shore foam is not faded — it must still read
+ * from a drone height.
+ */
+export const OCEAN_DETAIL_FADE = {
+  nearM: 80,
+  farM: 900,
 } as const
 
 export type GerstnerOceanOptions = {
@@ -103,6 +134,7 @@ export type GerstnerOceanOptions = {
   sunColor: number
   glitterSharpness: number
   glitterIntensity: number
+  shoreDepthScale: number
   /** Shared clock in ms (injectable for tests). Default `performance.now`. */
   now: () => number
   sunDirection: THREE.Vector3
@@ -165,6 +197,74 @@ export function streakScrollSpeedMs(speedMs: number): number {
   return s * WIND_STREAK_DEFAULTS.scrollPerWind
 }
 
+function wrapPeriod(i: number, period: number): number {
+  const p = Math.max(1, period | 0)
+  return ((i % p) + p) % p
+}
+
+function hash2(ix: number, iy: number): number {
+  let n = Math.imul(ix, 374761393) + Math.imul(iy, 668265263)
+  n = Math.imul(n ^ (n >>> 13), 1274126177)
+  return (n >>> 0) / 4294967296
+}
+
+function tileableValueNoise(u: number, v: number, cells: number): number {
+  const x = u * cells
+  const y = v * cells
+  const x0 = Math.floor(x)
+  const y0 = Math.floor(y)
+  const fx = x - x0
+  const fy = y - y0
+  const sx = fx * fx * (3 - 2 * fx)
+  const sy = fy * fy * (3 - 2 * fy)
+  const a = hash2(wrapPeriod(x0, cells), wrapPeriod(y0, cells))
+  const b = hash2(wrapPeriod(x0 + 1, cells), wrapPeriod(y0, cells))
+  const c = hash2(wrapPeriod(x0, cells), wrapPeriod(y0 + 1, cells))
+  const d = hash2(wrapPeriod(x0 + 1, cells), wrapPeriod(y0 + 1, cells))
+  return a * (1 - sx) * (1 - sy) + b * sx * (1 - sy) + c * (1 - sx) * sy + d * sx * sy
+}
+
+/**
+ * 256² tileable RGBA noise (`Repeat`, `LinearMipmapLinear`) for foam / streak /
+ * glitter masks. GPU mips band-limit the pattern under camera motion.
+ */
+export function createOceanNoiseTexture(
+  size: number = OCEAN_NOISE_SIZE,
+): THREE.DataTexture {
+  const n = Math.max(16, size | 0)
+  const data = new Uint8Array(n * n * 4)
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      const u = x / n
+      const v = y / n
+      const t =
+        tileableValueNoise(u, v, 8) * 0.65 + tileableValueNoise(u, v, 16) * 0.35
+      const b = Math.round(Math.min(1, Math.max(0, t)) * 255)
+      const i = (y * n + x) * 4
+      data[i] = b
+      data[i + 1] = b
+      data[i + 2] = b
+      data[i + 3] = 255
+    }
+  }
+  const tex = new THREE.DataTexture(
+    data,
+    n,
+    n,
+    THREE.RGBAFormat,
+    THREE.UnsignedByteType,
+  )
+  tex.wrapS = THREE.RepeatWrapping
+  tex.wrapT = THREE.RepeatWrapping
+  tex.minFilter = THREE.LinearMipmapLinearFilter
+  tex.magFilter = THREE.LinearFilter
+  tex.generateMipmaps = true
+  tex.needsUpdate = true
+  tex.colorSpace = THREE.NoColorSpace
+  tex.name = 'gerstnerOceanNoise'
+  return tex
+}
+
 type WaveDef = {
   wavelength: number
   amplitude: number
@@ -218,32 +318,141 @@ function addGrid(
 
 /**
  * Concentric-ring clipmap on XZ, densest at the origin (moved to the camera).
+ * Coarser rings overlap the finer level by ≥ one finer cell so T-junctions
+ * after Gerstner displacement sit inside the denser patch.
  */
+export type ClipmapPatchSpec = {
+  x0: number
+  x1: number
+  z0: number
+  z1: number
+  segmentsX: number
+  segmentsZ: number
+}
+
+/** Nominal inner half-extent of ring `ringIndex` (1-based). */
+export function clipmapRingInnerM(
+  innerHalfExtentM: number,
+  ringIndex: number,
+): number {
+  const half = Math.max(1, innerHalfExtentM)
+  const i = Math.max(1, ringIndex | 0)
+  return half * 2 ** (i - 1)
+}
+
+export function clipmapRingOuterM(
+  innerHalfExtentM: number,
+  ringIndex: number,
+): number {
+  const half = Math.max(1, innerHalfExtentM)
+  const i = Math.max(1, ringIndex | 0)
+  return half * 2 ** i
+}
+
+/**
+ * Inward overlap (m) of ring `ringIndex` under the finer level.
+ * Clamped on tiny test grids so the hole stays open.
+ */
+export function clipmapRingOverlapM(
+  innerHalfExtentM: number,
+  innerSegments: number,
+  ringSegments: number,
+  ringIndex: number,
+): number {
+  const half = Math.max(1, innerHalfExtentM)
+  const innerSeg = Math.max(2, innerSegments | 0)
+  const ringSeg = Math.max(4, ringSegments | 0)
+  const nRadial = Math.max(2, (ringSeg / 2) | 0)
+  const i = Math.max(1, ringIndex | 0)
+  const inner = clipmapRingInnerM(half, i)
+  const finerCell =
+    i <= 1 ? (2 * half) / innerSeg : clipmapRingInnerM(half, i - 1) / nRadial
+  return Math.min(finerCell, inner * 0.35)
+}
+
+export function clipmapPatchSpecs(
+  innerHalfExtentM: number,
+  innerSegments: number,
+  ringCount: number,
+  ringSegments: number,
+): ClipmapPatchSpec[] {
+  const half = Math.max(1, innerHalfExtentM)
+  const innerSeg = Math.max(2, innerSegments | 0)
+  const rings = Math.max(1, ringCount | 0)
+  const ringSeg = Math.max(4, ringSegments | 0)
+  const nLong = ringSeg * 2
+  const nRadial = Math.max(2, (ringSeg / 2) | 0)
+
+  const patches: ClipmapPatchSpec[] = [
+    {
+      x0: -half,
+      x1: half,
+      z0: -half,
+      z1: half,
+      segmentsX: innerSeg,
+      segmentsZ: innerSeg,
+    },
+  ]
+
+  for (let i = 1; i <= rings; i++) {
+    const inner = clipmapRingInnerM(half, i)
+    const outer = clipmapRingOuterM(half, i)
+    const overlap = clipmapRingOverlapM(half, innerSeg, ringSeg, i)
+    const innerEdge = inner - overlap
+    patches.push(
+      {
+        x0: -outer,
+        x1: outer,
+        z0: -outer,
+        z1: -innerEdge,
+        segmentsX: nLong,
+        segmentsZ: nRadial,
+      },
+      {
+        x0: -outer,
+        x1: outer,
+        z0: innerEdge,
+        z1: outer,
+        segmentsX: nLong,
+        segmentsZ: nRadial,
+      },
+      {
+        x0: -outer,
+        x1: -innerEdge,
+        z0: -innerEdge,
+        z1: innerEdge,
+        segmentsX: nRadial,
+        segmentsZ: nLong,
+      },
+      {
+        x0: innerEdge,
+        x1: outer,
+        z0: -innerEdge,
+        z1: innerEdge,
+        segmentsX: nRadial,
+        segmentsZ: nLong,
+      },
+    )
+  }
+  return patches
+}
+
 export function createClipmapGeometry(
   innerHalfExtentM: number,
   innerSegments: number,
   ringCount: number,
   ringSegments: number,
 ): THREE.BufferGeometry {
-  const half = Math.max(1, innerHalfExtentM)
-  const innerSeg = Math.max(2, innerSegments | 0)
-  const rings = Math.max(1, ringCount | 0)
-  const ringSeg = Math.max(4, ringSegments | 0)
-
   const positions: number[] = []
   const indices: number[] = []
 
-  addGrid(positions, indices, -half, half, -half, half, innerSeg, innerSeg)
-
-  const nLong = ringSeg * 2
-  const nRadial = Math.max(2, (ringSeg / 2) | 0)
-  for (let i = 1; i <= rings; i++) {
-    const inner = half * 2 ** (i - 1)
-    const outer = half * 2 ** i
-    addGrid(positions, indices, -outer, outer, -outer, -inner, nLong, nRadial)
-    addGrid(positions, indices, -outer, outer, inner, outer, nLong, nRadial)
-    addGrid(positions, indices, -outer, -inner, -inner, inner, nRadial, nLong)
-    addGrid(positions, indices, inner, outer, -inner, inner, nRadial, nLong)
+  for (const p of clipmapPatchSpecs(
+    innerHalfExtentM,
+    innerSegments,
+    ringCount,
+    ringSegments,
+  )) {
+    addGrid(positions, indices, p.x0, p.x1, p.z0, p.z1, p.segmentsX, p.segmentsZ)
   }
 
   const geo = new THREE.BufferGeometry()
@@ -253,11 +462,35 @@ export function createClipmapGeometry(
   return geo
 }
 
+/** Inner clipmap cell size (m). Follow snaps to this so vertices do not swim. */
+export function clipmapCellSizeM(
+  innerHalfExtentM: number,
+  innerSegments: number,
+): number {
+  const half = Math.max(1, innerHalfExtentM)
+  const segs = Math.max(2, innerSegments | 0)
+  return (half * 2) / segs
+}
+
+/** Quantize camera XZ to the clipmap cell so dual-pass follow stays stable. */
+export function quantizeClipmapCenter(
+  x: number,
+  z: number,
+  cellM: number,
+): { x: number; z: number } {
+  const c = Number.isFinite(cellM) && cellM > 1e-6 ? cellM : 1
+  return {
+    x: Math.round(x / c) * c,
+    z: Math.round(z / c) * c,
+  }
+}
+
 const VERTEX_SHADER = /* glsl */ `
   #define WAVE_COUNT ${GERSTNER_WAVE_COUNT}
 
   uniform float uTime;
   uniform float uDirectionRad;
+  uniform vec2 uClipmapCenter;
   uniform vec4 uWaves[WAVE_COUNT];
   uniform float uWavePhase[WAVE_COUNT];
 
@@ -322,17 +555,21 @@ const VERTEX_SHADER = /* glsl */ `
     vec3 tangent;
     vec3 bitangent;
     float jacobian;
-    vec4 worldRest = modelMatrix * vec4(position, 1.0);
+    vec4 worldRest4 = modelMatrix * vec4(position, 1.0);
+    vec3 worldRest = vec3(
+      worldRest4.x + uClipmapCenter.x,
+      worldRest4.y,
+      worldRest4.z + uClipmapCenter.y
+    );
     gerstner(worldRest.xz, uTime, disp, tangent, bitangent, jacobian);
 
-    vec3 localPos = position + disp;
-    vec4 worldPos4 = modelMatrix * vec4(localPos, 1.0);
-    vWorldPos = worldPos4.xyz;
+    vec3 worldPos = worldRest + disp;
+    vWorldPos = worldPos;
     vNormal = normalize(cross(bitangent, tangent));
     vJacobian = jacobian;
     vWaveHeight = disp.y;
 
-    vec4 mvPosition = viewMatrix * worldPos4;
+    vec4 mvPosition = viewMatrix * vec4(worldPos, 1.0);
     gl_Position = projectionMatrix * mvPosition;
     #include <fog_vertex>
   }
@@ -366,6 +603,9 @@ const FRAGMENT_SHADER = /* glsl */ `
   uniform float uTapPxOuter;
   uniform float uFoamStrength;
   uniform float uShallowStrength;
+  uniform sampler2D uNoise;
+  uniform float uDetailFadeNear;
+  uniform float uDetailFadeFar;
 
   varying vec3 vWorldPos;
   varying vec3 vNormal;
@@ -375,21 +615,8 @@ const FRAGMENT_SHADER = /* glsl */ `
   #include <common>
   #include <fog_pars_fragment>
 
-  float streakHash21(vec2 p) {
-    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
-    p3 += dot(p3, p3.yzx + 33.33);
-    return fract((p3.x + p3.y) * p3.z);
-  }
-
   float streakNoise(vec2 p) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);
-    float a = streakHash21(i);
-    float b = streakHash21(i + vec2(1.0, 0.0));
-    float c = streakHash21(i + vec2(0.0, 1.0));
-    float d = streakHash21(i + vec2(1.0, 1.0));
-    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+    return texture2D(uNoise, p * 0.07).r;
   }
 
   float windStreak(vec2 xz) {
@@ -397,11 +624,19 @@ const FRAGMENT_SHADER = /* glsl */ `
     vec2 across = vec2(-travel.y, travel.x);
     float along = dot(xz, travel) - uTime * uStreakScroll;
     float cross = dot(xz, across);
-    vec2 uv = vec2(along * 0.012, cross * 0.10);
+    vec2 uv = vec2(along * 0.016, cross * 0.22);
     float n = streakNoise(uv);
-    n = n * 0.72 + streakNoise(uv * vec2(1.85, 1.55) + vec2(11.2, -4.7)) * 0.28;
-    float gust = smoothstep(0.48, 0.76, n);
+    n = n * 0.65 + streakNoise(uv * vec2(2.1, 1.4) + vec2(11.2, -4.7)) * 0.35;
+    float w = max(fwidth(n), 1e-4);
+    float gust = smoothstep(0.32 - w, 0.58 + w, n);
     return gust * uStreakIntensity;
+  }
+
+  float highFreqFade(float ndv) {
+    float dist = length(cameraPosition.xz - vWorldPos.xz);
+    float distFade = 1.0 - smoothstep(uDetailFadeNear, uDetailFadeFar, dist);
+    float graze = pow(max(ndv, 0.0), 0.45);
+    return distFade * graze;
   }
 
   vec3 worldFromDepth(vec2 uv, float depth) {
@@ -434,19 +669,29 @@ const FRAGMENT_SHADER = /* glsl */ `
     vec3 waterCol = mix(uDeepColor, uShallowColor, ndv);
     vec3 color = mix(waterCol, skyCol, fresnel);
 
+    float fade = highFreqFade(ndv);
+
     vec3 H = normalize(L + V);
     float spec = pow(max(dot(N, H), 0.0), uGlitterSharpness);
-    float glint = pow(max(dot(R, L), 0.0), 96.0);
-    float gust = windStreak(vWorldPos.xz);
-    float glitterAmt = spec * uGlitterIntensity + glint * 0.45;
-    glitterAmt *= 1.0 - gust * 0.7;
-    color *= 1.0 - gust * uStreakContrast * 0.42;
+    float specW = max(fwidth(spec), 1e-4);
+    spec = smoothstep(0.0, specW * 2.0, spec);
+    float sparkle = texture2D(uNoise, vWorldPos.xz * 0.045 + vec2(0.17, -0.09)).r;
+    float sparkleW = max(fwidth(sparkle), 1e-4);
+    sparkle = smoothstep(0.42 - sparkleW, 0.72 + sparkleW, sparkle);
+
+    float gust = windStreak(vWorldPos.xz) * fade;
+    float glitterAmt = spec * sparkle * uGlitterIntensity * fade;
+    glitterAmt *= 1.0 - gust * 0.85;
+    color *= 1.0 - gust * uStreakContrast * 0.70;
+    color += uShallowColor * gust * 0.14;
     color += uSunColor * glitterAmt;
 
     float windF = clamp(uWindSpeed / 12.0, 0.15, 1.0);
-    float fold = 1.0 - smoothstep(0.52, 0.94, vJacobian);
-    float crest = smoothstep(0.10, 0.36, vWaveHeight);
-    float foam = max(fold, crest * 0.4) * windF;
+    float jacW = max(fwidth(vJacobian), 1e-4);
+    float fold = 1.0 - smoothstep(0.52 - jacW, 0.94 + jacW, vJacobian);
+    float crestW = max(fwidth(vWaveHeight), 1e-4);
+    float crest = smoothstep(0.10 - crestW, 0.36 + crestW, vWaveHeight);
+    float foam = max(fold, crest * 0.4) * windF * fade;
 
     if (uShoreFoamEnabled > 0.5) {
       vec2 screenUv = gl_FragCoord.xy / max(uViewport, vec2(1.0));
@@ -513,11 +758,14 @@ export function createGerstnerOcean(
   dummyDepth.format = THREE.DepthFormat
   dummyDepth.type = THREE.UnsignedIntType
 
+  const noiseTex = createOceanNoiseTexture(OCEAN_NOISE_SIZE)
+
   const uniforms = THREE.UniformsUtils.merge([
     THREE.UniformsLib.fog,
     {
       uTime: { value: 0 },
       uDirectionRad: { value: opts.directionRad },
+      uClipmapCenter: { value: new THREE.Vector2(0, 0) },
       uWaves: { value: waveUniformVec4s() },
       uWavePhase: { value: WAVES.map((w) => w.phase) },
       uSunDir: { value: opts.sunDirection.clone().normalize() },
@@ -545,6 +793,9 @@ export function createGerstnerOcean(
       uTapPxOuter: { value: SHORE_FOAM_DEFAULTS.tapPxOuter },
       uFoamStrength: { value: SHORE_FOAM_DEFAULTS.foamStrength },
       uShallowStrength: { value: SHORE_FOAM_DEFAULTS.shallowStrength },
+      uNoise: { value: noiseTex },
+      uDetailFadeNear: { value: OCEAN_DETAIL_FADE.nearM },
+      uDetailFadeFar: { value: OCEAN_DETAIL_FADE.farM },
     },
   ])
   uniforms['uTerrainDepth']!.value = dummyDepth
@@ -558,16 +809,23 @@ export function createGerstnerOcean(
     lights: false,
     side: THREE.FrontSide,
     toneMapped: true,
+    depthWrite: true,
+    depthTest: true,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
   })
 
   const mesh = new THREE.Mesh(geometry, material)
   mesh.name = 'gerstnerOcean'
   mesh.frustumCulled = false
   mesh.renderOrder = -20
-  mesh.position.y = COURSE_WATER_Y + opts.liftY
+  mesh.position.set(0, COURSE_WATER_Y + opts.liftY, 0)
 
   const now = opts.now
+  const cellM = clipmapCellSizeM(opts.innerHalfExtentM, opts.innerSegments)
   const _camWorld = new THREE.Vector3()
+  const _clipCenter = uniforms['uClipmapCenter']!.value as THREE.Vector2
   const _invProjection = uniforms['uInvProjection']!.value as THREE.Matrix4
   const _invView = uniforms['uInvView']!.value as THREE.Matrix4
   const _viewport = uniforms['uViewport']!.value as THREE.Vector2
@@ -575,7 +833,8 @@ export function createGerstnerOcean(
   let disposed = false
   let lastTime = 0
   let shoreContact: THREE.Object3D | null = null
-  let shoreTarget: THREE.WebGLRenderTarget | null = null
+  let lastShoreTarget: THREE.WebGLRenderTarget | null = null
+  const shoreCache: { key: string; target: THREE.WebGLRenderTarget }[] = []
   let prepassing = false
 
   function sampleClock(): void {
@@ -584,27 +843,42 @@ export function createGerstnerOcean(
     uniforms['uTime']!.value = lastTime
   }
 
+  function disposeShoreCache(): void {
+    for (const entry of shoreCache) {
+      disposeShoreDepthTarget(entry.target)
+    }
+    shoreCache.length = 0
+    lastShoreTarget = null
+  }
+
   function disarmShoreFoam(): void {
     uniforms['uShoreFoamEnabled']!.value = 0
     uniforms['uTerrainDepth']!.value = dummyDepth
-    disposeShoreDepthTarget(shoreTarget)
-    shoreTarget = null
+    disposeShoreCache()
   }
 
-  function armShoreFoam(): void {
-    if (!shoreTarget) {
-      shoreTarget = createShoreDepthTarget(1, 1)
+  function shoreTargetForSize(
+    width: number,
+    height: number,
+  ): THREE.WebGLRenderTarget {
+    const key = `${width}x${height}`
+    const hit = shoreCache.find((e) => e.key === key)
+    if (hit) return hit.target
+    const target = createShoreDepthTarget(width, height)
+    shoreCache.push({ key, target })
+    while (shoreCache.length > 2) {
+      const evict = shoreCache.shift()
+      if (evict) disposeShoreDepthTarget(evict.target)
     }
-    uniforms['uTerrainDepth']!.value = shoreTarget.depthTexture
+    return target
   }
 
   mesh.onBeforeRender = (renderer, _scene, camera) => {
     if (disposed) return
     sampleClock()
     camera.getWorldPosition(_camWorld)
-    mesh.position.x = _camWorld.x
-    mesh.position.z = _camWorld.z
-    mesh.position.y = COURSE_WATER_Y + opts.liftY
+    const snapped = quantizeClipmapCenter(_camWorld.x, _camWorld.z, cellM)
+    _clipCenter.set(snapped.x, snapped.z)
 
     const contact = shoreContact
     if (!contact || !contact.visible || prepassing) {
@@ -613,14 +887,14 @@ export function createGerstnerOcean(
     }
 
     const drawing = currentDrawingSize(renderer)
-    const depth = shoreDepthSize(drawing.width, drawing.height)
-    armShoreFoam()
-    const target = shoreTarget
-    if (!target) {
-      uniforms['uShoreFoamEnabled']!.value = 0
-      return
-    }
-    resizeShoreDepthTarget(target, depth.width, depth.height)
+    const depth = shoreDepthSize(
+      drawing.width,
+      drawing.height,
+      opts.shoreDepthScale,
+    )
+    const target = shoreTargetForSize(depth.width, depth.height)
+    lastShoreTarget = target
+    uniforms['uTerrainDepth']!.value = target.depthTexture
 
     _viewport.set(drawing.width, drawing.height)
     _depthUvScale.set(1, 1)
@@ -661,14 +935,19 @@ export function createGerstnerOcean(
     setShoreContact(terrainRoot: THREE.Object3D | null): void {
       if (disposed) return
       shoreContact = terrainRoot
-      if (terrainRoot) {
-        armShoreFoam()
-      } else {
+      if (!terrainRoot) {
         disarmShoreFoam()
+        return
+      }
+      if (shoreCache.length === 0) {
+        const placeholder = createShoreDepthTarget(1, 1)
+        shoreCache.push({ key: '1x1', target: placeholder })
+        lastShoreTarget = placeholder
+        uniforms['uTerrainDepth']!.value = placeholder.depthTexture
       }
     },
     getShoreFoamEnabled: () => shoreContact !== null,
-    getShoreDepthTarget: () => shoreTarget,
+    getShoreDepthTarget: () => lastShoreTarget,
     tick(_dtSeconds: number): void {
       sampleClock()
     },
@@ -679,6 +958,7 @@ export function createGerstnerOcean(
       shoreContact = null
       disarmShoreFoam()
       dummyDepth.dispose()
+      noiseTex.dispose()
       geometry.dispose()
       material.dispose()
     },

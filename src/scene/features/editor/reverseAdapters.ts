@@ -2,6 +2,7 @@ import { DEFAULT_COURSE_APPEARANCE } from '../../course/normalizeCourse.ts'
 import type {
   CourseAppearance,
   CourseData,
+  CourseWaypoint,
   CourseWaypointType,
 } from '../../course/types.ts'
 import {
@@ -20,7 +21,7 @@ import {
   DEFAULT_SPONSOR_COLOR,
   DEFAULT_SPONSOR_HEIGHT_M,
 } from '../../sponsors/normalizeSponsors.ts'
-import type { SponsorsData } from '../../sponsors/types.ts'
+import type { SponsorEntry, SponsorsData } from '../../sponsors/types.ts'
 import type { WorldFeature } from '../types.ts'
 
 const COURSE_TYPES = new Set<CourseWaypointType>([
@@ -42,13 +43,15 @@ export function featuresToCourseData(
     .filter((f) => COURSE_TYPES.has(f.type as CourseWaypointType))
     .map((f) => {
       const p = f.points[0]!
-      return {
+      const wp: CourseWaypoint = {
         name: f.name,
         type: f.type as CourseWaypointType,
         lat: p.lat,
         lon: p.lon,
         altMsl: p.altMsl,
       }
+      if (f.rounding !== undefined) wp.rounding = f.rounding
+      return wp
     })
 
   let buoyHeightM = appearance.buoyHeightM
@@ -88,7 +91,7 @@ export function featuresToSponsorsData(
       const a = f.points[0]!
       const b = f.points[1]!
       const id = f.name || f.id.replace(/^sponsor:/, '')
-      return {
+      const entry: SponsorEntry = {
         id,
         label: f.label ?? id,
         a: { lat: a.lat, lon: a.lon, altMsl: a.altMsl },
@@ -100,6 +103,9 @@ export function featuresToSponsorsData(
             : null,
         color: f.color ?? DEFAULT_SPONSOR_COLOR,
       }
+      if (f.panelColor !== undefined) entry.panelColor = f.panelColor
+      if (f.frameColor !== undefined) entry.frameColor = f.frameColor
+      return entry
     })
   return { name, sponsors }
 }

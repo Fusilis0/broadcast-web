@@ -69,7 +69,7 @@ Sidebar **Project** section (`startProjectManagerPanel`) lists API projects when
 
 Helpers: `listRaceProjects`, `duplicateRaceProject`, `renameRaceProject`, `setRaceProjectArchived`, `confirmSaveWithOrphanBoatIds` (`src/projects/projectManager.ts`).
 
-Payload includes **runtime session** state: world origin (`config.origin` / world-anchor Apply), Fleet `boatIds` / `povIds`, `boatNamesUrl`, features (embedded when the editor has them), fixture URLs, and soft **`calibration.byPovId`** (CAL offsets snapshot for current `povIds`; omitted when empty). Load hydrates `offsetsStore` when the field is present.
+Payload includes **runtime session** state: world origin (`config.origin` / world-anchor Apply), Fleet `boatIds` / `povIds`, embedded **`fleet.boats`** rows (names, category, visibility, map flag, planned GPS), `boatNamesUrl` (fallback for old packs), features (embedded when the editor has them), fixture URLs, soft **`calibration.byPovId`** (CAL offsets snapshot for current `povIds`; omitted when empty), and soft **`output.srtUrlTemplate` + `output.srtByPovId`** (SRT camera ids; the relay token is stripped on Save). Load hydrates `offsetsStore` when the field is present and rebuilds the Fleet list from `fleet.boats` when present (does not dump the names-URL catalogue).
 
 ### Save destinations
 

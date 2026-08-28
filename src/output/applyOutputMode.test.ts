@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   applyOutputMode,
+  normalizeArBackground,
   normalizeOutputMode,
   parseChromaKey,
   resolveClearAppearance,
@@ -24,6 +25,19 @@ describe('normalizeOutputMode', () => {
     expect(normalizeOutputMode('')).toBe('preview')
     expect(normalizeOutputMode(undefined)).toBe('preview')
     expect(normalizeOutputMode(42)).toBe('preview')
+  })
+})
+
+describe('normalizeArBackground', () => {
+  it('keeps alpha and video', () => {
+    expect(normalizeArBackground('alpha')).toBe('alpha')
+    expect(normalizeArBackground('video')).toBe('video')
+  })
+
+  it('maps unknown / missing to alpha', () => {
+    expect(normalizeArBackground(undefined)).toBe('alpha')
+    expect(normalizeArBackground('')).toBe('alpha')
+    expect(normalizeArBackground('underlay')).toBe('alpha')
   })
 })
 

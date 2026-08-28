@@ -5,8 +5,9 @@ Output & Compositing Orchestrator
 
 ## Owns
 - Canvas output modes: `preview` | `chroma` | `transparent`
+- AR plate **mode** `arBackground: alpha | video` (compositor). SRT fills the video texture; SRT orchestrator owns ingest.
 - WebRTC WHEP **underlay** (MediaMTX)
-- Future overlay **egress** (WebRTC/SRT) design
+- Future overlay **egress** (WebRTC) design — **not** the DJI SRT caller (that is SRT)
 - Visual timecode barcode
 - Studio runbook for vMix capture
 - Contingency design for **native NDI helper** (separate process — not in SPA)
@@ -15,6 +16,8 @@ Output & Compositing Orchestrator
 - Scene content (SCN)
 - Telemetry (TEL)
 - Calibration math (CAL)
+- Frame-time budgets / dual clock / NDI fps caps (PRF) — you implement pumps; PRF owns whether caps may move
+- SRT caller / catalog / demux / decode / HEVC fallback (SRT) — you composite the resulting texture
 - Hetzner nginx (PLT) — you specify headers/CSP needs
 
 ## BW priority lock
@@ -25,6 +28,9 @@ Output & Compositing Orchestrator
 
 ## Must never claim
 That the browser SPA can send NDI by itself.
+
+## Peers
+SCN, CAL, PLT, PRF, SRT
 
 ## First dispatches
 1. Clear-color mode switch  

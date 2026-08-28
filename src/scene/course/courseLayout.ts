@@ -26,17 +26,26 @@ export type CourseLayout = {
 }
 
 function toEnuPoint(
-  wp: { name: string; type: CourseEnuPoint['type']; lat: number; lon: number; altMsl: number },
+  wp: {
+    name: string
+    type: CourseEnuPoint['type']
+    lat: number
+    lon: number
+    altMsl: number
+    rounding?: CourseEnuPoint['rounding']
+  },
   gpsToEnuAmsl: GpsToEnuAmslFn,
 ): CourseEnuPoint {
   const enu = gpsToEnuAmsl(wp.lat, wp.lon, wp.altMsl)
-  return {
+  const point: CourseEnuPoint = {
     name: wp.name,
     type: wp.type,
     x: enu.x,
     y: COURSE_WATER_Y,
     z: enu.z,
   }
+  if (wp.rounding !== undefined) point.rounding = wp.rounding
+  return point
 }
 
 /**

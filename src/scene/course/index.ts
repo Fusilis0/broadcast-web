@@ -16,6 +16,13 @@ export {
   type LoadCourseOptions,
 } from './loadCourse.ts'
 export {
+  createRoundingArrowRing,
+  DEFAULT_ROUNDING_RADIUS_M,
+  ROUNDING_RING_LIFT_Y,
+  type RoundingArrowsHandle,
+  type RoundingArrowsOptions,
+} from './roundingArrows.ts'
+export {
   courseWaterCueBounds,
   createWaterShoreCue,
   WATER_CUE_DEFAULTS,

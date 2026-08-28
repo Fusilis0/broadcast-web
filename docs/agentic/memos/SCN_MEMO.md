@@ -1,13 +1,52 @@
 # SCN_MEMO
 
-**Last updated:** 2026-08-17  
-**Status:** Idle — Phase 14 accepted; ion token Ops field + remount landed
+**Last updated:** 2026-08-27  
+**Status:** Idle — Phase 17.4 Flow panel accepted
+
+## Phase 17.4 accepted 2026-08-27 (BW)
+
+- `done/DSP-SCN-20260826-10` — right rail **Flow** (`id: flow`, order 15), default collapsed; **Live JSON** ≤4 Hz, sessionStorage.
+- Cards: `kind` + `id` + `telem`/`srt`/`anchor`; collapse + pop-out; boats without Vid → telemetry + `"no stream"`.
+- `main` pushes redacted SRT into `flowTap`; tokens never rendered. DOM-only; sync-debug kept.
+
+## PRF FYI 2026-08-26
+Do not raise `STUDIO_TICK_FPS`. Preview ~60 is rAF; NDI 3D stays ~10. Cost-only ocean/tile work may arrive as `HO-PRF-SCN-*`.
+
+## Phase 17.3 accepted 2026-08-26 (BW)
+
+- TEL-08: `SceneOptions.onActivePovChange` after a real `setActivePovId` / allow-list clamp. `main` uses it to swap the warm video texture and `posePipeline.tick(0)` so camera and video move together. `PoseEvent` shape unchanged.
+
+## Phase 16 wave 2 accepted 2026-08-18 pm (BW)
+
+## Phase 16 wave 2 accepted 2026-08-18 pm (BW)
+
+- `done/DSP-SCN-20260818-09` — two overlay rails via `src/scene/sidebar/railLayout.ts` + `createSidebar`. Left: Project · Fleet & Live (`live`) · Assets · World (`world-map`) · Library · Race ops (`ops`). Right: Output (`ndi`) · Calibration (`calib`) · Environment · Wind. `data-ops-section` ids unchanged. Independent widths, per-rail collapse, accordion state — all sessionStorage. Backtick collapses both. New Environment **water m** row (0–5, step 0.1, default 0.5) → `setTerrainWaterDiscardYM`. Panel internals untouched; canvas lock/letterbox unaffected. Suite **654+23**, build green.
+
+## Phase 16 wave 1 accepted 2026-08-18 pm (BW)
+
+- `done/DSP-SCN-20260818-04` — 256² mip noise + `fwidth` + 80–900 m distance/grazing fade; all masks world-XZ; `liftY` **0.08 m**. Terrain water discarded via quantized-mesh **watermask** (stored on `material.roughnessMap`, chained `onBeforeCompile`; ion/plugin order unchanged); fallback world Y < **+0.5 m** AMSL; gated on realistic ocean mounted. Shore-foam prepass now sees land only. API `setTerrainWaterDiscardYM`.
+- `done/DSP-SCN-20260818-05` — `windStrings.ts`: 180 merged additive ribbons, 800 m disc, 4–10 m AGL, 6 pts each; follows ramped `uDirectionRad` (from-000° → +Z); fade below 0.5 m/s; ~0.075 ms/tick; mounted in `createRealisticEnvironment` (AR-safe). Vane kept.
+- `done/DSP-SCN-20260818-06` — procedural sailboat (tapered hull/deck/keel/mast ~1.2× LOA/boom/main+jib; named `hull`/`sail`/`mastTop`); sails tint to a lighter desaturated boat colour; `applyBoatSailTexture` slot; 10-swatch palette on fleet rows; tag leader from `mastTop`, tag ~4.2 m above mast; additive `fleet.boats[].color`. Legacy `boat.glb` lacks `sail`/`mastTop` → procedural wins until re-export.
+- `done/DSP-SCN-20260818-07` — sponsor/chain panels composed as boards (`#f4f4f2` fill, `#2c3338` frame, contain-fit logo or label, opaque); additive `panelColor`/`frameColor`; chain tiling untouched.
+- `done/DSP-SCN-20260818-08` — `effectiveRounding(undefined) === 'cw'`; explicit `none` hides; `persistRoundingSelection` keeps CW-on-omit omitted; ring ~8–9 m white torus + red heads, unlit; demo Mark-SE keeps `ccw`.
+
+Merged tree: `npm test` **640 + 23**, build green. Open: glTF sailboat re-export, sponsor colour pickers, human look-dev.
+
+## Phase 16 issued 2026-08-18 pm (BW)
+
+Design: `docs/architecture/phase16-visual-upgrade.md`. Wave 1 parallel: `DSP-SCN-20260818-04` (ocean shimmer AA + terrain water mask/height-discard), `-05` (wind strings, ops+3D only), `-06` (procedural sailboat + category color palette + tag leader; additive `fleet.boats[].color`), `-07` (billboard board/frame), `-08` (rounding default **CW when omitted**). Wave 2: `-09` (two-rail ops layout) after `-06` merges. Ownership: 04 = gerstnerOcean/shoreFoam/terrain; 05 = realisticEnvironment + windStrings; 06 = assets/boatEntity/boatTag/fleetLivePanel rows/boatNames + schema; 07 = sponsors; 08 = rounding/course; 09 = sidebar/stubHud.
+
+## Phase 15 accepted 2026-08-18 (BW)
+
+- `done/DSP-SCN-20260818-01` — clipmap 1-cell ring overlap; glitter 0.16/78 single Blinn; default inner 32 / 7 rings; `seaQuality` high\|low (`?sea=low` / Ops). 14.3f lite: cranked streaks + 3D vane at (16,12) m; yaw = travel; min length 6 m. Stay on `uClipmapCenter`.
+- `done/DSP-SCN-20260818-02` — per-feature `rounding` (`cw`/`ccw`/`none`; omit = off) on marks, buoys, gate ends. Procedural two-arrow ring; from above CW = clock = negative `rotation.y`; 5 s/rev via `onBeforeRender`. Assets Details Off/CW/CCW. Demo Istanbul corners default CW.
+- `done/DSP-SCN-20260818-03` — allow-listed boats spawn static hulls (`syncFleetHulls` / `upsertStaticBoat`); live telem holds last pose; ghost/hidden apply; Frame fleet works with zero packets. `fleet.boats[]` on RaceProject; Load rebuilds from pack rows, not the names-URL catalogue.
+
+Suite 600+23, build green. Human look-dev still needed (seams, vane, rounding, static hulls).
 
 ## Ion token studio field 2026-08-17
 - Ops **ion token** password + Apply. `SceneHandle.setCesiumIonToken` remounts
   tiles (auth plugin is baked at create). Empty → off, no throw. Never log.
-
-## Phase 14.3e accepted 2026-08-17
 
 ## Phase 14.3e accepted 2026-08-17
 - `done/DSP-SCN-20260817-06-wind-streaks` — Gerstner fragment `windStreak`: anisotropic

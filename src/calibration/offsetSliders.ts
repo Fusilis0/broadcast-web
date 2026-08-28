@@ -20,15 +20,41 @@ export type OffsetSliderSpec = {
   min: number
   max: number
   step: number
+  /** Operator-facing hint (tooltip). Required for `syncTrimMs` sign. */
+  title?: string
 }
 
-/** Final ranges for V1 human offset sliders (DSP-CAL-20260723-01). */
+/**
+ * Sign for `syncTrimMs`: `t_ntp = toNtp(pts) + syncTrimMs` (TEL-08).
+ * Positive samples later NTP → overlay leads the video.
+ */
+export const SYNC_TRIM_MS_TITLE =
+  'Positive = AR leads video (sample later NTP). Overlay lags the picture → raise; overlay leads → lower. 0 = no trim.'
+
+/**
+ * Final ranges for V1 human offset sliders (DSP-CAL-20260723-01) plus
+ * `syncTrimMs` (DSP-CAL-20260826-05).
+ *
+ * Sync range ±500 ms covers unmeasured DJI photon→NAL residual (tens of ms)
+ * and the producer-class residuals in ntp-matching §3.4 (150–400 ms) with
+ * headroom, without letting a mis-click jump a full second. Step 5 ms is
+ * below typical NTP uncertainty (~30 ms) so an operator can split the
+ * difference by eye.
+ */
 export const OFFSET_SLIDER_SPECS: readonly OffsetSliderSpec[] = [
   { field: 'yawDeg', label: 'yaw°', min: -45, max: 45, step: 0.1 },
   { field: 'pitchDeg', label: 'pitch°', min: -45, max: 45, step: 0.1 },
   { field: 'rollDeg', label: 'roll°', min: -45, max: 45, step: 0.1 },
   { field: 'fovHDeg', label: 'fov°', min: 20, max: 120, step: 0.1 },
   { field: 'altMeters', label: 'alt m', min: -50, max: 50, step: 0.1 },
+  {
+    field: 'syncTrimMs',
+    label: 'sync ms',
+    min: -500,
+    max: 500,
+    step: 5,
+    title: SYNC_TRIM_MS_TITLE,
+  },
 ] as const
 
 export type OffsetSlidersOptions = {
@@ -83,6 +109,9 @@ function formatValue(field: OffsetField, value: number): string {
     // Keep enough precision for DEFAULT_HFOV_DEG = 66.8832
     return Number(value.toFixed(4)).toString()
   }
+  if (field === 'syncTrimMs') {
+    return Number(value.toFixed(0)).toString()
+  }
   return Number(value.toFixed(1)).toString()
 }
 
@@ -97,9 +126,9 @@ function resolveCalibPovIds(
 }
 
 /**
- * CAL ops panel: yaw / pitch / roll / FOV / alt sliders → offsetsStore.
- * Device picker targets one POV id at a time; live pose picks up changes
- * on the next convert tick.
+ * CAL ops panel: yaw / pitch / roll / FOV / alt / sync-trim sliders → offsetsStore.
+ * Device picker targets one POV id at a time; live pose picks up spatial
+ * changes on the next convert tick. `syncTrimMs` is stored only (TEL-08).
  */
 export function startOffsetSliders(
   options: OffsetSlidersOptions,
@@ -207,6 +236,7 @@ export function startOffsetSliders(
     label.textContent = spec.label
     const id = `calib-${spec.field}`
     label.htmlFor = id
+    if (spec.title) label.title = spec.title
     rowEl.appendChild(label)
 
     const range = document.createElement('input')
@@ -216,6 +246,7 @@ export function startOffsetSliders(
     range.min = String(spec.min)
     range.max = String(spec.max)
     range.step = String(spec.step)
+    if (spec.title) range.title = spec.title
     rowEl.appendChild(range)
 
     const number = document.createElement('input')
@@ -225,6 +256,7 @@ export function startOffsetSliders(
     number.max = String(spec.max)
     number.step = String(spec.step)
     number.setAttribute('aria-label', `${spec.label} value`)
+    if (spec.title) number.title = spec.title
     rowEl.appendChild(number)
 
     const onRange = (): void => {

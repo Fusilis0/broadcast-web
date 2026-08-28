@@ -1,7 +1,59 @@
 # OUT_MEMO
 
-**Last updated:** 2026-08-12  
-**Status:** Idle — Phase 13 complete + OUT-06 perf **accepted**
+**Last updated:** 2026-08-28  
+**Status:** Idle — TEL-04 landed; wait video-mode smoke (Sync `PTS → NTP`)
+
+## LUT-miss plate accepted 2026-08-28 (BW)
+- `done/DSP-OUT-20260828-08` — empty LUT (`toNtp` all null) → newest decoded frame, `reason: lut-miss-live`, `degraded`. OUT-03 stall-pin on empty LUT is **void**.
+- Stall-pin 400 ms remains for telemetry stall **with a working LUT**, and for pose-not-yet-covered mapped frames.
+- Healthy LUT + pose: adaptive 100–400 unchanged. LUT extra still 2 s.
+- Suite **910 + 23**. Overlay free-run is TEL-03.
+
+## Accepted 2026-08-28 night (BW) — OUT-07
+- `done/DSP-OUT-20260828-07` — 2D deferred off the FBO tick; worker + transferable; fail closed + `NDI_2D_SYNC_CAPTURE_NOTE`. Still on@30. Suite **909 + 23**.
+- `done/DSP-OUT-20260828-04` — one FBO/tick; `STUDIO_TICK_FPS=60`; 2D on @ 30
+- `done/DSP-OUT-20260828-05` — PES `presentedPts90k`; LUT reset on H.264 fallback; Sync last pacing
+- `done/DSP-OUT-20260828-06` — superseded by **OUT-07** (never started)
+
+## GPU idle leftover (BW)
+**Closed in code** by OUT-07. Human: Send ~30/30/30, hitch ~0, 2D on. Watch console for the sync-capture note.
+
+
+
+## Phase 17.6 accepted 2026-08-28 (BW)
+- `done/DSP-OUT-20260828-03` — `lookupPts90k`: exact or nearest ±32 µs, then consume; miss → `pts90k` null (never WebCodecs µs as 90 kHz).
+- `pickPresentationPts` all `toNtp` null → stall-pin **400 ms** (same as pose stall), not newest. Single-frame queue still shows that frame.
+- Adaptive 100–400 unchanged when LUT works. HEVC→H.264 `-copyts` untouched.
+- Suite **896 + 23** / build green. Handoff: `HO-BW-OUT-20260828-03`.
+- **Human:** Sync PTS must be 90 kHz-shaped (not ~1e6); Latency PINNED ceiling when no anchors.
+
+## Studio 30 accepted 2026-08-28 (BW)
+- `done/DSP-OUT-20260828-01` — WebGL2 `PIXEL_PACK_BUFFER` + fence; AR/3D `createNdiAsyncReadback`; 1 studio tick latency; fail closed to sync + `NDI_SYNC_READBACK_NOTE`. 2D left sync `getImageData`.
+- `done/DSP-OUT-20260828-02` — AR/3D/2D default **30**, 2D boot **on** (toggle still 2D-only). Stagger: async claims share a tick; two **blocking** sync readbacks still refused. `STUDIO_TICK_FPS` 30. Never 60.
+- Suite **887 + 23** / build green. **Human:** Output rail Send ~30/30/30 + hitch/s ~0. Do not silent-fallback 3D to 10.
+- Handoffs: `HO-BW-OUT-20260828-01`, `HO-BW-OUT-20260828-02`, `HO-BW-PRF-20260828-06`.
+
+## Phase 17 follow-up accepted 2026-08-26 (BW)
+
+- Electron HEVC: WebCodecs often cannot decode HEVC (unbranded Chromium). **No Store pack required.** Fallback is ffmpeg HEVC→H.264 (`transcodeToH264`, `-copyts`, `repeat-headers=1`) on explicit `HEVC not supported` **or** live SRT with bitrate and `decoded=0` for ~2.5 s. Race ops shows `codec` / `demux` / `decoded`; silent colour bars were a HUD hole (`SRT lastError` stayed null). `streamid` is serialized without `%3A`.
+- Dummy `srt://host:…` template is treated as empty (catalog). Live SRT situation is on **Race ops** + Fleet (state / kbps / decoded / redacted URL). Colour bars = no decoded frame, not the drone.
+- **PRF** (2026-08-26) owns frame budgets / dual clock. **SRT** (2026-08-26) owns caller/catalog/decode. OUT owns NDI pumps, chroma, plate mode. Do not raise `STUDIO_TICK_FPS`.
+- Catalog streamid lock **amended 2026-08-26 pm:** `read:camN:pubN:<token>` (was `publish:`). Same host/tokens. Path `/read:…` (and legacy `/publish:…`) still promoted to query.
+- `done/DSP-OUT-20260826-09` — empty template → catalog cams 1–27 @ `49.13.20.49:9000`, query `streamid=read:camN:pubN:<token>`, `mode=caller`. Filled `{srtId}` template still wins. Unknown id → error. Leftover: Electron `desktop/srtHelpers.cjs` `redactSrtUrl` still passphrase-only.
+
+## Phase 17.2 accepted 2026-08-26 (BW)
+
+- `done/DSP-OUT-20260826-06` — in-repo TS demux + WebCodecs pipeline + 4-warm manager; PTS unwrap = TEL-01; HEVC probe-gated. Sink is `videoBackground.setTexture`. Live SRT picture-in-NDI **not smoked** (no relay token). HEVC HW **supported** on RX 6750 XT in Chromium. Counters on `getCounters(povId)`.
+- `done/DSP-OUT-20260826-07` — shared `{srtId}` template + per-row SRT id (≠ telem id); Vid independent of Live WS; Connect SRT cap 4. Token session-only; Save redacts `streamid` last segment; never log composed URL. L8: video → env off on AR; 3D NDI still env-on. Sync debug: Output rail, off by default, DOM-only, never NDI.
+
+## Phase 17.1 accepted 2026-08-26 (BW)
+
+- `done/DSP-OUT-20260826-03` — ffmpeg `-c copy` byte pipe; native SRT addon rejected (Windows/Electron rebuild). `broadcastStudio.srt` + `getSrtBridge()`; cap 4; backoff; process-tree kill. PTS: `-c copy` + `-mpegts_copyts 1` + muxdelay 0. PLT later: vendor gyan **full** `ffmpeg.exe` in extraResources; SPA no-ops without Electron.
+- `done/DSP-OUT-20260826-04` — in-WebGL pre-pass quad; `arBackground: alpha|video` (default alpha); Output toggle; 3D FBO suppressed via `isOpaque3dPassActive`. OUT-06 sink is `videoBackground.setTexture`. **Follow-up:** `preview` + `video` still mounts realistic env (opaque-safe); underlay is only clearly visible with transparent AR / env off — BW asking user before Wave 2.
+
+## Phase 15.1 accepted 2026-08-18 (BW)
+
+- `done/DSP-OUT-20260818-01-preview-60` — dual clock: **rAF preview when visible**, `studio:tick` ~30 for NDI + hidden. Do **not** set `STUDIO_TICK_FPS = 60`. AR pump is studio-tick air FBO (no `renderer.render` patch). Start **AR then 3D** for stagger. Caps unchanged: AR ~30, 3D ~10, 2D off@10. Ops HUD **preview** fps (1 s window). Terrain-tick skip not added. Electron 60 fps not smoked in worker; BW suite 600+23 / build green.
 
 ## Phase 13 follow-up — OUT-06 accepted 2026-08-12
 - `done/DSP-OUT-20260812-06-ndi-capture-perf` — AR **30** / 3D **10** / 2D **off@10**;

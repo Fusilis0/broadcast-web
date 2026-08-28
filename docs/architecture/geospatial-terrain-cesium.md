@@ -91,24 +91,27 @@ Cesium World Terrain has a flat sea surface at ~0 m with imagery draped over it 
 bathymetry). Our ocean plane ([`ocean-waves-and-sea-state.md`](./ocean-waves-and-sea-state.md))
 wants the same place. Naïvely both render and you get z-fighting across the entire Bosphorus.
 
-**Approach:** let the ocean win, unconditionally.
+**Approach (16.1):** the Gerstner ocean is the only water. Terrain renders **land only**
+while realistic ocean is mounted.
 
-- Draw the animated ocean at local MSL (scene `y ≈ 0`) with normal depth testing; the terrain's
-  baked sea surface sits fractionally below and is simply covered. Land is above MSL and stays
-  visible, so the shoreline emerges naturally from the terrain geometry — no clipping mask, no
-  coastline polygon to author per venue.
-- Tune with a small ocean lift (order 0.1–0.5 m) rather than `polygonOffset`, which is
-  driver-dependent and unreliable across the studio's GPU choices.
-- **Bonus we should take:** the terrain in the depth buffer gives shoreline distance for free. A
-  soft-depth fade in the ocean shader (compare ocean fragment depth against the depth texture)
-  produces shore foam and shallow-water tint with no extra authoring — this is the single cheapest
-  way to make the render read as "real coastline" rather than "plane intersecting a hill".
-- **14.2c (landed):** the ocean draws first (`renderOrder -20`), so the colour buffer does not
-  already hold terrain depth. One extra **half-res FBO** renders the tileset group only
-  (`src/scene/environment/shoreFoam.ts`), then the Gerstner fragment reconstructs world **Y**
-  and foams/tints where neighbouring samples are land. Gated: terrain on + realistic mounted +
-  opaque-clear. No `readPixels`, no tileset clip, no `polygonOffset`. Extra draw cost is one
-  terrain-only pass at ¼ pixels; skipped when terrain is off or AR is transparent/chroma.
+- **Water mask (shipped):** Cesium World Terrain quantized-mesh already serves the `watermask`
+  extension. `3d-tiles-renderer` `QuantizedMeshLoader` parses it (extension id 2) and stores an
+  inverted mask on `material.roughnessMap` (0 = water, 1 = land). We `discard` water fragments
+  via `onBeforeCompile` on tile meshes (`src/scene/terrain/terrainWaterMask.ts`). Ion auth /
+  `QuantizedMeshPlugin` registration order is unchanged (plugin still registered from
+  `assetTypeHandler` after rootURL is the terrain CDN).
+- **Height fallback:** tiles with no mask drop fragments whose world Y is below a uniform
+  threshold AMSL (default **+0.5 m**, plus the existing altitude nudge). Istanbul has no
+  meaningful land below sea level. Adjustable via `SceneHandle.setTerrainWaterDiscardYM` (next
+  to the nudge API; Ops row is a later sidebar slice).
+- **Gate:** hide is on only while the realistic ocean is mounted. `simple` env and
+  transparent/chroma leave terrain materials drawing as before.
+- Ocean lift is **~0.08 m** for z-fighting against land skirts only — covering Cesium's baked
+  sea by raising the clipmap is dead (terrain water is sometimes higher than the lift).
+- **14.2c shore foam:** discarded water fragments do not write the terrain depth prepass, so
+  reconstructed land Y is land, not sea. Gated: terrain on + realistic mounted + opaque-clear.
+  No `readPixels`, no `polygonOffset`. Extra draw cost is one terrain-only pass at ¼ pixels;
+  skipped when terrain is off or AR is transparent/chroma.
 
 ## 5. Integration with the existing render architecture
 

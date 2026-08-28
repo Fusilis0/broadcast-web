@@ -15,6 +15,20 @@ describe('upsertBoatNameEntry', () => {
     })
   })
 
+  it('uses explicit palette colour over category keywords', () => {
+    const next = upsertBoatNameEntry(new Map(), {
+      id: '40',
+      name: 'Test',
+      category: 'Ops',
+      color: '#e53935',
+    })
+    expect(next.get('40')).toEqual({
+      name: 'Test',
+      category: 'Ops',
+      color: '#e53935',
+    })
+  })
+
   it('removes an entry', () => {
     const cat = upsertBoatNameEntry(new Map(), {
       id: '40',

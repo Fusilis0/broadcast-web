@@ -1,3 +1,6 @@
+/**
+ * @vitest-environment happy-dom
+ */
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   DEFAULT_HFOV_DEG,
@@ -8,19 +11,29 @@ import {
 import {
   DEFAULT_CALIB_DEVICE_ID,
   OFFSET_SLIDER_SPECS,
+  SYNC_TRIM_MS_TITLE,
   clampOffsetField,
+  startOffsetSliders,
   writeOffsetField,
 } from './offsetSliders.ts'
 
 afterEach(() => {
   clearAllOffsets()
+  document.body.replaceChildren()
 })
 
 describe('offset slider specs', () => {
-  it('covers all five CalibrationOffsets fields', () => {
+  it('covers all six CalibrationOffsets fields', () => {
     const fields = OFFSET_SLIDER_SPECS.map((s) => s.field).sort()
     expect(fields).toEqual(
-      ['altMeters', 'fovHDeg', 'pitchDeg', 'rollDeg', 'yawDeg'].sort(),
+      [
+        'altMeters',
+        'fovHDeg',
+        'pitchDeg',
+        'rollDeg',
+        'syncTrimMs',
+        'yawDeg',
+      ].sort(),
     )
   })
 
@@ -29,6 +42,20 @@ describe('offset slider specs', () => {
     expect(fov).toBeDefined()
     expect(DEFAULT_HFOV_DEG).toBeGreaterThanOrEqual(fov!.min)
     expect(DEFAULT_HFOV_DEG).toBeLessThanOrEqual(fov!.max)
+  })
+
+  it('syncTrimMs is ±500 ms step 5 with a written sign convention', () => {
+    const sync = OFFSET_SLIDER_SPECS.find((s) => s.field === 'syncTrimMs')
+    expect(sync).toEqual({
+      field: 'syncTrimMs',
+      label: 'sync ms',
+      min: -500,
+      max: 500,
+      step: 5,
+      title: SYNC_TRIM_MS_TITLE,
+    })
+    expect(SYNC_TRIM_MS_TITLE).toMatch(/Positive = AR leads video/)
+    expect(SYNC_TRIM_MS_TITLE).toMatch(/Overlay lags the picture → raise/)
   })
 })
 
@@ -50,8 +77,15 @@ describe('clampOffsetField', () => {
     expect(clampOffsetField('altMeters', 80)).toBe(50)
   })
 
+  it('clamps syncTrimMs to ±500', () => {
+    expect(clampOffsetField('syncTrimMs', -800)).toBe(-500)
+    expect(clampOffsetField('syncTrimMs', 800)).toBe(500)
+    expect(clampOffsetField('syncTrimMs', -40)).toBe(-40)
+  })
+
   it('non-finite → field default', () => {
     expect(clampOffsetField('yawDeg', Number.NaN)).toBe(0)
+    expect(clampOffsetField('syncTrimMs', Number.NaN)).toBe(0)
     expect(clampOffsetField('fovHDeg', Number.POSITIVE_INFINITY)).toBe(
       DEFAULT_HFOV_DEG,
     )
@@ -70,6 +104,9 @@ describe('writeOffsetField', () => {
     writeOffsetField(id, 'fovHDeg', 90)
     expect(getOffsets(id).fovHDeg).toBe(90)
     expect(getOffsets(id).yawDeg).toBe(45)
+
+    writeOffsetField(id, 'syncTrimMs', 999)
+    expect(getOffsets(id).syncTrimMs).toBe(500)
   })
 
   it('keeps per-device stores isolated', () => {
@@ -93,6 +130,48 @@ describe('writeOffsetField', () => {
       rollDeg: 0,
       fovHDeg: DEFAULT_HFOV_DEG,
       altMeters: 0,
+      syncTrimMs: 0,
     })
+  })
+})
+
+describe('startOffsetSliders sync trim', () => {
+  it('writes syncTrimMs through setOffsets for the selected POV only', () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const handle = startOffsetSliders({
+      container,
+      povIds: ['1', '2'],
+      deviceId: '1',
+    })
+
+    const range = container.querySelector(
+      '#calib-syncTrimMs',
+    ) as HTMLInputElement
+    expect(range).toBeTruthy()
+    expect(range.title).toBe(SYNC_TRIM_MS_TITLE)
+    expect(range.min).toBe('-500')
+    expect(range.max).toBe('500')
+    expect(range.step).toBe('5')
+
+    range.value = '40'
+    range.dispatchEvent(new Event('input'))
+    expect(getOffsets('1').syncTrimMs).toBe(40)
+    expect(getOffsets('2').syncTrimMs).toBe(0)
+
+    handle.setDeviceId('2')
+    const rangeAfter = container.querySelector(
+      '#calib-syncTrimMs',
+    ) as HTMLInputElement
+    expect(rangeAfter.valueAsNumber).toBe(0)
+    writeOffsetField('2', 'syncTrimMs', -15)
+    handle.setDeviceId('2')
+    expect(
+      (container.querySelector('#calib-syncTrimMs') as HTMLInputElement)
+        .valueAsNumber,
+    ).toBe(-15)
+    expect(getOffsets('1').syncTrimMs).toBe(40)
+
+    handle.stop()
   })
 })

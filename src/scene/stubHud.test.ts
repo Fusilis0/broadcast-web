@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { formatOpsViewStatus } from './freeCam.ts'
-import { formatConnectionStatus } from './stubHud.ts'
+import { clampTerrainWaterDiscardYM, formatConnectionStatus, formatHitchLabel } from './stubHud.ts'
+import { DEFAULT_TERRAIN_WATER_DISCARD_Y } from './terrain/index.ts'
 
 describe('formatConnectionStatus', () => {
   it('labels mock / replay as non-live', () => {
@@ -87,5 +88,24 @@ describe('formatOpsViewStatus', () => {
   it('labels follow vs free preview', () => {
     expect(formatOpsViewStatus('follow')).toBe('view=follow')
     expect(formatOpsViewStatus('free')).toBe('view=free')
+  })
+})
+
+describe('clampTerrainWaterDiscardYM', () => {
+  it('clamps 0–5 m and defaults non-finite to 0.5', () => {
+    expect(DEFAULT_TERRAIN_WATER_DISCARD_Y).toBe(0.5)
+    expect(clampTerrainWaterDiscardYM(0.5)).toBe(0.5)
+    expect(clampTerrainWaterDiscardYM(0)).toBe(0)
+    expect(clampTerrainWaterDiscardYM(5)).toBe(5)
+    expect(clampTerrainWaterDiscardYM(-1)).toBe(0)
+    expect(clampTerrainWaterDiscardYM(9)).toBe(5)
+    expect(clampTerrainWaterDiscardYM(Number.NaN)).toBe(0.5)
+  })
+})
+
+describe('formatHitchLabel', () => {
+  it('shows 0 when no >50 ms frames, else N / 1s (>50ms)', () => {
+    expect(formatHitchLabel(0)).toBe('0')
+    expect(formatHitchLabel(2)).toBe('2 / 1s (>50ms)')
   })
 })

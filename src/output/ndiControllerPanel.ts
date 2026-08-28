@@ -15,6 +15,7 @@ import {
   type StudioNdiStatusAll,
 } from './studioBridge.ts'
 import type { NdiFramePumpHandle } from './ndiFramePump.ts'
+import { formatNdiSendFps } from './perfCounters.ts'
 import type { StreamMapNdiPumpHandle } from './streamMapNdiPump.ts'
 
 /** Minimal pump surface for status rows (AR / 3D / 2D). */
@@ -22,6 +23,7 @@ export type NdiStatusPumpHandle = {
   getSourceName: () => string | null
   getSdkVersion: () => string | null
   getError: () => string | null
+  getSendFps?: () => number
 }
 
 /**
@@ -135,7 +137,7 @@ export type NdiControllerPanelOptions = {
   getStreamMapPump?: () => StreamMapNdiPumpHandle | null
   /**
    * Toggle callback for channel `'2d'` only (AR/3D unchanged).
-   * Default **off** in studio — ops enables when needed (perf).
+   * Default **on** in studio — uncheck to stop only `'2d'`.
    */
   onStreamMapNdiEnabledChange?: (enabled: boolean) => void
   /**
@@ -201,7 +203,7 @@ export function startNdiControllerPanel(
   const lockNote = document.createElement('p')
   lockNote.className = 'ndi-ctrl__hint'
   lockNote.textContent =
-    'Air lock: AR + 3D NDI always frame the active POV (not free cam). Both start/stop with the Electron studio session. Capture rates: AR ~30 fps, 3D ~10 fps (staggered so they never share a tick). 2D stream-map NDI is a separate sender (toggle below); default off — enable when needed (~10 fps). Per-channel delay (0–30000 ms) holds frames in RAM — default 0 allocates nothing; >3000 ms warns high memory. Shrinking delay drops buffered frames.'
+    'Air lock: AR + 3D NDI always frame the active POV (not free cam). Both start/stop with the Electron studio session. Capture rates: AR and 3D ~30 fps (60 Hz studio tick, one FBO render per tick). 2D stream-map NDI is a separate sender (toggle below, default on @ ~30 fps) — uncheck to stop only that sender. Per-channel delay (0–30000 ms) holds frames in RAM — default 0 allocates nothing; >3000 ms warns high memory. Shrinking delay drops buffered frames.'
   root.appendChild(lockNote)
 
   const mapBlock = document.createElement('div')
@@ -223,10 +225,10 @@ export function startNdiControllerPanel(
   const bridgeAtMount = getStudioBridge() != null
   const mapToggleLive = STREAM_MAP_NDI_BRIDGE_SUPPORTED && bridgeAtMount
   mapToggle.disabled = !mapToggleLive
-  // Perf default: 2D NDI off until ops enables (DSP-OUT-20260812-06).
-  mapToggle.checked = false
+  // DSP-OUT-20260828-04/07: 2D NDI stays default on; grab is deferred/async.
+  mapToggle.checked = true
   mapHint.textContent = mapToggleLive
-    ? 'Sends race map on NDI `broadcast-web-2d` (1920×1080 letterbox @ ~10 fps). Default off — enable when needed. Independent of PiP visibility; does not affect AR/3D.'
+    ? 'Sends race map on NDI `broadcast-web-2d` (1920×1080 letterbox @ ~30 fps). Default on — uncheck to stop only this sender. Independent of PiP visibility; does not affect AR/3D.'
     : STREAM_MAP_NDI_BRIDGE_SUPPORTED
       ? '2D stream-map NDI requires the Electron studio bridge.'
       : 'Bridge ready (multi-sender); 2D pump unavailable — toggle stays disabled.'
@@ -331,6 +333,23 @@ export function startNdiControllerPanel(
         }
       }
 
+      let sendAvailable = false
+      let sendFps: number | null = null
+      if (
+        indicator !== 'unavailable' &&
+        indicator !== 'idle' &&
+        indicator !== 'stopped'
+      ) {
+        if (id === '2d') {
+          sendAvailable = streamMapPump?.isEnabled() === true
+          sendFps = sendAvailable ? streamMapPump!.getSendFps() : null
+        } else {
+          sendAvailable = channelPump != null
+          sendFps = channelPump?.getSendFps?.() ?? null
+        }
+      }
+      block.send.value.textContent = formatNdiSendFps(sendFps, sendAvailable)
+
       const liveDelay =
         options.getDelayMs?.(id) ??
         (id === DEFAULT_NDI_CHANNEL
@@ -374,6 +393,7 @@ type ChannelBlock = {
   statusText: HTMLElement
   source: { el: HTMLElement; value: HTMLElement }
   sdk: { el: HTMLElement; value: HTMLElement }
+  send: { el: HTMLElement; value: HTMLElement }
   error: { el: HTMLElement; value: HTMLElement }
   delayInput: HTMLInputElement
   delayWarn: HTMLElement
@@ -406,6 +426,9 @@ function channelBlock(
   el.appendChild(source.el)
   const sdk = row('SDK')
   el.appendChild(sdk.el)
+  const send = row('Send')
+  send.value.setAttribute('data-ops', `ndi-send-fps-${id}`)
+  el.appendChild(send.el)
   const error = row('Error')
   el.appendChild(error.el)
 
@@ -459,6 +482,7 @@ function channelBlock(
     statusText,
     source,
     sdk,
+    send,
     error,
     delayInput,
     delayWarn,

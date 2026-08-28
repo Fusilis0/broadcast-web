@@ -31,10 +31,13 @@ export function layoutFeatures(
     color: f.color,
     label: f.label,
     textureUrl: f.textureUrl,
+    panelColor: f.panelColor,
+    frameColor: f.frameColor,
     spacingM: f.spacingM,
     telemetryId: f.telemetryId,
     visible3d: f.visible3d,
     visible2d: f.visible2d,
+    rounding: f.rounding,
     rawPoints: f.points.map((p) => ({ ...p })),
   }))
 }

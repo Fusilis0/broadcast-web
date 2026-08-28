@@ -59,8 +59,9 @@ Manifest (picker): `public/races/index.json` → `{ "ids": ["demo-istanbul", ...
 | `revision` | no* | Monotonic int (* required for API optimistic concurrency after create) |
 | `origin` | yes | `{ lat, lon, altMsl }` finite numbers |
 | `takeoffAltitudeMSL` | no | GEO takeoff bridge |
-| `fleet.boatIds` | yes | Arch band `21–52` (normalized like config) |
-| `fleet.boatNamesUrl` | no | Catalogue JSON URL |
+| `fleet.boatIds` | yes | Arch band `21–52` (normalized like config). Must match `fleet.boats[].id` order when `boats` is written |
+| `fleet.boats` | no | Embedded Live-fleet rows (SCN 15.4). See below. Old packs omit this |
+| `fleet.boatNamesUrl` | no | Catalogue JSON URL — fallback names for `boatIds` missing from `boats[]` |
 | `fleet.boatVisibility` | no | Soft map id → `solid`\|`ghost`\|`hidden` (SCN 8.6; omit → solid; junk dropped) |
 | `fleet.boatMapVisible` | no | Soft map id → boolean (SCN 11.7; `false` hides 2D icon; omit → show) |
 | `fleet.povMapVisible` | no | Soft map id → boolean (SCN 11.7; `false` hides 2D icon; omit → show) |
@@ -69,7 +70,7 @@ Manifest (picker): `public/races/index.json` → `{ "ids": ["demo-istanbul", ...
 | `featuresUrl` | no* | URL to `{ features: WorldFeature[] }` |
 | `courseUrl` / `sponsorsUrl` / `flagsUrl` | no* | Compat fixture pointers when features omitted |
 | `replayUrl` | no | TEL replay fixture |
-| `output` | no | Defaults: `outputMode`, `whepUrl`, `chromaKey`, timecode fields |
+| `output` | no | Defaults: `outputMode`, `whepUrl`, `chromaKey`, timecode fields. Soft SRT: `srtUrlTemplate` (`{srtId}` placeholders), `srtByPovId` (telemetry povId → SRT camera id). **Never commit a filled relay token** — session holds it; Save redacts the last `streamid` segment |
 | `calibration` | no | Soft CAL map — see below. Omit when empty; old packs without it still parse |
 
 \* At least one of: non-empty `features`, `featuresUrl`, or course/sponsors/flags URL pointers (demo pack uses fixture URLs for visual parity).
@@ -86,7 +87,8 @@ Per-POV runtime offsets (same knobs as the calib panel / `offsetsStore`). Soft f
       "pitchDeg": 0,
       "rollDeg": 0,
       "fovHDeg": 66.8832,
-      "altMeters": -1.2
+      "altMeters": -1.2,
+      "syncTrimMs": 0
     }
   }
 }
@@ -95,7 +97,7 @@ Per-POV runtime offsets (same knobs as the calib panel / `offsetsStore`). Soft f
 | Nested field | Notes |
 | --- | --- |
 | `byPovId` | Map POV/device id → offsets. Keys should align with `povIds` |
-| offsets | Prefer store names: `yawDeg`, `pitchDeg`, `rollDeg`, `fovHDeg`, `altMeters`. Soft aliases also accepted on parse: `yaw`, `pitch`, `roll`, `fov`, `alt`. Unknown keys ignored |
+| offsets | Prefer store names: `yawDeg`, `pitchDeg`, `rollDeg`, `fovHDeg`, `altMeters`, `syncTrimMs`. Soft aliases also accepted on parse: `yaw`, `pitch`, `roll`, `fov`, `alt`, `syncTrim`, `trimMs`. Unknown keys ignored. Omitted `syncTrimMs` → `0` (old packs). **Sign:** `t_ntp = toNtp(pts) + syncTrimMs`; positive = AR leads video (sample later NTP) |
 
 Load (`applyRaceProjectToConfig` / `?race=` / HUD Load) hydrates `offsetsStore` before pose apply. Save / Save as embeds a snapshot for current `povIds`.
 
@@ -126,8 +128,11 @@ Additive optional fields (old packs without them still parse):
 | `telemetryId` | `buoy` | Optional TEL buoy id for live bind; omit / `null` → static placed point |
 | `visible3d` | all | Soft 3D draw flag (SCN 11.7). Omit / `true` → show; `false` → omit from 3D remount |
 | `visible2d` | all | Soft 2D map draw flag (SCN 11.7). Omit / `true` → show; `false` → hide map chrome |
+| `rounding` | `mark`, `buoy`, `gateLeft`, `gateRight` | `'cw'` \| `'ccw'` \| `'none'`. Omit = **CW** (universal default). Explicit `'none'` hides. Unknown strings parse as `none`. Per-feature spin sense for the 3D two-arrow ring (not wind-coupled). From above the water: `cw` = clock |
+| `panelColor` | `sponsor`, `billboardChain` | Board fill 0xRRGGBB or `#rrggbb`. Omit → default white `#f4f4f2`. Additive — old packs unchanged |
+| `frameColor` | `sponsor`, `billboardChain` | Frame stroke 0xRRGGBB or `#rrggbb`. Omit → default dark slate `#2c3338`. Additive |
 
-`buoy` is a free-floating mark (distinct from course `mark` waypoints). `billboardChain` is a polyline of ≥2 GPS points with repeated sponsor-style panels at `spacingM`.
+`buoy` is a free-floating mark (distinct from course `mark` waypoints). `billboardChain` is a polyline of ≥2 GPS points with repeated sponsor-style panels at `spacingM`. Sponsor / chain panels are always **composed boards** (opaque background + frame + contain-fit logo or label); `textureUrl` is drawn onto the board, not used as the whole material.
 
 Additional soft fleet map-visibility maps (independent of `boatVisibility` solid/ghost/hidden):
 
@@ -135,6 +140,45 @@ Additional soft fleet map-visibility maps (independent of `boatVisibility` solid
 | --- | --- |
 | `fleet.boatMapVisible` | id → boolean; only `false` entries need persist; omit → show map icon |
 | `fleet.povMapVisible` | id → boolean; only `false` entries need persist; omit → show map icon |
+
+### `fleet.boats` (SCN 15.4 — additive)
+
+Embedded Live-fleet rows so Save/Load keeps custom ids and names (not just `boatIds` + a pointer at the demo names JSON).
+
+```json
+"fleet": {
+  "boatIds": ["25", "26"],
+  "boats": [
+    {
+      "id": "25",
+      "name": "Custom One",
+      "category": "pembe",
+      "color": "#e53935",
+      "visibility": "ghost",
+      "plannedLat": 41.01,
+      "plannedLon": 29.02
+    },
+    {
+      "id": "26",
+      "name": "Custom Two",
+      "category": "mavi",
+      "mapVisible": false
+    }
+  ],
+  "boatNamesUrl": "/fixtures/boats/demo-istanbul-names.json"
+}
+```
+
+| Nested field | Notes |
+| --- | --- |
+| `id` | Required per row. On save, `boatIds` is the same order |
+| `name` / `category` | Display name + colour keyword fallback (same as Fleet panel) |
+| `color` | Optional `#rrggbb` palette swatch (SCN 16.3). Omit → parse `category` keywords as today |
+| `visibility` | Optional `solid` \| `ghost` \| `hidden` (omit → solid) |
+| `mapVisible` | Optional; only `false` needs persist |
+| `plannedLat` / `plannedLon` | Optional pair; map/inspector GPS until live telem |
+
+**Load:** rebuild the Fleet panel from `fleet.boats` when present. Names URL / catalogue fills `boatIds` missing from `boats[]`. Do **not** dump extra catalogue-only demo ids (Bora Aksu 21–24) into the list. Old packs without `boats` still parse: `boatIds` + names URL as today.
 
 ---
 

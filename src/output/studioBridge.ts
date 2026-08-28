@@ -85,6 +85,8 @@ export type BroadcastStudioBridge = {
   config?: StudioConfigBridge
   /**
    * Main-process ~30 fps clock (not throttled when minimized).
+   * NDI pumps subscribe here. Ops WebGL preview uses rAF when visible
+   * (`startDualFrameClock`); this tick is the hidden/minimize fallback.
    * Returns an unsubscribe function.
    */
   onStudioTick: (cb: () => void) => () => void

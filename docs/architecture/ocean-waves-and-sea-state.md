@@ -10,6 +10,18 @@ realistic ocean are both mounted; Gerstner fragment uses reconstructed land Y
 (neighbourhood taps). No tileset clip, no extra `readPixels`. Extra cost: one
 terrain draw at ½ resolution per ocean-visible pass (skipped when terrain off
 or the env is unmounted / chroma).
+**15.2 landed (2026-08-18)** — `DSP-SCN-20260818-01`: clipmap rings overlap ≥ one
+finer cell (T-junction hairlines gone); glitter cut to a single Blinn lobe
+(`intensity 0.16`, `sharpness 78`); default inner **32** segs / **7** rings
+(rim 6144 m past fogFar 5200 — inner 48→32 is the cost cut; 7→5 as default
+would show the rim at 1536 m). `seaQuality` **high** \| **low** (Ops **sea** or
+`?sea=low`): low is 5 rings + quarter-res foam. Follow stays `uClipmapCenter`.
+**16.1 landed (2026-08-18)** — `DSP-SCN-20260818-04`: foam/streak/glitter use a
+256² tileable mipmapped noise texture + `fwidth()` edges + distance/graze fade
+(high-frequency shading gone before the outer rings). Sample **world XZ** so
+clipmap recenter does not shift patterns. Ocean `liftY` is **0.08 m** (z-fight
+only). Cesium water is discarded in the tileset shader while realistic ocean is
+mounted — see [`geospatial-terrain-cesium.md`](./geospatial-terrain-cesium.md) §4.
 **Owner:** SCN.
 **Replaces:** the `three/examples/jsm/objects/Water` surface shipped in Phase 13.2
 ([`realistic-3d-environment.md`](./realistic-3d-environment.md)).
@@ -63,19 +75,25 @@ it.**
 An LOD'd surface, not one big plane: a **clipmap / concentric-ring grid centred on the camera**,
 so vertex density is high near the boats and sparse at the horizon. This is what makes displacement
 affordable and what stops the horizon edge from being visible. Reuse the existing scene `Fog` to
-blend the far ring into the sky.
+blend the far ring into the sky. **15.2:** coarser rings overlap the finer level by ≥ one finer
+cell so T-junctions after Gerstner displacement sit inside the denser patch (no white hairlines).
+Follow is a quantized `uClipmapCenter` uniform, not `mesh.position.xz`.
 
 ### Shading
 
 The wave *shape* is only half the look. Budget real time for:
 
 - Fresnel-weighted mix of sky reflection and depth-tinted refraction.
-- Sun glitter (a sharp specular lobe against the `Sky` sun direction — must stay consistent with
-  the existing `sun` directional light).
+- Sun glitter (a **mild** Blinn specular against the `Sky` sun direction — must stay consistent with
+  the existing `sun` directional light; 15.2 cut the dual high-powered glint that bleached a
+  quadrant of the frame).
 - **Whitecaps from the Gerstner Jacobian** — foam where the surface compresses. Cheap, and it is
-  the single biggest cue that sells "windy" versus "calm".
+  the single biggest cue that sells "windy" versus "calm". **16.1:** Jacobian/crest/streak/glitter
+  masks are band-limited (mipmapped 256² noise + `fwidth()` + fade with distance and grazing
+  angle) so they do not boil under camera motion.
 - **Shore foam and shallow tint from the terrain depth buffer** (see
-  `geospatial-terrain-cesium.md` §4). Free once terrain exists.
+  `geospatial-terrain-cesium.md` §4). Free once terrain exists. Discarded Cesium water no longer
+  writes that depth, so foam reads land edges instead of baked sea.
 - Boat wakes — deferred to 14.2c; a wake needs a separate dynamic texture written per boat and is
   its own slice.
 

@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { poseBus, type PoseEvent } from '../pose/index.ts'
+import { poseBus, type EnuPosition, type PoseEvent } from '../pose/index.ts'
 import {
   createBoatEntity,
   type BoatEntityHandle,
@@ -45,6 +45,12 @@ import {
 } from './positionMarkers/index.ts'
 import { createDroneCamera, TEMP_HFOV_DEG } from './droneCamera.ts'
 import {
+  canApplyStaticHull,
+  resolveStaticHullPosition,
+  staticBoatPose,
+  type StaticHullSeed,
+} from './staticFleetHulls.ts'
+import {
   createFreeCam,
   type FreeCamHandle,
   type OpsViewMode,
@@ -78,22 +84,27 @@ import { mountBillboardChains, type BillboardChainHandle } from './billboardChai
 import { mountWorldBuoys, type WorldBuoysHandle } from './worldBuoys.ts'
 import {
   DEFAULT_ENVIRONMENT_MODE,
+  DEFAULT_SEA_QUALITY,
   createRealisticEnvironment,
   normalizeEnvironmentMode,
+  normalizeSeaQuality,
   shouldShowRealisticEnvironment,
   shouldEnableShoreFoam,
   type EnvironmentMode,
   type RealisticEnvironmentHandle,
+  type SeaQuality,
 } from './environment/index.ts'
 import { createCalibrationOverlay } from './calibrationOverlay.ts'
 import {
   CESIUM_ION_BING_AERIAL_ASSET_ID,
   CESIUM_ION_WORLD_TERRAIN_ASSET_ID,
   DEFAULT_TERRAIN_ENABLED,
+  DEFAULT_TERRAIN_WATER_DISCARD_Y,
   TERRAIN_STATUS_NO_TOKEN,
   TERRAIN_STATUS_OFF,
   TERRAIN_STATUS_ON,
   createTerrain,
+  shouldHideTerrainWater,
   type TerrainHandle,
 } from './terrain/index.ts'
 
@@ -131,16 +142,24 @@ export type SceneOptions = {
   outputSize?: { width: number; height: number }
   /**
    * Keep rendering when the document is hidden / window minimized (Electron
-   * studio). Fallback setInterval only — prefer `frameClock` from main process.
+   * studio). Fallback setInterval only — prefer `frameClock` (OUT dual clock:
+   * studio tick when hidden).
    */
   keepRenderingWhenHidden?: boolean
   /**
-   * External frame clock (Electron main `studio:tick`). When set, this drives
-   * rendering instead of rAF so minimize does not throttle NDI.
+   * External preview clock. Studio wires `startDualFrameClock` so this is
+   * rAF when the window is visible and `studio:tick` when hidden/minimized.
+   * When set, this drives presenting instead of the internal rAF loop.
    */
   frameClock?: {
     subscribe: (onTick: () => void) => () => void
   }
+  /**
+   * Fired after `activePovId` actually changes (switch or allow-list clamp).
+   * OUT swaps the warm video texture; TEL resamples at the new LUT + PTS.
+   * Not called when the requested id is already active.
+   */
+  onActivePovChange?: (id: string) => void
   /**
    * Cesium ion token (Phase 14.1). Empty → terrain stays off, no throw.
    * Git-shared via `public/config.json`; Ops can paste and Apply at runtime.
@@ -162,7 +181,10 @@ export type SceneHandle = {
   /** Active POV perspective camera (same as `getActivePovCamera()`). */
   camera: THREE.PerspectiveCamera
   renderer: THREE.WebGLRenderer
-  /** Live fleet registry (boats with at least one applied pose). */
+  /**
+   * Live fleet registry (boats with a live or static/planned pose).
+   * Allow-listed ids spawn without telemetry via `syncFleetHulls`.
+   */
   boats: ReadonlyMap<string, BoatEntityHandle>
   /** Configured POV ids (ordered). Live — updates after `setFleetAllowLists`. */
   readonly povIds: readonly string[]
@@ -216,8 +238,19 @@ export type SceneHandle = {
   /**
    * Replace boat + POV allow-lists (soft race switch). Drops orphan boats,
    * prunes POV pose cache, clamps active POV. Returns the active POV id.
+   * Does not spawn hulls — call `syncFleetHulls` after to seed static poses.
    */
   setFleetAllowLists: (lists: FleetAllowLists) => string
+  /**
+   * Ensure an allow-listed boat mesh exists and apply a static/planned ENU pose
+   * unless a live boat packet has already been applied for this id.
+   */
+  upsertStaticBoat: (id: string, position?: EnuPosition) => void
+  /**
+   * Spawn/move hulls for every seed whose id is allow-listed and has never
+   * received live telem. Missing `position` uses an origin grid by index.
+   */
+  syncFleetHulls: (seeds: readonly StaticHullSeed[]) => void
   /**
    * Load static course after GEO origin + EGM96 are ready.
    * Returns map points (marks + gate ends) for the 2D overlay.
@@ -290,6 +323,12 @@ export type SceneHandle = {
   setEnvironmentMode: (mode: EnvironmentMode) => void
   getEnvironmentMode: () => EnvironmentMode
   /**
+   * Gerstner clipmap / shore-foam LOD (`high` | `low`). Remounts the realistic
+   * env when it is already created. Does not touch the preview/NDI frame clock.
+   */
+  setSeaQuality: (quality: SeaQuality) => void
+  getSeaQuality: () => SeaQuality
+  /**
    * Whether an opaque clear context allows realistic env meshes.
    * Pass `true` for `preview` (and a future dedicated 3D opaque channel);
    * `false` for `transparent` / `chroma` so AR alpha stays clean.
@@ -305,6 +344,12 @@ export type SceneHandle = {
   /** Extra metres of +Y after HAE reorientation (operator venue nudge). */
   setTerrainAltitudeNudgeM: (nudgeM: number) => void
   getTerrainAltitudeNudgeM: () => number
+  /**
+   * Height-fallback AMSL (m) for hiding Cesium water when a tile has no
+   * quantized-mesh water mask. Default +0.5 m. Water-mask tiles ignore this.
+   */
+  setTerrainWaterDiscardYM: (yM: number) => void
+  getTerrainWaterDiscardYM: () => number
   /** Freeze tile LOD updates once the shot is framed. */
   setTerrainTilesLocked: (locked: boolean) => void
   getTerrainTilesLocked: () => boolean
@@ -378,6 +423,8 @@ export function startScene(options: SceneOptions): SceneHandle {
   let opsViewMode: OpsViewMode = 'follow'
   let stopped = false
   const boats = new Map<string, BoatEntityHandle>()
+  /** Wall-clock ms of last live boat poseBus packet (hold last live after stale). */
+  const lastLiveBoatAt = new Map<string, number>()
   /** Per-id draw mode; defaults to solid when missing. */
   const boatVisibility = new Map<string, BoatVisibilityMode>()
   let boatNames: BoatNamesCatalogue = new Map()
@@ -395,6 +442,7 @@ export function startScene(options: SceneOptions): SceneHandle {
   const clock = new THREE.Clock()
   /** User-facing env mode; default simple so boot is unchanged. */
   let environmentMode: EnvironmentMode = DEFAULT_ENVIRONMENT_MODE
+  let seaQuality: SeaQuality = DEFAULT_SEA_QUALITY
   /**
    * Opaque-clear gate — main sets from outputMode (`preview` → true).
    * Start false until main confirms so a transparent boot never flashes sea.
@@ -406,6 +454,7 @@ export function startScene(options: SceneOptions): SceneHandle {
   let terrain: TerrainHandle | null = null
   let terrainEnabled = DEFAULT_TERRAIN_ENABLED
   let terrainNudgeM = 0
+  let terrainWaterDiscardYM = DEFAULT_TERRAIN_WATER_DISCARD_Y
   let terrainTilesLocked = false
   let terrainToken = (options.cesiumIonToken ?? '').trim()
   const terrainAssetId =
@@ -436,7 +485,7 @@ export function startScene(options: SceneOptions): SceneHandle {
     )
     if (want) {
       if (!realisticEnv) {
-        realisticEnv = createRealisticEnvironment()
+        realisticEnv = createRealisticEnvironment({ seaQuality })
       }
       if (!realisticEnvMounted) {
         scene.add(realisticEnv.root)
@@ -445,6 +494,7 @@ export function startScene(options: SceneOptions): SceneHandle {
       }
       applyWaterCueForEnvironment()
       syncShoreFoam()
+      syncTerrainWaterHide()
       return
     }
     if (realisticEnvMounted && realisticEnv) {
@@ -454,6 +504,7 @@ export function startScene(options: SceneOptions): SceneHandle {
     }
     applyWaterCueForEnvironment()
     syncShoreFoam()
+    syncTerrainWaterHide()
   }
 
   function previewCamera(): THREE.PerspectiveCamera {
@@ -523,7 +574,12 @@ export function startScene(options: SceneOptions): SceneHandle {
   }
 
   // alpha:true so OUT WHEP underlay can show through transparent preview clear.
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
+  // powerPreference: cost-only hint so Chromium prefers the discrete GPU (PRF-01).
+  const renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    alpha: true,
+    powerPreference: 'high-performance',
+  })
   renderer.setClearColor(clearColor, 1)
   const lockedOut = options.outputSize
   const keepWhenHidden = options.keepRenderingWhenHidden === true
@@ -554,9 +610,11 @@ export function startScene(options: SceneOptions): SceneHandle {
     })
     scene.add(terrain.root)
     terrain.setAltitudeNudgeM(terrainNudgeM)
+    terrain.setWaterDiscardYM(terrainWaterDiscardYM)
     terrain.setTilesLocked(terrainTilesLocked)
     terrain.setEnabled(terrainEnabled)
     terrain.setOpaqueClearSafe(environmentOpaqueClearSafe)
+    syncTerrainWaterHide()
     return terrain
   }
 
@@ -568,6 +626,7 @@ export function startScene(options: SceneOptions): SceneHandle {
     terrain?.setEnabled(terrainEnabled)
     terrain?.setOpaqueClearSafe(environmentOpaqueClearSafe)
     syncShoreFoam()
+    syncTerrainWaterHide()
   }
 
   function syncShoreFoam(): void {
@@ -578,6 +637,12 @@ export function startScene(options: SceneOptions): SceneHandle {
       opaqueClearSafe: environmentOpaqueClearSafe,
     })
     realisticEnv.setShoreContact(on && terrain ? terrain.root : null)
+  }
+
+  function syncTerrainWaterHide(): void {
+    terrain?.setHideWater(
+      shouldHideTerrainWater({ realisticOceanMounted: realisticEnvMounted }),
+    )
   }
 
   function emitTerrainCredits(): void {
@@ -651,7 +716,34 @@ export function startScene(options: SceneOptions): SceneHandle {
     if (pose.kind === 'boat') {
       if (!isAllowedBoatId(pose.id, allow)) return
       ensureBoat(pose.id).applyPose(pose)
+      lastLiveBoatAt.set(pose.id, Date.now())
     }
+  }
+
+  function upsertStaticBoat(id: string, position?: EnuPosition): void {
+    if (stopped) return
+    const trimmed = id.trim()
+    if (trimmed === '' || !isAllowedBoatId(trimmed, allow)) return
+    if (!canApplyStaticHull(lastLiveBoatAt.get(trimmed))) {
+      ensureBoat(trimmed)
+      return
+    }
+    const pos = resolveStaticHullPosition({ id: trimmed, position }, 0)
+    ensureBoat(trimmed).applyPose(staticBoatPose(trimmed, pos))
+  }
+
+  function syncFleetHulls(seeds: readonly StaticHullSeed[]): void {
+    if (stopped) return
+    seeds.forEach((seed, index) => {
+      const trimmed = seed.id.trim()
+      if (trimmed === '' || !isAllowedBoatId(trimmed, allow)) return
+      if (!canApplyStaticHull(lastLiveBoatAt.get(trimmed))) {
+        ensureBoat(trimmed)
+        return
+      }
+      const pos = resolveStaticHullPosition(seed, index)
+      ensureBoat(trimmed).applyPose(staticBoatPose(trimmed, pos))
+    })
   }
 
   function setActivePovId(id: string): boolean {
@@ -660,6 +752,7 @@ export function startScene(options: SceneOptions): SceneHandle {
     activePovId = id
     const cached = lastPoseByPovId.get(id)
     if (cached) drone.applyPose(cached)
+    options.onActivePovChange?.(id)
     return true
   }
 
@@ -673,6 +766,7 @@ export function startScene(options: SceneOptions): SceneHandle {
       scene.remove(boat.root)
       boat.dispose()
       boats.delete(id)
+      lastLiveBoatAt.delete(id)
     }
 
     povIds = resolvePovIdList(lists.povIds)
@@ -686,6 +780,7 @@ export function startScene(options: SceneOptions): SceneHandle {
       activePovId = nextActive
       const cached = lastPoseByPovId.get(activePovId)
       if (cached) drone.applyPose(cached)
+      options.onActivePovChange?.(activePovId)
     }
     return activePovId
   }
@@ -731,7 +826,7 @@ export function startScene(options: SceneOptions): SceneHandle {
   window.addEventListener('resize', resize)
   resize()
   if (frameClock) {
-    // Main-process clock — not throttled when the Electron window is minimized.
+    // OUT dual clock: rAF when visible; studio tick when hidden (NDI-safe).
     unsubFrameClock = frameClock.subscribe(() => {
       if (stopped) return
       tick()
@@ -788,6 +883,8 @@ export function startScene(options: SceneOptions): SceneHandle {
     },
     setActivePovId,
     setFleetAllowLists,
+    upsertStaticBoat,
+    syncFleetHulls,
     orientOpsBillboards,
     async loadCourseFromUrl(url?: string): Promise<CourseHandle | null> {
       if (stopped) return null
@@ -988,6 +1085,22 @@ export function startScene(options: SceneOptions): SceneHandle {
       syncRealisticEnvironment()
     },
     getEnvironmentMode: () => environmentMode,
+    setSeaQuality(quality): void {
+      if (stopped) return
+      const next = normalizeSeaQuality(quality)
+      if (next === seaQuality) return
+      seaQuality = next
+      if (!realisticEnv) return
+      if (realisticEnvMounted) {
+        scene.remove(realisticEnv.root)
+        realisticEnvMounted = false
+      }
+      scene.fog = null
+      realisticEnv.dispose()
+      realisticEnv = null
+      syncRealisticEnvironment()
+    },
+    getSeaQuality: () => seaQuality,
     setEnvironmentOpaqueClearSafe(safe): void {
       if (stopped) return
       environmentOpaqueClearSafe = safe === true
@@ -1009,6 +1122,15 @@ export function startScene(options: SceneOptions): SceneHandle {
     },
     getTerrainAltitudeNudgeM: () =>
       terrain?.getAltitudeNudgeM() ?? terrainNudgeM,
+    setTerrainWaterDiscardYM(yM): void {
+      if (stopped) return
+      terrainWaterDiscardYM = Number.isFinite(yM)
+        ? yM
+        : DEFAULT_TERRAIN_WATER_DISCARD_Y
+      terrain?.setWaterDiscardYM(terrainWaterDiscardYM)
+    },
+    getTerrainWaterDiscardYM: () =>
+      terrain?.getWaterDiscardYM() ?? terrainWaterDiscardYM,
     setTerrainTilesLocked(locked): void {
       if (stopped) return
       terrainTilesLocked = locked === true
@@ -1071,6 +1193,7 @@ export function startScene(options: SceneOptions): SceneHandle {
       realisticEnv?.dispose()
       realisticEnv = null
       environmentMode = DEFAULT_ENVIRONMENT_MODE
+      seaQuality = DEFAULT_SEA_QUALITY
       environmentOpaqueClearSafe = false
       if (terrain) {
         scene.remove(terrain.root)
@@ -1098,6 +1221,7 @@ export function startScene(options: SceneOptions): SceneHandle {
       boatNames = new Map()
       boatVisibility.clear()
       lastPoseByPovId.clear()
+      lastLiveBoatAt.clear()
       for (const boat of boats.values()) {
         scene.remove(boat.root)
         boat.dispose()
@@ -1110,4 +1234,4 @@ export function startScene(options: SceneOptions): SceneHandle {
 }
 
 export type { OpsViewMode } from './freeCam.ts'
-export type { EnvironmentMode } from './environment/index.ts'
+export type { EnvironmentMode, SeaQuality } from './environment/index.ts'

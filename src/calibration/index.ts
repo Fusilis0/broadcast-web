@@ -14,6 +14,7 @@ export {
 export {
   DEFAULT_CALIB_DEVICE_ID,
   OFFSET_SLIDER_SPECS,
+  SYNC_TRIM_MS_TITLE,
   clampOffsetField,
   writeOffsetField,
   startOffsetSliders,

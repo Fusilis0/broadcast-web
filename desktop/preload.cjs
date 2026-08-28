@@ -1,5 +1,6 @@
 /**
- * Studio preload — exposes NDI IPC + main-process frame clock to the SPA.
+ * Studio preload — exposes NDI IPC, SRT ingest, races/config, and the
+ * main-process frame clock to the SPA.
  *
  * NDI API is multi-channel (`ar` | `3d` | `2d`). Omitting `channel` defaults
  * to `'ar'` (today's air plate) for back-compat.
@@ -54,7 +55,57 @@ contextBridge.exposeInMainWorld('broadcastStudio', {
     setCesiumIonToken: (token) =>
       ipcRenderer.invoke('config:setCesiumIonToken', token),
   },
-  /** Main-process clock — stays at ~30 fps when the window is minimized. */
+  /**
+   * SRT ingest (Phase 17.1). Main is a dumb MPEG-TS byte pipe — no demux.
+   * Absent in Chrome; callers use getSrtBridge() and no-op when null.
+   */
+  srt: {
+    /**
+     * @param {{ povId: string, url: string, streamId?: string, latencyMs?: number, passphrase?: string, transcodeToH264?: boolean }} opts
+     */
+    open: (opts) => ipcRenderer.invoke('srt:open', opts),
+    /**
+     * @param {string | { povId?: string } | undefined} povIdOrOpts
+     *   `{ povId }` → that session; `'all'` / `{ povId: 'all' }` → every session
+     */
+    close: (povIdOrOpts) => ipcRenderer.invoke('srt:close', povIdOrOpts),
+    getStatus: () => ipcRenderer.invoke('srt:status'),
+    /**
+     * @param {(payload: { povId: string, chunk: Uint8Array }) => void} cb
+     * @returns {() => void} unsubscribe
+     */
+    onSrtData: (cb) => {
+      const handler = (_evt, payload) => {
+        try {
+          cb(payload)
+        } catch {
+          /* ignore renderer data errors */
+        }
+      }
+      ipcRenderer.on('srt:data', handler)
+      return () => {
+        ipcRenderer.removeListener('srt:data', handler)
+      }
+    },
+    /**
+     * @param {(status: { povId: string, state: string, bitrateKbps: number, lastError: string | null }) => void} cb
+     * @returns {() => void} unsubscribe
+     */
+    onSrtStatus: (cb) => {
+      const handler = (_evt, payload) => {
+        try {
+          cb(payload)
+        } catch {
+          /* ignore renderer status errors */
+        }
+      }
+      ipcRenderer.on('srt:status', handler)
+      return () => {
+        ipcRenderer.removeListener('srt:status', handler)
+      }
+    },
+  },
+  /** Main-process clock — NDI + minimize-safe (~30 fps). Preview uses rAF when visible. */
   onStudioTick: (cb) => {
     const handler = () => {
       try {

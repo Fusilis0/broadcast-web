@@ -28,6 +28,12 @@ import {
   TERRAIN_VRAM_BYTES_TARGET,
 } from './constants.ts'
 import { shouldShowTerrain } from './terrainGate.ts'
+import {
+  DEFAULT_TERRAIN_WATER_DISCARD_Y,
+  createTerrainWaterUniforms,
+  patchTerrainWaterMaterials,
+  sceneFromLoadModelEvent,
+} from './terrainWaterMask.ts'
 
 export type TerrainAttribution = { type: string; value: unknown }
 
@@ -65,6 +71,15 @@ export type TerrainHandle = {
   setOpaqueClearSafe: (safe: boolean) => void
   setAltitudeNudgeM: (nudgeM: number) => void
   getAltitudeNudgeM: () => number
+  /**
+   * Discard Cesium water fragments while the realistic ocean is mounted.
+   * `simple` env / unmounted ocean leave terrain untouched.
+   */
+  setHideWater: (hide: boolean) => void
+  getHideWater: () => boolean
+  /** World-Y AMSL threshold for the no-mask height fallback (default +0.5 m). */
+  setWaterDiscardYM: (yM: number) => void
+  getWaterDiscardYM: () => number
   setTilesLocked: (locked: boolean) => void
   getTilesLocked: () => boolean
   getCredits: () => readonly string[]
@@ -98,6 +113,9 @@ function wrapTilesRenderer(tiles: TilesRenderer): TerrainTilesAdapter {
     getAttributions: (target) => tiles.getAttributions(target),
     addEventListener: (name, cb) => {
       tiles.addEventListener(name, cb)
+    },
+    removeEventListener: (name, cb) => {
+      tiles.removeEventListener?.(name, cb)
     },
     dispose: () => {
       tiles.dispose()
@@ -180,6 +198,9 @@ export function createTerrain(options: CreateTerrainOptions): TerrainHandle {
   let enabled = false
   let opaqueClearSafe = false
   let nudgeM = 0
+  let hideWater = false
+  let waterDiscardYM = DEFAULT_TERRAIN_WATER_DISCARD_Y
+  const waterUniforms = createTerrainWaterUniforms(false, waterDiscardYM)
   let tilesLocked = false
   let disposed = false
   let credits: string[] = []
@@ -190,6 +211,22 @@ export function createTerrain(options: CreateTerrainOptions): TerrainHandle {
 
   function applyNudge(): void {
     root.position.set(0, finiteNudge(nudgeM), 0)
+    syncWaterDiscardY()
+  }
+
+  function syncWaterDiscardY(): void {
+    waterUniforms.uTerrainWaterY.value = waterDiscardYM + finiteNudge(nudgeM)
+  }
+
+  function applyHideWater(): void {
+    waterUniforms.uHideTerrainWater.value = hideWater ? 1 : 0
+    patchTerrainWaterMaterials(root, waterUniforms)
+  }
+
+  function onLoadModel(event: unknown): void {
+    const scene = sceneFromLoadModelEvent(event)
+    if (!scene) return
+    patchTerrainWaterMaterials(scene, waterUniforms)
   }
 
   function applyReorient(): void {
@@ -296,6 +333,8 @@ export function createTerrain(options: CreateTerrainOptions): TerrainHandle {
     tiles.addEventListener('load-error', onLoadError)
   }
 
+  tiles.addEventListener('load-model', onLoadModel)
+
   const unsubOrigin = GeoOrigin.onChanged(() => {
     if (disposed) return
     applyReorient()
@@ -324,6 +363,18 @@ export function createTerrain(options: CreateTerrainOptions): TerrainHandle {
       applyNudge()
     },
     getAltitudeNudgeM: () => nudgeM,
+    setHideWater(hide: boolean): void {
+      if (disposed) return
+      hideWater = hide === true
+      applyHideWater()
+    },
+    getHideWater: () => hideWater,
+    setWaterDiscardYM(yM: number): void {
+      if (disposed) return
+      waterDiscardYM = Number.isFinite(yM) ? yM : DEFAULT_TERRAIN_WATER_DISCARD_Y
+      syncWaterDiscardY()
+    },
+    getWaterDiscardYM: () => waterDiscardYM,
     setTilesLocked(locked: boolean): void {
       if (disposed) return
       tilesLocked = locked === true
@@ -358,6 +409,7 @@ export function createTerrain(options: CreateTerrainOptions): TerrainHandle {
       if (disposed) return
       disposed = true
       unsubOrigin()
+      tiles.removeEventListener?.('load-model', onLoadModel)
       tiles.dispose()
       root.clear()
       reorient = null

@@ -3,6 +3,7 @@ import {
   PREVIEW_CLEAR_COLOR,
   TRANSPARENT_CLEAR_COLOR,
   type ApplyOutputModeOptions,
+  type ArBackgroundMode,
   type ClearAppearance,
   type ClearColorTarget,
   type OutputMode,
@@ -17,6 +18,15 @@ export function normalizeOutputMode(raw: unknown): OutputMode {
   if (raw === 'transparent') return 'transparent'
   if (raw === 'preview') return 'preview'
   return 'preview'
+}
+
+/**
+ * Normalize AR background mode.
+ * Unknown, empty, or future modes → `alpha` (today's plate).
+ */
+export function normalizeArBackground(raw: unknown): ArBackgroundMode {
+  if (raw === 'video') return 'video'
+  return 'alpha'
 }
 
 /**

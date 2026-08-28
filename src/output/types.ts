@@ -42,3 +42,16 @@ export const SUPPORTED_OUTPUT_MODES: readonly OutputMode[] = [
   'chroma',
   'transparent',
 ] as const
+
+/**
+ * AR plate background (Phase 17.1 / L1).
+ * `alpha` = today's transparent plate (default, fallback).
+ * `video` = in-WebGL fullscreen texture behind the scene (NDI-visible).
+ */
+export type ArBackgroundMode = 'alpha' | 'video'
+
+/** Modes exposed in OUT AR-background control + normalize. */
+export const SUPPORTED_AR_BACKGROUNDS: readonly ArBackgroundMode[] = [
+  'alpha',
+  'video',
+] as const

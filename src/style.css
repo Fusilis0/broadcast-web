@@ -74,7 +74,7 @@ body.output-transparent,
 }
 
 /*
- * Unified ops sidebar shell (Phase 11.1) — left rail over the canvas.
+ * Unified ops sidebar shell (Phase 11.1 + 16.6 two-rail) — overlay over the canvas.
  * Does not reflow WebGL; collapse only hides chrome (telemetry/editor keep running).
  * NDI reads WebGL only — never this DOM.
  */
@@ -102,6 +102,15 @@ body.output-transparent,
   box-shadow: 4px 0 18px rgba(0, 0, 0, 0.35);
 }
 
+.ops-sidebar--right {
+  left: auto;
+  right: 0;
+  border-right: 0;
+  border-left: 1px solid #2a3340;
+  width: var(--ops-sidebar-right-width, 340px);
+  box-shadow: -4px 0 18px rgba(0, 0, 0, 0.35);
+}
+
 /* Author `display: flex` beats UA `[hidden]`; keep collapse working. */
 .ops-sidebar[hidden] {
   display: none;
@@ -116,6 +125,11 @@ body.output-transparent,
   cursor: ew-resize;
   z-index: 6;
   touch-action: none;
+}
+
+.ops-sidebar--right .ops-sidebar__resize {
+  right: auto;
+  left: -3px;
 }
 
 .ops-sidebar__resize:hover,
@@ -164,6 +178,11 @@ body.output-transparent,
   left: 8px;
   z-index: 5;
   writing-mode: horizontal-tb;
+}
+
+.ops-sidebar__expand-tab--right {
+  left: auto;
+  right: 8px;
 }
 
 .ops-sidebar__sections {
@@ -802,6 +821,234 @@ body.output-transparent,
   line-height: 1.35;
 }
 
+/* Sync-debug overlay (OUT-07) — DOM-only, never on the AR / NDI plate */
+.sync-debug {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #2a3340;
+  font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: #a8b0b8;
+}
+
+.sync-debug__toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #c5ccd3;
+  cursor: pointer;
+}
+
+.sync-debug__hint {
+  margin: 0;
+  color: #6a7888;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.sync-debug__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sync-debug__stream {
+  padding: 6px 0;
+  border-top: 1px solid #2a3340;
+}
+
+.sync-debug__stream-title {
+  color: #e8eef4;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.sync-debug__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.sync-debug__badge {
+  background: #3a2018;
+  border: 1px solid #8a4030;
+  color: #f0c8b8;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  padding: 1px 5px;
+  border-radius: 2px;
+}
+
+.sync-debug__row {
+  display: grid;
+  grid-template-columns: 5.5em 1fr;
+  gap: 6px;
+  align-items: start;
+}
+
+.sync-debug__label {
+  color: #6a7888;
+}
+
+.sync-debug__value {
+  color: #c5ccd3;
+  word-break: break-word;
+}
+
+/* Flow JSON inspector (SCN-10) — DOM-only, never on the AR / NDI plate */
+.flow-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #2a3340;
+  font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: #a8b0b8;
+}
+
+.flow-panel__toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #c5ccd3;
+  cursor: pointer;
+}
+
+.flow-panel__hint {
+  margin: 0;
+  color: #6a7888;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.flow-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.flow-panel__card {
+  border: 1px solid #2a3340;
+  background: #12181f;
+  border-radius: 4px;
+}
+
+.flow-panel__card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  cursor: default;
+}
+
+.flow-panel__card-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  color: #e8eef4;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+}
+
+.flow-panel__kind {
+  color: #8ab4d4;
+  text-transform: lowercase;
+}
+
+.flow-panel__id {
+  font-weight: 600;
+  color: #e8eef4;
+}
+
+.flow-panel__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.flow-panel__badge {
+  background: #1a2836;
+  border: 1px solid #3a5068;
+  color: #c8d8e8;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  padding: 1px 5px;
+  border-radius: 2px;
+}
+
+.flow-panel__pop {
+  flex-shrink: 0;
+  background: #1e2832;
+  border: 1px solid #3a4a5a;
+  color: #c5ccd3;
+  font: 10px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  padding: 2px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.flow-panel__card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 6px 6px;
+}
+
+.flow-panel__block-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: #6a7888;
+  font-size: 10px;
+}
+
+.flow-panel__received {
+  color: #8a96a2;
+  word-break: break-all;
+}
+
+.flow-panel__json {
+  margin: 0;
+  max-height: 180px;
+  overflow: auto;
+  padding: 6px;
+  background: #0c1016;
+  border: 1px solid #243040;
+  border-radius: 3px;
+  color: #c5ccd3;
+  font: 10px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre;
+}
+
+.flow-panel__card--pop {
+  pointer-events: auto;
+  position: fixed;
+  z-index: 6;
+  width: min(360px, 42vw);
+  max-height: 52vh;
+  overflow: auto;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+  border-color: #4a6078;
+}
+
+.flow-panel__card--pop .flow-panel__card-header {
+  cursor: grab;
+}
+
+.flow-panel__card--pop .flow-panel__json {
+  max-height: 28vh;
+}
+
 /* Fleet / Live registry — top-right ops panel (legacy freestanding) */
 .fleet-live {
   position: fixed;
@@ -949,10 +1196,26 @@ body.output-transparent,
   cursor: pointer;
 }
 
+.fleet-live__color {
+  width: 88px;
+  padding: 2px 4px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
 .fleet-live__sock {
   color: #6a7888;
   font-size: 10px;
   min-width: 4.5em;
+}
+
+.fleet-live__srt {
+  width: 48px;
+}
+
+.fleet-live__srt-lab {
+  color: #8a949e;
+  font-size: 10px;
 }
 
 .fleet-live__hint {
@@ -972,6 +1235,17 @@ body.output-transparent,
 .fleet-live__status {
   color: #6a7888;
   font-size: 11px;
+}
+
+.fleet-live__srt-sit,
+.ops-hud__srt-sit {
+  margin: 6px 0 0;
+  padding: 6px 8px;
+  white-space: pre-wrap;
+  color: #c8d0d8;
+  background: #161b22;
+  border: 1px solid #2a3340;
+  font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 .ops-hud {
@@ -1187,8 +1461,8 @@ body.output-transparent,
     0 0 36px rgba(30, 70, 100, 0.18);
 }
 
-.ops-sidebar-root:not(.ops-sidebar-root--collapsed) .stream-map {
-  left: calc(var(--ops-sidebar-width, 340px) + 10px);
+.ops-sidebar-root .stream-map {
+  left: calc(var(--ops-sidebar-inset-left, 0px) + 10px);
 }
 
 /*
@@ -1207,10 +1481,16 @@ body.local-focus-2d .stream-map {
   z-index: 4;
 }
 
-html.local-focus-2d .ops-sidebar-root:not(.ops-sidebar-root--collapsed) .stream-map,
-body.local-focus-2d .ops-sidebar-root:not(.ops-sidebar-root--collapsed) .stream-map {
-  left: calc(50% + var(--ops-sidebar-width, 340px) / 2);
-  max-width: calc(100vw - var(--ops-sidebar-width, 340px) - 24px);
+html.local-focus-2d .ops-sidebar-root .stream-map,
+body.local-focus-2d .ops-sidebar-root .stream-map {
+  left: calc(
+    50% + (var(--ops-sidebar-inset-left, 0px) - var(--ops-sidebar-inset-right, 0px)) /
+      2
+  );
+  max-width: calc(
+    100vw - var(--ops-sidebar-inset-left, 0px) - var(--ops-sidebar-inset-right, 0px) -
+      24px
+  );
 }
 
 #app > canvas.local-channel-webgl--hidden {
@@ -1232,9 +1512,15 @@ body.local-focus-2d .ops-sidebar-root:not(.ops-sidebar-root--collapsed) .stream-
   max-width: calc(100vw - 24px);
 }
 
-.ops-sidebar-root:not(.ops-sidebar-root--collapsed) .local-channel-switcher-strip {
-  left: calc(50% + var(--ops-sidebar-width, 340px) / 2);
-  max-width: calc(100vw - var(--ops-sidebar-width, 340px) - 24px);
+.ops-sidebar-root .local-channel-switcher-strip {
+  left: calc(
+    50% + (var(--ops-sidebar-inset-left, 0px) - var(--ops-sidebar-inset-right, 0px)) /
+      2
+  );
+  max-width: calc(
+    100vw - var(--ops-sidebar-inset-left, 0px) - var(--ops-sidebar-inset-right, 0px) -
+      24px
+  );
 }
 
 .local-channel-switcher {
@@ -1438,8 +1724,8 @@ body.local-focus-2d .ops-sidebar-root:not(.ops-sidebar-root--collapsed) .stream-
   pointer-events: auto;
   position: absolute;
   top: 8px;
-  left: calc(var(--ops-sidebar-width, 340px) + 8px);
-  right: 8px;
+  left: calc(var(--ops-sidebar-inset-left, 0px) + 8px);
+  right: calc(var(--ops-sidebar-inset-right, 0px) + 8px);
   bottom: 8px;
   max-width: 960px;
   z-index: 5;
@@ -1458,10 +1744,6 @@ body.local-focus-2d .ops-sidebar-root:not(.ops-sidebar-root--collapsed) .stream-
 /* Author `display: flex` beats UA `[hidden]`; Close must actually hide the panel. */
 .world-authoring[hidden] {
   display: none;
-}
-
-.ops-sidebar-root--collapsed .world-authoring {
-  left: 8px;
 }
 
 .world-authoring--maximized {
@@ -1746,7 +2028,7 @@ body.local-focus-2d .ops-sidebar-root:not(.ops-sidebar-root--collapsed) .stream-
 
 .calib-panel__row {
   display: grid;
-  grid-template-columns: 48px 1fr 56px;
+  grid-template-columns: 56px 1fr 56px;
   align-items: center;
   gap: 6px;
   margin-bottom: 4px;

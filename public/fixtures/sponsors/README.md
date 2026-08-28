@@ -28,8 +28,10 @@ Static race sponsor billboards for SCN (Phase 2.5). Between-two-points panels (U
 | `a` / `b` | WGS84 edge anchors; panel **width** = horizontal ENU distance A↔B |
 | `altMsl` | Optional per-endpoint AMSL (default `0`); graphics still force **water Y = 0** for the baseline |
 | `heightM` | Panel height in meters (default `8`, clamped ≥ `1`) |
-| `textureUrl` | Optional URL under `public/` (e.g. `/textures/sponsors/rolex.png`). `null` / missing → procedural canvas with `label` |
-| `color` | Optional hex panel fill for procedural texture (default teal) |
+| `textureUrl` | Optional URL under `public/` (e.g. `/textures/sponsors/rolex.png`). `null` / missing → procedural canvas with `label` on the board |
+| `color` | Optional hex brand/map colour (default teal). Not the board fill |
+| `panelColor` | Optional board fill hex (default `#f4f4f2`). Omit → default |
+| `frameColor` | Optional frame stroke hex (default dark slate `#2c3338`). Omit → default |
 
 ## Placement conventions
 

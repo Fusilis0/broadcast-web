@@ -4,6 +4,7 @@ import type { LibraryPanelHandle } from './assets/library/index.ts'
 import {
   snapshotCalibrationByPovId,
   startOffsetSliders,
+  getOffsets,
   type OffsetSlidersHandle,
 } from './calibration/index.ts'
 import { loadConfig } from './config/index.ts'
@@ -39,46 +40,84 @@ import {
   parseVenuePack,
   persistRaceProjectLocal,
   projectsApiBearerToken,
+  resolveLoadedFleetBoats,
   resolveProjectsRole,
   retainMaterializedVenuePack,
+  snapshotFleetBoats,
   startProjectManagerPanel,
   writeRaceProject,
   WriteRaceProjectError,
   type RaceProject,
+  type RaceProjectOutputDefaults,
 } from './projects/index.ts'
 import type { ProjectManagerPanelHandle } from './projects/index.ts'
 import { promptModal } from './ui/promptModal.ts'
 import {
   applyOutputMode,
   getStudioBridge,
+  getSrtBridge,
   normalizeOutputMode,
   resolveClearAppearance,
   resolveLocalFocusPresentation,
+  resolveOpaqueClearSafeForVideo,
   resolveScreenClearAppearance,
+  startArBackgroundControl,
+  startDualFrameClock,
   startLocalChannelSwitcher,
   startNdiControllerPanel,
   startNdi3dChannelPump,
   startNdiFramePump,
   startOutputModeControl,
   startStreamMapNdiPump,
+  startSyncDebugPanel,
+  startVideoBackground,
+  startVideoStreamManager,
   startVisualTimecode,
   startWhepUnderlay,
+  readWebGlGpuInfo,
   STUDIO_OUTPUT_HEIGHT,
   STUDIO_OUTPUT_WIDTH,
+  SRT_WARM_POV_CAP,
   normalizeOutputDelayMs,
+  shouldDrawVideoBackground,
+  type DualFrameClock,
   type LocalChannelFocus,
   type LocalChannelSwitcherHandle,
   type NdiControllerPanelHandle,
   type NdiFramePumpHandle,
   type OutputDelayMsConfig,
+  type ArBackgroundControlHandle,
+  type ArBackgroundMode,
   type OutputMode,
   type OutputModeControlHandle,
   type StreamMapNdiPumpHandle,
+  type SyncDebugPanelHandle,
   type TimecodeCorner,
+  type VideoBackgroundHandle,
+  type VideoStreamManager,
   type VisualTimecodeHandle,
   type WhepUnderlayHandle,
+  type SrtStatus,
+  createVideoBackgroundTestPattern,
+  isOpaque3dPassActive,
+  normalizeArBackground,
+  buildSyncDebugSnapshot,
+  compactSrtByPovId,
+  formatSrtSituation,
+  HEVC_FFMPEG_H264_NOTE,
+  isHevcUnsupportedMessage,
+  pickSrtRowError,
+  redactSrtTemplateForPack,
+  redactSrtUrl,
+  SRT_DECODE_STALL_MS,
+  SRT_LIVE_BITRATE_FLOOR_KBPS,
+  SRT_TRANSCODE_STALL_MS,
 } from './output/index.ts'
-import { startPosePipeline, stopPosePipeline } from './pose/index.ts'
+import {
+  startPosePipeline,
+  stopPosePipeline,
+  type PosePipelineHandle,
+} from './pose/index.ts'
 import {
   boatColorsFromCatalogue,
   createSidebar,
@@ -86,10 +125,12 @@ import {
   loadFleetLiveFromSession,
   loadWorldExtrasFeatures,
   parseEnvironmentModeQuery,
+  parseSeaQualityQuery,
   resolveAssetFocusEnu,
   setLayoutFeatures,
   startAssetInspector,
   startFleetLivePanel,
+  startFlowPanel,
   startMapFeatureEditor,
   startScene,
   startStubHud,
@@ -108,6 +149,7 @@ import {
   type AssetRowId,
   type BoatVisibilityMode,
   type FleetLivePanelHandle,
+  type FlowPanelHandle,
   type MapFeatureEditorHandle,
   type SceneHandle,
   type WorldAuthoringWorkspaceHandle,
@@ -116,12 +158,16 @@ import {
 } from './scene/index.ts'
 import {
   DEFAULT_LIVE_WS_BASE,
+  createTelemetryHistory,
+  flowTap,
+  getPtsNtpMap,
   startOpenMeteoWind,
   startTelemetryIngest,
   stopOpenMeteoWind,
   stripLiveWsId,
   type IngestHandle,
   type LiveStatusSnapshot,
+  type TelemetryHistory,
 } from './telemetry/index.ts'
 
 const app = document.querySelector<HTMLDivElement>('#app')
@@ -134,26 +180,40 @@ let calib: OffsetSlidersHandle | null = null
 let scene: SceneHandle | null = null
 let ingest: IngestHandle | null = null
 let outputControl: OutputModeControlHandle | null = null
+let arBackgroundControl: ArBackgroundControlHandle | null = null
 let localChannelSwitcher: LocalChannelSwitcherHandle | null = null
 /** Local window focus — independent of NDI pumps and of AR `outputMode`. */
 let localChannelFocus: LocalChannelFocus = 'ar'
 /** Remembered AR clear mode while local focus is 3D/2D. */
 let arOutputMode: OutputMode = 'preview'
+/** AR plate vs in-WebGL video background (L1). Default alpha = today's plate. */
+let arBackgroundMode: ArBackgroundMode = 'alpha'
+let videoBackground: VideoBackgroundHandle | null = null
+let videoBackgroundTestPattern: ReturnType<
+  typeof createVideoBackgroundTestPattern
+> | null = null
+let videoStreamManager: VideoStreamManager | null = null
+let posePipeline: PosePipelineHandle | null = null
+/** Shared matched-buffer (TEL-08). Adaptive policy + pose sampleAt. */
+let telemetryHistory: TelemetryHistory = createTelemetryHistory()
 /** Stream-map PiP visibility before entering local 2D focus. */
 let streamMapPipBefore2d = false
 /** True while local 2D focus owns stream-map size/visibility. */
 let local2dMapActive = false
 let visualTimecode: VisualTimecodeHandle | null = null
 let whepUnderlay: WhepUnderlayHandle | null = null
+let previewClock: DualFrameClock | null = null
 let ndiPump: NdiFramePumpHandle | null = null
-/** Desired 2D NDI enable (default off); applied when pump boots. */
-let streamMapNdiWanted = false
+/** Desired 2D NDI enable (default on); applied when pump boots. */
+let streamMapNdiWanted = true
 let streamMapNdiPump: StreamMapNdiPumpHandle | null = null
 /** Per-channel NDI delay (ms). Default 0 = no ring; optional `config.outputDelayMs`. */
 let ndiDelayMs: OutputDelayMsConfig = normalizeOutputDelayMs(undefined)
 /** 3D opaque channel (OUT-02) — do not change pump internals here. */
 let ndi3dPump: NdiFramePumpHandle | null = null
 let ndiController: NdiControllerPanelHandle | null = null
+let syncDebugPanel: SyncDebugPanelHandle | null = null
+let flowPanel: FlowPanelHandle | null = null
 let mapEditor: MapFeatureEditorHandle | null = null
 let worldAuthoring: WorldAuthoringWorkspaceHandle | null = null
 let worldMapLauncher: WorldMapAuthoringLauncherHandle | null = null
@@ -184,6 +244,13 @@ let chromaKey = ''
 let switching = false
 let switchingRace = false
 let liveStatusPoll: ReturnType<typeof setInterval> | null = null
+const lastSrtOpenByPov = new Map<string, { srtId: string; url: string }>()
+const lastSrtOpenAt = new Map<string, number>()
+const lastSrtTranscodeAt = new Map<string, number>()
+const lastSrtDecodeError = new Map<string, string>()
+const srtStatusByPov = new Map<string, SrtStatus>()
+const srtTranscodeH264 = new Set<string>()
+let srtSituationTimer: ReturnType<typeof setInterval> | null = null
 
 /** Push catalogue category colours onto 2D map boat dots (hull tint is via scene). */
 function syncMapBoatDotColors(): void {
@@ -376,7 +443,13 @@ function applyLocalChannelFocus(focus: LocalChannelFocus): void {
 
   if (scene) {
     scene.renderer.setClearColor(screenClear.color, screenClear.alpha)
-    scene.setEnvironmentOpaqueClearSafe(presentation.opaqueClearSafe)
+    scene.setEnvironmentOpaqueClearSafe(
+      resolveOpaqueClearSafeForVideo({
+        arBackground: arBackgroundMode,
+        localFocus: focus,
+        opaqueClearSafe: presentation.opaqueClearSafe,
+      }),
+    )
   }
 
   applyOutputModeChrome(arOutputMode)
@@ -422,6 +495,7 @@ function applyFleetToScene(): void {
   calib?.setPovIds(povIds, active)
   fleetPanel?.setState({ boatIds, povIds, activePovId: active })
   syncFleetMapPosesToAllowList()
+  syncFleetHullsFromPanel()
 }
 
 /**
@@ -495,6 +569,26 @@ function syncMapGeoBridge(maps: {
   }
   maps.ops.setGeoBridge(bridge)
   maps.stream.setGeoBridge(bridge)
+}
+
+function syncFleetHullsFromPanel(): void {
+  if (!scene) return
+  const state = fleetPanel?.getState()
+  const ids = state?.boatIds ?? boatIds
+  const rows = state?.boats ?? []
+  const byId = new Map(rows.map((b) => [b.id, b] as const))
+  const seeds = ids.map((id) => {
+    const row = byId.get(id)
+    if (
+      typeof row?.plannedLat === 'number' &&
+      typeof row?.plannedLon === 'number'
+    ) {
+      const enu = gpsToEnu(row.plannedLat, row.plannedLon, 0)
+      return { id, position: { x: enu.x, y: 0, z: enu.z } }
+    }
+    return { id }
+  })
+  scene.syncFleetHulls(seeds)
 }
 
 /** Seed 2D map dots for map-placed fleet until live pose arrives. */
@@ -649,6 +743,285 @@ async function refreshRacePicker(activeId?: string): Promise<void> {
   }
 }
 
+/** Race-pack `output` defaults. SRT template is redacted (no relay token). */
+function raceOutputFromRuntime(config: AppConfig): RaceProjectOutputDefaults {
+  const fleet = fleetPanel?.getState()
+  const out: RaceProjectOutputDefaults = {
+    outputMode: config.outputMode,
+    whepUrl: config.whepUrl || undefined,
+    chromaKey: config.chromaKey || undefined,
+    timecodeEnabled: config.timecodeEnabled,
+    timecodeCorner: config.timecodeCorner,
+    timecodeSizePx: config.timecodeSizePx,
+  }
+  const packedTemplate = redactSrtTemplateForPack(fleet?.srtUrlTemplate ?? '')
+  if (packedTemplate) out.srtUrlTemplate = packedTemplate
+  const byPov = compactSrtByPovId(fleet?.srtByPovId)
+  if (byPov) out.srtByPovId = byPov
+  return out
+}
+
+/** LUT key is SRT id (L9). Fallback `povId` only when the operator has not set one. */
+function lutStreamIdForPov(povId: string): string {
+  const srtId = fleetPanel?.getState().srtByPovId?.[povId]
+  return typeof srtId === 'string' && srtId.trim() ? srtId.trim() : povId
+}
+
+function srtIdForTelemId(telemId: string): string | null {
+  const srtId = fleetPanel?.getState().srtByPovId?.[telemId]
+  return typeof srtId === 'string' && srtId.trim() ? srtId.trim() : null
+}
+
+function telemIdForSrtId(srtId: string): string | null {
+  const map = fleetPanel?.getState().srtByPovId
+  if (!map) return null
+  const want = srtId.trim()
+  if (!want) return null
+  for (const [telem, srt] of Object.entries(map)) {
+    if (typeof srt === 'string' && srt.trim() === want) return telem
+  }
+  return null
+}
+
+function srtLiveAnchorMs(povId: string): number {
+  return lastSrtTranscodeAt.get(povId) ?? lastSrtOpenAt.get(povId) ?? 0
+}
+
+function beginFfmpegH264Fallback(povId: string, note: string): void {
+  if (srtTranscodeH264.has(povId)) return
+  const opened = lastSrtOpenByPov.get(povId)
+  const bridge = getSrtBridge()
+  if (!opened || !bridge) return
+  srtTranscodeH264.add(povId)
+  lastSrtTranscodeAt.set(povId, Date.now())
+  lastSrtDecodeError.set(povId, note)
+  videoStreamManager?.resetForH264Fallback(povId)
+  const lutId = lutStreamIdForPov(povId)
+  getPtsNtpMap(lutId).reset()
+  if (lutId !== povId) getPtsNtpMap(povId).reset()
+  publishSrtSituation()
+  void bridge
+    .open({
+      povId,
+      url: opened.url,
+      transcodeToH264: true,
+    })
+    .then((result) => {
+      lastSrtDecodeError.set(
+        povId,
+        result.ok ? HEVC_FFMPEG_H264_NOTE : result.error,
+      )
+      publishSrtSituation()
+    })
+}
+
+function maybeFallbackSrtDecodeStall(): void {
+  const now = Date.now()
+  const fleet = fleetPanel?.getState()
+  for (const povId of fleet?.enabledSrtPovIds ?? []) {
+    if (srtTranscodeH264.has(povId)) continue
+    const openedAt = lastSrtOpenAt.get(povId)
+    const st = srtStatusByPov.get(povId)
+    if (!openedAt || !st || st.state !== 'live') continue
+    if (st.bitrateKbps < SRT_LIVE_BITRATE_FLOOR_KBPS) continue
+    if (now - openedAt < SRT_DECODE_STALL_MS) continue
+    const ctr = videoStreamManager?.getCounters(povId)
+    if ((ctr?.framesDecoded ?? 0) > 0) continue
+    if (ctr && ctr.bytesPushed === 0) continue
+    beginFfmpegH264Fallback(
+      povId,
+      'no decoded frame after live SRT — ffmpeg HEVC→H.264 (same as OBS)',
+    )
+  }
+}
+
+function maybeNoteTranscodeStall(): void {
+  const now = Date.now()
+  const msg =
+    'ffmpeg HEVC→H.264 is running but decoded=0 — need ffmpeg with libx264 (gyan full_build), then full Electron quit/restart'
+  for (const povId of srtTranscodeH264) {
+    const started = lastSrtTranscodeAt.get(povId)
+    if (!started || now - started < SRT_TRANSCODE_STALL_MS) continue
+    const ctr = videoStreamManager?.getCounters(povId)
+    if ((ctr?.framesDecoded ?? 0) > 0) continue
+    if (lastSrtDecodeError.get(povId) === msg) continue
+    lastSrtDecodeError.set(povId, msg)
+    publishSrtSituation()
+  }
+}
+
+function publishSrtSituation(): void {
+  const studio = getSrtBridge() != null
+  const fleet = fleetPanel?.getState()
+  const enabled = fleet?.enabledSrtPovIds ?? []
+  const now = Date.now()
+  const rows = []
+  for (const povId of enabled) {
+    const srtId = (fleet?.srtByPovId?.[povId] ?? '').trim()
+    const opened = lastSrtOpenByPov.get(povId)
+    const st = srtStatusByPov.get(povId)
+    const ctr = videoStreamManager?.getCounters(povId)
+    const framesDecoded = ctr?.framesDecoded ?? null
+    const hasPicture = (framesDecoded ?? 0) > 0
+    const state = !studio
+      ? 'no-electron'
+      : (st?.state ?? (opened ? 'opening' : 'not-opened'))
+    const bitrateKbps = st?.bitrateKbps ?? 0
+    const lastError = pickSrtRowError({
+      decodeError: ctr?.decodeError ?? null,
+      decodeNote: lastSrtDecodeError.get(povId) ?? null,
+      srtLastError: st?.lastError ?? null,
+      liveLongEnough: now - srtLiveAnchorMs(povId) >= SRT_DECODE_STALL_MS,
+      state,
+      bitrateKbps,
+      framesDecoded,
+      accessUnits: ctr ? ctr.accessUnits : null,
+      bytesPushed: ctr ? ctr.bytesPushed : null,
+      waitingForKeyframe: ctr?.waitingForKeyframe,
+    })
+    rows.push({
+      povId,
+      srtId: srtId || opened?.srtId || '—',
+      state,
+      bitrateKbps,
+      lastError,
+      redactedUrl: opened ? redactSrtUrl(opened.url) : '—',
+      framesDecoded,
+      hasPicture,
+      codec: ctr?.codec ?? null,
+      accessUnits: ctr?.accessUnits ?? null,
+      bytesPushed: ctr?.bytesPushed ?? null,
+      waitingForKeyframe: ctr?.waitingForKeyframe ?? false,
+      transcoding: srtTranscodeH264.has(povId),
+    })
+  }
+  const text = formatSrtSituation({
+    studio,
+    arBackground: arBackgroundMode,
+    hasPicture: rows.some((r) => r.hasPicture),
+    rows,
+  })
+  hud.setSrtSituation(text)
+  fleetPanel?.setSrtSituation(text)
+}
+
+function startSrtSituationWatch(): void {
+  if (srtSituationTimer != null) return
+  const bridge = getSrtBridge()
+  if (bridge) {
+    bridge.onSrtStatus((status) => {
+      srtStatusByPov.set(status.povId, status)
+      publishSrtSituation()
+    })
+    void bridge.getStatus().then((all) => {
+      for (const [id, st] of Object.entries(all)) srtStatusByPov.set(id, st)
+      publishSrtSituation()
+    })
+  }
+  srtSituationTimer = setInterval(() => {
+    maybeFallbackSrtDecodeStall()
+    maybeNoteTranscodeStall()
+    const b = getSrtBridge()
+    if (!b) {
+      publishSrtSituation()
+      return
+    }
+    void b.getStatus().then((all) => {
+      srtStatusByPov.clear()
+      for (const [id, st] of Object.entries(all)) srtStatusByPov.set(id, st)
+      maybeFallbackSrtDecodeStall()
+      maybeNoteTranscodeStall()
+      publishSrtSituation()
+    })
+  }, 500)
+  publishSrtSituation()
+}
+
+function collectSyncDebugSnapshots() {
+  const fleet = fleetPanel?.getState()
+  if (!fleet) return []
+  const rows = []
+  for (const povId of fleet.enabledSrtPovIds ?? []) {
+    const srtId = (fleet.srtByPovId?.[povId] ?? '').trim()
+    if (!srtId) continue
+    const lutStreamId = srtId
+    const healthSrt = getPtsNtpMap(lutStreamId).health()
+    const healthTelem = getPtsNtpMap(povId).health()
+    const health = healthSrt.pacingCount > 0 ? healthSrt : healthTelem
+    const ctr = videoStreamManager?.getCounters(povId)
+    const presentedPts90k = ctr?.presentedPts90k ?? null
+    const mapped =
+      presentedPts90k !== null
+        ? healthSrt.pacingCount > 0
+          ? getPtsNtpMap(lutStreamId).toNtp(presentedPts90k)
+          : getPtsNtpMap(povId).toNtp(presentedPts90k)
+        : null
+    const trim = getOffsets(povId).syncTrimMs
+    const resolvedNtpMs =
+      mapped?.ntpMs != null ? mapped.ntpMs + trim : (ctr?.presentedNtpMs ?? null)
+    const poseDebug = posePipeline?.getSyncPoseDebug(povId)
+    rows.push(
+      buildSyncDebugSnapshot({
+        povId,
+        srtId,
+        lutStreamId,
+        health,
+        syncTrimMs: trim,
+        presentedPts90k,
+        resolvedNtpMs,
+        ptsMode: mapped?.mode,
+        extrapolatedByMs: mapped?.extrapolatedByMs,
+        presentationLatencyMs: ctr?.latencyMs ?? null,
+        poseAgeMs: poseDebug?.poseAgeMs,
+        poseMode: poseDebug?.poseMode,
+        boats: poseDebug?.boats,
+        freeRun: poseDebug?.held ? false : poseDebug?.freeRun ? true : undefined,
+        tNtpMs: poseDebug?.tNtpMs,
+        newestPoseNtpMs: poseDebug?.newestPoseNtpMs,
+        poseMinusVideoMs: poseDebug?.poseMinusVideoMs,
+        pacingCount: poseDebug?.pacingCount,
+        decoder: ctr
+          ? {
+              framesDecoded: ctr.framesDecoded,
+              framesDropped: ctr.framesDropped,
+              queueDepth: ctr.queueDepth,
+            }
+          : undefined,
+      }),
+    )
+  }
+  return rows
+}
+
+/** Throttled SRT clock JSON for Flow (SCN-10). Tokens already redacted. */
+function pushSrtFlowSnapshots(): void {
+  const fleet = fleetPanel?.getState()
+  if (!fleet) return
+  for (const povId of fleet.enabledSrtPovIds ?? []) {
+    const srtId = (fleet.srtByPovId?.[povId] ?? '').trim()
+    const lutStreamId = lutStreamIdForPov(povId)
+    const health = getPtsNtpMap(lutStreamId).health()
+    const ctr = videoStreamManager?.getCounters(povId)
+    const opened = lastSrtOpenByPov.get(povId)
+    flowTap.push({
+      kind: 'srt',
+      id: povId,
+      body: {
+        srtId,
+        presentedPts90k: ctr?.presentedPts90k ?? null,
+        presentedNtpMs: ctr?.presentedNtpMs ?? null,
+        framesDecoded: ctr?.framesDecoded ?? null,
+        codec: ctr?.codec ?? null,
+        accessUnits: ctr?.accessUnits ?? null,
+        decodeError: ctr?.decodeError ?? null,
+        redactedUrl: opened ? redactSrtUrl(opened.url) : null,
+        lutStreamId,
+        pacingCount: health.pacingCount,
+      },
+    })
+  }
+}
+
 /** Build RaceProject from current editor/config (shared by Save + Pack ↓). */
 function buildCurrentRaceProject(meta?: {
   id?: string
@@ -677,6 +1050,7 @@ function buildCurrentRaceProject(meta?: {
     name,
     origin: { ...config.origin },
     boatIds,
+    boats: snapshotFleetBoats(boatIds, fleet?.boats),
     povIds,
     features,
     takeoffAltitudeMSL: config.takeoffAltitudeMSL,
@@ -690,14 +1064,7 @@ function buildCurrentRaceProject(meta?: {
     replayUrl: replayUrl || config.replayUrl,
     calibration,
     revision: meta?.revision,
-    output: {
-      outputMode: config.outputMode,
-      whepUrl: config.whepUrl || undefined,
-      chromaKey: config.chromaKey || undefined,
-      timecodeEnabled: config.timecodeEnabled,
-      timecodeCorner: config.timecodeCorner,
-      timecodeSizePx: config.timecodeSizePx,
-    },
+    output: raceOutputFromRuntime(config),
   })
 }
 
@@ -866,6 +1233,7 @@ async function saveCurrentRaceProject(
       name,
       origin: { ...config.origin },
       boatIds,
+      boats: snapshotFleetBoats(boatIds, fleet?.boats),
       povIds,
       features,
       takeoffAltitudeMSL: config.takeoffAltitudeMSL,
@@ -879,14 +1247,7 @@ async function saveCurrentRaceProject(
       replayUrl: replayUrl || config.replayUrl,
       calibration,
       revision: mode === 'save' ? raceProject?.revision : undefined,
-      output: {
-        outputMode: config.outputMode,
-        whepUrl: config.whepUrl || undefined,
-        chromaKey: config.chromaKey || undefined,
-        timecodeEnabled: config.timecodeEnabled,
-        timecodeCorner: config.timecodeCorner,
-        timecodeSizePx: config.timecodeSizePx,
-      },
+      output: raceOutputFromRuntime(config),
     })
 
     // Electron: folder write is primary. Chrome: download. Export… = download only.
@@ -1048,6 +1409,28 @@ async function applyLoadedRaceProject(project: RaceProject): Promise<void> {
   hud.setOrigin(config.origin)
   startOpenMeteoWind({ origin: config.origin })
   await scene.loadBoatNamesFromUrl(boatNamesUrl)
+  const packVis = project.fleet.boatVisibility ?? {}
+  const packBoatMap = project.fleet.boatMapVisible ?? {}
+  const loadedBoats = resolveLoadedFleetBoats({
+    boatIds: config.boatIds,
+    boats: project.fleet.boats,
+    catalogue: scene.getBoatNamesCatalogue(),
+  }).map((b) => ({
+    ...b,
+    visibility: b.visibility ?? packVis[b.id] ?? 'solid',
+    mapVisible:
+      b.mapVisible === false || packBoatMap[b.id] === false
+        ? false
+        : undefined,
+  }))
+  for (const b of loadedBoats) {
+    scene.upsertBoatName({
+      id: b.id,
+      name: b.name,
+      category: b.category,
+      color: b.color,
+    })
+  }
   syncMapBoatDotColors()
 
   const world = await loadWorldForProject(project)
@@ -1071,8 +1454,6 @@ async function applyLoadedRaceProject(project: RaceProject): Promise<void> {
   livePovIds = livePovIds.filter((id) => povIds.includes(id))
 
   await restartIngest(ingest?.mode ?? config.telemetryMode)
-  const packVis = project.fleet.boatVisibility ?? {}
-  const packBoatMap = project.fleet.boatMapVisible ?? {}
   povMapVisible.clear()
   povVisible3d.clear()
   if (project.fleet.povMapVisible) {
@@ -1086,20 +1467,16 @@ async function applyLoadedRaceProject(project: RaceProject): Promise<void> {
     enabledBoatIds: [...liveBoatIds],
     enabledPovIds: [...livePovIds],
     activePovId: activePov,
-    boats: [...scene.getBoatNamesCatalogue().entries()].map(([id, e]) => ({
-      id,
-      name: e.name,
-      category: e.category,
-      visibility: packVis[id] ?? 'solid',
-      mapVisible: packBoatMap[id] === false ? false : undefined,
-    })),
+    boats: loadedBoats,
+    srtUrlTemplate: project.output?.srtUrlTemplate ?? '',
+    srtByPovId: { ...(project.output?.srtByPovId ?? {}) },
   })
   syncBoatVisibilityToScene(
-    fleetPanel?.getState().boats ??
-      Object.entries(packVis).map(([id, visibility]) => ({ id, visibility })),
+    fleetPanel?.getState().boats ?? loadedBoats,
   )
   syncMapHiddenPoseIds()
   syncFleetMapPosesToAllowList()
+  syncFleetHullsFromPanel()
   assetInspector?.refresh()
   hud.setBootMessage(`project: ${project.id}`)
   console.info('[projects] switched race pack', { id: project.id })
@@ -1204,7 +1581,10 @@ let calibSectionEl!: HTMLElement
 let librarySectionEl!: HTMLElement
 let liveSectionEl!: HTMLElement
 let ndiSectionEl!: HTMLElement
+let flowSectionEl!: HTMLElement
 let opsSectionEl!: HTMLElement
+let environmentSectionEl!: HTMLElement
+let windSectionEl!: HTMLElement
 let libraryPanel: LibraryPanelHandle | null = null
 let projectManagerPanel: ProjectManagerPanelHandle | null = null
 
@@ -1223,17 +1603,12 @@ opsSidebar.registerSection({
   },
 })
 opsSidebar.registerSection({
-  id: 'world-map',
-  label: 'World Map',
+  id: 'live',
+  label: 'Fleet & Live',
   order: 20,
   mount(container) {
-    worldMapLauncher = mountWorldMapAuthoringLauncher(container, authoringShell)
-    return {
-      dispose() {
-        worldMapLauncher?.dispose()
-        worldMapLauncher = null
-      },
-    }
+    liveSectionEl = container
+    return { dispose: () => {} }
   },
 })
 opsSidebar.registerSection({
@@ -1251,15 +1626,15 @@ opsSidebar.registerSection({
   },
 })
 opsSidebar.registerSection({
-  id: 'calib',
-  label: 'Calib',
-  order: 35,
+  id: 'world-map',
+  label: 'World',
+  order: 40,
   mount(container) {
-    calibSectionEl = container
+    worldMapLauncher = mountWorldMapAuthoringLauncher(container, authoringShell)
     return {
       dispose() {
-        calib?.stop()
-        calib = null
+        worldMapLauncher?.dispose()
+        worldMapLauncher = null
       },
     }
   },
@@ -1267,7 +1642,7 @@ opsSidebar.registerSection({
 opsSidebar.registerSection({
   id: 'library',
   label: 'Library',
-  order: 40,
+  order: 50,
   mount(container) {
     librarySectionEl = container
     return {
@@ -1279,29 +1654,66 @@ opsSidebar.registerSection({
   },
 })
 opsSidebar.registerSection({
-  id: 'live',
-  label: 'Live',
-  order: 50,
+  id: 'ops',
+  label: 'Race ops',
+  order: 60,
   mount(container) {
-    liveSectionEl = container
+    opsSectionEl = container
     return { dispose: () => {} }
   },
 })
 opsSidebar.registerSection({
   id: 'ndi',
-  label: 'NDI',
-  order: 55,
+  label: 'Output',
+  order: 10,
   mount(container) {
     ndiSectionEl = container
     return { dispose: () => {} }
   },
 })
 opsSidebar.registerSection({
-  id: 'ops',
-  label: 'Ops',
-  order: 60,
+  id: 'flow',
+  label: 'Flow',
+  order: 15,
   mount(container) {
-    opsSectionEl = container
+    flowSectionEl = container
+    return {
+      dispose() {
+        flowPanel?.dispose()
+        flowPanel = null
+      },
+    }
+  },
+})
+opsSidebar.registerSection({
+  id: 'calib',
+  label: 'Calibration',
+  order: 20,
+  mount(container) {
+    calibSectionEl = container
+    return {
+      dispose() {
+        calib?.stop()
+        calib = null
+      },
+    }
+  },
+})
+opsSidebar.registerSection({
+  id: 'environment',
+  label: 'Environment',
+  order: 30,
+  mount(container) {
+    environmentSectionEl = container
+    return { dispose: () => {} }
+  },
+})
+opsSidebar.registerSection({
+  id: 'wind',
+  label: 'Wind',
+  order: 40,
+  mount(container) {
+    windSectionEl = container
     return { dispose: () => {} }
   },
 })
@@ -1330,7 +1742,7 @@ calib = startOffsetSliders({ container: calibSectionEl })
 }
 
 // NDI status tab (OUT). Polls pumps + POV; never feeds the WebGL render loop.
-// 2D stream-map toggle enables/disables channel `'2d'` only (default off).
+// 2D stream-map toggle enables/disables channel `'2d'` only (default on).
 // Per-channel delay knobs (0–30000 ms); live change, no restart.
 ndiController = startNdiControllerPanel({
   container: ndiSectionEl,
@@ -1356,11 +1768,30 @@ ndiController = startNdiControllerPanel({
   },
 })
 
+syncDebugPanel = startSyncDebugPanel({
+  container: ndiSectionEl,
+  getSnapshot: collectSyncDebugSnapshots,
+})
+
+flowPanel = startFlowPanel({
+  container: flowSectionEl,
+  overlayHost: opsSidebar.getOverlayHost(),
+  getSnapshot: () => flowTap.snapshot(),
+  getRegistryIds: () => ({
+    boats: fleetPanel?.getState().boatIds ?? boatIds,
+    povs: fleetPanel?.getState().povIds ?? povIds,
+    buoys: bootConfig?.buoyIds ?? [],
+  }),
+  beforePoll: pushSrtFlowSnapshots,
+})
+
 const hud = startStubHud({
   container: app,
   hosts: {
     project: projectSectionEl,
     ops: opsSectionEl,
+    environment: environmentSectionEl,
+    wind: windSectionEl,
     map: authoringShell.getMapHost(),
     streamMapHost: opsSidebar.getOverlayHost(),
   },
@@ -1388,6 +1819,9 @@ const hud = startStubHud({
   onEnvironmentModeChange: (mode) => {
     scene?.setEnvironmentMode(mode)
   },
+  onSeaQualityChange: (quality) => {
+    scene?.setSeaQuality(quality)
+  },
   onTerrainEnabledChange: (enabled) => {
     scene?.setTerrainEnabled(enabled)
     syncTerrainAttribution()
@@ -1397,6 +1831,9 @@ const hud = startStubHud({
   },
   onTerrainTilesLockedChange: (locked) => {
     scene?.setTerrainTilesLocked(locked)
+  },
+  onTerrainWaterDiscardYChange: (yM) => {
+    scene?.setTerrainWaterDiscardYM(yM)
   },
   onCesiumIonTokenApply: (token) => {
     void persistAndApplyIonToken(token)
@@ -1606,6 +2043,7 @@ void (async () => {
   chromaKey = config.chromaKey
   const outputMode = normalizeOutputMode(config.outputMode)
   arOutputMode = outputMode
+  arBackgroundMode = normalizeArBackground(config.arBackground)
   const clear = resolveClearAppearance(outputMode, {
     chromaKey: chromaKey || undefined,
   })
@@ -1613,12 +2051,18 @@ void (async () => {
 
   // Scene after config so boatIds / povIds allow-lists are known before first poses.
   // Clear color from OUT (preview / chroma / transparent).
-  // Electron studio: lock WebGL/NDI to 1920×1080; main-process clock when minimized.
+  // Electron studio: lock WebGL/NDI to 1920×1080. Preview = rAF when visible;
+  // studio:tick ~30 drives NDI + minimized preview (DSP-OUT-20260818-01).
   const studioBridge = getStudioBridge()
   const cesiumIonToken = resolveCesiumIonToken(
     config.cesiumIonToken,
     readSessionCesiumIonToken(),
   )
+  previewClock = startDualFrameClock({
+    subscribeStudioTick: studioBridge
+      ? (onTick) => studioBridge.onStudioTick(onTick)
+      : () => () => {},
+  })
   scene = startScene({
     container: app,
     boatIds,
@@ -1627,21 +2071,33 @@ void (async () => {
     cesiumIonToken,
     cesiumIonAssetId: config.cesiumIonAssetId,
     cesiumIonImageryAssetId: config.cesiumIonImageryAssetId,
+    frameClock: {
+      subscribe: (onTick) =>
+        previewClock!.subscribePreview(() => {
+          onTick()
+          hud.setPreviewFps(previewClock!.getPreviewFps())
+          hud.setHitchCounts(previewClock!.getHitchCounts())
+        }),
+    },
+    onActivePovChange: (id) => {
+      videoStreamManager?.setActivePov(id)
+      posePipeline?.tick(0)
+    },
     ...(studioBridge
       ? {
           outputSize: {
             width: STUDIO_OUTPUT_WIDTH,
             height: STUDIO_OUTPUT_HEIGHT,
           },
-          frameClock: {
-            subscribe: (onTick) => studioBridge.onStudioTick(onTick),
-          },
         }
       : {}),
   })
+  const gpuInfo = readWebGlGpuInfo(scene.renderer.getContext())
+  console.info(`[perf] WebGL renderer: ${gpuInfo.raw ?? 'unknown'}`)
+  hud.setGpuLabel(gpuInfo.display)
   if (studioBridge) {
     console.info(
-      `[boot] studio shell: output locked ${STUDIO_OUTPUT_WIDTH}×${STUDIO_OUTPUT_HEIGHT}; main-process tick clock (minimize-safe)`,
+      `[boot] studio shell: output locked ${STUDIO_OUTPUT_WIDTH}×${STUDIO_OUTPUT_HEIGHT}; rAF preview when visible, studio tick ~30 for NDI / minimized`,
     )
   }
   applyOutputMode(scene.renderer, outputMode, {
@@ -1651,6 +2107,7 @@ void (async () => {
   scene.setEnvironmentOpaqueClearSafe(outputMode === 'preview')
   scene.setTerrainAltitudeNudgeM(hud.getTerrainAltitudeNudgeM())
   scene.setTerrainTilesLocked(hud.getTerrainTilesLocked())
+  scene.setTerrainWaterDiscardYM(hud.getTerrainWaterDiscardYM())
   scene.setTerrainCreditsListener(() => {
     hud.setTerrainStatus(scene?.getTerrainStatusMessage() ?? '')
     syncTerrainAttribution()
@@ -1662,6 +2119,11 @@ void (async () => {
     scene.setEnvironmentMode(envFromQuery)
     hud.setEnvironmentMode(envFromQuery)
   }
+  const seaFromQuery = parseSeaQualityQuery(window.location.search)
+  if (seaFromQuery) {
+    scene.setSeaQuality(seaFromQuery)
+    hud.setSeaQuality(seaFromQuery)
+  }
   const activePov = scene.getActivePovId()
   hud.setPovIds(povIds, activePov)
   hud.setBoatIds(boatIds)
@@ -1670,8 +2132,18 @@ void (async () => {
   // Ops sidebar (above mode/POV) — not fixed canvas chrome.
   // Local 2D/3D/AR switcher (strip on overlay) + AR clear dropdown compose:
   // switcher = which channel fills the window; outputMode = AR clear only.
+  arBackgroundControl = startArBackgroundControl({
+    container: ndiSectionEl,
+    mountAt: 'start',
+    initialMode: arBackgroundMode,
+    onChange: (mode) => {
+      arBackgroundMode = mode
+      applyLocalChannelFocus(localChannelFocus)
+      publishSrtSituation()
+    },
+  })
   outputControl = startOutputModeControl({
-    container: opsSectionEl,
+    container: ndiSectionEl,
     mountAt: 'start',
     initialMode: outputMode,
     onChange: (mode) => {
@@ -1709,6 +2181,61 @@ void (async () => {
     renderer: scene.renderer,
   })
 
+  // In-WebGL AR background (DSP-OUT-04). Wrap MUST install before visual
+  // timecode: videoBackground innermost (draws BEFORE the scene), timecode
+  // outermost (draws AFTER). NDI pumps bind renderer.render last.
+  if (scene) {
+    const sceneHandle = scene
+    videoBackgroundTestPattern = createVideoBackgroundTestPattern()
+    videoBackground = startVideoBackground({
+      renderer: sceneHandle.renderer,
+      shouldDraw: () => {
+        const tex = videoBackground?.getTexture() ?? videoBackgroundTestPattern
+        return shouldDrawVideoBackground({
+          arBackground: arBackgroundMode,
+          hasTexture: tex != null,
+          opaque3dPass: isOpaque3dPassActive(),
+          isScreenPass: sceneHandle.renderer.getRenderTarget() === null,
+          localFocus: localChannelFocus,
+          previewIsAirCamera:
+            sceneHandle.getPreviewCamera() ===
+            sceneHandle.getActivePovCamera(),
+        })
+      },
+    })
+    videoBackground.setTexture(videoBackgroundTestPattern)
+
+    // DSP-OUT-06: TS demux + WebCodecs decode. OUT-07 opens SRT; we consume
+    // srt:data and swap textures. Do not touch Fleet UI / opaqueClearSafe.
+    videoStreamManager = startVideoStreamManager({
+      setTexture: (tex) => {
+        if (!videoBackground || !tex) return
+        videoBackground.setTexture(
+          tex as Exclude<
+            ReturnType<VideoBackgroundHandle['getTexture']>,
+            null
+          >,
+        )
+      },
+      getActivePovId: () => sceneHandle.getActivePovId(),
+      getLutStreamId: lutStreamIdForPov,
+      getNewestPoseNtp: (povId) =>
+        telemetryHistory.stats().drones[povId]?.newestNtpMs ?? null,
+      subscribeTick: studioBridge
+        ? (cb) => studioBridge.onStudioTick(cb)
+        : (cb) => previewClock!.subscribePreview(cb),
+      onOpsError: (povId, message) => {
+        console.error(`[video-decode] ${povId}: ${message}`)
+        lastSrtDecodeError.set(povId, message)
+        publishSrtSituation()
+        if (isHevcUnsupportedMessage(message)) {
+          beginFfmpegH264Fallback(povId, HEVC_FFMPEG_H264_NOTE)
+        }
+      },
+    })
+    videoStreamManager.setActivePov(sceneHandle.getActivePovId())
+  }
+
   if (config.timecodeEnabled && scene) {
     const sceneHandle = scene
     visualTimecode = startVisualTimecode({
@@ -1721,10 +2248,37 @@ void (async () => {
   }
 
   // Electron studio only — after timecode wrap so barcode is in readback.
-  // 3D pump first (binds render before AR patches it); AR pump second.
-  // Air lock: both channels capture active POV (AR dual-renders if preview ≠ air).
-  // Perf (DSP-OUT-20260812-06): AR ~30 fps, 3D ~10 fps, staggered heavy readback;
-  // 2D default off @ 10 fps when enabled.
+  // AR pump first, then 3D, then 2D (DSP-OUT-20260828-04: one FBO per tick).
+  // Air lock: AR/3D FBO-capture active POV on studio:tick. Preview rAF does not
+  // drive NDI. 2D default on @ 30; toggle stops only 2D.
+  ndiPump = startNdiFramePump({
+    renderer: scene.renderer,
+    scene: scene.scene,
+    getAirCamera: () => scene?.getActivePovCamera() ?? null,
+    prepareCameraPass: (camera) => {
+      scene?.orientOpsBillboards(camera)
+    },
+    getAirPlateClear: () => {
+      const appearance = resolveClearAppearance(arOutputMode, {
+        chromaKey: chromaKey || undefined,
+      })
+      return {
+        color: appearance.color,
+        alpha: appearance.alpha,
+        opaqueClearSafe: resolveOpaqueClearSafeForVideo({
+          arBackground: arBackgroundMode,
+          opaqueClearSafe: appearance.alpha >= 1,
+        }),
+      }
+    },
+    setEnvironmentOpaqueClearSafe: (safe) => {
+      scene?.setEnvironmentOpaqueClearSafe(safe)
+    },
+    getEnvironmentOpaqueClearSafe: () =>
+      scene?.getEnvironmentOpaqueClearSafe() ?? false,
+    fps: 30,
+    delayMs: ndiDelayMs.ar,
+  })
   ndi3dPump = startNdi3dChannelPump({
     renderer: scene.renderer,
     scene: scene.scene,
@@ -1737,48 +2291,20 @@ void (async () => {
     },
     getEnvironmentOpaqueClearSafe: () =>
       scene?.getEnvironmentOpaqueClearSafe() ?? false,
-    fps: 10,
-    delayMs: ndiDelayMs['3d'],
-  })
-  ndiPump = startNdiFramePump({
-    renderer: scene.renderer,
-    getAirCamera: () => scene?.getActivePovCamera() ?? null,
-    prepareCameraPass: (camera) => {
-      scene?.orientOpsBillboards(camera)
-    },
-    // Local 3D opaque screen must not pollute AR alpha — force air FBO + AR clear.
-    forceAirTargetCapture: () =>
-      resolveLocalFocusPresentation(localChannelFocus, arOutputMode)
-        .forceArAirTarget,
-    getAirPlateClear: () => {
-      const appearance = resolveClearAppearance(arOutputMode, {
-        chromaKey: chromaKey || undefined,
-      })
-      return {
-        color: appearance.color,
-        alpha: appearance.alpha,
-        opaqueClearSafe: appearance.alpha >= 1,
-      }
-    },
-    setEnvironmentOpaqueClearSafe: (safe) => {
-      scene?.setEnvironmentOpaqueClearSafe(safe)
-    },
-    getEnvironmentOpaqueClearSafe: () =>
-      scene?.getEnvironmentOpaqueClearSafe() ?? false,
     fps: 30,
-    delayMs: ndiDelayMs.ar,
+    delayMs: ndiDelayMs['3d'],
   })
 
   // 2D stream-map NDI (channel `'2d'`) — letterbox into 1920×1080; independent
-  // of PiP visibility / sidebar. Default off; NDI tab toggle starts/stops only
-  // this sender (does not affect AR/3D).
+  // of PiP visibility / sidebar. Default on @ 30; NDI tab toggle starts/stops
+  // only this sender (does not affect AR/3D).
   streamMapNdiPump = startStreamMapNdiPump({
     getSourceCanvas: () => hud.getStreamMap().getCanvas(),
     ensureDrawn: () => {
       hud.getStreamMap().redraw()
     },
     enabled: streamMapNdiWanted,
-    fps: 10,
+    fps: 30,
     delayMs: ndiDelayMs['2d'],
   })
 
@@ -1873,8 +2399,11 @@ void (async () => {
         }
         created = result?.created ?? true
       }
-      // Click ENU is authoritative — show icon immediately (no telemetry needed).
+      // Click ENU is authoritative — show icon + 3D hull immediately (no telemetry needed).
       seedFleetPoseAtEnu(id, kind, east, north)
+      if (kind === 'boat') {
+        scene?.upsertStaticBoat(id, { x: east, y: 0, z: north })
+      }
       authoringShell.setStatus(
         created
           ? `Placed ${kind} ${id} on map`
@@ -1910,14 +2439,37 @@ void (async () => {
 
   // Name/colour catalogue — before TEL so first boat spawn can resolve tags.
   await scene.loadBoatNamesFromUrl(boatNamesUrl)
-  if (sessionFleet?.boats?.length) {
-    for (const b of sessionFleet.boats) {
-      scene.upsertBoatName({
-        id: b.id,
-        name: b.name,
-        category: b.category,
-      })
-    }
+  const packBoatMap = raceProject?.fleet.boatMapVisible ?? {}
+  const packVis = raceProject?.fleet.boatVisibility ?? {}
+  const packPanelBoats = resolveLoadedFleetBoats({
+    boatIds,
+    boats: raceProject?.fleet.boats,
+    catalogue: scene.getBoatNamesCatalogue(),
+  }).map((b) => ({
+    ...b,
+    visibility: b.visibility ?? packVis[b.id] ?? 'solid',
+    mapVisible:
+      b.mapVisible === false || packBoatMap[b.id] === false
+        ? false
+        : undefined,
+  }))
+  const bootBoats =
+    sessionFleet?.boats?.length && sessionFleet.boats.length > 0
+      ? sessionFleet.boats.map((b) => ({
+          ...b,
+          mapVisible:
+            b.mapVisible === false || packBoatMap[b.id] === false
+              ? false
+              : b.mapVisible,
+        }))
+      : packPanelBoats
+  for (const b of bootBoats) {
+    scene.upsertBoatName({
+      id: b.id,
+      name: b.name,
+      category: b.category,
+      color: b.color,
+    })
   }
   // Soft pack field (if boot race had boatVisibility) — session boats win after.
   if (raceProject?.fleet.boatVisibility) {
@@ -1930,7 +2482,6 @@ void (async () => {
   }
   syncMapBoatDotColors()
 
-  const packBoatMap = raceProject?.fleet.boatMapVisible ?? {}
   fleetPanel = startFleetLivePanel({
     container: liveSectionEl,
     initial: {
@@ -1940,25 +2491,18 @@ void (async () => {
       povIds: [...povIds],
       enabledBoatIds: [...liveBoatIds],
       enabledPovIds: [...livePovIds],
-      boats:
-        sessionFleet?.boats?.length && sessionFleet.boats.length > 0
-          ? sessionFleet.boats.map((b) => ({
-              ...b,
-              mapVisible:
-                b.mapVisible === false || packBoatMap[b.id] === false
-                  ? false
-                  : b.mapVisible,
-            }))
-          : [...scene.getBoatNamesCatalogue().entries()].map(([id, e]) => ({
-              id,
-              name: e.name,
-              category: e.category,
-              visibility:
-                raceProject?.fleet.boatVisibility?.[id] ?? 'solid',
-              mapVisible: packBoatMap[id] === false ? false : undefined,
-            })),
+      boats: bootBoats,
       activePovId: scene.getActivePovId(),
       plannedPovs: sessionFleet?.plannedPovs?.map((p) => ({ ...p })) ?? [],
+      srtUrlTemplate:
+        sessionFleet?.srtUrlTemplate ||
+        raceProject?.output?.srtUrlTemplate ||
+        '',
+      srtByPovId: {
+        ...(raceProject?.output?.srtByPovId ?? {}),
+        ...(sessionFleet?.srtByPovId ?? {}),
+      },
+      enabledSrtPovIds: sessionFleet?.enabledSrtPovIds ?? [],
     },
     onFleetChange: ({ boatIds: nextBoats, povIds: nextPovs, boats }) => {
       boatIds = nextBoats
@@ -1974,6 +2518,7 @@ void (async () => {
           id: b.id,
           name: b.name,
           category: b.category,
+          color: b.color,
         })
       }
       syncMapBoatDotColors()
@@ -2002,7 +2547,7 @@ void (async () => {
       fleetPanel?.setStatus(
         n > 0
           ? `framed ${n} boat(s) — orbit with free cam`
-          : 'no boat meshes yet — need packets + boat id in fleet (check HUD ENU)',
+          : 'no boat meshes yet — add a boat in Fleet or check HUD ENU',
       )
     },
     onLiveApply: ({
@@ -2032,11 +2577,50 @@ void (async () => {
         }
       })()
     },
+    onSrtApply: ({ streams }) => {
+      void (async () => {
+        const bridge = getSrtBridge()
+        lastSrtOpenByPov.clear()
+        lastSrtOpenAt.clear()
+        lastSrtTranscodeAt.clear()
+        lastSrtDecodeError.clear()
+        srtTranscodeH264.clear()
+        if (!bridge) {
+          fleetPanel?.setStatus(
+            'SRT needs Electron studio — template stored, no caller here',
+          )
+          publishSrtSituation()
+          return
+        }
+        await bridge.close('all')
+        srtStatusByPov.clear()
+        let opened = 0
+        for (const s of streams.slice(0, SRT_WARM_POV_CAP)) {
+          lastSrtOpenByPov.set(s.povId, { srtId: s.srtId, url: s.url })
+          lastSrtOpenAt.set(s.povId, Date.now())
+          const result = await bridge.open({ povId: s.povId, url: s.url })
+          if (result.ok) opened += 1
+          else {
+            lastSrtDecodeError.set(s.povId, result.error)
+            console.warn('[srt] open failed', s.povId, result.error)
+          }
+        }
+        fleetPanel?.setStatus(
+          `SRT · ${opened}/${streams.length} caller(s) · cap ${SRT_WARM_POV_CAP}`,
+        )
+        const all = await bridge.getStatus()
+        srtStatusByPov.clear()
+        for (const [id, st] of Object.entries(all)) srtStatusByPov.set(id, st)
+        publishSrtSituation()
+      })()
+    },
   })
-  // Session / pack visibility → scene (entities spawn on first pose).
+  // Session / pack visibility → scene; hulls spawn from planned GPS without telem.
   syncBoatVisibilityToScene(fleetPanel.getState().boats)
   syncMapHiddenPoseIds()
   syncFleetMapPosesToAllowList()
+  syncFleetHullsFromPanel()
+  startSrtSituationWatch()
 
   assetInspector = startAssetInspector({
     container: assetsSectionEl,
@@ -2107,6 +2691,10 @@ void (async () => {
     onOpenBoatDetails: (id) => {
       fleetPanel?.highlightBoat(id)
     },
+    onBoatPlannedGpsChange: (id, plannedLat, plannedLon) => {
+      fleetPanel?.setBoatPlannedGps(id, plannedLat, plannedLon)
+      assetInspector?.refresh()
+    },
   })
 
   // Boot live uses enabled lists (often empty until Connect); mock/replay use registry.
@@ -2120,29 +2708,63 @@ void (async () => {
     wsBoatUrl,
   })
   startOpenMeteoWind({ origin: config.origin })
-  startPosePipeline({ takeoffAltitudeMSL: config.takeoffAltitudeMSL })
+  posePipeline = startPosePipeline({
+    takeoffAltitudeMSL: config.takeoffAltitudeMSL,
+    history: telemetryHistory,
+    matchClock: {
+      enabled: () => arBackgroundMode === 'video',
+      getActivePovId: () => scene?.getActivePovId() ?? null,
+      getLutStreamId: lutStreamIdForPov,
+      getPresentedPts90k: (povId) =>
+        videoStreamManager?.getCounters(povId)?.presentedPts90k ?? null,
+      getSyncTrimMs: (povId) => getOffsets(povId).syncTrimMs,
+      hasPicture: (povId) =>
+        (videoStreamManager?.getCounters(povId)?.framesDecoded ?? 0) > 0,
+      getSrtIdForTelemId: srtIdForTelemId,
+      getTelemIdForSrtId: telemIdForSrtId,
+    },
+  })
   applyIngestConnectionStatus(ingest)
   hud.setMode(config.telemetryMode)
 
   window.addEventListener('beforeunload', () => {
     stopPosePipeline()
+    posePipeline = null
     clearLiveStatusSub()
+    if (srtSituationTimer != null) {
+      clearInterval(srtSituationTimer)
+      srtSituationTimer = null
+    }
     ingest?.stop()
     stopOpenMeteoWind()
     ndiController?.dispose()
     ndiController = null
+    syncDebugPanel?.dispose()
+    syncDebugPanel = null
+    flowPanel?.dispose()
+    flowPanel = null
     ndiPump?.stop()
     ndiPump = null
     streamMapNdiPump?.stop()
     streamMapNdiPump = null
     ndi3dPump?.stop()
     ndi3dPump = null
+    previewClock?.stop()
+    previewClock = null
     visualTimecode?.stop()
     visualTimecode = null
+    videoStreamManager?.dispose()
+    videoStreamManager = null
+    videoBackground?.stop()
+    videoBackground = null
+    videoBackgroundTestPattern?.dispose()
+    videoBackgroundTestPattern = null
     whepUnderlay?.stop()
     whepUnderlay = null
     calib?.stop()
     calib = null
+    arBackgroundControl?.stop()
+    arBackgroundControl = null
     outputControl?.stop()
     outputControl = null
     localChannelSwitcher?.stop()

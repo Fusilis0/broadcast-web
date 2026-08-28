@@ -51,7 +51,7 @@ describe('applyHullMaterialOpacity', () => {
   it('sets transparent + opacity on mesh materials', () => {
     const visual = createProceduralBoatVisual()
     applyHullMaterialOpacity(visual, GHOST_HULL_OPACITY, true)
-    const hull = visual.getObjectByName('hullMid') as THREE.Mesh
+    const hull = visual.getObjectByName('hull') as THREE.Mesh
     const mat = hull.material as THREE.MeshStandardMaterial
     expect(mat.transparent).toBe(true)
     expect(mat.opacity).toBe(GHOST_HULL_OPACITY)
@@ -90,7 +90,7 @@ describe('applyBoatVisibilityMode', () => {
     expect(t.visual.visible).toBe(true)
     expect(t.ghostRing.visible).toBe(true)
     expect(t.tagRoot.visible).toBe(true)
-    const hull = t.visual.getObjectByName('hullMid') as THREE.Mesh
+    const hull = t.visual.getObjectByName('hull') as THREE.Mesh
     const mat = hull.material as THREE.MeshStandardMaterial
     expect(mat.opacity).toBe(GHOST_HULL_OPACITY)
     expect(mat.transparent).toBe(true)
@@ -113,7 +113,7 @@ describe('applyBoatVisibilityMode', () => {
     expect(t.visual.visible).toBe(true)
     expect(t.ghostRing.visible).toBe(false)
     expect(t.tagRoot.visible).toBe(true)
-    const hull = t.visual.getObjectByName('hullMid') as THREE.Mesh
+    const hull = t.visual.getObjectByName('hull') as THREE.Mesh
     const mat = hull.material as THREE.MeshStandardMaterial
     expect(mat.opacity).toBe(1)
     expect(mat.transparent).toBe(false)

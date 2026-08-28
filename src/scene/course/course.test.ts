@@ -32,6 +32,19 @@ describe('normalizeCourse', () => {
     expect(course.appearance.boundaryColor).toBe(0xffb200)
   })
 
+  it('parses optional waypoint rounding (unknown → none)', () => {
+    const course = normalizeCourse({
+      waypoints: [
+        { name: 'A', type: 'mark', lat: 41, lon: 29, rounding: 'cw' },
+        { name: 'B', type: 'mark', lat: 41, lon: 29, rounding: 'nope' },
+        { name: 'C', type: 'mark', lat: 41, lon: 29 },
+      ],
+    })
+    expect(course.waypoints[0]!.rounding).toBe('cw')
+    expect(course.waypoints[1]!.rounding).toBe('none')
+    expect(course.waypoints[2]!.rounding).toBeUndefined()
+  })
+
   it('parses appearance hex colors', () => {
     const course = normalizeCourse({
       waypoints: [],

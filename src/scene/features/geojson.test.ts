@@ -15,6 +15,13 @@ const mark: WorldFeature = {
   color: 0xffdd33,
 }
 
+const markCw: WorldFeature = {
+  ...mark,
+  id: 'course:Mark-CW',
+  name: 'Mark-CW',
+  rounding: 'cw',
+}
+
 const sponsor: WorldFeature = {
   id: 'sponsor:sp-west',
   name: 'sp-west',
@@ -60,6 +67,29 @@ describe('worldFeaturesToGeojson / geojsonToWorldFeatures', () => {
     expect(s.points[1]!.altMsl).toBeCloseTo(1.5)
     expect(s.heightM).toBe(8)
     expect(s.color).toBe(0x1e4d8c)
+  })
+
+  it('round-trips rounding on mark properties', () => {
+    const collection = worldFeaturesToGeojson([markCw])
+    expect(collection.features[0]!.properties?.rounding).toBe('cw')
+    const { features, skipped } = geojsonToWorldFeatures(collection)
+    expect(skipped).toBe(0)
+    expect(features[0]!.rounding).toBe('cw')
+  })
+
+  it('round-trips panelColor / frameColor on sponsor properties', () => {
+    const painted: WorldFeature = {
+      ...sponsor,
+      panelColor: 0xf4f4f2,
+      frameColor: 0x2c3338,
+    }
+    const collection = worldFeaturesToGeojson([painted])
+    expect(collection.features[0]!.properties?.panelColor).toBe('#f4f4f2')
+    expect(collection.features[0]!.properties?.frameColor).toBe('#2c3338')
+    const { features, skipped } = geojsonToWorldFeatures(collection)
+    expect(skipped).toBe(0)
+    expect(features[0]!.panelColor).toBe(0xf4f4f2)
+    expect(features[0]!.frameColor).toBe(0x2c3338)
   })
 
   it('exports serializeable .geojson text', () => {

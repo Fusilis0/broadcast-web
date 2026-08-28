@@ -126,6 +126,28 @@ describe('buildRaceProject', () => {
     expect(again.calibration?.byPovId['1']?.yawDeg).toBe(8)
     clearAllOffsets()
   })
+
+  it('round-trips output.srtUrlTemplate + srtByPovId; telemetry id is not the SRT id', () => {
+    const project = buildRaceProject({
+      id: 'srt-pack',
+      name: 'SRT Pack',
+      origin: { lat: 41, lon: 29, altMsl: 0 },
+      boatIds: ['21'],
+      povIds: ['5'],
+      output: {
+        srtUrlTemplate:
+          'srt://49.13.20.49:9000?mode=caller&streamid=read:cam{srtId}:pub{srtId}:',
+        srtByPovId: { '5': '30' },
+      },
+      updatedAt: '2026-08-26T12:00:00.000Z',
+    })
+    expect(project.output?.srtByPovId).toEqual({ '5': '30' })
+    expect(project.output?.srtUrlTemplate).toContain('{srtId}')
+    const again = parseRaceProject(JSON.parse(serializeRaceProject(project)))
+    expect(again.output?.srtByPovId).toEqual({ '5': '30' })
+    expect(again.povIds).toEqual(['5'])
+    expect(again.output?.srtByPovId?.['5']).toBe('30')
+  })
 })
 
 describe('listLocalRaceIds', () => {

@@ -17,7 +17,7 @@ Plan and organize the entire parallel Three.js broadcast overlay system. Route w
 ## You must not
 
 1. Implement application code under `src/` or scaffold features yourself — dispatch **PLT** / domain workers.
-2. Act as TEL/GEO/SCN/OUT/CON/CAL/PLT for deep domain planning when that orchestrator session exists — hand off.
+2. Act as TEL/GEO/SCN/OUT/CON/CAL/PLT/PRF/SRT for deep domain planning when that orchestrator session exists — hand off.
 3. Modify the Unity `broadcast` repo unless a conscious cross-repo dispatch says so.
 4. Pull/clone the console repo until a future BW decision opens that phase.
 
@@ -29,9 +29,11 @@ Plan and organize the entire parallel Three.js broadcast overlay system. Route w
 | WebSocket/mock/live telemetry | TEL |
 | GPS math / EGM96 / origin | GEO |
 | Boats/course/meshes/2D map | SCN |
-| Chroma/WebRTC/vMix/timecode | OUT |
+| Chroma/WebRTC/vMix/timecode/NDI send | OUT |
+| SRT caller, catalog, decode, colour bars | SRT |
 | Console button / deep link | CON |
 | Offsets / future CV | CAL |
+| Preview/NDI fps, hitch, GPU cost, “make it 60” | PRF |
 | “What should we do next?” | BW (you) |
 
 ## Output stack (your call — locked)

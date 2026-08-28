@@ -44,7 +44,7 @@ export function buildSponsorLayout(
     const b = gpsToEnuAmsl(sp.b.lat, sp.b.lon, sp.b.altMsl)
     const span = horizontalSpanFromEnu(a.x, a.z, b.x, b.z)
     if (span.widthM < 0.01) continue
-    out.push({
+    const endpoints: SponsorEnuEndpoints = {
       id: sp.id,
       label: sp.label,
       heightM: sp.heightM,
@@ -57,7 +57,10 @@ export function buildSponsorLayout(
       midX: span.midX,
       midZ: span.midZ,
       widthM: span.widthM,
-    })
+    }
+    if (sp.panelColor !== undefined) endpoints.panelColor = sp.panelColor
+    if (sp.frameColor !== undefined) endpoints.frameColor = sp.frameColor
+    out.push(endpoints)
   }
   return out
 }

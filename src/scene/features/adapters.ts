@@ -10,7 +10,7 @@ import type { WorldFeature } from './types.ts'
 export function adaptCourseToFeatures(course: CourseData): WorldFeature[] {
   return course.waypoints.map((wp) => {
     const isGate = wp.type === 'gateLeft' || wp.type === 'gateRight'
-    return {
+    const feature: WorldFeature = {
       id: `course:${wp.name}`,
       name: wp.name,
       type: wp.type,
@@ -20,24 +20,31 @@ export function adaptCourseToFeatures(course: CourseData): WorldFeature[] {
         ? course.appearance.gateColor
         : course.appearance.buoyColor,
     }
+    if (wp.rounding !== undefined) feature.rounding = wp.rounding
+    return feature
   })
 }
 
 /** Adapt normalized sponsors → A–B WorldFeature entries. */
 export function adaptSponsorsToFeatures(data: SponsorsData): WorldFeature[] {
-  return data.sponsors.map((sp) => ({
-    id: `sponsor:${sp.id}`,
-    name: sp.id,
-    type: 'sponsor' as const,
-    points: [
-      { lat: sp.a.lat, lon: sp.a.lon, altMsl: sp.a.altMsl },
-      { lat: sp.b.lat, lon: sp.b.lon, altMsl: sp.b.altMsl },
-    ],
-    heightM: sp.heightM,
-    color: sp.color,
-    label: sp.label,
-    textureUrl: sp.textureUrl,
-  }))
+  return data.sponsors.map((sp) => {
+    const feature: WorldFeature = {
+      id: `sponsor:${sp.id}`,
+      name: sp.id,
+      type: 'sponsor' as const,
+      points: [
+        { lat: sp.a.lat, lon: sp.a.lon, altMsl: sp.a.altMsl },
+        { lat: sp.b.lat, lon: sp.b.lon, altMsl: sp.b.altMsl },
+      ],
+      heightM: sp.heightM,
+      color: sp.color,
+      label: sp.label,
+      textureUrl: sp.textureUrl,
+    }
+    if (sp.panelColor !== undefined) feature.panelColor = sp.panelColor
+    if (sp.frameColor !== undefined) feature.frameColor = sp.frameColor
+    return feature
+  })
 }
 
 /** Adapt countdown-flags fixture → flagP1 + flagP2 features. */

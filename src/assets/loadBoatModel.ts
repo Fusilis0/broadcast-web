@@ -2,16 +2,22 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { applyBoatVisualOffset } from './boatVisualOffset.ts'
 import { createProceduralBoatVisual } from './createProceduralBoatVisual.ts'
+import { markBoatTintableByNodeName } from './tintBoatVisual.ts'
 
 export const DEFAULT_BOAT_MODEL_URL = '/models/boat.glb'
 
 /** Cached template (not added to any scene). Cloned per entity. */
 let templatePromise: Promise<THREE.Group> | null = null
 
+function hasSailboatAnchors(root: THREE.Object3D): boolean {
+  return Boolean(root.getObjectByName('sail') || root.getObjectByName('mastTop'))
+}
+
 function prepareTemplate(root: THREE.Object3D): THREE.Group {
   const group = root instanceof THREE.Group ? root : new THREE.Group().add(root)
   group.name = group.name || 'boatVisualGltf'
   applyBoatVisualOffset(group)
+  markBoatTintableByNodeName(group)
   group.traverse((obj) => {
     obj.castShadow = false
     obj.receiveShadow = false
@@ -47,6 +53,13 @@ export function loadBoatModelTemplate(
       loader.load(
         url,
         (gltf) => {
+          if (!hasSailboatAnchors(gltf.scene)) {
+            console.info(
+              `[assets] boat glTF (${url}) has no sail/mastTop; using procedural sailboat`,
+            )
+            resolve(prepareTemplate(createProceduralBoatVisual()))
+            return
+          }
           resolve(prepareTemplate(gltf.scene))
         },
         undefined,

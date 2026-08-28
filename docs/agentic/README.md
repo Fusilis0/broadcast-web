@@ -7,7 +7,7 @@ English-only operating manual for multi-session Cursor development.
 | Role | Does | Does not |
 | --- | --- | --- |
 | **BW — Broadcast-Web Master Orchestrator** | Own roadmap, architecture, cross-domain routing, approve phase gates | Write app feature code |
-| **Domain orchestrator** (`TEL` `GEO` `SCN` `OUT` `CON` `CAL` `PLT`) | Own domain plan, write worker dispatches, handoffs, update `MEMO.md` | Implement code in the orchestrator chat |
+| **Domain orchestrator** (`TEL` `GEO` `SCN` `OUT` `CON` `CAL` `PLT` `PRF` `SRT`) | Own domain plan, write worker dispatches, handoffs, update `MEMO.md` | Implement code in the orchestrator chat |
 | **Worker** | Execute exactly one dispatch (code, tests, assets) | Expand scope; act as another orchestrator |
 
 ## Session types
@@ -71,4 +71,4 @@ User / need
 
 1. Open **BW** chat with [`dispatches/BOOTSTRAP_BW.md`](./dispatches/BOOTSTRAP_BW.md).  
 2. Open domain orchestrators as needed with their `BOOTSTRAP_<ID>.md`.  
-3. First implementation wave: **PLT** (scaffold) → **GEO** + **TEL** → **SCN** → others.
+3. First implementation wave: **PLT** (scaffold) → **GEO** + **TEL** → **SCN** → others. Open **PRF** when fps / hitch work starts. Open **SRT** when DJI SRT ingest work starts (`BOOTSTRAP_SRT.md`).

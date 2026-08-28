@@ -1,6 +1,10 @@
 import * as THREE from 'three'
 import type { CourseAppearance, CourseEnuPoint } from './types.ts'
 import { COURSE_WATER_Y } from './courseLayout.ts'
+import {
+  createRoundingArrowRing,
+  DEFAULT_ROUNDING_RADIUS_M,
+} from './roundingArrows.ts'
 
 export type BuoyMarkersHandle = {
   root: THREE.Group
@@ -143,9 +147,23 @@ function createBuoyPole(
   sprite.scale.set(labelH * LABEL_ASPECT, labelH, 1)
   group.add(sprite)
 
+  const extraDispose: Array<() => void> = []
+
+  const ringRadius = Math.max(height * 1.8, DEFAULT_ROUNDING_RADIUS_M)
+  const rounding = createRoundingArrowRing({
+    sense: point.rounding,
+    radiusM: ringRadius,
+  })
+  if (rounding) {
+    group.add(rounding.root)
+    extraDispose.push(rounding.dispose)
+  }
+
   return {
     root: group,
     dispose(): void {
+      for (const d of extraDispose) d()
+      extraDispose.length = 0
       for (const d of disposables) {
         d.geom?.dispose()
         d.mat?.dispose()

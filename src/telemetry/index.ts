@@ -119,3 +119,64 @@ export {
   type WindHoldMode,
   type WindOrigin,
 } from './windOpenMeteo.ts'
+export {
+  BOAT_STILL_SPD_MPS,
+  BOAT_T_ERR_UNSYNCED,
+  DEFAULT_BOAT_GAP_DEGRADED_MS,
+  DEFAULT_BOAT_HOLD_MS,
+  DEFAULT_DRONE_GAP_DEGRADED_MS,
+  DEFAULT_EXTRAPOLATE_MS,
+  DEFAULT_FIX_AGE_SKIP_DR_MS,
+  DEFAULT_HISTORY_WINDOW_MS,
+  DEFAULT_HOLD_MS,
+  DEFAULT_MAX_SAMPLES_PER_ENTITY,
+  DJI_NTP_ERR_UNSYNCED,
+  createTelemetryHistory,
+  hasUsableGps,
+} from './telemetryHistory.ts'
+export type {
+  BoatSample,
+  DroneSample,
+  EntityHistoryStats,
+  SampleMode,
+  SampleQuality,
+  TelemetryHistory,
+  TelemetryHistoryOptions,
+  TelemetryHistoryStats,
+} from './telemetryHistory.ts'
+export {
+  DEFAULT_FLOW_TAP_PER_ID,
+  createFlowTap,
+  flowTap,
+  redactSrtish,
+  resetFlowTap,
+} from './flowTap.ts'
+export type {
+  FlowTap,
+  FlowTapEvent,
+  FlowTapKind,
+  FlowTapOptions,
+  FlowTapPushInput,
+} from './flowTap.ts'
+export {
+  DEFAULT_CLOCK_STEP_MS,
+  DEFAULT_EXTRAPOLATE_MAX_MS,
+  DEFAULT_MAX_FRAME_COUNT,
+  DEFAULT_MAX_PACING_COUNT,
+  DEFAULT_OUTLIER_RESIDUAL_MS,
+  DEFAULT_WINDOW_MS,
+  PTS_MOD_33,
+  clearPtsNtpMaps,
+  createPtsNtpMap,
+  getPtsNtpMap,
+  maskPts33,
+  ptsDiff33,
+} from './ptsNtpMap.ts'
+export type {
+  PtsNtpHealth,
+  PtsNtpMap,
+  PtsNtpMapOptions,
+  PtsNtpMode,
+  PtsNtpRejectedCounts,
+  PtsNtpResult,
+} from './ptsNtpMap.ts'

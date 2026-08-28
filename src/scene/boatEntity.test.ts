@@ -12,15 +12,16 @@ import { boatTagWorldHeight } from './boatTag.ts'
 import { createBoatEntity } from './boatEntity.ts'
 
 describe('boat visual', () => {
-  it('procedural hull has clear bow/stern children and +Z length bias', () => {
+  it('procedural sailboat has hull/sail/mastTop and +Z length bias', () => {
     const visual = createProceduralBoatVisual()
     const names = new Set<string>()
     visual.traverse((o) => {
       if (o.name) names.add(o.name)
     })
-    expect(names.has('hullBow')).toBe(true)
-    expect(names.has('hullStern')).toBe(true)
-    expect(names.has('cabin')).toBe(true)
+    expect(names.has('hull')).toBe(true)
+    expect(names.has('sail')).toBe(true)
+    expect(names.has('mastTop')).toBe(true)
+    expect(names.has('jib')).toBe(true)
 
     const box = new THREE.Box3().setFromObject(visual)
     const size = box.getSize(new THREE.Vector3())
@@ -65,6 +66,44 @@ describe('boat visual', () => {
     boat.root.getWorldDirection(forward)
     expect(forward.x).toBeGreaterThan(0.98)
     expect(Math.abs(forward.z)).toBeLessThan(0.05)
+
+    boat.dispose()
+  })
+})
+
+describe('boat tag leader line', () => {
+  it('connects mastTop to the tag and follows tag visibility', () => {
+    const boat = createBoatEntity({
+      id: '21',
+      tryGltf: false,
+      color: '#e53935',
+    })
+    const tag = boat.root.getObjectByName('boatTag')
+    const line = boat.root.getObjectByName('boatTagLeader') as THREE.Line
+    expect(tag).toBeTruthy()
+    expect(line).toBeTruthy()
+    expect(tag!.visible).toBe(true)
+
+    const cam = new THREE.PerspectiveCamera(50, 1, 0.1, 2000)
+    cam.position.set(0, 40, 60)
+    boat.updateTag(cam, 1080)
+    const pos = line.geometry.getAttribute('position')
+    expect(pos.getY(0)).toBeGreaterThan(15)
+    expect(pos.getY(1)).toBeGreaterThan(pos.getY(0))
+
+    const mat = line.material as THREE.LineBasicMaterial
+    expect(mat.transparent).toBe(true)
+    expect(mat.depthWrite).toBe(false)
+    expect(mat.color.getHexString()).toBe('e53935')
+
+    boat.setVisibilityMode('hidden')
+    expect(tag!.visible).toBe(false)
+
+    boat.setVisibilityMode('ghost')
+    expect(tag!.visible).toBe(true)
+
+    boat.setVisibilityMode('solid')
+    expect(tag!.visible).toBe(true)
 
     boat.dispose()
   })

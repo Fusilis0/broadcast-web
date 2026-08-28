@@ -24,6 +24,7 @@
   },
   "takeoffAltitudeMSL": 0,
   "outputMode": "preview",
+  "arBackground": "alpha",
   "timecodeEnabled": true,
   "timecodeCorner": "bottom-right",
   "timecodeSizePx": 96,

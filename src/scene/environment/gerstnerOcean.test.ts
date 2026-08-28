@@ -6,8 +6,15 @@ import * as THREE from 'three'
 import {
   GERSTNER_OCEAN_DEFAULTS,
   GERSTNER_WAVE_COUNT,
+  OCEAN_DETAIL_FADE,
+  OCEAN_NOISE_SIZE,
   createClipmapGeometry,
   createGerstnerOcean,
+  createOceanNoiseTexture,
+  clipmapCellSizeM,
+  clipmapPatchSpecs,
+  clipmapRingOverlapM,
+  quantizeClipmapCenter,
   streakIntensityFromSpeedMs,
   streakScrollSpeedMs,
   streakTravelXZ,
@@ -51,6 +58,45 @@ describe('createClipmapGeometry', () => {
     expect(pos!.count).toBeGreaterThan(5 * 5)
     geo.dispose()
   })
+
+  it('coarser rings overlap the finer level by ≥ one finer cell', () => {
+    const half = 8
+    const innerSeg = 8
+    const ringSeg = 8
+    const cell = clipmapCellSizeM(half, innerSeg)
+    expect(cell).toBeCloseTo(2)
+    const overlap = clipmapRingOverlapM(half, innerSeg, ringSeg, 1)
+    expect(overlap).toBeGreaterThanOrEqual(cell - 1e-9)
+
+    const specs = clipmapPatchSpecs(half, innerSeg, 2, ringSeg)
+    const inner = specs[0]!
+    const south = specs[1]!
+    expect(south.z1).toBeCloseTo(inner.z0 + overlap)
+    expect(south.z1).toBeGreaterThan(inner.z0)
+
+    const geo = createClipmapGeometry(half, innerSeg, 1, ringSeg)
+    const pos = geo.getAttribute('position')!
+    const innerEdge = half - overlap
+    let hit = false
+    for (let i = 0; i < pos.count; i++) {
+      if (Math.abs(pos.getZ(i) - innerEdge) < 1e-4) {
+        hit = true
+        break
+      }
+    }
+    expect(hit).toBe(true)
+    geo.dispose()
+  })
+})
+
+describe('quantizeClipmapCenter', () => {
+  it('snaps camera XZ to the inner cell so dual-pass follow does not swim', () => {
+    const cell = clipmapCellSizeM(48, 48)
+    expect(cell).toBeCloseTo(2)
+    const q = quantizeClipmapCenter(5.4, -7.6, cell)
+    expect(q.x).toBeCloseTo(6)
+    expect(q.z).toBeCloseTo(-8)
+  })
 })
 
 describe('createGerstnerOcean', () => {
@@ -68,9 +114,50 @@ describe('createGerstnerOcean', () => {
     )
     expect(GERSTNER_WAVE_COUNT).toBe(5)
     expect(ocean.mesh.position.y).toBeCloseTo(GERSTNER_OCEAN_DEFAULTS.liftY)
+    expect(GERSTNER_OCEAN_DEFAULTS.liftY).toBeGreaterThan(0)
+    expect(GERSTNER_OCEAN_DEFAULTS.liftY).toBeLessThanOrEqual(0.12)
+    expect(ocean.mesh.position.x).toBe(0)
+    expect(ocean.mesh.position.z).toBe(0)
+    expect(mat.uniforms['uClipmapCenter']).toBeTruthy()
+    expect(GERSTNER_OCEAN_DEFAULTS.innerSegments).toBe(32)
+    expect(GERSTNER_OCEAN_DEFAULTS.ringCount).toBe(7)
+    expect(GERSTNER_OCEAN_DEFAULTS.glitterIntensity).toBeGreaterThanOrEqual(0.12)
+    expect(GERSTNER_OCEAN_DEFAULTS.glitterIntensity).toBeLessThanOrEqual(0.2)
+    expect(GERSTNER_OCEAN_DEFAULTS.glitterSharpness).toBeGreaterThanOrEqual(60)
+    expect(GERSTNER_OCEAN_DEFAULTS.glitterSharpness).toBeLessThanOrEqual(90)
+    expect(mat.fragmentShader).not.toContain('glint * 0.45')
+    expect(WIND_STREAK_DEFAULTS.contrast).toBeGreaterThan(0.75)
 
     ocean.dispose()
     expect(mat.uniforms['uTime']).toBeTruthy()
+  })
+
+  it('follows the render camera via uClipmapCenter, not mesh.position (NDI vs preview)', () => {
+    const ocean = createGerstnerOcean({
+      innerSegments: 48,
+      innerHalfExtentM: 48,
+      ringCount: 1,
+      ringSegments: 4,
+    })
+    const cam = new THREE.PerspectiveCamera()
+    cam.position.set(41, 12, -27)
+    cam.updateMatrixWorld()
+    ocean.mesh.onBeforeRender(
+      {} as THREE.WebGLRenderer,
+      {} as THREE.Scene,
+      cam,
+      ocean.mesh.geometry,
+      ocean.mesh.material,
+      {} as THREE.Group,
+    )
+    expect(ocean.mesh.position.x).toBe(0)
+    expect(ocean.mesh.position.z).toBe(0)
+    const center = (ocean.mesh.material as THREE.ShaderMaterial).uniforms[
+      'uClipmapCenter'
+    ]!.value as THREE.Vector2
+    expect(center.x).toBeCloseTo(42)
+    expect(center.y).toBeCloseTo(-26)
+    ocean.dispose()
   })
 
   it('setDirectionRad updates the XZ travel uniform', () => {
@@ -215,9 +302,59 @@ describe('wind streaks (14.3e)', () => {
     expect(mat.fragmentShader).toContain('uStreakScroll')
     expect(mat.fragmentShader).toContain('streakNoise')
     expect(mat.fragmentShader).toContain('windStreak')
+    expect(mat.fragmentShader).toContain('windStreak(vWorldPos.xz)')
+    expect(mat.fragmentShader).toContain('cross * 0.22')
+    expect(mat.fragmentShader).toContain('uStreakContrast')
     expect(mat.fragmentShader).toContain('uTerrainDepth')
     expect(mat.fragmentShader).toContain('uShoreFoamEnabled')
+    expect(mat.vertexShader).toContain('uClipmapCenter')
     expect(ocean.getShoreDepthTarget()).toBeNull()
+    ocean.dispose()
+  })
+})
+
+describe('ocean shimmer AA (16.1)', () => {
+  it('wires a 256² repeating mipmapped noise texture and fade uniforms', () => {
+    const tex = createOceanNoiseTexture()
+    expect(tex.image.width).toBe(OCEAN_NOISE_SIZE)
+    expect(tex.image.height).toBe(OCEAN_NOISE_SIZE)
+    expect(tex.wrapS).toBe(THREE.RepeatWrapping)
+    expect(tex.wrapT).toBe(THREE.RepeatWrapping)
+    expect(tex.minFilter).toBe(THREE.LinearMipmapLinearFilter)
+    expect(tex.generateMipmaps).toBe(true)
+    tex.dispose()
+
+    const ocean = createGerstnerOcean({
+      innerSegments: 2,
+      ringCount: 1,
+      ringSegments: 4,
+    })
+    const mat = ocean.mesh.material as THREE.ShaderMaterial
+    const noise = mat.uniforms['uNoise']!.value as THREE.DataTexture
+    expect(noise).toBeInstanceOf(THREE.DataTexture)
+    expect(noise.image.width).toBe(OCEAN_NOISE_SIZE)
+    expect(noise.minFilter).toBe(THREE.LinearMipmapLinearFilter)
+    expect(noise.wrapS).toBe(THREE.RepeatWrapping)
+    expect(mat.uniforms['uDetailFadeNear']!.value).toBe(OCEAN_DETAIL_FADE.nearM)
+    expect(mat.uniforms['uDetailFadeFar']!.value).toBe(OCEAN_DETAIL_FADE.farM)
+    expect(OCEAN_DETAIL_FADE.farM).toBeLessThan(1536)
+    ocean.dispose()
+  })
+
+  it('band-limits foam/streak/glitter in world XZ (no clipmap-local noise)', () => {
+    const ocean = createGerstnerOcean({
+      innerSegments: 2,
+      ringCount: 1,
+      ringSegments: 4,
+    })
+    const mat = ocean.mesh.material as THREE.ShaderMaterial
+    expect(mat.fragmentShader).toContain('texture2D(uNoise')
+    expect(mat.fragmentShader).toContain('fwidth')
+    expect(mat.fragmentShader).toContain('uDetailFadeNear')
+    expect(mat.fragmentShader).toContain('highFreqFade')
+    expect(mat.fragmentShader).toContain('vWorldPos.xz')
+    expect(mat.fragmentShader).not.toContain('streakHash21')
+    expect(mat.fragmentShader).not.toMatch(/windStreak\(\s*position\.xz/)
     ocean.dispose()
   })
 })

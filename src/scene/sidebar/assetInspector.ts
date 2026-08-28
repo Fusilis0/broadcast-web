@@ -15,6 +15,12 @@ import {
   isFeatureVisible3d,
 } from '../features/featureVisibility.ts'
 import { layoutFeatures } from '../features/layoutFeatures.ts'
+import {
+  effectiveRounding,
+  isRoundingFeatureType,
+  persistRoundingSelection,
+  type RoundingSense,
+} from '../features/rounding.ts'
 import type {
   GpsToEnuAmslFn,
   WorldFeature,
@@ -101,6 +107,12 @@ export type AssetInspectorOptions = {
   ) => void | Promise<void>
   /** Deep-link: open Fleet row edit for this boat id. */
   onOpenBoatDetails?: (id: string) => void
+  /** Inspector lat/lon — seeds 3D hull + map without telemetry. */
+  onBoatPlannedGpsChange?: (
+    id: string,
+    plannedLat: number,
+    plannedLon: number,
+  ) => void
 }
 
 export type AssetInspectorHandle = {
@@ -178,8 +190,44 @@ export function startAssetInspector(
       const p = document.createElement('p')
       p.className = 'asset-insp__note'
       p.textContent =
-        'Name / category edit lives in Fleet / Live. Use Open Fleet to jump there.'
+        'Name / category edit lives in Fleet / Live. Planned lat/lon moves the 3D hull when there is no live telemetry.'
       details.appendChild(p)
+
+      const boat = options.getBoats().find((b) => b.id === id)
+      const form = document.createElement('div')
+      form.className = 'asset-insp__form'
+      const latInput = document.createElement('input')
+      const lonInput = document.createElement('input')
+      const commitGps = (): void => {
+        const lat = Number(latInput.value)
+        const lon = Number(lonInput.value)
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return
+        options.onBoatPlannedGpsChange?.(id, lat, lon)
+      }
+      for (const spec of [
+        {
+          label: 'Lat',
+          input: latInput,
+          value: boat?.plannedLat,
+        },
+        {
+          label: 'Lon',
+          input: lonInput,
+          value: boat?.plannedLon,
+        },
+      ] as const) {
+        const row = document.createElement('label')
+        row.className = 'asset-insp__field'
+        row.appendChild(document.createTextNode(spec.label))
+        spec.input.className = 'asset-insp__input'
+        spec.input.value =
+          spec.value !== undefined ? String(spec.value) : ''
+        spec.input.addEventListener('change', commitGps)
+        row.appendChild(spec.input)
+        form.appendChild(row)
+      }
+      details.appendChild(form)
+
       const open = document.createElement('button')
       open.type = 'button'
       open.className = 'asset-insp__btn asset-insp__btn--primary'
@@ -210,12 +258,13 @@ export function startAssetInspector(
       return
     }
 
-    const feature = options.getFeatures().find((f) => f.id === detailsTarget!.id)
+    const feature = options.getFeatures().find((row) => row.id === detailsTarget!.id)
     if (!feature) {
       title.textContent = 'Missing feature'
       return
     }
-    title.textContent = `${feature.type}: ${feature.name}`
+    const f = feature
+    title.textContent = `${f.type}: ${f.name}`
 
     const form = document.createElement('div')
     form.className = 'asset-insp__form'
@@ -257,27 +306,56 @@ export function startAssetInspector(
       form.appendChild(row)
     }
 
+    function addRoundingSelect(): void {
+      const row = document.createElement('label')
+      row.className = 'asset-insp__field'
+      row.appendChild(document.createTextNode('Rounding'))
+      const select = document.createElement('select')
+      select.className = 'asset-insp__input'
+      const current = effectiveRounding(f.rounding)
+      const choices: Array<{ value: RoundingSense; label: string }> = [
+        { value: 'none', label: 'Off' },
+        { value: 'cw', label: 'CW' },
+        { value: 'ccw', label: 'CCW' },
+      ]
+      for (const opt of choices) {
+        const el = document.createElement('option')
+        el.value = opt.value
+        el.textContent = opt.label
+        if (opt.value === current) el.selected = true
+        select.appendChild(el)
+      }
+      select.addEventListener('change', () => {
+        const v = select.value as RoundingSense
+        void options.onFeaturePatch(f.id, {
+          rounding: persistRoundingSelection(v, f.rounding),
+        })
+      })
+      row.appendChild(select)
+      form.appendChild(row)
+    }
+
     if (
-      feature.type === 'sponsor' ||
-      feature.type === 'billboardChain'
+      f.type === 'sponsor' ||
+      f.type === 'billboardChain'
     ) {
-      addText('Label', feature.label ?? '', (v) => {
-        void options.onFeaturePatch(feature.id, {
+      addText('Label', f.label ?? '', (v) => {
+        void options.onFeaturePatch(f.id, {
           label: v.trim() === '' ? undefined : v.trim(),
         })
       })
-      addNumber('Height m', feature.heightM, (v) => {
-        void options.onFeaturePatch(feature.id, { heightM: v })
+      addNumber('Height m', f.heightM, (v) => {
+        void options.onFeaturePatch(f.id, { heightM: v })
       })
-      if (feature.type === 'billboardChain') {
-        addNumber('Spacing m', feature.spacingM, (v) => {
-          void options.onFeaturePatch(feature.id, { spacingM: v })
+      if (f.type === 'billboardChain') {
+        addNumber('Spacing m', f.spacingM, (v) => {
+          void options.onFeaturePatch(f.id, { spacingM: v })
         })
       }
       const texRow = document.createElement('div')
       texRow.className = 'asset-insp__field'
       const texLabel = document.createElement('span')
-      texLabel.textContent = `Texture: ${feature.textureUrl ?? '(procedural)'}`
+      texLabel.textContent = `Texture: ${f.textureUrl ?? '(procedural)'}`
       const texBtn = document.createElement('button')
       texBtn.type = 'button'
       texBtn.className = 'asset-insp__btn'
@@ -286,10 +364,10 @@ export function startAssetInspector(
         void (async () => {
           const url = await promptTextureUrl({
             projectsApiBase: options.projectsApiBase,
-            defaultUrl: feature.textureUrl,
+            defaultUrl: f.textureUrl,
           })
           if (url === null) return
-          await options.onFeaturePatch(feature.id, {
+          await options.onFeaturePatch(f.id, {
             textureUrl: url === '' ? null : url,
           })
           renderDetails()
@@ -298,25 +376,25 @@ export function startAssetInspector(
       })
       texRow.append(texLabel, texBtn)
       form.appendChild(texRow)
-    } else if (feature.type === 'buoy') {
-      addText('Telemetry id', feature.telemetryId ?? '', (v) => {
-        void options.onFeaturePatch(feature.id, {
+    } else if (f.type === 'buoy') {
+      addText('Telemetry id', f.telemetryId ?? '', (v) => {
+        void options.onFeaturePatch(f.id, {
           telemetryId: v.trim() === '' ? null : v.trim(),
         })
       })
-      const p0 = feature.points[0]
+      const p0 = f.points[0]
       if (p0) {
         addNumber('Lat', p0.lat, (v) => {
-          const points = feature.points.map((p, i) =>
+          const points = f.points.map((p, i) =>
             i === 0 ? { ...p, lat: v } : { ...p },
           )
-          void options.onFeaturePatch(feature.id, { points })
+          void options.onFeaturePatch(f.id, { points })
         })
         addNumber('Lon', p0.lon, (v) => {
-          const points = feature.points.map((p, i) =>
+          const points = f.points.map((p, i) =>
             i === 0 ? { ...p, lon: v } : { ...p },
           )
-          void options.onFeaturePatch(feature.id, { points })
+          void options.onFeaturePatch(f.id, { points })
         })
       }
     } else {
@@ -325,10 +403,14 @@ export function startAssetInspector(
       note.textContent =
         'Move / reshape this feature with World Map tools. Visibility toggles are on the list row.'
       form.appendChild(note)
-      addText('Name', feature.name, (v) => {
+      addText('Name', f.name, (v) => {
         const name = v.trim()
-        if (name !== '') void options.onFeaturePatch(feature.id, { name })
+        if (name !== '') void options.onFeaturePatch(f.id, { name })
       })
+    }
+
+    if (isRoundingFeatureType(f.type)) {
+      addRoundingSelect()
     }
 
     details.appendChild(form)

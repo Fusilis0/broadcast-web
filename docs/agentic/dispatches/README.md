@@ -12,6 +12,8 @@
 | [`BOOTSTRAP_OUT.md`](./BOOTSTRAP_OUT.md) | Output & Compositing |
 | [`BOOTSTRAP_CON.md`](./BOOTSTRAP_CON.md) | Console Bridge |
 | [`BOOTSTRAP_CAL.md`](./BOOTSTRAP_CAL.md) | Calibration & Vision |
+| [`BOOTSTRAP_PRF.md`](./BOOTSTRAP_PRF.md) | Performance — frame budgets, dual clock, measurement |
+| [`BOOTSTRAP_SRT.md`](./BOOTSTRAP_SRT.md) | SRT ingest — caller, catalog, decode, HEVC fallback |
 
 ## Active / done worker dispatches
 
@@ -22,11 +24,167 @@ Orchestrators save concrete `DSP-*.md` files into:
 
 Templates: see `../DISPATCH_PROTOCOL.md`.
 
+### Done 2026-08-27 (PRF measurement)
+
+| DSP | Owner | Result |
+| --- | --- | --- |
+| [`done/DSP-PRF-20260826-01-measure-gpu-hitch.md`](./done/DSP-PRF-20260826-01-measure-gpu-hitch.md) | PRF | GPU HUD + hitch/s + live NDI Send fps; `powerPreference: high-performance`; **no cap change**. Electron smoke not run. |
+
+PRF accepted 2026-08-27 (`npm test` **869 + 23**). Operator 2026-08-28: HUD matches then-caps. **Studio 60 cancelled.** Lock is three NDI senders at 30.
+
+### Active
+
+None. Worker queue **clear**. Next gate is operator smoke: video mode, Sync `PTS → NTP` (not `→ —`).
+
+### Done 2026-08-28 night (SRT NTP alias + frame fit)
+
+BW verified merged tree: `npm test` **912 + 23**.
+
+| DSP | Owner | Result |
+| --- | --- | --- |
+| [`done/DSP-TEL-20260828-04-anchor-id-frame-fit.md`](./done/DSP-TEL-20260828-04-anchor-id-frame-fit.md) | TEL | `dji-N` → digit LUT; `kind:frame` OLS when pacing &lt; 2; extra still 2 s |
+
+Handoff: `HO-BW-TEL-20260828-04-done`.
+
+### Done 2026-08-28 night (match-miss: do not freeze)
+
+BW verified merged tree: `npm test` **910 + 23**.
+
+| DSP | Owner | Result |
+| --- | --- | --- |
+| [`done/DSP-TEL-20260828-03-match-miss-freerun.md`](./done/DSP-TEL-20260828-03-match-miss-freerun.md) | TEL | LUT miss → free-run; `unavailable` past hold → newest; no `emitHeld` |
+| [`done/DSP-OUT-20260828-08-lut-miss-play-newest.md`](./done/DSP-OUT-20260828-08-lut-miss-play-newest.md) | OUT | Empty LUT → newest frame `lut-miss-live`; stall-pin only with working LUT |
+
+**Human smoke:** AR bg **video**. World and SRT picture should move even if Sync says FREE-RUN / PTS unmapped. When PTS maps, overlay should follow the picture (`matched`). Alpha workaround no longer required.
+
+### Done 2026-08-28 night (2D off FBO stack)
+
+BW verified merged tree: `npm test` **909 + 23**.
+
+| DSP | Owner | Result |
+| --- | --- | --- |
+| [`done/DSP-OUT-20260828-07-2d-off-fbo-stack.md`](./done/DSP-OUT-20260828-07-2d-off-fbo-stack.md) | OUT | 2D deferred `setTimeout(0)`; worker + transferable grab; fail closed + `NDI_2D_SYNC_CAPTURE_NOTE`; still on@30 |
+
+**Human smoke (open):** 2D **on**. Preview ≥30, hitch/s ~0, Send ~30/30/30. No `NDI 2D capture: async worker unavailable` in the console. Then Sync: presented vs last pacing on the same ruler; extra not ~34 s.
+
+### Done 2026-08-28 night (stagger + PTS + keep-PTS)
+
+BW verified merged tree: `npm test` **900 + 23**.
+
+| DSP | Owner | Result |
+| --- | --- | --- |
+| [`done/DSP-OUT-20260828-04-one-ndi-fbo-per-tick.md`](./done/DSP-OUT-20260828-04-one-ndi-fbo-per-tick.md) | OUT | Tick 60; one FBO/tick including PBO; 2D stayed on |
+| [`done/DSP-OUT-20260828-05-pts-transcode-lut.md`](./done/DSP-OUT-20260828-05-pts-transcode-lut.md) | OUT | `presentedPts90k` = 33-bit PES; LUT reset on H.264 fallback; Sync last pacing |
+| [`done/DSP-SRT-20260828-01-h264-keep-pts.md`](./done/DSP-SRT-20260828-01-h264-keep-pts.md) | SRT | Transcode `-copytb 1` + `-enc_time_base 1:90000`; copy path unchanged |
+| [`done/DSP-OUT-20260828-06-async-2d-ndi.md`](./done/DSP-OUT-20260828-06-async-2d-ndi.md) | OUT | **Superseded** by OUT-07 (never started) |
+
+### Done 2026-08-28 evening (AR match)
+
+BW verified merged tree: `npm test` **896 + 23**, `npm run build` green. **No active worker DSP.**
+
+| DSP | Owner | Result |
+| --- | --- | --- |
+| [`done/DSP-TEL-20260828-02-match-no-vanish.md`](./done/DSP-TEL-20260828-02-match-no-vanish.md) | TEL | Re-emit lastMatched on unavailable; Pose Δ / pacing; no lerp-to-newest |
+| [`done/DSP-OUT-20260828-03-present-wait-lut.md`](./done/DSP-OUT-20260828-03-present-wait-lut.md) | OUT | PTS ±32 µs or null; LUT miss stall-pin 400 ms, not live-newest |
+
+**Human smoke (open):** Sync `pacing` / PTS→NTP / Δ; overlay stays when video ahead of pose. Handoffs: `HO-BW-OUT-20260828-03` · `HO-BW-TEL-20260828-02`
+
+### Done 2026-08-28 (Studio 30 + pose smoothing)
+
+| DSP | Owner | Result |
+| --- | --- | --- |
+| [`done/DSP-TEL-20260828-01-pose-smoothing.md`](./done/DSP-TEL-20260828-01-pose-smoothing.md) | TEL | Cubic Hermite + xyzw slerp in `sampleAt`; matched `t_ntp`; alpha lerp not stacked |
+| [`done/DSP-OUT-20260828-01-async-ndi-pbo.md`](./done/DSP-OUT-20260828-01-async-ndi-pbo.md) | OUT | WebGL2 PBO + fence; 1-tick latency; fail closed to sync; 2D left sync |
+| [`done/DSP-OUT-20260828-02-ndi-30-all-channels.md`](./done/DSP-OUT-20260828-02-ndi-30-all-channels.md) | OUT | AR/3D/2D **30**, 2D default on; async same-tick; `STUDIO_TICK_FPS` 30 |
+
+**Human smoke (open):** Electron Send ~30/30/30 + hitch/s ~0. Handoffs: `HO-BW-OUT-20260828-02` · `HO-BW-TEL-20260828-01` · `HO-BW-PRF-20260828-05` · `HO-BW-PRF-20260828-06` · `HO-PRF-BW-20260828-03` (Studio 60 request; **void**)
+
+### Phase 17.4 accepted 2026-08-27 (matched hold + Flow panel)
+
+| DSP | Owner | Result |
+| --- | --- | --- |
+| [`done/DSP-TEL-20260826-10-matched-hold.md`](./done/DSP-TEL-20260826-10-matched-hold.md) | TEL | No silent free-run while video clock; LUT alias; GPS-optional drones; `flowTap` |
+| [`done/DSP-SCN-20260826-10-telem-srt-flow-panel.md`](./done/DSP-SCN-20260826-10-telem-srt-flow-panel.md) | SCN | Right-rail Flow JSON windows; Live JSON ≤4 Hz; DOM only |
+
+BW verified merged tree: `npm test` **856 + 23**. Human smoke: overlay vs picture + Flow `anchor` / `ts` still open.
+
+### Active 2026-08-26 (Phase 17 — AR video underlay + NTP match)
+
+Design: [`../../architecture/ar-video-underlay-ntp-sync.md`](../../architecture/ar-video-underlay-ntp-sync.md) (locked). Source contracts: [`../../architecture/ntp-matching.md`](../../architecture/ntp-matching.md).
+
+Drone **SRT video becomes the AR background** (replacing the alpha plate as a *mode*, not a replacement), video source switches with POV, and the scene renders at the **video frame's NTP capture time** via `stream_anchor` PTS→NTP instead of at wall-clock now.
+
+**Wave 1 — accepted 2026-08-26.** BW verified merged tree: `npm test` **741 + 23**, `npm run build` green.
+
+| DSP | Owner | Result |
+| --- | --- | --- |
+| [`done/DSP-TEL-20260826-01-pts-ntp-map.md`](./done/DSP-TEL-20260826-01-pts-ntp-map.md) | TEL | 30 s OLS fit; live extrapolate ≤2 s; wrap = mod `2^33` |
+| [`done/DSP-TEL-20260826-02-telemetry-history.md`](./done/DSP-TEL-20260826-02-telemetry-history.md) | TEL | `sampleAt`; `brg === 0` hold; NED vel at this boundary |
+| [`done/DSP-OUT-20260826-03-srt-transport.md`](./done/DSP-OUT-20260826-03-srt-transport.md) | OUT | ffmpeg `-c copy` caller; cap 4; PTS copyts |
+| [`done/DSP-OUT-20260826-04-video-background.md`](./done/DSP-OUT-20260826-04-video-background.md) | OUT | In-WebGL pre-pass; `arBackground` mode; 3D FBO suppressed |
+| [`done/DSP-CAL-20260826-05-sync-trim.md`](./done/DSP-CAL-20260826-05-sync-trim.md) | CAL | `syncTrimMs` ±500 step 5; stored only until TEL-08 |
+
+**Wave 2 — accepted 2026-08-26.** BW verified merged tree: `npm test` **795 + 23**, `npm run build` green. OUT-07's mid-wave `tsc` on `videoDecodePipeline.ts` is gone in HEAD.
+
+| DSP | Owner | Result |
+| --- | --- | --- |
+| [`done/DSP-OUT-20260826-06-ts-demux-decode.md`](./done/DSP-OUT-20260826-06-ts-demux-decode.md) | OUT | In-repo TS demux + WebCodecs + 4-warm manager; PTS unwrap = TEL-01; HEVC probe-gated. Live picture **not smoked**. |
+| [`done/DSP-OUT-20260826-07-srt-config-sync-hud.md`](./done/DSP-OUT-20260826-07-srt-config-sync-hud.md) | OUT | `{srtId}` template ≠ telem id; Vid independent of Live WS; token session-only; L8 video→env off; DOM sync HUD |
+
+**Wave 3 — accepted 2026-08-26.** BW verified merged tree: `npm test` **808 + 23**, `npm run build` green.
+
+| DSP | Owner | Result |
+| --- | --- | --- |
+| [`done/DSP-TEL-20260826-08-matched-pose-cutover.md`](./done/DSP-TEL-20260826-08-matched-pose-cutover.md) | TEL+SCN | Matched pull path on `arBackground: video` + healthy LUT; alpha stays push+lerp; LUT = SRT id; `syncTrimMs` applied. Live SRT smoke still human. |
+
+**Phase 17 follow-up — accepted 2026-08-26.** [`done/DSP-OUT-20260826-09-srt-id-catalog.md`](./done/DSP-OUT-20260826-09-srt-id-catalog.md) — empty template → catalog cams 1–27 @ `49.13.20.49:9000`; filled `{srtId}` template still the escape hatch. Suite **818 + 23**.
+
+**Phase 17 engineering complete.** Open: live SRT + clapper (`syncTrimMs` number), FOV/distortion (C6), mock anchors keyed by `povIds[0]` not SRT id. Electron SRT logs may still print `streamid` tokens (`desktop/srtHelpers.cjs`).
+
+**User locks:** alpha stays as a mode · **DJI only, no GoPro** · SRT **caller** · adaptive latency clamped 100–400 ms · **4** warm POVs · H.264 **and** HEVC · per-AU frame anchors unconfirmed, so the ~1 Hz periodic fit is the primary path.
+
+Human **10.1** (Unity cutover) still open. Phase 16 human look-dev smoke still open.
+
+### Accepted 2026-08-18 pm (Phase 16)
+
+Phase 16 engineering complete (waves 1 + 2 accepted). Open: human look-dev smoke; optional glTF sailboat; sponsor colour pickers.
+
+### Accepted 2026-08-18 pm (Phase 16 wave 2)
+
+| DSP | Result |
+| --- | --- |
+| [`done/DSP-SCN-20260818-09-ops-layout.md`](./done/DSP-SCN-20260818-09-ops-layout.md) | Two overlay rails (`railLayout.ts`): left = Project/Fleet/Assets/World/Library/Race ops; right = Output/Calibration/Environment/Wind. Widths + collapse + accordion persist; Environment **water m** → `setTerrainWaterDiscardYM`. Suite 654+23. |
+
+### Accepted 2026-08-18 pm (Phase 16 wave 1)
+
+Design: `docs/architecture/phase16-visual-upgrade.md`. Merged tree `npm test` **640 + 23**, `npm run build` green.
+
+| DSP | Result |
+| --- | --- |
+| [`done/DSP-SCN-20260818-04-ocean-shimmer-terrain-water.md`](./done/DSP-SCN-20260818-04-ocean-shimmer-terrain-water.md) | 256² mip noise + `fwidth` + 80–900 m fade; world-XZ masks; `liftY` 0.08. Terrain water **discarded via quantized-mesh watermask** (height fallback +0.5 m); gated on realistic ocean. |
+| [`done/DSP-SCN-20260818-05-wind-strings.md`](./done/DSP-SCN-20260818-05-wind-strings.md) | `windStrings.ts` — 180 additive ribbons, 800 m disc, 4–10 m AGL, from-000° → +Z, fade &lt;0.5 m/s; ~0.075 ms/tick; AR-safe via realistic-env gate. |
+| [`done/DSP-SCN-20260818-06-sailboat-category-colors.md`](./done/DSP-SCN-20260818-06-sailboat-category-colors.md) | Procedural sailboat (hull/deck/keel/mast/boom/main+jib, `sail`/`mastTop`); 10-swatch palette on fleet rows; tag leader line; additive `fleet.boats[].color`. |
+| [`done/DSP-SCN-20260818-07-billboard-frames.md`](./done/DSP-SCN-20260818-07-billboard-frames.md) | Sponsor/chain panels are composed boards (`#f4f4f2` fill, `#2c3338` frame, contain-fit logo); additive `panelColor` / `frameColor`. |
+| [`done/DSP-SCN-20260818-08-rounding-universal.md`](./done/DSP-SCN-20260818-08-rounding-universal.md) | Omit = **CW**; explicit `none` hides; ~8–9 m white torus + red heads; only CCW/Off persist. |
+
+### Phase 15 accepted 2026-08-18
+
+Phase 15 engineering accepted 2026-08-18. Human Electron smoke partially done (found the Phase 16 items above).
+
+### Accepted 2026-08-18 (Phase 15)
+
+| DSP | Result |
+| --- | --- |
+| [`done/DSP-OUT-20260818-01-preview-60.md`](./done/DSP-OUT-20260818-01-preview-60.md) | Dual clock: rAF preview when visible; `studio:tick` ~30 for NDI + hidden. AR FBO on studio tick. Caps AR 30 / 3D 10 / 2D off. Ops **preview** fps. |
+| [`done/DSP-SCN-20260818-01-ocean-seams-cost-wind.md`](./done/DSP-SCN-20260818-01-ocean-seams-cost-wind.md) | Clipmap 1-cell overlap; glitter 0.16/78; inner 32 / 7 rings; `seaQuality`; 14.3f lite vane + stronger streaks. |
+| [`done/DSP-SCN-20260818-02-buoy-rounding-arrows.md`](./done/DSP-SCN-20260818-02-buoy-rounding-arrows.md) | Per-feature `rounding` CW/CCW two-arrow ring; 5 s/rev; Istanbul corners default CW. |
+| [`done/DSP-SCN-20260818-03-fleet-persist-static-hulls.md`](./done/DSP-SCN-20260818-03-fleet-persist-static-hulls.md) | `fleet.boats[]` persist; static hulls without telem; Load no longer dumps demo catalogue. |
+
+`npm test` **600 + 23** green; `npm run build` green.
+
 ### Active 2026-08-17 (Phase 14)
 
-**No active worker dispatches.** Phase 14 engineering is complete (14.3c anemometer not issued — needs hardware). Optional later: FFT/wakes, 3D ribbons/flags/spray.
-
-Human **10.1** (Unity cutover) still open.
+Phase 14 engineering is complete (14.3c anemometer not issued — needs hardware). 14.3f lite landed in 15.2.
 
 ### Accepted 2026-08-17 (Phase 14.3e)
 

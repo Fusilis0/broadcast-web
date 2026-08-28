@@ -8,6 +8,12 @@ export {
   type EnvironmentMode,
 } from './createScene.ts'
 export {
+  STATIC_HULL_GRID_SPACING_M,
+  STATIC_HULL_LIVE_HOLD_MS,
+  staticHullGridPosition,
+  type StaticHullSeed,
+} from './staticFleetHulls.ts'
+export {
   CALIBRATION_OVERLAY_DEFAULTS,
   createCalibrationOverlay,
   type CalibrationOverlayHandle,
@@ -15,9 +21,11 @@ export {
 } from './calibrationOverlay.ts'
 export {
   DEFAULT_ENVIRONMENT_MODE,
+  DEFAULT_SEA_QUALITY,
   isEnvironmentMode,
   normalizeEnvironmentMode,
   parseEnvironmentModeQuery,
+  parseSeaQualityQuery,
   shouldShowRealisticEnvironment,
   REALISTIC_ENVIRONMENT_DEFAULTS,
   createRealisticEnvironment,
@@ -27,6 +35,7 @@ export {
   CESIUM_ION_BING_AERIAL_ASSET_ID,
   CESIUM_ION_WORLD_TERRAIN_ASSET_ID,
   DEFAULT_TERRAIN_ENABLED,
+  DEFAULT_TERRAIN_WATER_DISCARD_Y,
   TERRAIN_SESSION_LOCK_KEY,
   TERRAIN_SESSION_NUDGE_KEY,
   TERRAIN_VRAM_BYTES_TARGET,
@@ -79,7 +88,9 @@ export {
 export {
   createBoatTag,
   boatTagWorldHeight,
+  resolveBoatMastTopWorld,
   BOAT_TAG_CANVAS_ASPECT,
+  BOAT_TAG_ABOVE_MAST_M,
   type BoatTagHandle,
   type BoatTagOptions,
   type BoatTagIdentity,
@@ -93,13 +104,17 @@ export {
   normalizeBoatNames,
   lookupBoatName,
   parseCategoryColor,
+  parseHexColorCss,
   boatColorsFromCatalogue,
+  BOAT_COLOR_PALETTE,
+  isPaletteHex,
   upsertBoatNameEntry,
   removeBoatNameEntry,
   DEFAULT_BOAT_NAMES_URL,
   type BoatNameEntry,
   type BoatNamesCatalogue,
   type UpsertBoatNameInput,
+  type BoatPaletteSwatch,
 } from './boatNames/index.ts'
 export {
   createDroneCamera,
@@ -109,7 +124,9 @@ export {
 } from './droneCamera.ts'
 export {
   formatConnectionStatus,
+  formatHitchLabel,
   startStubHud,
+  clampTerrainWaterDiscardYM,
   type ConnectionStatusUi,
   type HudLiveChannelStatus,
   type StubHudHandle,
@@ -130,6 +147,7 @@ export {
   type SidebarHandle,
   type SidebarSection,
   type SidebarSectionMountHandle,
+  type OpsRailId,
   type AssetInspectorHandle,
   type AssetInspectorOptions,
   type AssetKind,
@@ -147,6 +165,14 @@ export {
   type WorldMapAuthoringLauncherHandle,
 } from './worldAuthoringWorkspace.ts'
 
+export {
+  FLOW_LIVE_JSON_STORAGE_KEY,
+  FLOW_POLL_MS,
+  startFlowPanel,
+  type FlowPanelHandle,
+  type FlowPanelOptions,
+  type FlowRegistryIds,
+} from './flowPanel.ts'
 export {
   loadFleetLiveFromSession,
   saveFleetLiveToSession,

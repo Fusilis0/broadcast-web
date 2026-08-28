@@ -18,10 +18,14 @@ export type SponsorEntry = {
   a: SponsorGpsPoint
   b: SponsorGpsPoint
   heightM: number
-  /** Optional image under `public/`; null → procedural label texture. */
+  /** Optional image under `public/`; null → procedural label on the board. */
   textureUrl: string | null
-  /** Hex fill for procedural texture (0xRRGGBB). */
+  /** Hex brand/map colour (0xRRGGBB). Not the board fill (see `panelColor`). */
   color: number
+  /** Additive board fill 0xRRGGBB; omit → default white (`#f4f4f2`). */
+  panelColor?: number
+  /** Additive frame stroke 0xRRGGBB; omit → default dark slate. */
+  frameColor?: number
 }
 
 export type SponsorsData = {
@@ -36,6 +40,8 @@ export type SponsorEnuEndpoints = {
   heightM: number
   textureUrl: string | null
   color: number
+  panelColor?: number
+  frameColor?: number
   ax: number
   az: number
   bx: number

@@ -149,3 +149,54 @@ describe('visibility Save → Load round-trip', () => {
     expect(isFeatureVisible3d(old.features![0]!)).toBe(true)
   })
 })
+
+describe('rounding Save → Load round-trip', () => {
+  it('preserves cw/ccw/none; omitted stays omitted (effective CW)', () => {
+    const built = buildRaceProject({
+      id: 'round-demo',
+      name: 'Round demo',
+      origin: { lat: 41, lon: 29, altMsl: 0 },
+      boatIds: ['21'],
+      povIds: ['1'],
+      features: [
+        {
+          id: 'course:Mark-NW',
+          name: 'Mark-NW',
+          type: 'mark',
+          points: [{ lat: 41, lon: 29, altMsl: 0 }],
+          rounding: 'cw',
+        },
+        {
+          id: 'buoy:1',
+          name: 'B1',
+          type: 'buoy',
+          points: [{ lat: 41, lon: 29, altMsl: 0 }],
+          rounding: 'none',
+        },
+        {
+          id: 'course:Mark-SE',
+          name: 'Mark-SE',
+          type: 'mark',
+          points: [{ lat: 41, lon: 29, altMsl: 0 }],
+          rounding: 'ccw',
+        },
+        {
+          id: 'course:Mark-SW',
+          name: 'Mark-SW',
+          type: 'mark',
+          points: [{ lat: 41, lon: 29, altMsl: 0 }],
+        },
+      ],
+    })
+    expect(built.features?.[0]?.rounding).toBe('cw')
+    expect(built.features?.[1]?.rounding).toBe('none')
+    expect(built.features?.[2]?.rounding).toBe('ccw')
+    expect(built.features?.[3]?.rounding).toBeUndefined()
+
+    const again = parseRaceProject(built)
+    expect(again.features?.[0]?.rounding).toBe('cw')
+    expect(again.features?.[1]?.rounding).toBe('none')
+    expect(again.features?.[2]?.rounding).toBe('ccw')
+    expect(again.features?.[3]?.rounding).toBeUndefined()
+  })
+})

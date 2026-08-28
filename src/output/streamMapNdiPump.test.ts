@@ -54,6 +54,10 @@ describe('streamMapNdiPump source invariants', () => {
     expect(src).not.toMatch(/stubHud/)
     expect(src).not.toMatch(/readRenderTargetPixels/)
     expect(src).not.toMatch(/WebGLRenderer/)
+    expect(src).not.toMatch(/tryClaimNdiHeavyCapture/)
+    expect(src).toMatch(/createNdi2dAsyncCapture/)
+    expect(src).toMatch(/scheduleCapture/)
+    expect(src).toMatch(/capture\.defer/)
   })
 })
 
@@ -135,7 +139,7 @@ describe('startStreamMapNdiPump enable/disable', () => {
     ).toBeNull()
   })
 
-  it('starts disabled by default; enabled: true starts sender', async () => {
+  it('starts enabled by default; setEnabled(false) stops the sender', async () => {
     installBridge()
     const canvas = document.createElement('canvas')
     canvas.width = 64
@@ -143,20 +147,10 @@ describe('startStreamMapNdiPump enable/disable', () => {
     const ctx = canvas.getContext('2d')
     ctx?.fillRect(0, 0, 64, 64)
 
-    const pumpOff = startStreamMapNdiPump({
-      getSourceCanvas: () => canvas,
-      ensureDrawn: () => {},
-    })
-    expect(pumpOff).not.toBeNull()
-    expect(pumpOff?.isEnabled()).toBe(false)
-    expect(startCalls).toBe(0)
-    expect(tickCbs.size).toBe(0)
-    pumpOff?.stop()
-
     const pump = startStreamMapNdiPump({
       getSourceCanvas: () => canvas,
       ensureDrawn: () => {},
-      enabled: true,
+      ndi2dCapture: { forceSync: true, onFallbackNote: () => {} },
     })
     expect(pump).not.toBeNull()
     const handle = pump as StreamMapNdiPumpHandle
@@ -187,6 +181,7 @@ describe('startStreamMapNdiPump enable/disable', () => {
     const pump = startStreamMapNdiPump({
       getSourceCanvas: () => null,
       enabled: false,
+      ndi2dCapture: { forceSync: true, onFallbackNote: () => {} },
     })
     expect(pump?.isEnabled()).toBe(false)
     expect(startCalls).toBe(0)
@@ -194,9 +189,167 @@ describe('startStreamMapNdiPump enable/disable', () => {
     pump?.stop()
   })
 
-  it('defaults to STREAM_MAP_NDI_DEFAULT_FPS (10)', () => {
+  it('defaults to STREAM_MAP_NDI_DEFAULT_FPS (30) and enabled unless false', () => {
     const src = readFileSync(join(here, 'streamMapNdiPump.ts'), 'utf8')
-    expect(src).toMatch(/STREAM_MAP_NDI_DEFAULT_FPS\s*=\s*10/)
-    expect(src).toMatch(/options\.enabled === true/)
+    expect(src).toMatch(/STREAM_MAP_NDI_DEFAULT_FPS\s*=\s*30/)
+    expect(src).toMatch(/options\.enabled !== false/)
+    expect(src).toMatch(/getSendFps/)
+    expect(src).toMatch(/createSendFpsCounter/)
+    expect(src).toMatch(/createNdi2dAsyncCapture/)
+    expect(src).not.toMatch(/tryClaimNdiHeavyCapture/)
+  })
+})
+
+describe('startStreamMapNdiPump defers capture off the studio:tick stack', () => {
+  const tickCbs = new Set<() => void>()
+  const deferred: Array<() => void> = []
+  let restoreCtx: (() => void) | undefined
+
+  function installFake2dContext(): () => void {
+    const proto = HTMLCanvasElement.prototype
+    const orig = proto.getContext
+    proto.getContext = function (
+      this: HTMLCanvasElement,
+      type: string,
+      attrs?: unknown,
+    ) {
+      if (type !== '2d') {
+        return orig.call(this, type, attrs as never)
+      }
+      return {
+        fillStyle: '',
+        fillRect() {},
+        drawImage() {},
+        getImageData(_x: number, _y: number, width: number, height: number) {
+          return {
+            data: new Uint8ClampedArray(width * height * 4),
+            width,
+            height,
+          }
+        },
+      } as unknown as CanvasRenderingContext2D
+    }
+    return () => {
+      proto.getContext = orig
+    }
+  }
+
+  function installBridge(): { sendFrame: ReturnType<typeof vi.fn> } {
+    const sendFrame = vi.fn()
+    const ndi = {
+      start: vi.fn(async (opts?: { channel?: string; name?: string }) => ({
+        ok: true,
+        channel: opts?.channel ?? '2d',
+        sourceName: `HOST (${opts?.name ?? STREAM_MAP_NDI_DEFAULT_NAME})`,
+        sdkVersion: '6',
+      })),
+      stop: vi.fn(async () => {}),
+      sendFrame,
+      getStatus: vi.fn(async () => ({
+        active: false,
+        sourceName: null,
+        sdkVersion: null,
+        error: null,
+      })),
+      getStatusAll: vi.fn(async () => ({
+        ar: {
+          active: false,
+          sourceName: null,
+          sdkVersion: null,
+          error: null,
+        },
+        '3d': {
+          active: false,
+          sourceName: null,
+          sdkVersion: null,
+          error: null,
+        },
+        '2d': {
+          active: false,
+          sourceName: null,
+          sdkVersion: null,
+          error: null,
+        },
+      })),
+    }
+    const bridge: BroadcastStudioBridge = {
+      isStudio: true,
+      ndi,
+      onStudioTick: (cb) => {
+        tickCbs.add(cb)
+        return () => {
+          tickCbs.delete(cb)
+        }
+      },
+    }
+    ;(window as Window & { broadcastStudio?: BroadcastStudioBridge }).broadcastStudio =
+      bridge
+    return { sendFrame }
+  }
+
+  afterEach(() => {
+    restoreCtx?.()
+    restoreCtx = undefined
+    tickCbs.clear()
+    deferred.length = 0
+    delete (window as Window & { broadcastStudio?: BroadcastStudioBridge })
+      .broadcastStudio
+    vi.restoreAllMocks()
+  })
+
+  it('does not run ensureDrawn or sendFrame inside the studio:tick callback', async () => {
+    restoreCtx = installFake2dContext()
+    const { sendFrame } = installBridge()
+    const canvas = document.createElement('canvas')
+    canvas.width = 8
+    canvas.height = 8
+    canvas.getContext('2d')?.fillRect(0, 0, 8, 8)
+
+    let drawn = 0
+
+    const pump = startStreamMapNdiPump({
+      getSourceCanvas: () => canvas,
+      ensureDrawn: () => {
+        drawn += 1
+      },
+      outputWidth: 16,
+      outputHeight: 8,
+      ndi2dCapture: {
+        forceSync: true,
+        onFallbackNote: () => {},
+        defer: (fn) => {
+          deferred.push(fn)
+        },
+      },
+    })
+    expect(pump).not.toBeNull()
+    await vi.waitFor(() => {
+      expect(pump?.getSourceName()).toContain('broadcast-web-2d')
+    })
+
+    drawn = 0
+    for (const cb of tickCbs) cb()
+    expect(drawn).toBe(0)
+    expect(sendFrame).not.toHaveBeenCalled()
+    expect(deferred).toHaveLength(1)
+
+    deferred[0]?.()
+    await vi.waitFor(() => {
+      expect(sendFrame).toHaveBeenCalled()
+    })
+    expect(drawn).toBe(1)
+    const frame = sendFrame.mock.calls[0]?.[0] as {
+      channel: string
+      width: number
+      height: number
+      data: ArrayBuffer
+      bottomUp: boolean
+    }
+    expect(frame.channel).toBe('2d')
+    expect(frame.width).toBe(16)
+    expect(frame.height).toBe(8)
+    expect(frame.data.byteLength).toBe(16 * 8 * 4)
+    expect(frame.bottomUp).toBe(false)
+    pump?.stop()
   })
 })

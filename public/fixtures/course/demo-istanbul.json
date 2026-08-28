@@ -20,7 +20,8 @@
       "type": "mark",
       "lat": 41.0072,
       "lon": 28.9790,
-      "altMsl": 0
+      "altMsl": 0,
+      "rounding": "ccw"
     },
     {
       "name": "Mark-SW",

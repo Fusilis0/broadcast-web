@@ -1,7 +1,7 @@
 # Phases Roadmap — broadcast-web
 
 **Owner:** BW  
-**Updated:** 2026-08-04  
+**Updated:** 2026-08-28  
 **Design:** [`../architecture/race-projects-and-world-authoring.md`](../architecture/race-projects-and-world-authoring.md) · air: [`../ops/air-runbook.md`](../ops/air-runbook.md)
 
 ---
@@ -13,10 +13,15 @@
 | **First version venue** | **Local studio** — Electron + Vite + VPS telemetry (`ws://…`). No cloud host required for v1. |
 | **Hetzner / public SPA / WSS TLS** | **Deferred** — months later, optional; may never ship if local+LAN is enough. Checklist kept as archive: [`../ops/human-hetzner-wss-checklist.md`](../ops/human-hetzner-wss-checklist.md). |
 | **Preferred air** | Electron **alpha NDI** (chroma = fallback). |
+| **Frame budgets** | **PRF** — ops preview ~60 rAF (≥30); NDI AR/3D/2D **30/30/30** always-on (`DSP-OUT-20260828-02`). PBO readback (`DSP-OUT-20260828-01`). Never `STUDIO_TICK_FPS = 60`. [`../architecture/performance-budgets.md`](../architecture/performance-budgets.md) |
+| **SRT ingest** | **SRT** — Electron caller, catalog cams 1–27, HEVC decode / ffmpeg fallback. [`BOOTSTRAP_SRT.md`](../agentic/dispatches/BOOTSTRAP_SRT.md) |
 | **App egress (WebRTC/SRT)** | Deferred (E0) — compositor program-out if remote needed. |
 | **v1 focus** | **Visual parity + ops QoL** (assets, maps, tags, editor), then LAN project features, then Unity cutover. |
 
 ### Current pointer
+
+**Active engineering:** hitch + PTS (OUT-04, OUT-05, SRT-01).  
+**Active human:** after those workers, re-paste fps/hitch/Send and Sync PTS→NTP.
 
 **Active:** **Phase 10.1** (Unity vs broadcast-web parallel air — human + BW) is the only remaining
 open gate.  
@@ -29,7 +34,7 @@ after BW drove the real Electron renderer end-to-end) all accepted. See
 `docs/architecture/world-authoring-workspace.md`. Phase 12 cloud still deferred.  
 **Active:** human **Phase 10.1** (Unity vs broadcast-web parallel air).  
 **Done:** Phase 11 (**V1-D**) + follow-ups; **Phase 13 complete** (13.1–13.8). Phase 12 deferred.  
-**Next up:** **Phase 14 engineering done.** Human: 10.1 cutover, ion-token smoke, CAL yaw, Open-Meteo commercial key.
+**Next up:** Human **Phase 15 + 16 look-dev smoke** (preview ~60, sea AA under orbit, Cesium water gone, wind strings, sailboats + palette + tag leaders, sponsor boards, rounding rings, two-rail ops) then **10.1** cutover. Ion-token smoke, CAL yaw, Open-Meteo commercial key still open.
 
 ---
 
@@ -208,23 +213,95 @@ geodesy returned `East × North = −Y`, and no compensating negative scale exis
 | 14.3b | Open-Meteo wind + marine provider | TEL | **Accepted** `done/DSP-TEL-20260817-02` |
 | 14.3c | Anemometer telemetry channel | TEL | Not issued — needs on-site hardware |
 | 14.3d/e | 2D map wind readout · wind streaks in shader | SCN | **Accepted** `done/DSP-SCN-20260817-05` + `done/DSP-SCN-20260817-06` |
-| 14.3f | *(optional)* 3D wind indicator, flags, spray | SCN | |
+| 14.3f | *(optional)* 3D wind indicator, flags, spray | SCN | **Lite in 15.2** (vane + stronger streaks). Flags/spray still later. |
 
 **Open decisions:** ion **asset IDs** from the Unity project (needed to finish 14.1, not to start
 it) · broadcaster sign-off on the 3D-channel attribution line before air · Open-Meteo commercial
 key before air (14.3b works on the free tier during development).
 
-**Dispatch order:** 14.0 first and alone (`DSP-GEO-20260817-01`). Then 14.1 + 14.2a + 14.3a in
-parallel (`DSP-SCN-20260817-01`, `DSP-SCN-20260817-02`, `DSP-TEL-20260817-01`).
+**Dispatch order (14):** 14.0 first and alone (`DSP-GEO-20260817-01`). Then 14.1 + 14.2a + 14.3a in
+parallel. Engineering accepted 2026-08-17.
 
 ---
 
-## Air / output priority (unchanged)
+### Phase 15 — Studio 60, ocean polish, fleet authoring *(dispatches 2026-08-18)*
 
-1. **Electron + alpha NDI** — preferred studio air  
-2. **Chroma + window capture** — fallback  
-3. **WHEP underlay** — preview / CV  
-4. **App WebRTC/SRT egress** — deferred (use compositor out)
+**Requested:** 2026-08-18 (user, after Phase 14 realistic sea). Ops preview too slow (goal **60 fps**); white clipmap seams; blown sea specular; wind VFX not readable; buoys need Unity CW/RCW dual-arrow rings; fleet hulls missing without telemetry; Save/Load drops custom boats back to demo names.
+
+**BW locks:** 60 fps = **ops preview only** (rAF when visible). NDI AR stays ~30, NDI 3D stays ~10 — do not send 60 fps 3D NDI with terrain+ocean+`readPixels`. Dual clock, not `STUDIO_TICK_FPS = 60`. Glitter cut. Wind = stronger streaks + cheap 3D vane (no particles). Rounding per buoy `cw|ccw|none`. Embed `fleet.boats[]` in the pack; spawn hulls from planned GPS without telem.
+
+| # | Work | Owner | Dispatch |
+| --- | --- | --- | --- |
+| 15.1 | Preview 60 via dual clock; NDI caps unchanged | OUT | **Accepted** `done/DSP-OUT-20260818-01` |
+| 15.2 | Clipmap seams, cheaper/less glitter sea, readable 3D wind | SCN | **Accepted** `done/DSP-SCN-20260818-01` |
+| 15.3 | Buoy CW/CCW spinning two-arrow ring | SCN | **Accepted** `done/DSP-SCN-20260818-02` |
+| 15.4 | Static/movable hulls without telem; persist fleet in pack | SCN | **Accepted** `done/DSP-SCN-20260818-03` |
+
+**Dispatch order:** all four in parallel; **accepted 2026-08-18**. Human Electron smoke still open.
+
+---
+
+### Phase 16 — Visual upgrade & ops QoL *(dispatches 2026-08-18 pm)*
+
+**Requested:** 2026-08-18 (user, after Phase 15 smoke). Sea sparkle boils under camera motion; wind still not readable → wants **moving string VFX**; Cesium baked sea shows through (lift-Y idea dead) → terrain must render **land only**; buoy arrows must be **universal** by default (direction settable per buoy); billboards need SailGP-style **board/frame**; **procedural sailboat** with tintable sails; **category color palette**; nametag **leader line to mast top**; ops sidebar decluttered.
+
+**Design:** [`../architecture/phase16-visual-upgrade.md`](../architecture/phase16-visual-upgrade.md)
+
+**User locks:** wind strings on **ops + 3D only, never AR** · sailboat **procedural** (glTF later) · rounding default **CW when omitted** · ops layout grouping = BW call (two rails: setup left, broadcast right).
+
+| # | Work | Owner | Dispatch |
+| --- | --- | --- | --- |
+| 16.1 | Sea shimmer AA + hide Cesium water (water mask / height discard) | SCN | **Accepted** `done/DSP-SCN-20260818-04` |
+| 16.2 | Wind string/streamline VFX (ops+3D) | SCN | **Accepted** `done/DSP-SCN-20260818-05` |
+| 16.3 | Procedural sailboat + category color palette + tag leader line | SCN | **Accepted** `done/DSP-SCN-20260818-06` |
+| 16.4 | Sponsor billboard board/frame | SCN | **Accepted** `done/DSP-SCN-20260818-07` |
+| 16.5 | Rounding arrows universal default | SCN | **Accepted** `done/DSP-SCN-20260818-08` |
+| 16.6 | Ops two-rail layout (+ terrain water threshold row) | SCN | **Accepted** `done/DSP-SCN-20260818-09` |
+
+**Dispatch order:** 16.1–16.5 ran in **parallel**, all accepted 2026-08-18. 16.6 followed as wave 2. **Phase 16 engineering complete** — final tree `npm test` **654 + 23**, `npm run build` green.
+
+**Phase 16 follow-ups (not dispatched):** glTF sailboat re-export if the user supplies a model (`scripts/export-boat-glb.mjs`); sponsor `panelColor`/`frameColor` pickers in the inspector; human look-dev (orbit boil, wide-orbit water removal, sail camber, tag height vs drone framing).
+
+---
+
+### Phase 17 — AR video underlay + NTP-matched render *(dispatches 2026-08-26)*
+
+**Requested:** 2026-08-26 (user, with `docs/architecture/ntp-matching.md` supplied by the producer side). Put the **drone SRT stream behind the AR scene** instead of the alpha background; switch the video source when the POV switches; and **match telemetry to the video frame's NTP time** so the overlay is rendered at the instant the frame was captured.
+
+**Design:** [`../architecture/ar-video-underlay-ntp-sync.md`](../architecture/ar-video-underlay-ntp-sync.md) · **Contracts:** [`../architecture/ntp-matching.md`](../architecture/ntp-matching.md)
+
+**The structural change:** the pose pipeline inverts from **push** (packet arrives → smooth toward it → render now) to **pull** (present a frame → resolve its PTS to NTP → sample telemetry at that instant → render). Everything else is plumbing around that.
+
+**User locks:** alpha plate survives as a **mode** (`arBackground: 'alpha' | 'video'`, alpha remains default and fallback) · **DJI only — no GoPro** · SRT **caller** · **adaptive** presentation latency clamped 100–400 ms · **4** warm POVs · **H.264 + HEVC** · DJI per-AU frame anchors unconfirmed, so the ~1 Hz periodic fit is the primary path.
+
+**BW decisions:** WHEP/WebRTC and MSE are **rejected** for this path — both destroy the MPEG-TS PTS the anchors key against; raw TS → **WebCodecs** is the only PTS-preserving route · compositing must be **in-WebGL** (the NDI pump reads an FBO and cannot see DOM `<video>`) · Electron main is a **dumb byte pipe**, all demux/decode in the renderer · `ntp-matching.md` §4.a's "reject after last anchor" is replaced by a sliding-window robust fit with bounded forward extrapolation, because the literal rule cannot present a live frame.
+
+| # | Work | Owner | Dispatch |
+| --- | --- | --- | --- |
+| 17.1 | `PtsNtpMap` — PTS→NTP fit, wrap, extrapolation, health | TEL | **Accepted** `done/DSP-TEL-20260826-01` |
+| 17.2 | NTP-keyed telemetry history + `sampleAt`; boat DR | TEL | **Accepted** `done/DSP-TEL-20260826-02` |
+| 17.3 | SRT caller in Electron main → TS over IPC | OUT (+PLT) | **Accepted** `done/DSP-OUT-20260826-03` |
+| 17.4 | In-WebGL background quad + `arBackground` mode | OUT | **Accepted** `done/DSP-OUT-20260826-04` |
+| 17.5 | `syncTrimMs` per POV (uncalibrated producer bias) | CAL | **Accepted** `done/DSP-CAL-20260826-05` |
+| 17.6 | TS demux (H.264/HEVC) + WebCodecs + presentation queue | OUT | **Accepted** `done/DSP-OUT-20260826-06` |
+| 17.7 | Per-POV SRT config + sync-debug overlay | OUT | **Accepted** `done/DSP-OUT-20260826-07` |
+| 17.8 | Matched-time render cutover + POV stream switch | TEL+SCN | **Accepted** `done/DSP-TEL-20260826-08` |
+
+**Dispatch order:** 17.1–17.8 **accepted 2026-08-26**. Phase 17 engineering complete. Human: live SRT + `syncTrimMs` clapper; FOV (C6) still a separate CAL track.
+
+**Known limits, not bugs to chase:** producer bias knobs ship at 0, so a constant per-camera offset remains — hence `syncTrimMs` · boat GPS is ~2 Hz with ~6 s holes when still · timing alone will not align the overlay if FOV/distortion are wrong (DJI reports 84°, our default is 66.8832°) — separate CAL track, expected to surface at first smoke.
+
+**Open inputs:** a real SRT endpoint or a recorded `.ts` + `stream_anchor` capture (blocks wave 2 acceptance); the SRT URL scheme and who operates it; whether the studio PC can hardware-decode HEVC.
+
+---
+
+## Air / output priority (updated 2026-08-26)
+
+1. **Electron + alpha NDI** — preferred studio air (`arBackground: 'alpha'`, unchanged default)
+2. **Electron + composited AR over drone SRT** — Phase 17 (`arBackground: 'video'`); opaque program on the AR channel
+3. **Chroma + window capture** — fallback
+4. **WHEP underlay** — preview / CV only (cannot carry PTS; not a Phase 17 path)
+5. **App WebRTC/SRT *egress*** — still deferred (use compositor out). Phase 17 is **ingest**; `egress-webrtc-srt-evaluation.md` E0 does not apply to it.
 
 ---
 

@@ -12,9 +12,16 @@ export interface CalibrationOffsets {
   rollDeg: number
   fovHDeg: number
   altMeters: number
+  /**
+   * Milliseconds added to the video frame's resolved NTP after LUT lookup
+   * (`t_ntp = toNtp(pts) + syncTrimMs`). Positive samples a later world
+   * state (AR overlay leads the video). `0` = no trim (today's behaviour).
+   * Time offset only — not applied by `applyCalibration`.
+   */
+  syncTrimMs: number
 }
 
-/** Zero angular/altitude offsets + default hFOV. Fresh object each call. */
+/** Zero angular/altitude/sync offsets + default hFOV. Fresh object each call. */
 export function zeroOffsets(): CalibrationOffsets {
   return {
     yawDeg: 0,
@@ -22,5 +29,6 @@ export function zeroOffsets(): CalibrationOffsets {
     rollDeg: 0,
     fovHDeg: DEFAULT_HFOV_DEG,
     altMeters: 0,
+    syncTrimMs: 0,
   }
 }

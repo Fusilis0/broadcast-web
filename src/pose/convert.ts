@@ -41,6 +41,9 @@ export function droneRawPose(
 
 export function boatRawPose(data: BoatTelemetry): RawPose {
   // Boat alt is HAE (not AMSL) — Unity ProcessBoatPosition.
+  // `spd` is not applied here. Matched-mode dead reckoning lives in
+  // `telemetryHistory.sampleBoatAt` (DTO lat/lon already projected). The
+  // push/lerp path never needed spd; do not DR in convert — GEO owns ENU only.
   const v = gpsToEnu(data.lat, data.lon, data.alt)
   const position: EnuPosition = { x: v.x, y: v.y, z: v.z }
 

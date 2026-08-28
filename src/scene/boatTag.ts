@@ -12,13 +12,18 @@ export type BoatTagOptions = {
   displayName?: string
   /** Category tint `#rrggbb`. */
   color?: string
-  /** Local Y offset above the boat root (meters). */
+  /** Local Y offset above the boat root (metres). Used until mast-top layout. */
   height?: number
 }
 
 export type BoatTagHandle = {
-  root: THREE.Sprite
-  update: (camera: THREE.Camera, viewportHeightPx: number) => void
+  /** Group: sprite plate + leader line to mast top. */
+  root: THREE.Group
+  update: (
+    camera: THREE.Camera,
+    viewportHeightPx: number,
+    mastTopWorld?: THREE.Vector3,
+  ) => void
   /** Redraw canvas when catalogue loads after first spawn. */
   setTagIdentity: (identity: BoatTagIdentity) => void
   dispose: () => void
@@ -29,6 +34,9 @@ const DESIRED_SCREEN_HEIGHT_PX = 48
 const SIZE_MULTIPLIER = 1.4
 /** Unity BoatTagRotation-style falloff: 0 = constant screen size. */
 const DISTANCE_FALLOFF = 0.45
+
+/** World-space gap from mast head to tag plate centre. */
+export const BOAT_TAG_ABOVE_MAST_M = 4.2
 
 /** Canvas aspect for the drawn tag plate (width / height). */
 export const BOAT_TAG_CANVAS_ASPECT = 512 / 160
@@ -60,6 +68,13 @@ function rgba(c: Rgb, a: number): string {
   return `rgba(${c.r}, ${c.g}, ${c.b}, ${a})`
 }
 
+function hexToLineColor(hex: string | undefined): THREE.Color {
+  if (hex && /^#[0-9a-fA-F]{6}$/.test(hex.trim())) {
+    return new THREE.Color().set(hex.trim())
+  }
+  return new THREE.Color().set('#e8eef5')
+}
+
 /**
  * World-space sprite height from camera distance (Unity BoatTagRotation spirit).
  * Pure helper — safe to unit-test without DOM.
@@ -77,6 +92,31 @@ export function boatTagWorldHeight(
   const ratio = distance / REF_DISTANCE_M
   const bias = Math.pow(ratio, -DISTANCE_FALLOFF)
   return baseScale * bias * SIZE_MULTIPLIER
+}
+
+/**
+ * Mast-top world point: named `mastTop`, else visual bounding-box top (glTF).
+ */
+export function resolveBoatMastTopWorld(
+  visual: THREE.Object3D,
+  target = new THREE.Vector3(),
+): THREE.Vector3 {
+  const named = visual.getObjectByName('mastTop')
+  if (named) {
+    named.getWorldPosition(target)
+    return target
+  }
+  const box = new THREE.Box3().setFromObject(visual)
+  if (box.isEmpty()) {
+    visual.getWorldPosition(target)
+    target.y += 10
+    return target
+  }
+  return target.set(
+    (box.min.x + box.max.x) * 0.5,
+    box.max.y,
+    (box.min.z + box.max.z) * 0.5,
+  )
 }
 
 function drawTagCanvas(
@@ -144,20 +184,20 @@ function roundRect(
   ctx.moveTo(x + rr, y)
   ctx.arcTo(x + w, y, x + w, y + h, rr)
   ctx.arcTo(x + w, y + h, x, y + h, rr)
-  ctx.arcTo(x, y + h, x, y, rr)
+  ctx.arcTo(x, y, x, y, rr)
   ctx.arcTo(x, y, x + w, y, rr)
   ctx.closePath()
 }
 
 /**
- * Billboard boat label (Unity BoatTag spirit).
- * THREE.Sprite faces the camera automatically; we only apply mild distance scale.
+ * Billboard boat label (Unity BoatTag / SailGP mast-flag spirit).
+ * THREE.Sprite faces the camera; a leader line runs from `mastTop` to the plate.
  */
 export function createBoatTag(options: BoatTagOptions): BoatTagHandle {
   const id = options.id
   let displayName = options.displayName ?? `Boat ${id}`
   let colorCss = options.color
-  const height = options.height ?? 10
+  const fallbackHeight = options.height ?? 10
 
   const canvas = document.createElement('canvas')
   drawTagCanvas(canvas, id, displayName, colorCss)
@@ -173,20 +213,77 @@ export function createBoatTag(options: BoatTagOptions): BoatTagHandle {
     sizeAttenuation: true,
   })
   const sprite = new THREE.Sprite(material)
-  sprite.name = 'boatTag'
-  sprite.position.set(0, height, 0)
+  sprite.name = 'boatTagSprite'
+  sprite.position.set(0, fallbackHeight, 0)
   sprite.scale.set(14, 14 / BOAT_TAG_CANVAS_ASPECT, 1)
 
+  const linePositions = new Float32Array([
+    0,
+    0,
+    0,
+    0,
+    fallbackHeight,
+    0,
+  ])
+  const lineGeo = new THREE.BufferGeometry()
+  lineGeo.setAttribute(
+    'position',
+    new THREE.BufferAttribute(linePositions, 3),
+  )
+  const lineMat = new THREE.LineBasicMaterial({
+    color: hexToLineColor(colorCss),
+    transparent: true,
+    opacity: 0.88,
+    depthWrite: false,
+  })
+  const line = new THREE.Line(lineGeo, lineMat)
+  line.name = 'boatTagLeader'
+  line.frustumCulled = false
+
+  const root = new THREE.Group()
+  root.name = 'boatTag'
+  root.add(sprite)
+  root.add(line)
+
   const _world = new THREE.Vector3()
+  const _mastLocal = new THREE.Vector3()
 
   function redraw(): void {
     drawTagCanvas(canvas, id, displayName, colorCss)
     map.needsUpdate = true
+    lineMat.color.copy(hexToLineColor(colorCss))
   }
 
+  function writeLeader(mastLocal: THREE.Vector3, plateBottomY: number): void {
+    linePositions[0] = mastLocal.x
+    linePositions[1] = mastLocal.y
+    linePositions[2] = mastLocal.z
+    linePositions[3] = sprite.position.x
+    linePositions[4] = plateBottomY
+    linePositions[5] = sprite.position.z
+    const attr = lineGeo.getAttribute('position')
+    attr.needsUpdate = true
+    lineGeo.computeBoundingSphere()
+  }
+
+  writeLeader(new THREE.Vector3(0, 0, 0), fallbackHeight)
+
   return {
-    root: sprite,
-    update(camera: THREE.Camera, viewportHeightPx: number): void {
+    root,
+    update(
+      camera: THREE.Camera,
+      viewportHeightPx: number,
+      mastTopWorld?: THREE.Vector3,
+    ): void {
+      if (mastTopWorld) {
+        _mastLocal.copy(mastTopWorld)
+        root.worldToLocal(_mastLocal)
+        sprite.position.set(
+          _mastLocal.x,
+          _mastLocal.y + BOAT_TAG_ABOVE_MAST_M,
+          _mastLocal.z,
+        )
+      }
       sprite.getWorldPosition(_world)
       const distance = camera.position.distanceTo(_world)
       const perspective =
@@ -198,6 +295,12 @@ export function createBoatTag(options: BoatTagOptions): BoatTagHandle {
         heightWorld,
         1,
       )
+      const plateBottom = sprite.position.y - heightWorld * 0.42
+      if (mastTopWorld) {
+        writeLeader(_mastLocal, plateBottom)
+      } else {
+        writeLeader(new THREE.Vector3(0, 0, 0), plateBottom)
+      }
     },
     setTagIdentity(identity: BoatTagIdentity): void {
       displayName = identity.displayName
@@ -207,6 +310,8 @@ export function createBoatTag(options: BoatTagOptions): BoatTagHandle {
     dispose(): void {
       map.dispose()
       material.dispose()
+      lineGeo.dispose()
+      lineMat.dispose()
     },
   }
 }

@@ -3,7 +3,7 @@
 **Status:** Design extended (2026-07-29) — projects, shared world layers, NDI optimum  
 **Master:** BW Orchestrator  
 **Sibling reference:** Unity project `../broadcast` (analysis + assets + telemetry contracts)  
-**Also see:** [`race-projects-and-world-authoring.md`](./race-projects-and-world-authoring.md)
+**Also see:** [`race-projects-and-world-authoring.md`](./race-projects-and-world-authoring.md) · [`performance-budgets.md`](./performance-budgets.md)
 
 ---
 
@@ -79,7 +79,8 @@ Hetzner is **not** a render farm.
 | `src/pose/` | GEO+CAL | Pose + offsets |
 | `src/scene/` | SCN | 3D entities, 2D map, **feature consumers**, later map editor |
 | `src/assets/` | SCN | glTF / textures |
-| `src/output/` | OUT | Chroma, timecode, WHEP, later NDI bridge contract |
+| `src/output/` | OUT + **SRT** | OUT: chroma, timecode, WHEP, NDI. SRT: caller, catalog, demux/decode (`srt*.ts`, `tsDemux.ts`, `videoDecodePipeline.ts`, `videoStreamManager.ts`) |
+| Frame budgets / clocks | PRF | Dual clock, NDI stagger, measure; see [`performance-budgets.md`](./performance-budgets.md) |
 | `src/calibration/` | CAL | Offsets, UI, CV writes same store |
 | `src/console/` | CON | Deeplink parse; later `race` → pack resolve |
 | `src/config/` | PLT+BW | Config + later project merge |

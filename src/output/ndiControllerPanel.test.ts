@@ -24,6 +24,7 @@ function fakePump(
     sdkVersion: string | null
     error: string | null
     delayMs: number
+    sendFps: number
   }> = {},
 ): NdiFramePumpHandle {
   let delayMs = partial.delayMs ?? 0
@@ -36,6 +37,7 @@ function fakePump(
       delayMs = ms
       return delayMs
     },
+    getSendFps: () => partial.sendFps ?? 0,
     stop: () => {},
   }
 }
@@ -178,6 +180,7 @@ describe('resolveNdiChannelIndicator (2d pump)', () => {
       getError: () => null,
       getDelayMs: () => 0,
       setDelayMs: (ms) => ms,
+      getSendFps: () => 0,
       isEnabled: () => false,
       setEnabled: () => {},
       stop: () => {},
@@ -244,16 +247,23 @@ describe('NDI multi-channel contract (source)', () => {
     expect(pumpSrc).toMatch(/setEnvironmentOpaqueClearSafe/)
     expect(pumpSrc).toMatch(/onStudioTick/)
     expect(pumpSrc).toMatch(/NdiDelayBuffer/)
-    expect(pumpSrc).toMatch(/NDI_3D_DEFAULT_FPS\s*=\s*10/)
+    expect(pumpSrc).toMatch(/NDI_3D_DEFAULT_FPS\s*=\s*30/)
     expect(pumpSrc).toMatch(/tryClaimNdiHeavyCapture/)
+    expect(pumpSrc).toMatch(/blocking:\s*readback\.mode === ['"]sync['"]/)
+    expect(pumpSrc).toMatch(/getSendFps/)
+    expect(pumpSrc).toMatch(/createSendFpsCounter/)
+    expect(pumpSrc).toMatch(/createNdiAsyncReadback/)
     expect(pumpSrc).not.toMatch(/ndiControllerPanel/)
     expect(pumpSrc).not.toMatch(/scene\/sidebar/)
   })
 
-  it('AR pump defaults 30 fps and staggers with 3d', () => {
+  it('AR pump defaults 30 fps, studio-tick capture, one FBO per stagger window', () => {
     const pumpSrc = readFileSync(join(here, 'ndiFramePump.ts'), 'utf8')
     expect(pumpSrc).toMatch(/NDI_AR_DEFAULT_FPS\s*=\s*30/)
     expect(pumpSrc).toMatch(/tryClaimNdiHeavyCapture/)
+    expect(pumpSrc).toMatch(/blocking:\s*readback\.mode === ['"]sync['"]/)
+    expect(pumpSrc).toMatch(/onStudioTick/)
+    expect(pumpSrc).toMatch(/getSendFps/)
   })
 
   it('exports startNdi3dChannelPump from output index', () => {
@@ -262,6 +272,11 @@ describe('NDI multi-channel contract (source)', () => {
     expect(idx).toMatch(/ndiOpaquePass/)
     expect(idx).toMatch(/NDI_3D_DEFAULT_FPS/)
     expect(idx).toMatch(/tryClaimNdiHeavyCapture/)
+    expect(idx).toMatch(/startDualFrameClock/)
+    expect(idx).toMatch(/createSendFpsCounter/)
+    expect(idx).toMatch(/readWebGlGpuInfo/)
+    expect(idx).toMatch(/createNdiAsyncReadback/)
+    expect(idx).toMatch(/createNdi2dAsyncCapture/)
   })
 
   it('desktop ndiSender is a Map of channel → sender', () => {
@@ -295,6 +310,9 @@ describe('NDI controller / capture invariant (source)', () => {
     expect(src).toMatch(/DOM-only/)
     expect(src).toMatch(/ndi-delay|Delay|clampNdiDelayMs/)
     expect(src).toMatch(/high memory/)
+    expect(src).toMatch(/ndi-send-fps-|Send/)
+    expect(src).toMatch(/formatNdiSendFps|getSendFps/)
+    expect(src).toMatch(/mapToggle\.checked = true/)
     expect(src).not.toMatch(/readRenderTargetPixels/)
     expect(src).not.toMatch(/getContext\(/)
     expect(src).not.toMatch(/WebGLRenderer/)
@@ -304,14 +322,17 @@ describe('NDI controller / capture invariant (source)', () => {
 
   it('ndiFramePump stays free of controller / sidebar imports', () => {
     const pumpSrc = readFileSync(join(here, 'ndiFramePump.ts'), 'utf8')
-    expect(pumpSrc).toMatch(/readRenderTargetPixels/)
+    expect(pumpSrc).toMatch(/createNdiAsyncReadback/)
     expect(pumpSrc).toMatch(/Sidebar invariant/)
     expect(pumpSrc).toMatch(/NdiDelayBuffer/)
+    expect(pumpSrc).toMatch(/getSendFps/)
+    expect(pumpSrc).toMatch(/createSendFpsCounter/)
     expect(pumpSrc).not.toMatch(/ndiControllerPanel/)
     expect(pumpSrc).not.toMatch(/scene\/sidebar/)
     expect(pumpSrc).not.toMatch(/document\./)
     expect(pumpSrc).toMatch(/getStudioBridge/)
-    expect(pumpSrc).toMatch(/planNdiCapture/)
+    expect(pumpSrc).toMatch(/onStudioTick/)
+    expect(pumpSrc).not.toMatch(/renderer\.render\s*=/)
   })
 
   it('exports startNdiControllerPanel from output index', () => {
@@ -332,5 +353,6 @@ describe('NDI controller / capture invariant (source)', () => {
     expect(pumpSrc).not.toMatch(/stubHud/)
     expect(pumpSrc).toMatch(/getStudioBridge/)
     expect(pumpSrc).toMatch(/channel/)
+    expect(pumpSrc).toMatch(/getSendFps/)
   })
 })

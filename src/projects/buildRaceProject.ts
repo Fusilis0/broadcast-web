@@ -7,6 +7,7 @@ import { parseRaceProject } from './parseRaceProject.ts'
 import type {
   RaceProject,
   RaceProjectCalibration,
+  RaceProjectFleetBoat,
   RaceProjectOrigin,
   RaceProjectOutputDefaults,
   WorldFeature,
@@ -17,6 +18,11 @@ export type BuildRaceProjectInput = {
   name: string
   origin: RaceProjectOrigin
   boatIds: readonly string[]
+  /**
+   * Full Live-fleet rows. Written as `fleet.boats` in `boatIds` order.
+   * Custom names live here; `boatNamesUrl` is fallback for old packs.
+   */
+  boats?: readonly RaceProjectFleetBoat[]
   povIds: readonly string[]
   /** Current editor / adapter WorldFeature list (embedded in pack). */
   features?: readonly WorldFeature[]
@@ -79,6 +85,11 @@ export function buildRaceProject(input: BuildRaceProjectInput): RaceProject {
   if (input.takeoffAltitudeMSL !== undefined) {
     raw.takeoffAltitudeMSL = input.takeoffAltitudeMSL
   }
+  if (input.boats && input.boats.length > 0) {
+    ;(raw.fleet as Record<string, unknown>).boats = input.boats.map((b) => ({
+      ...b,
+    }))
+  }
   if (input.boatNamesUrl) {
     ;(raw.fleet as Record<string, unknown>).boatNamesUrl = input.boatNamesUrl
   }
@@ -103,7 +114,13 @@ export function buildRaceProject(input: BuildRaceProjectInput): RaceProject {
   if (input.sponsorsUrl) raw.sponsorsUrl = input.sponsorsUrl
   if (input.flagsUrl) raw.flagsUrl = input.flagsUrl
   if (input.replayUrl) raw.replayUrl = input.replayUrl
-  if (input.output) raw.output = { ...input.output }
+  if (input.output) {
+    const output: Record<string, unknown> = { ...input.output }
+    if (input.output.srtByPovId) {
+      output.srtByPovId = { ...input.output.srtByPovId }
+    }
+    raw.output = output
+  }
   if (
     input.calibration &&
     Object.keys(input.calibration.byPovId).length > 0

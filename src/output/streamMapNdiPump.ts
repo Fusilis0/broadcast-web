@@ -11,10 +11,20 @@
  * of PiP / sidebar visibility (canvas 2D redraw still fills the bitmap when
  * `root.hidden`).
  *
+ * **Tick (DSP-OUT-20260828-07):** `onStudioTick` only *schedules* capture.
+ * `ensureDrawn` / `drawImage` / `getImageData` run after the FBO pumps
+ * (`setTimeout(0)`). Happy path: worker + transferable buffer. Fail closed to
+ * sync `getImageData`. 2D does **not** occupy the FBO stagger slot.
+ *
  * No-ops when `window.broadcastStudio` is missing (Chrome path).
  */
 
+import {
+  createNdi2dAsyncCapture,
+  type CreateNdi2dAsyncCaptureOptions,
+} from './ndi2dAsyncCapture.ts'
 import { NdiDelayBuffer } from './ndiDelayBuffer.ts'
+import { createSendFpsCounter } from './perfCounters.ts'
 import {
   getStudioBridge,
   type NdiChannelId,
@@ -26,8 +36,8 @@ import {
 
 export const STREAM_MAP_NDI_CHANNEL: NdiChannelId = '2d'
 export const STREAM_MAP_NDI_DEFAULT_NAME = 'broadcast-web-2d'
-/** Default 2D NDI send rate when enabled (perf dial — DSP-OUT-20260812-06). */
-export const STREAM_MAP_NDI_DEFAULT_FPS = 10
+/** Default 2D NDI send rate (always-on @ 30 — DSP-OUT-20260828-04). */
+export const STREAM_MAP_NDI_DEFAULT_FPS = 30
 
 export type LetterboxRect = {
   dx: number
@@ -63,7 +73,7 @@ export type StreamMapNdiPumpOptions = {
   getSourceCanvas: () => HTMLCanvasElement | null | undefined
   /** Force a redraw before capture (map stays fresh while PiP hidden). */
   ensureDrawn?: () => void
-  /** Target send rate. Default **10** when enabled. */
+  /** Target send rate. Default **30**. */
   fps?: number
   /** NDI source name (hostname prepended by SDK). Default `broadcast-web-2d`. */
   sourceName?: string
@@ -71,8 +81,8 @@ export type StreamMapNdiPumpOptions = {
   outputWidth?: number
   outputHeight?: number
   /**
-   * Start sending immediately. Default **false** (ops enables in NDI tab).
-   * Studio wires `enabled: false` at boot; toggle calls `setEnabled`.
+   * Start sending immediately. Default **true** (DSP-OUT-20260828-02).
+   * NDI tab toggle may stop **only** this sender; AR/3D stay on.
    */
   enabled?: boolean
   /**
@@ -80,6 +90,8 @@ export type StreamMapNdiPumpOptions = {
    * Live changes via `setDelayMs` (clamped 0..30000).
    */
   delayMs?: number
+  /** Test seam (DSP-OUT-20260828-07): deferral + worker vs sync grab. */
+  ndi2dCapture?: CreateNdi2dAsyncCaptureOptions
 }
 
 export type StreamMapNdiPumpHandle = {
@@ -88,6 +100,7 @@ export type StreamMapNdiPumpHandle = {
   getError: () => string | null
   getDelayMs: () => number
   setDelayMs: (ms: number) => number
+  getSendFps: () => number
   isEnabled: () => boolean
   setEnabled: (on: boolean) => void
   stop: () => void
@@ -122,23 +135,20 @@ export function startStreamMapNdiPump(
   const channel = STREAM_MAP_NDI_CHANNEL
   const delayBuffer = new NdiDelayBuffer()
   if (options.delayMs !== undefined) delayBuffer.setDelayMs(options.delayMs)
+  const sendFps = createSendFpsCounter()
 
   let disposed = false
-  let enabled = options.enabled === true
+  let enabled = options.enabled !== false
   let sourceName: string | null = null
   let sdkVersion: string | null = null
   let error: string | null = null
   let lastCaptureMs = 0
   let busy = false
+  let grabbing = false
+  let queued = false
   let starting = false
   let unsubTick: (() => void) | null = null
-
-  const frameCanvas = document.createElement('canvas')
-  frameCanvas.width = outW
-  frameCanvas.height = outH
-  const frameCtx = frameCanvas.getContext('2d', {
-    willReadFrequently: true,
-  })
+  const capture = createNdi2dAsyncCapture(options.ndi2dCapture)
 
   function clearStatus(): void {
     sourceName = null
@@ -197,6 +207,7 @@ export function startStreamMapNdiPump(
         data,
         bottomUp: false,
       })
+      sendFps.record(performance.now())
       error = null
     } catch (err) {
       error = err instanceof Error ? err.message : String(err)
@@ -212,11 +223,27 @@ export function startStreamMapNdiPump(
     }
   }
 
-  function captureAndSend(): void {
-    if (disposed || !enabled || busy || !frameCtx) return
+  function deliverPixels(data: ArrayBuffer, now: number): void {
+    lastCaptureMs = now
+    const ready = delayBuffer.push(
+      {
+        capturedAtMs: now,
+        width: outW,
+        height: outH,
+        data,
+        bottomUp: false,
+      },
+      now,
+    )
+    for (const frame of ready) {
+      sendFrameData(frame.data)
+    }
+  }
+
+  async function runCapture(): Promise<void> {
+    if (disposed || !enabled || busy || grabbing) return
     if (!sourceName) return
     const now = performance.now()
-    flushDelay(now)
     if (now - lastCaptureMs < minIntervalMs) return
 
     try {
@@ -228,50 +255,39 @@ export function startStreamMapNdiPump(
     const src = options.getSourceCanvas()
     if (!src || src.width < 1 || src.height < 1) return
 
-    frameCtx.fillStyle = '#0a1018'
-    frameCtx.fillRect(0, 0, outW, outH)
     const box = letterboxRect(src.width, src.height, outW, outH)
+    grabbing = true
     try {
-      frameCtx.drawImage(src, box.dx, box.dy, box.dw, box.dh)
+      // Worker path transfers the 8 MB buffer; do not slice again.
+      const data = await capture.grab({ source: src, outW, outH, box })
+      if (disposed || !enabled) return
+      deliverPixels(data, now)
     } catch (err) {
-      error = err instanceof Error ? err.message : String(err)
-      return
+      if (!disposed) {
+        error = err instanceof Error ? err.message : String(err)
+      }
+    } finally {
+      grabbing = false
     }
+  }
 
-    let imageData: ImageData
-    try {
-      imageData = frameCtx.getImageData(0, 0, outW, outH)
-    } catch (err) {
-      error = err instanceof Error ? err.message : String(err)
-      return
-    }
-
-    const buf = imageData.data
-    const copy = buf.buffer.slice(
-      buf.byteOffset,
-      buf.byteOffset + buf.byteLength,
-    ) as ArrayBuffer
-
-    lastCaptureMs = now
-    const ready = delayBuffer.push(
-      {
-        capturedAtMs: now,
-        width: outW,
-        height: outH,
-        data: copy,
-        bottomUp: false,
-      },
-      now,
-    )
-    for (const frame of ready) {
-      sendFrameData(frame.data)
-    }
+  function scheduleCapture(): void {
+    if (disposed || !enabled || busy || grabbing || queued) return
+    if (!sourceName) return
+    const now = performance.now()
+    flushDelay(now)
+    if (now - lastCaptureMs < minIntervalMs) return
+    queued = true
+    capture.defer(() => {
+      queued = false
+      void runCapture()
+    })
   }
 
   function ensureTick(): void {
     if (disposed || !enabled || unsubTick) return
     unsubTick = bridge.onStudioTick(() => {
-      captureAndSend()
+      scheduleCapture()
     })
   }
 
@@ -305,17 +321,19 @@ export function startStreamMapNdiPump(
     getError: () => error,
     getDelayMs: () => delayBuffer.getDelayMs(),
     setDelayMs: (ms: number) => delayBuffer.setDelayMs(ms),
+    getSendFps: () => (enabled ? sendFps.getFps(performance.now()) : 0),
     isEnabled: () => enabled,
     setEnabled,
     stop(): void {
       if (disposed) return
       disposed = true
       enabled = false
+      queued = false
+      grabbing = false
       clearTick()
       delayBuffer.clear()
       stopSender()
-      frameCanvas.width = 0
-      frameCanvas.height = 0
+      capture.dispose()
     },
   }
 }

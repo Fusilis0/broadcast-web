@@ -6,7 +6,9 @@
  * not a full scene re-draw. Half-res depth keeps the 3D-NDI ~10 fps budget.
  * No `readPixels` / `getImageData` / `readRenderTargetPixels`.
  *
- * Ocean stays on top of Cesium's baked sea — this pass does not clip the
+ * While realistic ocean is mounted, terrain **water** fragments are discarded
+ * (quantized-mesh water mask, height fallback) so they do not write this
+ * depth prepass — sea no longer reads as land. This pass does not clip the
  * tileset and does not use `polygonOffset`.
  */
 
@@ -15,7 +17,8 @@ import * as THREE from 'three'
 export const SHORE_FOAM_DEFAULTS = {
   /**
    * Depth target scale vs the current drawing buffer. 0.5 = one quarter of
-   * the pixels; foam is a soft band so full-res is wasted.
+   * the pixels; foam is a soft band so full-res is wasted. `seaQuality: 'low'`
+   * uses 0.25 (1/16 pixels).
    */
   depthScale: 0.5,
   /** World Y (m) where reconstructed terrain starts counting as land. */
@@ -63,7 +66,7 @@ export function currentDrawingSize(renderer: THREE.WebGLRenderer): {
 export function shoreDepthSize(
   drawingW: number,
   drawingH: number,
-  scale = SHORE_FOAM_DEFAULTS.depthScale,
+  scale: number = SHORE_FOAM_DEFAULTS.depthScale,
 ): { width: number; height: number } {
   const s = Number.isFinite(scale) && scale > 0 ? scale : 1
   return {

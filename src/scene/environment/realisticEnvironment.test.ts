@@ -34,6 +34,8 @@ describe('createRealisticEnvironment', () => {
 
     expect(handle.root.name).toBe('realisticEnvironment')
     expect(handle.root.getObjectByName('gerstnerOcean')).toBeTruthy()
+    expect(handle.root.getObjectByName('windVane')).toBeTruthy()
+    expect(handle.root.getObjectByName('windStrings')).toBeTruthy()
     expect(handle.root.getObjectByName('realisticWater')).toBeFalsy()
     expect(handle.root.getObjectByName('realisticSky')).toBeTruthy()
     expect(handle.ocean.material).toBeInstanceOf(THREE.ShaderMaterial)
@@ -58,6 +60,9 @@ describe('createRealisticEnvironment', () => {
     expect(d.x).toBeCloseTo(0, 5)
     expect(d.z).toBeCloseTo(1, 5)
     expect(handle.getWindSpeed()).toBeCloseTo(knotsToMs(6), 5)
+    const vane = handle.root.getObjectByName('windVane')
+    expect(vane).toBeTruthy()
+    expect(vane!.rotation.y).toBeCloseTo(0, 5)
   })
 
   it('ramps 90° from-east to −X without jumping in one update; speed reaches foam', () => {
@@ -124,5 +129,70 @@ describe('createRealisticEnvironment', () => {
     handle.setShoreContact(null)
     expect(handle.getShoreFoamEnabled()).toBe(false)
     expect(handle.getShoreDepthTarget()).toBeNull()
+  })
+
+  it('applies seaQuality low (5 rings, quarter-res foam scale)', () => {
+    const handle = createRealisticEnvironment({
+      skyScale: 100,
+      seaQuality: 'low',
+      coupleWind: false,
+    })
+    handles.push(handle)
+    expect(handle.getSeaQuality()).toBe('low')
+    const high = createRealisticEnvironment({
+      skyScale: 100,
+      seaQuality: 'high',
+      coupleWind: false,
+    })
+    handles.push(high)
+    const lowCount = handle.ocean.geometry.getAttribute('position')!.count
+    const highCount = high.ocean.geometry.getAttribute('position')!.count
+    expect(lowCount).toBeLessThan(highCount)
+  })
+
+  it('mounts wind strings (additive, depthWrite off) on the same ramped travel', () => {
+    const handle = createRealisticEnvironment({
+      skyScale: 100,
+      ocean: { innerSegments: 2, ringCount: 1, ringSegments: 4 },
+    })
+    handles.push(handle)
+    const mesh = handle.root.getObjectByName('windStrings') as THREE.Mesh
+    expect(mesh).toBeTruthy()
+    const mat = mesh.material as THREE.ShaderMaterial
+    expect(mat.depthWrite).toBe(false)
+    expect(mat.blending).toBe(THREE.AdditiveBlending)
+    handle.tick(0)
+    const d = waveDirectionXZ(handle.getDirectionRad())
+    expect(d.z).toBeCloseTo(1, 5)
+  })
+
+  it('dispose unsubscribes the wind bus', () => {
+    const bus = new WindBus()
+    bus.publish({
+      directionFromDeg: 0,
+      speedMs: knotsToMs(6),
+      source: 'operator',
+      updatedAtMs: 0,
+    })
+    let subCalls = 0
+    let unsubCalls = 0
+    const real = bus.subscribe.bind(bus)
+    bus.subscribe = (handler) => {
+      subCalls += 1
+      const off = real(handler)
+      return () => {
+        unsubCalls += 1
+        off()
+      }
+    }
+    const handle = createRealisticEnvironment({
+      skyScale: 100,
+      ocean: { innerSegments: 2, ringCount: 1, ringSegments: 4 },
+      wind: bus,
+    })
+    handles.push(handle)
+    expect(subCalls).toBe(1)
+    handle.dispose()
+    expect(unsubCalls).toBe(1)
   })
 })

@@ -1,5 +1,7 @@
+import { createSendFpsCounter } from './perfCounters.ts'
 import type { Camera, Object3D, WebGLRenderer } from 'three'
 import { Color, WebGLRenderTarget } from 'three'
+import { createNdiAsyncReadback } from './ndiAsyncReadback.ts'
 import { NdiDelayBuffer } from './ndiDelayBuffer.ts'
 import {
   applyOpaque3dPassState,
@@ -27,8 +29,8 @@ export type Ndi3dChannelPumpOptions = {
   setEnvironmentOpaqueClearSafe: (safe: boolean) => void
   getEnvironmentOpaqueClearSafe: () => boolean
   /**
-   * Target send rate. Default **10** (perf: sync readPixels stalls UI;
-   * AR stays at 30 — DSP-OUT-20260812-06).
+   * Target send rate. Default **30** (DSP-OUT-20260828-04; alternate ticks
+   * with AR — one FBO render per stagger window).
    */
   fps?: number
   /** NDI source name. Default `broadcast-web-3d`. */
@@ -40,8 +42,8 @@ export type Ndi3dChannelPumpOptions = {
   delayMs?: number
 }
 
-/** Default 3D NDI send rate — capped to keep Electron UI usable. */
-export const NDI_3D_DEFAULT_FPS = 10
+/** Default 3D NDI send rate — 30 fps, always on (DSP-OUT-20260828-04). */
+export const NDI_3D_DEFAULT_FPS = 30
 const DEFAULT_3D_NAME = 'broadcast-web-3d'
 const CHANNEL = '3d' as const
 
@@ -51,14 +53,16 @@ const _clearColor = new Color()
  * Electron-only continuous **3D** NDI pump (`channel: '3d'`).
  *
  * Each studio tick: opaque clear + `opaqueClearSafe(true)` → render active POV
- * into an FBO → `readPixels` → `sendFrame({ channel: '3d' })` → restore the
- * previous clear / opaque-safe gate so the AR transparent plate stays clean.
+ * into an FBO → PBO pack (sync `readRenderTargetPixels` fallback) →
+ * `sendFrame({ channel: '3d' })` → restore the previous clear / opaque-safe
+ * gate so the AR transparent plate stays clean. One frame of PBO latency is OK.
  *
- * Does **not** monkey-patch `renderer.render` (AR pump owns that). Captures via
- * `onStudioTick` using the render function bound at start time (typically the
- * visual-timecode wrap). Start **after** `startVisualTimecode` and **before**
- * `startNdiFramePump` so this handle keeps a reference that bypasses the AR
- * override.
+ * Does **not** monkey-patch `renderer.render`. Captures via `onStudioTick`
+ * using the render function bound at start time (typically the visual-timecode
+ * wrap). Start **after** `startVisualTimecode` and **after** `startNdiFramePump`.
+ * `tryClaimNdiHeavyCapture` is the FBO-render slot (PBO `blocking: false`
+ * still refused if AR already rendered this window). Preview rAF does not
+ * drive this pump.
  *
  * No-ops when `window.broadcastStudio` is missing (Chrome path).
  */
@@ -86,8 +90,9 @@ export function startNdi3dChannelPump(
   const sourceNameOpt = options.sourceName?.trim() || DEFAULT_3D_NAME
   const delayBuffer = new NdiDelayBuffer()
   if (options.delayMs !== undefined) delayBuffer.setDelayMs(options.delayMs)
+  const sendFps = createSendFpsCounter()
 
-  // Bind before AR pump patches `renderer.render` (caller start order).
+  // Timecode wrap (caller starts this pump after startVisualTimecode).
   const directRender = renderer.render.bind(renderer)
 
   let stopped = false
@@ -96,12 +101,10 @@ export function startNdi3dChannelPump(
   let error: string | null = null
   let lastCaptureMs = 0
   let busy = false
-  let rgba: Uint8Array | null = null
-  let rgbaW = 0
-  let rgbaH = 0
   let target: WebGLRenderTarget | null = null
   let targetW = 0
   let targetH = 0
+  const readback = createNdiAsyncReadback({ renderer })
 
   const clearReader = {
     getClearColorHex: () => {
@@ -129,15 +132,6 @@ export function startNdi3dChannelPump(
     }
   }
 
-  function ensureBuffer(w: number, h: number): Uint8Array {
-    if (!rgba || rgbaW !== w || rgbaH !== h) {
-      rgba = new Uint8Array(w * h * 4)
-      rgbaW = w
-      rgbaH = h
-    }
-    return rgba
-  }
-
   function ensureTarget(w: number, h: number): WebGLRenderTarget {
     if (!target || targetW !== w || targetH !== h) {
       target?.dispose()
@@ -161,6 +155,7 @@ export function startNdi3dChannelPump(
         data,
         bottomUp: true,
       })
+      sendFps.record(performance.now())
     } catch (err) {
       error = err instanceof Error ? err.message : String(err)
     } finally {
@@ -195,10 +190,19 @@ export function startNdi3dChannelPump(
     }
   }
 
+  function drainReadback(nowMs: number): void {
+    if (stopped || busy) return
+    const pixels = readback.poll(nowMs)
+    if (!pixels) return
+    enqueueRgba(pixels.width, pixels.height, pixels.data, nowMs)
+  }
+
   function captureFrame(): void {
     if (stopped || busy) return
     const now = performance.now()
     flushDelay(now)
+    drainReadback(now)
+    if (stopped || busy) return
     if (now - lastCaptureMs < minIntervalMs) return
 
     const airCamera = getAirCamera() ?? null
@@ -208,8 +212,14 @@ export function startNdi3dChannelPump(
     const w = canvas.width
     const h = canvas.height
     if (w < 1 || h < 1) return
-    // Yield when AR already readback this tick; AR will yield next tick.
-    if (!tryClaimNdiHeavyCapture('3d', now)) return
+    if (
+      !tryClaimNdiHeavyCapture('3d', now, {
+        blocking: readback.mode === 'sync',
+      })
+    ) {
+      // Another FBO already rendered this window. Drain above still ran.
+      return
+    }
 
     const snapshot = snapshotClearPass(clearReader)
     applyOpaque3dPassState(clearWriter, NDI_3D_OPAQUE_CLEAR_COLOR)
@@ -223,15 +233,9 @@ export function startNdi3dChannelPump(
       renderer.setRenderTarget(fbo)
       directRender(sceneRoot, airCamera)
 
-      const buf = ensureBuffer(w, h)
-      try {
-        renderer.readRenderTargetPixels(fbo, 0, 0, w, h, buf)
-      } catch (err) {
-        error = err instanceof Error ? err.message : String(err)
-        return
-      }
+      if (!readback.begin(fbo, w, h, now)) return
       lastCaptureMs = now
-      enqueueRgba(w, h, buf, now)
+      drainReadback(now)
     } finally {
       renderer.setRenderTarget(prevTarget)
       renderer.xr.enabled = prevXrEnabled
@@ -273,12 +277,13 @@ export function startNdi3dChannelPump(
     getError: () => error,
     getDelayMs: () => delayBuffer.getDelayMs(),
     setDelayMs: (ms: number) => delayBuffer.setDelayMs(ms),
+    getSendFps: () => sendFps.getFps(performance.now()),
     stop(): void {
       if (stopped) return
       stopped = true
       unsubTick()
       delayBuffer.clear()
-      rgba = null
+      readback.dispose()
       target?.dispose()
       target = null
       void ndi.stop({ channel: CHANNEL }).catch(() => {

@@ -44,6 +44,7 @@ const DEFAULT_CONFIG: AppConfig = {
   origin: { ...DEFAULT_ORIGIN },
   takeoffAltitudeMSL: 0,
   outputMode: 'preview',
+  arBackground: 'alpha',
   chromaKey: '',
   timecodeEnabled: true,
   timecodeCorner: 'bottom-right',
@@ -225,6 +226,8 @@ export function normalizeConfig(raw: unknown): AppConfig {
       ? o.takeoffAltitudeMSL
       : 0,
     outputMode: typeof o.outputMode === 'string' ? o.outputMode : 'preview',
+    arBackground:
+      typeof o.arBackground === 'string' ? o.arBackground : 'alpha',
     chromaKey: typeof o.chromaKey === 'string' ? o.chromaKey.trim() : '',
     timecodeEnabled: parseTimecodeEnabled(o.timecodeEnabled),
     timecodeCorner: parseTimecodeCorner(o.timecodeCorner),

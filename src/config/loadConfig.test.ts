@@ -207,6 +207,7 @@ describe('normalizeConfig outputMode / chromaKey', () => {
     const cfg = normalizeConfig({})
     expect(cfg.outputMode).toBe('preview')
     expect(cfg.chromaKey).toBe('')
+    expect(cfg.arBackground).toBe('alpha')
   })
 
   it('keeps chroma outputMode and chromaKey', () => {
@@ -221,6 +222,16 @@ describe('normalizeConfig outputMode / chromaKey', () => {
   it('keeps transparent outputMode string (OUT normalizes)', () => {
     expect(normalizeConfig({ outputMode: 'transparent' }).outputMode).toBe(
       'transparent',
+    )
+  })
+
+  it('defaults arBackground to alpha when missing', () => {
+    expect(normalizeConfig({}).arBackground).toBe('alpha')
+  })
+
+  it('keeps video arBackground string (OUT normalizes)', () => {
+    expect(normalizeConfig({ arBackground: 'video' }).arBackground).toBe(
+      'video',
     )
   })
 })
