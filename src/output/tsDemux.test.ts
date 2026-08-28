@@ -10,6 +10,8 @@ import {
   isKeyframe,
   pts90kToTimestampUs,
   readPts,
+  resolveCodecString,
+  unescapeRbsp,
   writePts,
 } from './tsDemux.ts'
 
@@ -366,5 +368,23 @@ describe('splitPackets helper', () => {
     expect(pkt.length).toBe(TS_PACKET_SIZE)
     expect(pkt[0]).toBe(TS_SYNC_BYTE)
     expect(splitPackets(pkt)).toBe(pkt)
+  })
+})
+
+describe('unescapeRbsp / HEVC codec string', () => {
+  it('drops emulation-prevention 0x03 after 0x0000', () => {
+    expect(
+      [...unescapeRbsp(new Uint8Array([0x00, 0x00, 0x03, 0x01]))],
+    ).toEqual([0x00, 0x00, 0x01])
+  })
+
+  it('does not put 000003 into hev1 when SPS RBSP contains EPB', () => {
+    const sps = new Uint8Array([
+      0x42, 0x01, 0x01, 0x01, 0x60, 0x00, 0x00, 0x03, 0x00, 0xb0, 0x00, 0x00,
+      0x03, 0x00, 0x00, 0x03, 0x00, 0x78, 0x90,
+    ])
+    const str = resolveCodecString(annexB([sps]), 'hevc')
+    expect(str.startsWith('hev1.')).toBe(true)
+    expect(str.includes('000003')).toBe(false)
   })
 })

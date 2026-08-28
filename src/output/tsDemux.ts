@@ -611,6 +611,27 @@ export function prependParamSets(
 }
 
 /**
+ * H.264/HEVC RBSP unescape: drop `0x03` after `0x0000` (emulation prevention).
+ * Without this, DJI SPS `0x000003` bytes leak into `hev1.*` and WebCodecs
+ * reports unsupported even when the GPU can decode Main HEVC.
+ */
+export function unescapeRbsp(bytes: Uint8Array): Uint8Array {
+  const out = new Uint8Array(bytes.length)
+  let o = 0
+  let zeros = 0
+  for (let i = 0; i < bytes.length; i++) {
+    const b = bytes[i]!
+    if (zeros >= 2 && b === 0x03) {
+      zeros = 0
+      continue
+    }
+    out[o++] = b
+    zeros = b === 0 ? zeros + 1 : 0
+  }
+  return out.subarray(0, o)
+}
+
+/**
  * RFC 6381 codec string from in-band SPS (and VPS for HEVC).
  * Annex-B → `avc1.*` / `hev1.*` (in-band; no `description` on VideoDecoder).
  */
@@ -656,7 +677,7 @@ export function resolveCodecString(
 
 function hevcCodecFromSps(nal: Uint8Array): string | null {
   if (nal.length < 3) return null
-  const rbsp = nal.subarray(2)
+  const rbsp = unescapeRbsp(nal.subarray(2))
   const br = createBitReader(rbsp)
   br.read(4)
   const maxSubLayersMinus1 = br.read(3)
@@ -666,7 +687,7 @@ function hevcCodecFromSps(nal: Uint8Array): string | null {
 
 function hevcCodecFromVps(nal: Uint8Array): string | null {
   if (nal.length < 3) return null
-  const rbsp = nal.subarray(2)
+  const rbsp = unescapeRbsp(nal.subarray(2))
   const br = createBitReader(rbsp)
   br.read(4)
   br.read(2)
