@@ -1,0 +1,222 @@
+{
+  "schemaVersion": 1,
+  "id": "30agustos",
+  "name": "30agustos",
+  "origin": {
+    "lat": 41.03555425259904,
+    "lon": 29.014160505269018,
+    "altMsl": 0
+  },
+  "fleet": {
+    "boatIds": [
+      "7"
+    ],
+    "boats": [
+      {
+        "id": "7",
+        "name": "boat",
+        "category": ""
+      }
+    ],
+    "boatNamesUrl": "/fixtures/boats/demo-istanbul-names.json"
+  },
+  "povIds": [
+    "1"
+  ],
+  "updatedAt": "2026-08-30T10:19:50.954Z",
+  "takeoffAltitudeMSL": 0,
+  "features": [
+    {
+      "id": "billboardChain:4",
+      "name": "billboardChain-4",
+      "type": "billboardChain",
+      "points": [
+        {
+          "lat": 41.04041756871745,
+          "lon": 29.007417092889874,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.043141315900215,
+          "lon": 29.017786637558274,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.04660886314139,
+          "lon": 29.02564723240039,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.04677339585911,
+          "lon": 29.02739369400399,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.04817722125085,
+          "lon": 29.029468561963032,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.04933245314334,
+          "lon": 29.032962277494907,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.05676707692215,
+          "lon": 29.03733493449665,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.05957629762124,
+          "lon": 29.037774109985225,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.06221844743032,
+          "lon": 29.04159750330624,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.06618429558209,
+          "lon": 29.04236554556347,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.06758637871084,
+          "lon": 29.046952498423284,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.06965207710668,
+          "lon": 29.04706382558092,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.077255233168636,
+          "lon": 29.045106183750732,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.07972939483434,
+          "lon": 29.052861946216876,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.07468692600501,
+          "lon": 29.05591365581435,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.07386163992754,
+          "lon": 29.05438401088278,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.06724959219855,
+          "lon": 29.05677837450601,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.062708007216024,
+          "lon": 29.05207855912444,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.06221284740754,
+          "lon": 29.051095459449094,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.05758448492999,
+          "lon": 29.05272783364499,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.0558502151133,
+          "lon": 29.051197623067747,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.05047942000906,
+          "lon": 29.050864250518856,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.04932196630894,
+          "lon": 29.05184533774855,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.04255411717046,
+          "lon": 29.03819538030552,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.02678202180593,
+          "lon": 29.012539444799977,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.02628741604455,
+          "lon": 29.00828379406203,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.022487050860946,
+          "lon": 29.005554415856153,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.03265294166574,
+          "lon": 28.99322766768017,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.03430529569699,
+          "lon": 28.99519230520646,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.0356274256862,
+          "lon": 28.99497438474808,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.04050022719841,
+          "lon": 29.00730799300774,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 8,
+      "color": 2781050,
+      "label": "Chain 4",
+      "textureUrl": "/textures/sponsors/senexus.png",
+      "spacingM": 12
+    }
+  ],
+  "courseUrl": "/fixtures/course/demo-istanbul.json",
+  "sponsorsUrl": "/fixtures/sponsors/demo-istanbul.json",
+  "flagsUrl": "/fixtures/flags/demo-istanbul-countdown.json",
+  "replayUrl": "/fixtures/telemetry/spine-demo.json",
+  "output": {
+    "outputMode": "transparent",
+    "timecodeEnabled": true,
+    "timecodeCorner": "bottom-right",
+    "timecodeSizePx": 96,
+    "srtByPovId": {
+      "1": "1"
+    }
+  },
+  "calibration": {
+    "byPovId": {
+      "1": {
+        "yawDeg": 0,
+        "pitchDeg": 0,
+        "rollDeg": 0,
+        "fovHDeg": 66.8832,
+        "altMeters": 0,
+        "syncTrimMs": 0
+      }
+    }
+  }
+}
