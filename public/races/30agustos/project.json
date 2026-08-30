@@ -9,21 +9,31 @@
   },
   "fleet": {
     "boatIds": [
-      "7"
+      "7",
+      "8"
     ],
     "boats": [
       {
         "id": "7",
         "name": "boat",
         "category": ""
+      },
+      {
+        "id": "8",
+        "name": "alp",
+        "category": "",
+        "visibility": "ghost"
       }
     ],
-    "boatNamesUrl": "/fixtures/boats/demo-istanbul-names.json"
+    "boatNamesUrl": "/fixtures/boats/demo-istanbul-names.json",
+    "boatVisibility": {
+      "8": "ghost"
+    }
   },
   "povIds": [
     "1"
   ],
-  "updatedAt": "2026-08-30T10:19:50.954Z",
+  "updatedAt": "2026-08-30T11:16:40.362Z",
   "takeoffAltitudeMSL": 0,
   "features": [
     {
@@ -192,6 +202,66 @@
       "label": "Chain 4",
       "textureUrl": "/textures/sponsors/senexus.png",
       "spacingM": 12
+    },
+    {
+      "id": "buoy:5",
+      "name": "Cıragan",
+      "type": "buoy",
+      "points": [
+        {
+          "lat": 41.0409,
+          "lon": 29.0181,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 5,
+      "color": 16757248,
+      "label": "buoy"
+    },
+    {
+      "id": "buoy:6",
+      "name": "ARNAVUTKÖY",
+      "type": "buoy",
+      "points": [
+        {
+          "lat": 41.066,
+          "lon": 29.0361,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 5,
+      "color": 16757248,
+      "label": "buoy"
+    },
+    {
+      "id": "buoy:7",
+      "name": "REDBULL",
+      "type": "buoy",
+      "points": [
+        {
+          "lat": 41.042,
+          "lon": 29.0204,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 5,
+      "color": 16757248,
+      "label": "buoy"
+    },
+    {
+      "id": "buoy:8",
+      "name": "START LINE",
+      "type": "buoy",
+      "points": [
+        {
+          "lat": 41.0404,
+          "lon": 29.0277,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 5,
+      "color": 16757248,
+      "label": "buoy"
     }
   ],
   "courseUrl": "/fixtures/course/demo-istanbul.json",
@@ -210,11 +280,11 @@
   "calibration": {
     "byPovId": {
       "1": {
-        "yawDeg": 0,
+        "yawDeg": 35.3,
         "pitchDeg": 0,
         "rollDeg": 0,
         "fovHDeg": 66.8832,
-        "altMeters": 0,
+        "altMeters": 2,
         "syncTrimMs": 0
       }
     }
