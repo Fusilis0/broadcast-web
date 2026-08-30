@@ -27,7 +27,7 @@ import {
   tryClaimNdiHeavyCapture,
 } from './ndiCaptureStagger.ts'
 import type { NdiFramePumpHandle } from './ndiFramePump.ts'
-import { debugSessionLog, getStudioBridge } from './studioBridge.ts'
+import { debugSessionLog, getStudioBridge, sendStudioNdiFrame } from './studioBridge.ts'
 
 export type Ndi3dChannelPumpOptions = {
   renderer: WebGLRenderer
@@ -168,7 +168,7 @@ export function startNdi3dChannelPump(
   function sendFrameData(width: number, height: number, data: ArrayBuffer): void {
     try {
       timeNdiStage('3dEnqueueIpc', () => {
-        ndi.sendFrame({
+        sendStudioNdiFrame(ndi, {
           channel: CHANNEL,
           width,
           height,

@@ -423,8 +423,10 @@ export {
 export { flipRgbaRowsInPlace, flipOwnedRgbaFrame } from './ndiFlipRows.ts'
 
 export {
+  blitUyvyNearest,
   createNdiPackPool,
   evenPackWidth,
+  fillUyvyFromCssHex,
   packedFrameBytes,
   rgbaToUyva,
   rgbaToUyvy,

@@ -7,6 +7,13 @@
  */
 const { contextBridge, ipcRenderer } = require('electron')
 
+const ndiFrameChannel = new MessageChannel()
+ipcRenderer.postMessage('ndi:frame-port', null, [ndiFrameChannel.port1])
+contextBridge.exposeInMainWorld(
+  'broadcastStudioNdiFramePort',
+  ndiFrameChannel.port2,
+)
+
 contextBridge.exposeInMainWorld('broadcastStudio', {
   isStudio: true,
   ndi: {

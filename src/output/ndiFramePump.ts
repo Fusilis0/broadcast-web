@@ -29,6 +29,7 @@ import {
   DEFAULT_NDI_CHANNEL,
   debugSessionLog,
   getStudioBridge,
+  sendStudioNdiFrame,
   type NdiChannelId,
 } from './studioBridge.ts'
 
@@ -237,7 +238,7 @@ export function startNdiFramePump(
   ): void {
     try {
       timeNdiStage('arEnqueueIpc', () => {
-        ndi.sendFrame({
+        sendStudioNdiFrame(ndi, {
           channel,
           width,
           height,

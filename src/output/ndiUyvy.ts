@@ -1,3 +1,5 @@
+import { parseCssHexRgba, type LetterboxRect } from './letterboxRect.ts'
+
 /**
  * RGBA8 → NDI UYVY / UYVA (4:2:2). Pack *before* IPC so the Electron
  * structured clone is 4 MB (UYVY) or 6 MB (UYVA) instead of 8 MB RGBA.
@@ -43,12 +45,14 @@ function v709(r: number, g: number, b: number): number {
   return clamp8(128 + ((28784 * r - 24105 * g - 4679 * b) >> 16))
 }
 
+type Rgba8 = Uint8Array | Uint8ClampedArray
+
 /**
  * Pack top-down RGBA into UYVY (U Y0 V Y1 per pair).
  * Dest must be at least `packedFrameBytes('uyvy', w, h)`.
  */
 export function rgbaToUyvy(
-  rgba: Uint8Array,
+  rgba: Rgba8,
   width: number,
   height: number,
   dest: Uint8Array,
@@ -82,11 +86,92 @@ export function rgbaToUyvy(
   return outBytes
 }
 
+/** Pack one Rec.709 limited UYVY macropixel (two identical RGB samples). */
+function uyvyPairFromRgb(r: number, g: number, b: number): number {
+  const y = y709(r, g, b)
+  const u = u709(r, g, b)
+  const v = v709(r, g, b)
+  return u | (y << 8) | (v << 16) | (y << 24)
+}
+
+/** Fill a UYVY buffer with a CSS hex matte (letterbox bars). */
+export function fillUyvyFromCssHex(dest: Uint8Array, hex: string): void {
+  const [r, g, b] = parseCssHexRgba(hex)
+  const packed = uyvyPairFromRgb(r, g, b)
+  if (dest.byteOffset % 4 === 0 && dest.byteLength % 4 === 0) {
+    new Uint32Array(dest.buffer, dest.byteOffset, dest.byteLength >> 2).fill(
+      packed,
+    )
+    return
+  }
+  const u = packed & 255
+  const y = (packed >> 8) & 255
+  const v = (packed >> 16) & 255
+  for (let i = 0; i + 3 < dest.length; i += 4) {
+    dest[i] = u
+    dest[i + 1] = y
+    dest[i + 2] = v
+    dest[i + 3] = y
+  }
+}
+
+/**
+ * Nearest-neighbour blit of packed UYVY into a letterbox rect. Source and
+ * dest widths are 4:2:2-even. Used so 2D NDI packs native map pixels (~520²)
+ * instead of converting a full 1920×1080 RGBA intermediate.
+ */
+export function blitUyvyNearest(
+  src: Uint8Array,
+  srcW: number,
+  srcH: number,
+  dest: Uint8Array,
+  destW: number,
+  destH: number,
+  box: LetterboxRect,
+): void {
+  const sw = evenPackWidth(srcW)
+  const dw = evenPackWidth(destW)
+  const sh = Math.max(0, srcH | 0)
+  const dhFrame = Math.max(0, destH | 0)
+  if (sw < 2 || dw < 2 || sh < 1 || dhFrame < 1) return
+  const dx = Math.max(0, box.dx | 0) & ~1
+  const dy = Math.max(0, box.dy | 0)
+  const boxW = Math.max(0, Math.min(evenPackWidth(box.dw | 0), dw - dx))
+  const boxH = Math.max(0, Math.min(box.dh | 0, dhFrame - dy))
+  if (boxW < 2 || boxH < 1) return
+  const srcStride = sw * 2
+  const destStride = dw * 2
+  if (src.byteLength < srcStride * sh || dest.byteLength < destStride * dhFrame) {
+    return
+  }
+
+  if (boxW === sw && boxH === sh) {
+    for (let y = 0; y < boxH; y++) {
+      dest.set(
+        src.subarray(y * srcStride, y * srcStride + srcStride),
+        (dy + y) * destStride + dx * 2,
+      )
+    }
+    return
+  }
+
+  for (let y = 0; y < boxH; y++) {
+    const srcY = Math.min(sh - 1, Math.floor((y * sh) / boxH))
+    const srcRow = srcY * srcStride
+    const destRow = (dy + y) * destStride + dx * 2
+    for (let x = 0; x < boxW; x += 2) {
+      const srcX = Math.min(sw - 2, Math.floor((x * sw) / boxW) & ~1)
+      const si = srcRow + srcX * 2
+      dest.set(src.subarray(si, si + 4), destRow + x * 2)
+    }
+  }
+}
+
 /**
  * UYVY followed by a full-resolution 8-bit alpha plane (NDI UYVA).
  */
 export function rgbaToUyva(
-  rgba: Uint8Array,
+  rgba: Rgba8,
   width: number,
   height: number,
   dest: Uint8Array,

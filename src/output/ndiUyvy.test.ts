@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  blitUyvyNearest,
   createNdiPackPool,
   evenPackWidth,
+  fillUyvyFromCssHex,
   packedFrameBytes,
   rgbaToUyva,
   rgbaToUyvy,
@@ -73,5 +75,19 @@ describe('ndiUyvy pack', () => {
     pool.release(a!)
     const b = pool.pack(src, 4, 2)
     expect(b).toBe(a)
+  })
+
+  it('letterboxes native UYVY into a 1080-wide frame without converting bars', () => {
+    const srcRgba = rgbaFill(4, 2, 255, 255, 255)
+    const native = new Uint8Array(packedFrameBytes('uyvy', 4, 2))
+    expect(rgbaToUyvy(srcRgba, 4, 2, native)).toBe(native.byteLength)
+    const dest = new Uint8Array(packedFrameBytes('uyvy', 8, 4))
+    fillUyvyFromCssHex(dest, '#0a1018')
+    blitUyvyNearest(native, 4, 2, dest, 8, 4, { dx: 2, dy: 1, dw: 4, dh: 2 })
+    expect(dest[0]).toBe(dest[4])
+    expect(dest[1]).toBeLessThan(40)
+    const mid = (1 * 8 + 2) * 2
+    expect(dest[mid + 1]).toBeGreaterThan(200)
+    expect(dest[mid + 3]).toBeGreaterThan(200)
   })
 })

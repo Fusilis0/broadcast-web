@@ -37,6 +37,7 @@ import {
 import {
   debugSessionLog,
   getStudioBridge,
+  sendStudioNdiFrame,
   type NdiChannelId,
 } from './studioBridge.ts'
 import {
@@ -212,7 +213,7 @@ export function startStreamMapNdiPump(
       busy = true
       try {
         // Canvas 2D is top-down RGBA — do not flip (unlike WebGL readPixels).
-        ndi.sendFrame({
+        sendStudioNdiFrame(ndi, {
           channel,
           width: outW,
           height: outH,

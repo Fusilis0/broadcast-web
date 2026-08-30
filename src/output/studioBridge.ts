@@ -118,6 +118,7 @@ export type BroadcastStudioBridge = {
 declare global {
   interface Window {
     broadcastStudio?: BroadcastStudioBridge
+    broadcastStudioNdiFramePort?: MessagePort
   }
 }
 
@@ -132,6 +133,37 @@ export function getStudioBridge(): BroadcastStudioBridge | null {
     return bridge
   }
   return null
+}
+
+/**
+ * Push one packed NDI frame. Prefers a transferable MessagePort so the
+ * renderer does not structured-clone 4–6 MB (contextBridge + ipcRenderer.send).
+ */
+export function sendStudioNdiFrame(
+  ndi: Pick<StudioNdiBridge, 'sendFrame'>,
+  frame: StudioNdiFrame,
+): void {
+  const port = window.broadcastStudioNdiFramePort
+  const data = frame.data
+  if (port && data instanceof ArrayBuffer && data.byteLength > 0) {
+    try {
+      port.postMessage(
+        {
+          channel: frame.channel,
+          width: frame.width,
+          height: frame.height,
+          bottomUp: frame.bottomUp,
+          pixelFormat: frame.pixelFormat,
+          data,
+        },
+        [data],
+      )
+      return
+    } catch {
+      /* fall through to structured-clone send */
+    }
+  }
+  ndi.sendFrame(frame)
 }
 
 /** Renderer debug ingest: IPC (works in studio) + HTTP (works in Chrome/tests). */

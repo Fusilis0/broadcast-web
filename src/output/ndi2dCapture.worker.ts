@@ -1,16 +1,18 @@
 /**
- * Native-size 2D NDI grab worker (DSP-OUT-20260830-01).
+ * Native-size 2D NDI grab worker (DSP-OUT-20260830-01 / pack-native).
  *
  * Receives a transferred ImageBitmap of the stream-map source at native size,
- * reads those pixels only, letterboxes them into a pooled 1920×1080 RGBA8
- * buffer, packs Rec.709 UYVY, then transfers the 4:2:2 buffer back.
+ * reads those pixels only, packs Rec.709 UYVY at native size, then nearest-
+ * neighbour letterboxes into a 1920×1080 UYVY frame (matte bars, not a 1080p
+ * RGBA convert).
  */
 
 import {
-  blitRgbaLetterbox,
-  createRgbaFramePool,
-} from './letterboxRect.ts'
-import { packedFrameBytes, rgbaToUyvy } from './ndiUyvy.ts'
+  blitUyvyNearest,
+  fillUyvyFromCssHex,
+  packedFrameBytes,
+  rgbaToUyvy,
+} from './ndiUyvy.ts'
 
 type Ndi2dWorkerRequest = {
   id: number
@@ -39,7 +41,7 @@ const scope = globalThis as unknown as WorkerScope
 
 let canvas: OffscreenCanvas | null = null
 let ctx: OffscreenCanvasRenderingContext2D | null = null
-const pool = createRgbaFramePool()
+let nativeUyvy: Uint8Array | null = null
 
 function ensureNativeContext(
   width: number,
@@ -69,20 +71,23 @@ scope.addEventListener('message', (event: MessageEvent<Ndi2dWorkerRequest>) => {
     context.drawImage(msg.bitmap, 0, 0)
     msg.bitmap.close()
     const imageData = context.getImageData(0, 0, srcW, srcH)
-    const dest = pool.acquire(msg.outW, msg.outH, msg.fill)
-    blitRgbaLetterbox(imageData.data, srcW, srcH, dest, msg.outW, msg.outH, {
+    const nativeBytes = packedFrameBytes('uyvy', srcW, srcH)
+    if (!nativeUyvy || nativeUyvy.byteLength !== nativeBytes) {
+      nativeUyvy = new Uint8Array(nativeBytes)
+    }
+    const wroteNative = rgbaToUyvy(imageData.data, srcW, srcH, nativeUyvy)
+    if (wroteNative !== nativeBytes) {
+      throw new Error('2D native UYVY pack failed')
+    }
+    const uyvyBytes = packedFrameBytes('uyvy', msg.outW, msg.outH)
+    const uyvy = new Uint8Array(uyvyBytes)
+    fillUyvyFromCssHex(uyvy, msg.fill)
+    blitUyvyNearest(nativeUyvy, srcW, srcH, uyvy, msg.outW, msg.outH, {
       dx: msg.dx,
       dy: msg.dy,
       dw: msg.dw,
       dh: msg.dh,
     })
-    const uyvyBytes = packedFrameBytes('uyvy', msg.outW, msg.outH)
-    const uyvy = new Uint8Array(uyvyBytes)
-    const wrote = rgbaToUyvy(dest, msg.outW, msg.outH, uyvy)
-    pool.take()
-    if (wrote !== uyvyBytes) {
-      throw new Error('2D UYVY pack failed')
-    }
     const data = uyvy.buffer
     scope.postMessage({ id: msg.id, data } satisfies Ndi2dWorkerOk, [data])
   } catch (err) {

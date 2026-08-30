@@ -248,6 +248,21 @@ function registerNdiIpc() {
     // #endregion
     ndiSender.sendFrame(channel, frame)
   })
+
+  ipcMain.on('ndi:frame-port', (event) => {
+    const port = event.ports && event.ports[0]
+    if (!port) return
+    port.start()
+    port.on('message', (msgEvent) => {
+      if (!ndiEnabled) return
+      const frame = msgEvent && msgEvent.data
+      const channel =
+        frame && typeof frame === 'object' && 'channel' in frame
+          ? frame.channel
+          : ndiSender.DEFAULT_CHANNEL
+      ndiSender.sendFrame(channel, frame)
+    })
+  })
 }
 
 function getRacesDir() {
