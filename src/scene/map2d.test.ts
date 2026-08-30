@@ -323,4 +323,21 @@ describe('map2d pose prune', () => {
       map.dispose()
     }
   })
+
+  it('retainPoseIds clears a previous 4-boat pack down to one boat', () => {
+    const map = createMap2d({ sizePx: 120, visible: false })
+    try {
+      map.updatePose(pose('21', 'boat'))
+      map.updatePose(pose('22', 'boat'))
+      map.updatePose(pose('23', 'boat'))
+      map.updatePose(pose('24', 'boat'))
+      const removed = map.retainPoseIds(['1'])
+      expect(removed).toBe(4)
+      expect(map.getPoseIds()).toEqual([])
+      map.updatePose(pose('1', 'boat'))
+      expect(map.getPoseIds()).toEqual(['1'])
+    } finally {
+      map.dispose()
+    }
+  })
 })

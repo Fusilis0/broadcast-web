@@ -56,6 +56,7 @@ export {
   type LiveIdSocketStatus,
   type LiveSourceOptions,
   type LiveStatusSnapshot,
+  type LiveStopOptions,
   type LiveWsStatus,
 } from './liveSource.ts'
 export {

@@ -20,8 +20,8 @@
 
 ### Current pointer
 
-**Active engineering:** hitch + PTS (OUT-04, OUT-05, SRT-01).  
-**Active human:** after those workers, re-paste fps/hitch/Send and Sync PTS→NTP.
+**Active engineering:** **Phase 18** — waves 1–3 + capture flip accepted in code (suite **1014 + 23**). Remaining P2: timecode UI off, PiP card off. No fps worker until the after-dump.  
+**Active human:** restart Electron, all three NDI on. OBS: AR/3D should now be **right-side up**, 2D still upright, alpha still keys. Then **Copy 10 s dump**. If `*EnqueueIpc` is still >12 ms, that is 4:2:2, not another gate tweak.
 
 **Active:** **Phase 10.1** (Unity vs broadcast-web parallel air — human + BW) is the only remaining
 open gate.  
@@ -292,6 +292,83 @@ parallel. Engineering accepted 2026-08-17.
 **Known limits, not bugs to chase:** producer bias knobs ship at 0, so a constant per-camera offset remains — hence `syncTrimMs` · boat GPS is ~2 Hz with ~6 s holes when still · timing alone will not align the overlay if FOV/distortion are wrong (DJI reports 84°, our default is 66.8832°) — separate CAL track, expected to surface at first smoke.
 
 **Open inputs:** a real SRT endpoint or a recorded `.ts` + `stream_anchor` capture (blocks wave 2 acceptance); the SRT URL scheme and who operates it; whether the studio PC can hardware-decode HEVC.
+
+---
+
+### Phase 18 — Studio air-readiness (operator notes 2026-08-29) *(wave 1 accepted 2026-08-29; waves 2–4 open)*
+
+**Requested:** 2026-08-29 (operator, ten notes after a live studio session; three marked ★ important). Everything here is "the studio works, now make it broadcastable". No new architecture — this phase is defect + fidelity work against the shipped Phase 17 studio.
+
+**Evidence gathered by BW before writing this phase** (read-only code trace, no `src/` edits):
+
+- **Colour** — the renderer never sets `outputColorSpace`, and the AR/3D NDI render targets are created bare (`new WebGLRenderTarget(w, h, { depthBuffer, stencilBuffer })` in `ndiFramePump.ts` / `ndi3dChannelPump.ts`). On three `^0.178.0` the canvas gets sRGB output encoding but a render target whose `texture.colorSpace` is unset stays **linear**, so `readPixels` hands NDI linear-light bytes that OBS then shows as sRGB. That is exactly a "too dark, colours wrong" picture. The 2D channel grabs a 2D canvas instead, so it should look *correct* — that asymmetry is the confirming test.
+- **FPS** — the tick is already 60 Hz with an 8 ms AR/3D stagger and a 30 fps cap per channel, so the design already asks for 30/30/30. Two separate defects stop it arriving, both found by reading the code:
+
+  **(a) The rate gate is phase-locked to a knife edge.** Each pump refuses to capture unless a full `1000/30 = 33.333 ms` has elapsed (`ndiFramePump.ts:297`, `ndi3dChannelPump.ts:206`, `streamMapNdiPump.ts:247,279`), and `lastCaptureMs` is stamped with an observed `performance.now()`. Two ticks of a 60 Hz clock is *exactly* 33.333 ms, so any negative jitter in the `setInterval`-over-IPC tick fails the comparison and the pump waits for the **third** tick instead. The achievable rate is therefore quantised: every second tick is 30 fps, every third is 20, every fourth is 15. Nothing in between exists. An alternation between the second and third tick averages about 24, and adding real overruns lands squarely on the observed ~18. This defect alone can hold the system at 20 no matter how cheap the frames get.
+
+  **(b) The per-pixel conversion cannot sustain 90 frames/s.** `rgbaToBgra` (`desktop/ndiSender.cjs:98–112`, called at :242) is a scalar JS loop doing four byte reads and four byte writes per pixel, walking rows in reverse for the AR/3D vertical flip. Three channels at 30 fps is **~187 million pixels/s** through that loop, on the Electron main thread, which is simultaneously deserializing ~750 MB/s of frame data. That is between a large fraction of a core and more than a core, continuously. Correction to an earlier note: `Buffer.from` at :231–234 makes a **view, not a copy**, on both branches — the real costs are the renderer-side `slice`, the IPC clone, and this loop, and the loop dominates because it is per-pixel work rather than bulk memory movement.
+
+  **The likely one-line escape:** the NDI SDK supports RGBA and RGBX video formats natively. If the `grandi` binding exposes them (`Object.keys(grandi.FourCC)` answers it), the conversion is deleted outright and readback bytes go straight to the sender. Otherwise the swizzle moves to a shader, which costs the GPU nothing at 8% utilisation.
+
+  **Also found:** the drop-when-busy at `ndiSender.cjs:224` is not laziness — it protects the single reusable `bgraScratch` Buffer from being overwritten while the asynchronous native send is still reading it. Any queue must come with a buffer pool or it will corrupt frames.
+- **Fleet** — `parseRaceProject` runs `normalizeBoatIds`, which filters to band **21–52** and substitutes `['21','22','23','24']` whenever the result is empty. That fires on both save and load, so an empty or out-of-band fleet cannot round-trip; the untracked `public/races/test/project.json` already shows `boats[]` for ids `"1"`/`"2"` alongside `boatIds: ["21".."24"]`.
+- **Flow panel** — `buildFlowCards` unions the live fleet registry with every id ever seen in `flowTap`, and `flowTap.reset()` is only ever called from tests. Deleting a drone removes it from the registry but not from the tap, so its card survives.
+- **Connections** — there is **no** Disconnect control anywhere. Connect live / Reconnect do a real stop-then-start (`ingest.stop()` closes sockets and cancels backoff), Connect SRT does `close('all')` then reopen (real ffmpeg kill), but the Live/Vid checkboxes close nothing, and renderer unload never closes SRT.
+- **Sponsors** — `createSponsorBillboard` builds basis `(along, up, normal)` and sits at `y = heightM/2`: an upright wall. `createLineSignMesh` (start/finish) builds `(along, across, up)` at `y = 0.08`: flat on the water. The operator's ask is to move sponsors onto the second pattern; no schema field for flat-vs-upright exists.
+
+| # | Work | Owner | Priority |
+| --- | --- | --- | --- |
+| 18.1 | **NDI colour parity** — AR/3D FBO output colour space so NDI matches preview | OUT | ★ P0 — **code accepted 2026-08-29**; OBS smoke open |
+| 18.2 | **Per-stage tick instrumentation** — prove where the missing 12 fps goes before optimising | PRF | ★ P0 — **instrument + dump accepted 2026-08-30**. Walls: `*EnqueueIpc` 22 ms, `2dGrab` 160 ms. Clock ~50 Hz under load. |
+| 18.3 | **NDI send path cost removal** (`desktop/` only) — drop the per-pixel conversion, pool the scratch buffers, queue instead of drop | OUT + PLT | ★ P0 — **accepted 2026-08-30**; native RGBA. Live `main … bgra` dump still open |
+| 18.11 | **Independent per-channel clocks** (`src/output/` only) — defer 8 MB IPC off the tick, drop `slice`, retire stagger, fix the rate gate | OUT | ★ P0 — **accepted 2026-08-30** in code; live Send dump open |
+| 18.13 | **2D native-size grab** — stop `getImageData(1920×1080)` after upscaling the 520 map; blit into a pooled 1080p buffer | OUT | ★ P0 — **accepted 2026-08-30** in code; live `2dGrab` dump open |
+| 18.12 | **GPU colour-order swizzle** | OUT | ★ — **cancelled 2026-08-30**; `grandi` has RGBA |
+| 18.14 | **GPU Y-flip on AR/3D capture** — grandi rejects negative stride; native RGBA no longer row-reverses | OUT | ★ P0 — **accepted 2026-08-30**; OBS orientation smoke open |
+| 18.4 | **Project fleet fidelity** — save the fleet that exists, load only the fleet in the file, no default injection | SCN | ★ P0 — **accepted 2026-08-29** |
+| 18.5 | **Connection lifecycle** — Connect / Disconnect / Reconnect that really open and close telemetry and SRT | TEL + SRT | P1 — **both halves accepted 2026-08-29**; Electron smoke open |
+| 18.6 | **Flow panel shows only live assets** — reset/prune `flowTap` on fleet and project change | TEL + SCN | P1 — **accepted 2026-08-29** |
+| 18.7 | **Sponsor boards flat on the sea** — share the start/finish placement instead of the upright wall | SCN | P1 — **accepted 2026-08-29**; free-cam smoke open |
+| 18.8 | **Remove the timecode / qlock burn-in** — three.js sync replaced it | OUT | P2 |
+| 18.9 | **Remove the PiP minimap** — UI card only; the 2D NDI channel must keep sending, now filling 16:9 | SCN | P2 |
+| ~~18.10~~ | ~~2D map portrait 1080×1920~~ — **cancelled by the operator**; 2D stays 1920×1080 like AR and 3D. The 2D UI redesign is deferred to a next iteration where the operator will supply details. | — | — |
+
+**Operator locks 2026-08-29 (answers to BW's scoping questions):**
+
+- **FPS** — all three channels stay on, together, **never below 30**, read off the ops **Broadcast → Output** rail. Measured at ~18 with all three on. Dropping or downrating a channel is not an acceptable answer.
+- **FPS, amended 2026-08-29 (operator):** "dont slice anything, all of them have min 30 fps independent from each other." The AR/3D stagger is therefore to be **retired**, not tuned — each channel runs its own clock. BW accepts this: the stagger was a mitigation from when readback was synchronous, and with the PBO path a second 1080p render in the same tick is mostly GPU command submission while the GPU sits at 8%.
+- **Readout caveat (BW):** `createSendFpsCounter` returns the count of sends in a trailing 1000 ms window (`perfCounters.ts:42–45`). A perfect 33.333 ms cadence produces exactly 30 per second, so window boundaries will occasionally show **29** on a healthy system. Because the operator's requirement is literally "never below 30 on the panel", the pumps must target slightly above 30 — about **32** — while still declaring `frameRateN/D = 30/1` to NDI. Otherwise a correct system will look broken.
+- **Colour** — confirmed: the 2D NDI source is correctly exposed in OBS while AR and 3D are dark. That asymmetry matches the render-target diagnosis exactly, since 2D never goes through a WebGL FBO.
+- **Fleet** — "if project have boats on save inject them dont inject any other boat." Any boat id is legal, an empty fleet is legal, and no default fleet may ever be injected during a project load.
+- **Removals** — "delete ui elements but keep code maybe we use them later." Both the timecode burn-in and the PiP minimap come out of the UI; their modules and tests stay in the repo.
+- **2D resolution** — 1920×1080, not portrait. The earlier 1080×1920 note was a mistake.
+- **Sponsors** — `sponsor` features go flat on the sea; **`billboardChain` stays upright**. BW's call on the schema: `heightM` becomes the board's depth across the water, matching the start/finish band, with the default of 8 kept.
+- **Disconnect** — separate Disconnect controls for telemetry and for SRT, each beside its own Connect. No master kill.
+
+**Wave plan — file ownership is disjoint inside each wave, so everything in a wave runs in parallel:**
+
+| Wave | Dispatches | Files each one owns |
+| --- | --- | --- |
+| ~~**1**~~ | ~~`OUT-01` colour · `SCN-01` fleet · `SCN-02` sponsors · `TEL-01` telemetry disconnect~~ — **accepted 2026-08-29**, BW verified merged tree `npm test` **950 + 23** + build green | capture-target creation · `src/projects/*` · `src/scene/sponsors/*` · `fleetLivePanel.ts` + `liveSource.ts` |
+| ~~**2**~~ | ~~`PRF-01` instrumentation · `TEL-02` flow panel · `SRT-01` SRT disconnect~~ — **accepted 2026-08-29**, BW verified merged tree `npm test` **982 + 23** + build green | every pump + sender (call sites) · `flowTap.ts` + `flowPanel.ts` · `fleetLivePanel.ts` SRT half + `desktop/srtReader.cjs` — **plus three region-locked slices of `src/main.ts`** |
+| **3** | `OUT-04` clocks + defer IPC · `OUT-20260830-01` 2D native grab · `OUT-02` send path — **released 2026-08-30** after the dump recut | pumps / stagger · `ndi2dAsyncCapture` + worker · **`desktop/` only** |
+| **4** | `OUT-05` GPU swizzle *(only if needed)* · `OUT-03` timecode · `SCN-03` PiP | capture pass · config + boot gate · stream map |
+
+**Wave 1 accepted 2026-08-29.** BW verified the merged tree rather than the worker reports: `npm test` **950 + 23**, `npm run build` green. Two of the three ★ items are closed in code — colour parity (18.1) and fleet fidelity (18.4) — plus sponsors (18.7) and the telemetry half of the connection lifecycle (18.5). The ★ fps track is untouched and is now the whole of waves 2 and 3. `src/config/loadConfig.ts` was deliberately **not** modified, so `normalizeBoatIds` keeps its behaviour for config and mock exactly as the operator locked it.
+
+**Wave-1 process finding, recorded so it stops recurring:** a worker reported a "pre-existing flake" in `src/telemetry/live.test.ts`; BW re-ran that file six times at merged HEAD and got 22/22 every time. The tests are deterministic (fake timers). It was a mid-merge artefact — the third time a parallel wave has generated a false red. **A red result from a worker mid-wave is not evidence until it reproduces at merged HEAD.**
+
+**Wave 2 accepted 2026-08-29.** BW verified the merged tree: `npm test` **982 + 23**, build green, and all three workers' new test files confirmed present and passing rather than inferred from the total. Everything in Phase 18 outside the fps track is now closed in code: 18.5 (both Disconnect halves), 18.6 (Flow panel), and the 18.2 instrument. **The `src/main.ts` region locks held with zero conflicts** — that is now the standing approach for shared hub files: region-lock the wave rather than serialising it.
+
+**Wave 3 released 2026-08-30.** The dump falsified the original two-defect story as the cause of 15/3 fps. Clock collapsed to ~50 Hz because the renderer blocks on `*EnqueueIpc` (17–23 ms, inside the tick) and `2dGrab` (120–193 ms, 1080p `getImageData` after a 520 upscale). `rgbaToBgra` is 7 ms with `dropBusy=0` — keep deleting it so 30×3 does not immediately lose on main. Phase-lock is a smear, not a 2-vs-3 split. New `DSP-OUT-20260830-01` owns the 2D grab; `OUT-04` must report if enqueue is still >12 ms after slice-kill + defer (that is the 4:2:2 gate).
+
+**Third fps defect, added to `OUT-04` after PRF-01 (BW-verified):** `tryClaimNdiHeavyCapture` commits the stagger claim *before* the pump knows a readback slot is free. AR then renders a full 1080p pass and only afterwards calls `readback.begin`; on PBO-pool exhaustion it returns without releasing the claim, so one failure costs a wasted render **and** 3D's capture on the same tick. Retiring the stagger removes the AR-blocks-3D half but not the wasted render.
+
+**Why `PRF-01` lands before the fps fixes, revised:** not because the cause is unknown — reading the code has now identified both defects specifically. It goes first because its instrumentation call sites touch every pump *and* the sender, so it would collide with both wave-3 dispatches. Landing it first also means wave 3 can prove it hit 30 rather than assert it.
+
+**Why wave 3 still parallelises:** three file sets, no overlap. `OUT-02` is `desktop/` only. `OUT-04` is the FBO pumps + stagger + readback + `streamMapNdiPump` tick/gate. `OUT-20260830-01` is `ndi2dAsyncCapture.ts` + worker only. `OUT-02` still reports the `grandi.FourCC` probe early so `OUT-05` can be cancelled or started.
+
+**Dispatches issued 2026-08-29** into `docs/agentic/dispatches/active/`: `DSP-OUT-20260829-01` colour · `DSP-PRF-20260829-01` instrumentation · `DSP-OUT-20260829-02` NDI send path · `DSP-OUT-20260829-04` independent channel clocks · `DSP-OUT-20260829-05` GPU swizzle (conditional) · `DSP-SCN-20260829-01` fleet · `DSP-SCN-20260829-02` sponsors · `DSP-TEL-20260829-01` telemetry disconnect · `DSP-SRT-20260829-01` SRT disconnect · `DSP-TEL-20260829-02` Flow panel · `DSP-OUT-20260829-03` timecode · `DSP-SCN-20260829-03` PiP.
 
 ---
 

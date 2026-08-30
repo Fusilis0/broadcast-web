@@ -59,9 +59,9 @@ Manifest (picker): `public/races/index.json` → `{ "ids": ["demo-istanbul", ...
 | `revision` | no* | Monotonic int (* required for API optimistic concurrency after create) |
 | `origin` | yes | `{ lat, lon, altMsl }` finite numbers |
 | `takeoffAltitudeMSL` | no | GEO takeoff bridge |
-| `fleet.boatIds` | yes | Arch band `21–52` (normalized like config). Must match `fleet.boats[].id` order when `boats` is written |
-| `fleet.boats` | no | Embedded Live-fleet rows (SCN 15.4). See below. Old packs omit this |
-| `fleet.boatNamesUrl` | no | Catalogue JSON URL — fallback names for `boatIds` missing from `boats[]` |
+| `fleet.boatIds` | yes | Any non-empty string ids, author order, deduped. **Empty is legal.** Must match `fleet.boats[].id` membership and order in every file this code writes. **Not** config `normalizeBoatIds` — never substitute `DEFAULT_BOAT_IDS` (`21–24`) on a project load |
+| `fleet.boats` | yes* | Embedded Live-fleet rows. **Always written** on save (including `[]`). Old packs may omit this field |
+| `fleet.boatNamesUrl` | no | Catalogue JSON URL — fallback names **only** for legacy packs that omit `boats[]` |
 | `fleet.boatVisibility` | no | Soft map id → `solid`\|`ghost`\|`hidden` (SCN 8.6; omit → solid; junk dropped) |
 | `fleet.boatMapVisible` | no | Soft map id → boolean (SCN 11.7; `false` hides 2D icon; omit → show) |
 | `fleet.povMapVisible` | no | Soft map id → boolean (SCN 11.7; `false` hides 2D icon; omit → show) |
@@ -141,16 +141,16 @@ Additional soft fleet map-visibility maps (independent of `boatVisibility` solid
 | `fleet.boatMapVisible` | id → boolean; only `false` entries need persist; omit → show map icon |
 | `fleet.povMapVisible` | id → boolean; only `false` entries need persist; omit → show map icon |
 
-### `fleet.boats` (SCN 15.4 — additive)
+### `fleet.boats` (SCN 15.4 — project fleet is the file)
 
-Embedded Live-fleet rows so Save/Load keeps custom ids and names (not just `boatIds` + a pointer at the demo names JSON).
+Embedded Live-fleet rows so Save/Load keeps **exactly** the boats that exist (any id, including outside band `21–52`). An empty fleet is legal. Save always writes `boats` (including `[]`) and keeps `boatIds` in exact sync.
 
 ```json
 "fleet": {
-  "boatIds": ["25", "26"],
+  "boatIds": ["1", "2"],
   "boats": [
     {
-      "id": "25",
+      "id": "1",
       "name": "Custom One",
       "category": "pembe",
       "color": "#e53935",
@@ -159,7 +159,7 @@ Embedded Live-fleet rows so Save/Load keeps custom ids and names (not just `boat
       "plannedLon": 29.02
     },
     {
-      "id": "26",
+      "id": "2",
       "name": "Custom Two",
       "category": "mavi",
       "mapVisible": false
@@ -171,14 +171,20 @@ Embedded Live-fleet rows so Save/Load keeps custom ids and names (not just `boat
 
 | Nested field | Notes |
 | --- | --- |
-| `id` | Required per row. On save, `boatIds` is the same order |
+| `id` | Required per row. Any non-empty string. On save, `boatIds` is the same order |
 | `name` / `category` | Display name + colour keyword fallback (same as Fleet panel) |
 | `color` | Optional `#rrggbb` palette swatch (SCN 16.3). Omit → parse `category` keywords as today |
 | `visibility` | Optional `solid` \| `ghost` \| `hidden` (omit → solid) |
 | `mapVisible` | Optional; only `false` needs persist |
 | `plannedLat` / `plannedLon` | Optional pair; map/inspector GPS until live telem |
 
-**Load:** rebuild the Fleet panel from `fleet.boats` when present. Names URL / catalogue fills `boatIds` missing from `boats[]`. Do **not** dump extra catalogue-only demo ids (Bora Aksu 21–24) into the list. Old packs without `boats` still parse: `boatIds` + names URL as today.
+**Load:**
+
+- `fleet.boats` **present** (including `[]`) → that array is the complete fleet. Do **not** top up from the names catalogue or from `boatIds`. Do **not** inject `DEFAULT_BOAT_IDS`.
+- `fleet.boats` **omitted** (legacy packs) → one row per `boatIds` from the names catalogue. Unchanged from today. Still never inject demo ids that are not in `boatIds`.
+- Mismatched files (e.g. `boats[]` for `"1"`/`"2"` while `boatIds` lists `21–24`) follow `boats[]`.
+
+Session storage must not override a pack loaded via `?race=` or `switchRace`. The session snapshot is the fleet source only when no project has been loaded.
 
 ---
 

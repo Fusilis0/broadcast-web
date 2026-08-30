@@ -36,6 +36,25 @@ contextBridge.exposeInMainWorld('broadcastStudio', {
      */
     getStatus: (channel) => ipcRenderer.invoke('ndi:status', channel),
     getStatusAll: () => ipcRenderer.invoke('ndi:statusAll'),
+    getPerfSummary: () => ipcRenderer.invoke('ndi:perfSummary'),
+    /**
+     * Low-rate (1 Hz) main-process stage timing + busy-drop counts.
+     * @param {(summary: object) => void} cb
+     * @returns {() => void} unsubscribe
+     */
+    onPerfSummary: (cb) => {
+      const handler = (_evt, summary) => {
+        try {
+          cb(summary)
+        } catch {
+          /* ignore */
+        }
+      }
+      ipcRenderer.on('ndi:perf', handler)
+      return () => {
+        ipcRenderer.removeListener('ndi:perf', handler)
+      }
+    },
   },
   /**
    * Local RaceProject folder (Phase 13.8).
@@ -106,6 +125,9 @@ contextBridge.exposeInMainWorld('broadcastStudio', {
     },
   },
   /** Main-process clock — NDI + minimize-safe (~30 fps). Preview uses rAF when visible. */
+  debugLog: (payload) => {
+    ipcRenderer.send('debug:ndjson', payload)
+  },
   onStudioTick: (cb) => {
     const handler = () => {
       try {

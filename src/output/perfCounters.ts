@@ -122,3 +122,106 @@ function truncateHud(s: string, max = 36): string {
   if (s.length <= max) return s
   return `${s.slice(0, max - 1).trimEnd()}…`
 }
+
+export type StageStats = {
+  count: number
+  sumMs: number
+  maxMs: number
+  meanMs: number
+}
+
+/**
+ * Cheap per-stage accumulator (DSP-PRF-20260829-01).
+ * Call `add` with an elapsed ms; snapshot mean/max without allocating per sample.
+ */
+export function createStageAccumulator(): {
+  add: (elapsedMs: number) => void
+  snapshot: () => StageStats
+  reset: () => void
+} {
+  let count = 0
+  let sumMs = 0
+  let maxMs = 0
+  return {
+    add(elapsedMs: number): void {
+      if (!Number.isFinite(elapsedMs) || elapsedMs < 0) return
+      count += 1
+      sumMs += elapsedMs
+      if (elapsedMs > maxMs) maxMs = elapsedMs
+    },
+    snapshot(): StageStats {
+      return {
+        count,
+        sumMs,
+        maxMs,
+        meanMs: count > 0 ? sumMs / count : 0,
+      }
+    },
+    reset(): void {
+      count = 0
+      sumMs = 0
+      maxMs = 0
+    },
+  }
+}
+
+export type IntHistogram = {
+  record: (value: number) => void
+  snapshot: () => Record<string, number>
+  reset: () => void
+}
+
+/**
+ * Integer histogram that keeps exact counts for `1 .. maxExact-1` and
+ * buckets the rest as `${maxExact}+`. A mean would hide a 2-vs-3 split.
+ */
+export function createIntHistogram(maxExact: number = 6): IntHistogram {
+  const cap = maxExact > 1 ? maxExact : 6
+  const counts = new Map<number, number>()
+  let overflow = 0
+  return {
+    record(value: number): void {
+      const v = value | 0
+      if (v < 1) return
+      if (v >= cap) {
+        overflow += 1
+        return
+      }
+      counts.set(v, (counts.get(v) ?? 0) + 1)
+    },
+    snapshot(): Record<string, number> {
+      const out: Record<string, number> = {}
+      for (let i = 1; i < cap; i++) {
+        const n = counts.get(i)
+        if (n) out[String(i)] = n
+      }
+      if (overflow > 0) out[`${cap}+`] = overflow
+      return out
+    },
+    reset(): void {
+      counts.clear()
+      overflow = 0
+    },
+  }
+}
+
+/** Compact `2:180 3:120` — never a single mean. */
+export function formatIntHistogram(hist: Record<string, number>): string {
+  const keys = Object.keys(hist)
+  if (keys.length === 0) return '—'
+  return keys.map((k) => `${k}:${hist[k]}`).join(' ')
+}
+
+/**
+ * Tick-interval bucket (ms, floored). 16.7 ms ticks land in `16`.
+ * Distribution, not a mean — jitter of ±0.5 ms is the phase-lock defect.
+ */
+export function tickIntervalBucketMs(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return 'other'
+  const floored = Math.floor(ms)
+  if (floored < 14) return '≤13'
+  if (floored <= 20) return String(floored)
+  if (floored < 25) return '21-24'
+  if (floored < 34) return '25-33'
+  return '≥34'
+}

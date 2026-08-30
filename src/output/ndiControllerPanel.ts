@@ -17,6 +17,12 @@ import {
 import type { NdiFramePumpHandle } from './ndiFramePump.ts'
 import { formatNdiSendFps } from './perfCounters.ts'
 import type { StreamMapNdiPumpHandle } from './streamMapNdiPump.ts'
+import {
+  applyNdiMainPerfSummary,
+  fallbackHudFlags,
+  formatNdiStageDump,
+  formatNdiStageHud,
+} from './ndiStageTiming.ts'
 
 /** Minimal pump surface for status rows (AR / 3D / 2D). */
 export type NdiStatusPumpHandle = {
@@ -203,7 +209,7 @@ export function startNdiControllerPanel(
   const lockNote = document.createElement('p')
   lockNote.className = 'ndi-ctrl__hint'
   lockNote.textContent =
-    'Air lock: AR + 3D NDI always frame the active POV (not free cam). Both start/stop with the Electron studio session. Capture rates: AR and 3D ~30 fps (60 Hz studio tick, one FBO render per tick). 2D stream-map NDI is a separate sender (toggle below, default on @ ~30 fps) — uncheck to stop only that sender. Per-channel delay (0–30000 ms) holds frames in RAM — default 0 allocates nothing; >3000 ms warns high memory. Shrinking delay drops buffered frames.'
+    'Air lock: AR + 3D NDI always frame the active POV (not free cam). Both start/stop with the Electron studio session. Capture rates: AR and 3D ~30 fps on independent clocks (60 Hz studio tick; both may FBO on the same PBO tick). 2D stream-map NDI is a separate sender (toggle below, default on @ ~30 fps) — uncheck to stop only that sender. Per-channel delay (0–30000 ms) holds frames in RAM — default 0 allocates nothing; >3000 ms warns high memory. Shrinking delay drops buffered frames.'
   root.appendChild(lockNote)
 
   const mapBlock = document.createElement('div')
@@ -221,6 +227,47 @@ export function startNdiControllerPanel(
   mapHint.className = 'ndi-ctrl__hint'
   mapBlock.appendChild(mapHint)
   root.appendChild(mapBlock)
+
+  const fallbackEl = document.createElement('p')
+  fallbackEl.className = 'ndi-ctrl__fallback'
+  fallbackEl.setAttribute('data-ops', 'ndi-sync-fallback')
+  fallbackEl.hidden = true
+  root.appendChild(fallbackEl)
+
+  const perfBlock = document.createElement('div')
+  perfBlock.className = 'ndi-ctrl__perf'
+  perfBlock.setAttribute('data-ops', 'ndi-stage-timing')
+  const perfTitle = document.createElement('div')
+  perfTitle.className = 'ndi-ctrl__channel-title'
+  perfTitle.textContent = 'Stage timing (1 s)'
+  const perfPre = document.createElement('pre')
+  perfPre.className = 'ndi-ctrl__perf-pre'
+  perfPre.setAttribute('data-ops', 'ndi-stage-timing-text')
+  perfPre.textContent = 'waiting for studio:tick…'
+  const dumpBtn = document.createElement('button')
+  dumpBtn.type = 'button'
+  dumpBtn.className = 'ndi-ctrl__dump-btn'
+  dumpBtn.setAttribute('data-ops', 'ndi-perf-dump')
+  dumpBtn.textContent = 'Copy 10 s dump'
+  dumpBtn.title =
+    'Copy ~10 s of per-stage timings, tick-interval histogram, and capture-tick histogram (window.__perfDump())'
+  dumpBtn.addEventListener('click', () => {
+    const text = formatNdiStageDump()
+    const write = navigator.clipboard?.writeText
+    if (typeof write === 'function') {
+      void write.call(navigator.clipboard, text).catch(() => {
+        window.prompt('NDI stage dump (copy):', text)
+      })
+    } else {
+      window.prompt('NDI stage dump (copy):', text)
+    }
+  })
+  const dumpHint = document.createElement('p')
+  dumpHint.className = 'ndi-ctrl__hint'
+  dumpHint.textContent =
+    'Measurement only. window.__perfDump() returns the same text. Histogram is ticks between captures (healthy = cluster on 2).'
+  perfBlock.append(perfTitle, perfPre, dumpBtn, dumpHint)
+  root.appendChild(perfBlock)
 
   const bridgeAtMount = getStudioBridge() != null
   const mapToggleLive = STREAM_MAP_NDI_BRIDGE_SUPPORTED && bridgeAtMount
@@ -245,6 +292,9 @@ export function startNdiControllerPanel(
 
   let statusAll: StudioNdiStatusAll | null = null
   let statusFetchInFlight = false
+  const unsubPerf = getStudioBridge()?.ndi.onPerfSummary?.((summary) => {
+    applyNdiMainPerfSummary(summary)
+  })
 
   function refresh(): void {
     const bridge = getStudioBridge()
@@ -372,6 +422,23 @@ export function startNdiControllerPanel(
     const pov = options.getActivePovId()
     povRow.value.textContent =
       pov != null && String(pov).trim() !== '' ? String(pov) : '—'
+
+    const flags = fallbackHudFlags()
+    if (flags.syncReadback || flags.sync2dCapture) {
+      fallbackEl.hidden = false
+      const parts: string[] = []
+      if (flags.syncReadback) {
+        parts.push('SYNC READBACK (readPixels) — UI may hitch')
+      }
+      if (flags.sync2dCapture) {
+        parts.push('SYNC 2D getImageData — UI may hitch')
+      }
+      fallbackEl.textContent = parts.join(' · ')
+    } else {
+      fallbackEl.hidden = true
+      fallbackEl.textContent = ''
+    }
+    perfPre.textContent = formatNdiStageHud()
   }
 
   refresh()
@@ -382,6 +449,7 @@ export function startNdiControllerPanel(
     refresh,
     dispose(): void {
       window.clearInterval(timer)
+      unsubPerf?.()
       root.remove()
     },
   }

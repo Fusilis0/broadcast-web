@@ -135,14 +135,16 @@ Browser **MediaMTX WHEP** video under the Three canvas in **preview** only. Soft
 | --- | --- |
 | `getStudioBridge()` | `window.broadcastStudio` when preload injected |
 | `NDI_CHANNEL_IDS` / `DEFAULT_NDI_CHANNEL` | `'ar' \| '3d' \| '2d'`; default air = `'ar'` |
-| `startDualFrameClock({ subscribeStudioTick })` | Dual clock: **preview** = rAF when visible, `studio:tick` when hidden; **NDI** subscribers always `studio:tick` (60 Hz stagger). Preview is not 60 from `STUDIO_TICK_FPS`. |
-| `startNdiFramePump({ renderer, scene, getAirCamera?, prepareCameraPass?, getAirPlateClear?, fps?, … })` | After **video background then** timecode: studio-tick air FBO → PBO pack (sync `readRenderTargetPixels` fallback) → IPC → main `grandi` BGRA send on channel (default `'ar'`); default **30 fps**; does **not** patch `renderer.render` (preview rAF stays clean); start **before** 3D |
-| `startNdi3dChannelPump({ renderer, scene, getAirCamera, setEnvironmentOpaqueClearSafe, fps?, … })` | Channel `'3d'` (`broadcast-web-3d`): opaque clear + `opaqueClearSafe(true)` → active-POV FBO → restore; studio tick; default **30 fps**; start **after** AR pump |
-| `createNdiAsyncReadback` / `probeNdiPboReadback` | WebGL2 `PIXEL_PACK_BUFFER` + fence; complete **1 frame** later; fail closed to sync + ops note if PBO missing. Bottom-up RGBA. Caps AR/3D/2D **30**. Tick 60 is stagger only. |
-| `createNdi2dAsyncCapture` / `probeNdi2dWorkerCapture` | 2D worker + OffscreenCanvas grab; fail closed to sync `getImageData` + `NDI_2D_SYNC_CAPTURE_NOTE`. Buffer is transferred (no extra `slice`). |
-| `tryClaimNdiHeavyCapture` / `NDI_HEAVY_STAGGER_MS` | One NDI **FBO render** per stagger window, including PBO (`blocking: false`). Async drain/poll may still run on a skipped tick. 2D is not an FBO. |
+| `startDualFrameClock({ subscribeStudioTick })` | Dual clock: **preview** = rAF when visible, `studio:tick` when hidden; **NDI** subscribers always `studio:tick` (60 Hz). Preview is not 60 from `STUDIO_TICK_FPS`. |
+| `startNdiFramePump({ renderer, scene, getAirCamera?, prepareCameraPass?, getAirPlateClear?, fps?, … })` | After **video background then** timecode: studio-tick air FBO → GPU Y-flip → PBO pack (sync `readRenderTargetPixels` fallback) → deferred IPC → main `grandi` RGBA send on channel (default `'ar'`); packed bytes top-down; default **30 fps**; does **not** patch `renderer.render` (preview rAF stays clean); start **before** 3D |
+| `startNdi3dChannelPump({ renderer, scene, getAirCamera, setEnvironmentOpaqueClearSafe, fps?, … })` | Channel `'3d'` (`broadcast-web-3d`): opaque clear + `opaqueClearSafe(true)` → active-POV FBO → GPU Y-flip → restore; studio tick; default **30 fps**; independent of AR on the PBO path; start **after** AR pump |
+| `createNdiCaptureFlip` / `ndiCaptureFlipBlitRect` | AR/3D only: WebGL2 `blitFramebuffer` with inverted dest Y into a second colour FBO (sRGB-pinned, RGBA, no depth). Apply on create **and** resize. Call after the scene pass, **before** `readback.begin`. Not used on 2D. |
+| `createNdiAsyncReadback` / `probeNdiPboReadback` | WebGL2 `PIXEL_PACK_BUFFER` + fence; complete **1 frame** later; fail closed to sync + ops note if PBO missing. Packs the **bound** FBO (AR/3D bind the flipped target first). Caps AR/3D/2D **30**. Check `canBegin` before the 1080p render. |
+| `createNdi2dAsyncCapture` / `probeNdi2dWorkerCapture` | 2D worker: native-size `createImageBitmap` + typed-array letterbox blit into a pooled **1920×1080** RGBA buffer (never `getImageData` of the destination). Fail closed to the same blit on-thread + `NDI_2D_SYNC_CAPTURE_NOTE`. Buffer is transferred (no extra `slice`). |
+| `tryClaimNdiHeavyCapture` / `NDI_HEAVY_STAGGER_MS` | **Sync `readPixels` fallback only.** PBO path does not arbitrate. 2D is not an FBO. |
+| `createNdiCaptureGate` | Phase-accumulate rate gate (~32 fps nominal, half-tick tolerance, no catch-up burst). |
 | `snapshotClearPass` / `applyOpaque3dPassState` / `restoreClearPass` / `isOpaque3dPassActive` | Pure clear + SCN opaque-gate helpers around the 3D pass; `isOpaque3dPassActive` gates the AR video background off the 3D FBO |
-| `startStreamMapNdiPump({ getSourceCanvas, ensureDrawn?, enabled?, fps?, delayMs? })` | Channel `'2d'` (`broadcast-web-2d`): letterbox map canvas → **1920×1080**; `studio:tick` **schedules** only; grab is deferred/async CPU (worker + transferable; sync `getImageData` fallback). Default **on** @ **30 fps**; not an FBO slot; independent of PiP visibility |
+| `startStreamMapNdiPump({ getSourceCanvas, ensureDrawn?, enabled?, fps?, delayMs? })` | Channel `'2d'` (`broadcast-web-2d`): letterbox map canvas → **1920×1080**; `studio:tick` **schedules** only; grab is deferred/async CPU (worker + transferable native blit; sync native blit fallback). Default **on** @ **30 fps**; not an FBO slot; independent of PiP visibility |
 | `letterboxRect` / `STREAM_MAP_NDI_CHANNEL` | Pure fit math; channel id `'2d'` |
 | `NdiDelayBuffer` / `clampNdiDelayMs` / `normalizeOutputDelayMs` | Per-channel RAM delay ring (0–30000 ms); **bypass + no allocation at 0** |
 | `estimateNdiDelayBufferBytes` | `width×height×4×ceil(delayMs/1000×fps)` — 1920×1080 @ 30 fps × 30 s ≈ **~7.5 GB/channel** |
@@ -155,7 +157,7 @@ Browser **MediaMTX WHEP** video under the Three canvas in **preview** only. Soft
 | `planNdiCapture` | Same camera → FB readback; preview ≠ air → dual-render FBO (helper; AR pump always FBO-captures on studio tick) |
 | `STUDIO_OUTPUT_WIDTH/HEIGHT` | Electron lock **1920×1080** (AR/3D drawing buffer **and** 2D NDI letterbox target) |
 | Visual timecode layout | Drawing-buffer space (size stable when window CSS scales) |
-| Studio frame clock | Dual: ops preview **rAF** when the window is visible (~display refresh / 60); `studio:tick` **60 Hz** for NDI pumps (one FBO per tick → AR/3D Send ~30) and for preview when minimized / `document.hidden`. Main-process tick is not throttled when parked. |
+| Studio frame clock | Dual: ops preview **rAF** when the window is visible (~display refresh / 60); `studio:tick` **60 Hz** for NDI pumps (independent AR/3D clocks → Send ~30) and for preview when minimized / `document.hidden`. Main-process tick is not throttled when parked. |
 
 No-ops in Chrome (no bridge). Shell + run notes: [`desktop/README.md`](../../desktop/README.md). vMix: [`docs/ops/vmix-ndi-alpha-runbook.md`](../../docs/ops/vmix-ndi-alpha-runbook.md). Contract: [`docs/architecture/ndi-alpha-electron.md`](../../docs/architecture/ndi-alpha-electron.md).
 
@@ -186,7 +188,9 @@ muxer PTS (`ar-video-underlay-ntp-sync.md` §3.1). Native dep + argv:
 | `resolveOpaqueClearSafeForVideo` | **L8:** `arBackground: video` + AR focus/plate → `opaqueClearSafe = false` (ocean/sky off). 3D NDI still forces env on during its FBO |
 | `startSyncDebugPanel` | Ops **Output** section, **off by default**, DOM-only. Never on the AR plate / NDI |
 
-**Fleet / Live:** per-drone **SRT id** beside the telemetry id; **Video** checkbox independent of Live WS. **Connect SRT** looks the id up in the cam 1–27 catalog when the template is empty *or* is the dummy `srt://host:…` placeholder. A filled `{srtId}` template on a real host still composes as today (escape hatch). Cap 4 callers. Live SRT state (caller / bitrate / decoded frames) is shown in **Race ops** and under Connect SRT. Race pack: optional `output.srtUrlTemplate` + `output.srtByPovId` (soft; old packs unchanged). Relay token is **session-only**.
+**Fleet / Live:** per-drone **SRT id** beside the telemetry id; **Vid** checkbox independent of Live WS — while SRT is connected, uncheck closes that POV now (check opens it). **Connect SRT** looks the id up in the cam 1–27 catalog when the template is empty *or* is the dummy `srt://host:…` placeholder. **Disconnect SRT** (beside Connect) closes every caller, kills ffmpeg, and stays down: the decode-stall watchdog and HEVC→H.264 fallback must not reopen until the next Connect. Cap 4 callers. Per-POV status is idle / connecting / live with bitrate / retrying / closed. Live SRT state is shown in **Race ops** and under Connect SRT. Race pack: optional `output.srtUrlTemplate` + `output.srtByPovId` (soft; old packs unchanged). Relay token is **session-only**. Never log `streamid` or passphrase.
+
+After an **explicit** Disconnect the AR underlay restores the colour-bar test pattern (the existing “not a live picture” placeholder). Repeating the last decoded frame is for mid-show dropouts only — a connection the operator killed must not look live. Renderer `beforeunload` calls `bridge.close('all')` so a reload cannot leak `ffmpeg.exe`.
 
 LUT key defaults to the SRT id (camera number on the wire), not `povId`.
 
@@ -212,13 +216,16 @@ unsupported HEVC is the ops error
 | `createPtsUnwrapper()` | 33-bit wrap, same recurrence as `ptsNtpMap` |
 | `createVideoDecodePipeline()` | Probe, wait-for-keyframe, queue, `VideoFrame.close()` accounting |
 | `pickPresentationPts()` | Adaptive 100–400 ms (L4); telemetry stall pins at 400 ms + `degraded`. Empty LUT (`toNtp` all null) presents the newest decoded frame (`lut-miss-live`, degraded) — not stall-pin. |
-| `startVideoStreamManager()` | `{ povId → pipeline + texture }`, warm cap **4**, LRU eviction |
+| `startVideoStreamManager()` | `{ povId → pipeline + texture }`, warm cap **4**, LRU eviction. `dropPresented()` on explicit Disconnect; `resumeIngest()` on Connect |
 | `WARM_STREAM_CAP` | 4 (L5). POV switch swaps the bound texture — no reconnect |
+| `createSrtDisconnectHold` / `srtReopenAllowed` | Generation tag + stay-disconnected. Stall-fallback / H.264 `bridge.open` consult this; do not await ffmpeg teardown |
 
 Presentation runs on `studio:tick` in Electron (NDI cadence unchanged). A video
-stall **repeats the last frame**; pumps keep sending. OUT-07 opens SRT URLs;
-this module only consumes arriving bytes. `VideoFrame.close()` is mandatory on
-every skipped frame — missing it exhausts the decoder pool.
+stall **repeats the last frame**; pumps keep sending. An **explicit Disconnect
+SRT** is different: `dropPresented()` unbinds every slot and the colour-bar
+placeholder returns so the frozen picture is not mistaken for live. OUT-07 opens
+SRT URLs; this module only consumes arriving bytes. `VideoFrame.close()` is
+mandatory on every skipped frame — missing it exhausts the decoder pool.
 
 **No in-browser NDI** without the Electron bridge. Preferred studio air = Electron alpha NDI; Chrome chroma = fallback ([`docs/ops/air-runbook.md`](../../docs/ops/air-runbook.md)). Path B deferred.
 
@@ -226,18 +233,18 @@ every skipped frame — missing it exhausts the decoder pool.
 
 ### Capture rate / UI FPS (Phase 13 perf / preview 60 / Studio 30 Send / `DSP-OUT-20260828-04`)
 
-AR/3D GPU readback is **pipelined** (WebGL2 PBO + fence; one frame of capture latency). Sync `readPixels` remains the fallback when WebGL2/PBO is missing (ops console note; NDI still sends). **One FBO render per stagger window** — PBO `blocking: false` does not allow AR and 3D to `directRender` on the same tick. 2D is CPU: deferred off that FBO tick (`setTimeout(0)`), worker + transferable grab, fail closed to sync `getImageData` (still **on** @ 30). Defaults:
+AR/3D GPU readback is **pipelined** (WebGL2 PBO + fence; one frame of capture latency). Sync `readPixels` remains the fallback when WebGL2/PBO is missing (ops console note; NDI still sends). On the PBO path AR and 3D may both `directRender` on the same tick; sync fallback still one blocking FBO per window. `sendFrame` is deferred off the tick. 2D is CPU: deferred off that FBO tick (`setTimeout(0)`), native-size read + typed-array blit into 1920×1080 (worker + transferable; sync blit fallback). Still **on** @ 30. Defaults:
 
 | Channel | Enable default | FPS default | Notes |
 | --- | --- | --- | --- |
 | **Ops preview** | on (visible window) | **rAF ~60** | Local WebGL present only. Ops HUD **preview** row shows a 1 s smoothed fps; **hitch** is `dt > 50 ms` in the same window. Hidden/minimized → studio tick (60 Hz) so NDI does not freeze. Preview is not 60 from `STUDIO_TICK_FPS`. |
-| **AR** | on (session) | **30** | Air path on `studio:tick` at 60 Hz; alternates FBO with 3D |
-| **3D** | on (session) | **30** | Always-on; one FBO per tick with AR; Send is not 60 |
+| **AR** | on (session) | **30** | Air path on `studio:tick` at 60 Hz; independent of 3D on PBO |
+| **3D** | on (session) | **30** | Always-on; same-tick FBO with AR on PBO; Send is not 60 |
 | **2D** | **on** | **30** | Toggle in NDI tab stops **only** this sender. Deferred/async CPU grab; not an FBO slot. |
 
-Live **Send** fps on the Output rail is a 1 s counter of successful `sendFrame` calls (`getSendFps()`). It is **not** the cap: defaults stay AR **30** / 3D **30** / 2D on@30. Staggered-away FBO claims do not count. `STUDIO_TICK_FPS` is **60** (NDI stagger only).
+Live **Send** fps on the Output rail is a 1 s counter of successful `sendFrame` calls (`getSendFps()`). It is **not** the cap: defaults stay AR **30** / 3D **30** / 2D on@30. The capture gate targets ~32 fps nominal so the 1 s readout never shows 29. `STUDIO_TICK_FPS` is **60**.
 
-`STUDIO_TICK_FPS = 60` is allowed **only** with one FBO per tick and preview on rAF. Do not also render two FBOs on one tick. Do not raise NDI **Send** to 60.
+Do not raise NDI **Send** to 60.
 
 If hitch/s explodes with all three sending, escalate to OUT/PRF — do **not** silently drop a channel or fall back to 10 fps 3D. Low GPU % with hitch means JS blocked, not a weak card.
 
@@ -268,7 +275,7 @@ Per-channel adjustable delay so studio can time-align NDI against a delayed came
 | Screen camera ≠ active POV (`view=free`) | Preview rAF presents free cam; **AR** FBO-captures active POV on studio tick. **3D** always FBO-captures active POV on studio tick |
 | Studio Electron **or** `outputMode=transparent` | Air locked (`isAirCameraLocked`); free cam may still orbit — AR/3D NDI stay on active POV |
 
-Wire AR: `startNdiFramePump({ scene, getAirCamera: () => scene.getActivePovCamera(), prepareCameraPass: (c) => scene.orientOpsBillboards(c) })` — studio tick, always air FBO + AR plate clear. Wire 3D: `startNdi3dChannelPump({ scene, getAirCamera, setEnvironmentOpaqueClearSafe, getEnvironmentOpaqueClearSafe, … })` — each tick sets opaque clear + `opaqueClearSafe(true)`, renders active POV to FBO, then restores so transparent AR never bakes sea/sky. Start AR **before** 3D so AR’s `onStudioTick` subscriber claims stagger first. SCN: `getActivePovCamera()` / `getPreviewCamera()` / `orientOpsBillboards` / `setOpsViewMode` / `setEnvironmentOpaqueClearSafe`; free cam must not mutate `activePovId`.
+Wire AR: `startNdiFramePump({ scene, getAirCamera: () => scene.getActivePovCamera(), prepareCameraPass: (c) => scene.orientOpsBillboards(c) })` — studio tick, always air FBO + AR plate clear. Wire 3D: `startNdi3dChannelPump({ scene, getAirCamera, setEnvironmentOpaqueClearSafe, getEnvironmentOpaqueClearSafe, … })` — each tick sets opaque clear + `opaqueClearSafe(true)`, renders active POV to FBO, then restores so transparent AR never bakes sea/sky. Start AR **before** 3D (subscriber order unchanged; stagger is sync-fallback only). SCN: `getActivePovCamera()` / `getPreviewCamera()` / `orientOpsBillboards` / `setOpsViewMode` / `setEnvironmentOpaqueClearSafe`; free cam must not mutate `activePovId`.
 
 ## Stream 2D map (SCN) vs plate capture
 

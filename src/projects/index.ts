@@ -1,5 +1,7 @@
 export { parseRaceProject, isSafeRaceId } from './parseRaceProject.ts'
 export {
+  parseProjectFleetIds,
+  resolveBootPanelBoats,
   resolveLoadedFleetBoats,
   serializeFleetBoat,
   snapshotFleetBoats,

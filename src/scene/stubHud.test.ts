@@ -82,6 +82,37 @@ describe('formatConnectionStatus', () => {
       }),
     ).toBe('ws d1=open/120ms b40=open/2.1s')
   })
+
+  it('formats retrying with backoff delay', () => {
+    expect(
+      formatConnectionStatus({
+        kind: 'live',
+        channels: {
+          drone: 'retrying',
+          boat: 'closed',
+          droneIds: [
+            {
+              id: '1',
+              url: 'ws://x/ws?type=client&subscribe=1',
+              status: 'retrying',
+              lastPacketAtMs: null,
+              lastPacketAgeMs: null,
+              retryInMs: 500,
+            },
+          ],
+          boatIds: [
+            {
+              id: '40',
+              url: 'ws://x/ws?type=client&subscribe=40',
+              status: 'closed',
+              lastPacketAtMs: null,
+              lastPacketAgeMs: null,
+            },
+          ],
+        },
+      }),
+    ).toBe('ws d1=retrying/500ms b40=closed/nopkt')
+  })
 })
 
 describe('formatOpsViewStatus', () => {

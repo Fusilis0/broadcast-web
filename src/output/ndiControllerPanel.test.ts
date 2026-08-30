@@ -249,7 +249,8 @@ describe('NDI multi-channel contract (source)', () => {
     expect(pumpSrc).toMatch(/NdiDelayBuffer/)
     expect(pumpSrc).toMatch(/NDI_3D_DEFAULT_FPS\s*=\s*30/)
     expect(pumpSrc).toMatch(/tryClaimNdiHeavyCapture/)
-    expect(pumpSrc).toMatch(/blocking:\s*readback\.mode === ['"]sync['"]/)
+    expect(pumpSrc).toMatch(/readback\.mode === ['"]sync['"]/)
+    expect(pumpSrc).toMatch(/blocking:\s*true/)
     expect(pumpSrc).toMatch(/getSendFps/)
     expect(pumpSrc).toMatch(/createSendFpsCounter/)
     expect(pumpSrc).toMatch(/createNdiAsyncReadback/)
@@ -257,11 +258,12 @@ describe('NDI multi-channel contract (source)', () => {
     expect(pumpSrc).not.toMatch(/scene\/sidebar/)
   })
 
-  it('AR pump defaults 30 fps, studio-tick capture, one FBO per stagger window', () => {
+  it('AR pump defaults 30 fps, studio-tick capture; stagger is sync-only', () => {
     const pumpSrc = readFileSync(join(here, 'ndiFramePump.ts'), 'utf8')
     expect(pumpSrc).toMatch(/NDI_AR_DEFAULT_FPS\s*=\s*30/)
     expect(pumpSrc).toMatch(/tryClaimNdiHeavyCapture/)
-    expect(pumpSrc).toMatch(/blocking:\s*readback\.mode === ['"]sync['"]/)
+    expect(pumpSrc).toMatch(/readback\.mode === ['"]sync['"]/)
+    expect(pumpSrc).toMatch(/blocking:\s*true/)
     expect(pumpSrc).toMatch(/onStudioTick/)
     expect(pumpSrc).toMatch(/getSendFps/)
   })

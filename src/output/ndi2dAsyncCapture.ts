@@ -1,15 +1,24 @@
 /**
- * Async 2D NDI pixel grab (DSP-OUT-20260828-07).
+ * Async 2D NDI pixel grab (DSP-OUT-20260830-01).
  *
- * **Happy path:** `createImageBitmap` + dedicated worker `OffscreenCanvas`
- * `getImageData`. The 1920×1080 RGBA buffer comes back transferred — no extra
+ * **Happy path:** `createImageBitmap` of the source at native size, transferred
+ * to a worker that `getImageData`s only that bitmap, letterboxes, and packs
+ * UYVY. The dest buffer comes back transferred — no extra
  * `ArrayBuffer.slice` on the renderer thread.
  *
- * **Fallback:** sync canvas `getImageData` (today's path) plus one ops note.
- * NDI still sends. Do not pretend the path is async.
+ * **Fallback:** the same native-size read + typed-array blit on this thread,
+ * plus one ops note. Never `getImageData` of the 1080p destination.
  *
  * 2D is CPU, not an FBO — do not occupy the AR/3D stagger slot.
  */
+
+import {
+  blitRgbaLetterbox,
+  createRgbaFramePool,
+  transferableRgbaBuffer,
+} from './letterboxRect.ts'
+import { markNdiSync2dCapture } from './ndiStageTiming.ts'
+import { debugSessionLog } from './studioBridge.ts'
 
 export type Ndi2dCaptureMode = 'worker' | 'sync'
 
@@ -77,8 +86,8 @@ export type Ndi2dAsyncCapture = {
   /** Run `fn` after the current `studio:tick` turn (macrotask). */
   defer(fn: () => void): void
   /**
-   * Letterbox `source` into outW×outH and return top-down RGBA.
-   * Worker path: transferable buffer (caller must not slice again).
+   * Letterbox `source` into outW×outH. Worker path returns transferred
+   * UYVY; sync fallback returns RGBA (pump packs on this thread).
    */
   grab(input: Ndi2dGrabInput): Promise<ArrayBuffer>
   dispose(): void
@@ -139,24 +148,65 @@ function warnFallback(
 ): void {
   if (alreadyNoted.value) return
   alreadyNoted.value = true
+  markNdiSync2dCapture()
   const emit = onFallbackNote ?? ((m) => console.warn(m))
   emit(NDI_2D_SYNC_CAPTURE_NOTE)
 }
 
+function readSourceRgba(
+  source: HTMLCanvasElement,
+  scratch: { canvas: HTMLCanvasElement | null; ctx: CanvasRenderingContext2D | null },
+): Uint8ClampedArray {
+  const srcW = source.width
+  const srcH = source.height
+  const direct = source.getContext('2d')
+  if (direct) {
+    return direct.getImageData(0, 0, srcW, srcH).data
+  }
+
+  if (
+    !scratch.canvas ||
+    !scratch.ctx ||
+    scratch.canvas.width !== srcW ||
+    scratch.canvas.height !== srcH
+  ) {
+    const hinted = document.createElement('canvas')
+    hinted.width = srcW
+    hinted.height = srcH
+    const hintedCtx = hinted.getContext('2d', { willReadFrequently: true })
+    if (hintedCtx) {
+      scratch.canvas = hinted
+      scratch.ctx = hintedCtx
+    } else {
+      const plain = document.createElement('canvas')
+      plain.width = srcW
+      plain.height = srcH
+      const plainCtx = plain.getContext('2d')
+      if (!plainCtx) {
+        throw new Error('2D NDI source canvas 2d context unavailable')
+      }
+      scratch.canvas = plain
+      scratch.ctx = plainCtx
+    }
+  }
+  scratch.ctx.drawImage(source, 0, 0)
+  return scratch.ctx.getImageData(0, 0, srcW, srcH).data
+}
+
 function syncGrabPixels(
-  frameCtx: CanvasRenderingContext2D,
   input: Ndi2dGrabInput,
+  pool: ReturnType<typeof createRgbaFramePool>,
+  scratch: { canvas: HTMLCanvasElement | null; ctx: CanvasRenderingContext2D | null },
 ): ArrayBuffer {
   const { source, outW, outH, box } = input
-  frameCtx.fillStyle = NDI_2D_LETTERBOX_FILL
-  frameCtx.fillRect(0, 0, outW, outH)
-  frameCtx.drawImage(source, box.dx, box.dy, box.dw, box.dh)
-  const imageData = frameCtx.getImageData(0, 0, outW, outH)
-  const view = imageData.data
-  return view.buffer.slice(
-    view.byteOffset,
-    view.byteOffset + view.byteLength,
-  ) as ArrayBuffer
+  const srcW = source.width
+  const srcH = source.height
+  const srcPixels = readSourceRgba(source, scratch)
+  const dest = pool.acquire(outW, outH, NDI_2D_LETTERBOX_FILL)
+  blitRgbaLetterbox(srcPixels, srcW, srcH, dest, outW, outH, box)
+  const data = transferableRgbaBuffer(dest)
+  pool.take()
+  return data
 }
 
 /**
@@ -170,8 +220,11 @@ export function createNdi2dAsyncCapture(
   const createImageBitmapFn =
     options.createImageBitmapFn ?? defaultCreateImageBitmap
 
-  let frameCanvas: HTMLCanvasElement | null = null
-  let frameCtx: CanvasRenderingContext2D | null = null
+  const pool = createRgbaFramePool()
+  const scratch: {
+    canvas: HTMLCanvasElement | null
+    ctx: CanvasRenderingContext2D | null
+  } = { canvas: null, ctx: null }
   let worker: Worker | null = null
   let nextId = 1
   const pending = new Map<
@@ -180,40 +233,6 @@ export function createNdi2dAsyncCapture(
   >()
   let disposed = false
   let mode: Ndi2dCaptureMode = 'sync'
-
-  function ensureFrameCtx(outW: number, outH: number): CanvasRenderingContext2D {
-    if (
-      frameCanvas &&
-      frameCtx &&
-      frameCanvas.width === outW &&
-      frameCanvas.height === outH
-    ) {
-      return frameCtx
-    }
-
-    const hinted = document.createElement('canvas')
-    hinted.width = outW
-    hinted.height = outH
-    const hintedCtx = hinted.getContext('2d', { willReadFrequently: true })
-    if (hintedCtx) {
-      frameCanvas = hinted
-      frameCtx = hintedCtx
-      return frameCtx
-    }
-
-    // happy-dom (and some test canvases) reject the willReadFrequently hint
-    // and then refuse a second getContext on the same element.
-    const plain = document.createElement('canvas')
-    plain.width = outW
-    plain.height = outH
-    const plainCtx = plain.getContext('2d')
-    if (!plainCtx) {
-      throw new Error('2D NDI frame canvas 2d context unavailable')
-    }
-    frameCanvas = plain
-    frameCtx = plainCtx
-    return frameCtx
-  }
 
   function rejectAll(reason: Error): void {
     for (const entry of pending.values()) {
@@ -281,7 +300,13 @@ export function createNdi2dAsyncCapture(
     if (!active) {
       throw new Error('2D NDI worker missing')
     }
+    // #region agent log
+    const __bitT0 = performance.now()
+    // #endregion
     const bitmap = await createImageBitmapFn(input.source)
+    // #region agent log
+    ;(globalThis as { __ndi2dBitMs?: number }).__ndi2dBitMs = performance.now() - __bitT0
+    // #endregion
     const id = nextId++
     const request: Ndi2dWorkerRequest = {
       id,
@@ -321,9 +346,39 @@ export function createNdi2dAsyncCapture(
       if (disposed) {
         throw new Error('2D NDI capture disposed')
       }
+      // #region agent log
+      const __grabT0 = performance.now()
+      // #endregion
       if (mode === 'worker') {
         try {
-          return await workerGrab(input)
+          const data = await workerGrab(input)
+          // #region agent log
+          if (!(globalThis as { __ndi2dLogAt?: number }).__ndi2dLogAt ||
+            performance.now() - ((globalThis as { __ndi2dLogAt?: number }).__ndi2dLogAt ?? 0) > 1000) {
+            ;(globalThis as { __ndi2dLogAt?: number }).__ndi2dLogAt = performance.now()
+            fetch('http://127.0.0.1:7438/ingest/7196fb84-148e-4d0c-af68-4fcb53313232',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'173fbb'},body:JSON.stringify({sessionId:'173fbb',runId:'pre-fix',hypothesisId:'H3',location:'ndi2dAsyncCapture.ts:grab',message:'2d grab complete',data:{mode,srcW:input.source.width,srcH:input.source.height,outW:input.outW,outH:input.outH,totalMs:performance.now()-__grabT0,bitmapMs:(globalThis as { __ndi2dBitMs?: number }).__ndi2dBitMs??-1,bytes:data.byteLength},timestamp:Date.now()})}).catch(()=>{});
+            // #region agent log
+            debugSessionLog({
+              hypothesisId: 'H6',
+              location: 'ndi2dAsyncCapture.ts:grab',
+              message: '2d grab path',
+              data: {
+                path: 'worker',
+                has2dContext: false,
+                srcW: input.source.width,
+                srcH: input.source.height,
+                outW: input.outW,
+                outH: input.outH,
+                totalMs: performance.now() - __grabT0,
+                bitmapMs:
+                  (globalThis as { __ndi2dBitMs?: number }).__ndi2dBitMs ?? -1,
+                bytes: data.byteLength,
+              },
+            })
+            // #endregion
+          }
+          // #endregion
+          return data
         } catch {
           if (disposed) {
             throw new Error('2D NDI capture disposed')
@@ -331,18 +386,18 @@ export function createNdi2dAsyncCapture(
           failClosedToSync()
         }
       }
-      return syncGrabPixels(ensureFrameCtx(input.outW, input.outH), input)
+      return syncGrabPixels(input, pool, scratch)
     },
     dispose(): void {
       if (disposed) return
       disposed = true
       rejectAll(new Error('2D NDI capture disposed'))
       dropWorker()
-      if (frameCanvas) {
-        frameCanvas.width = 0
-        frameCanvas.height = 0
-        frameCanvas = null
-        frameCtx = null
+      if (scratch.canvas) {
+        scratch.canvas.width = 0
+        scratch.canvas.height = 0
+        scratch.canvas = null
+        scratch.ctx = null
       }
     },
   }

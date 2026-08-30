@@ -10,10 +10,12 @@ export {
 } from './sponsorLayout.ts'
 export {
   createSponsorBillboard,
+  createUprightSponsorBillboard,
   createProceduralSponsorTexture,
   createSponsorBoardTexture,
   facingBasisFromSpan,
   type SponsorBillboardHandle,
+  type SponsorBillboardPlacement,
 } from './sponsorBillboard.ts'
 export {
   containFitRect,

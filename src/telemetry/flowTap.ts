@@ -24,6 +24,10 @@ export type FlowTapPushInput = {
 export type FlowTap = {
   push(event: FlowTapPushInput): void
   snapshot(): FlowTapEvent[]
+  /** Drop one id's ring. Empty / whitespace id is a no-op. */
+  remove(id: string): void
+  /** Keep only these ids; drop every other ring. */
+  retain(ids: Iterable<string>): void
   reset(): void
 }
 
@@ -122,6 +126,21 @@ export function createFlowTap(options: FlowTapOptions = {}): FlowTap {
       for (const ring of rings.values()) all.push(...ring)
       all.sort((a, b) => b.receivedAtMs - a.receivedAtMs)
       return all
+    },
+    remove(id) {
+      const key = typeof id === 'string' ? id.trim() : ''
+      if (!key) return
+      rings.delete(key)
+    },
+    retain(ids) {
+      const keep = new Set<string>()
+      for (const id of ids) {
+        const key = typeof id === 'string' ? id.trim() : ''
+        if (key) keep.add(key)
+      }
+      for (const key of [...rings.keys()]) {
+        if (!keep.has(key)) rings.delete(key)
+      }
     },
     reset() {
       rings.clear()

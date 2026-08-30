@@ -1,11 +1,15 @@
 import type { WorldFeature } from '../features/types.ts'
+import {
+  WATER_PLANE_Y,
+  WATER_PLANE_Y_OFFSET,
+} from '../waterPlanePlacement.ts'
 import type { GpsToEnuAmslFn, LineSignEnu, LineSignKind } from './types.ts'
 
 /** Water-plane Y for line-sign bands (Unity `waterSurfaceY`). */
-export const LINE_SIGN_WATER_Y = 0
+export const LINE_SIGN_WATER_Y = WATER_PLANE_Y
 
 /** Slight lift so the band does not z-fight the water clear colour. */
-export const LINE_SIGN_Y_OFFSET = 0.08
+export const LINE_SIGN_Y_OFFSET = WATER_PLANE_Y_OFFSET
 
 /** Depth of the text band on the water (meters). Unity canvas height ~30; keep readable. */
 export const LINE_SIGN_BAND_DEPTH_M = 12

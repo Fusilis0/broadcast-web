@@ -102,6 +102,46 @@ describe('parseRaceProject', () => {
     })
   })
 
+  it('accepts any non-empty fleet id and does not inject DEFAULT_BOAT_IDS', () => {
+    const p = parseRaceProject({
+      ...minimal,
+      fleet: { boatIds: ['1', '2'] },
+    })
+    expect(p.fleet.boatIds).toEqual(['1', '2'])
+    expect(p.fleet.boats).toBeUndefined()
+  })
+
+  it('empty fleet stays empty (boats [] and omitted boats)', () => {
+    const withBoats = parseRaceProject({
+      ...minimal,
+      fleet: { boatIds: [], boats: [] },
+    })
+    expect(withBoats.fleet.boatIds).toEqual([])
+    expect(withBoats.fleet.boats).toEqual([])
+
+    const legacyEmpty = parseRaceProject({
+      ...minimal,
+      fleet: { boatIds: [] },
+    })
+    expect(legacyEmpty.fleet.boatIds).toEqual([])
+    expect(legacyEmpty.fleet.boats).toBeUndefined()
+  })
+
+  it('when boats is present it is the complete fleet even if boatIds disagrees', () => {
+    const p = parseRaceProject({
+      ...minimal,
+      fleet: {
+        boatIds: ['21', '22', '23', '24'],
+        boats: [
+          { id: '1', name: '1', category: '' },
+          { id: '2', name: '2', category: '' },
+        ],
+      },
+    })
+    expect(p.fleet.boatIds).toEqual(['1', '2'])
+    expect(p.fleet.boats?.map((b) => b.id)).toEqual(['1', '2'])
+  })
+
   it('soft-parses optional fleet.boats (drops junk; old packs omit the field)', () => {
     const p = parseRaceProject({
       ...minimal,
@@ -365,6 +405,22 @@ describe('applyRaceProjectToConfig', () => {
     expect(config.courseUrl).toBe('/races/demo-istanbul/course.json')
     expect(config.outputMode).toBe('chroma')
     expect(config.whepUrl).toBe('http://127.0.0.1:8889/c/whep')
+  })
+
+  it('copies an empty or out-of-band project fleet onto config as-is', () => {
+    const empty = baseConfig()
+    applyRaceProjectToConfig(
+      empty,
+      parseRaceProject({ ...minimal, fleet: { boatIds: [], boats: [] } }),
+    )
+    expect(empty.boatIds).toEqual([])
+
+    const oob = baseConfig()
+    applyRaceProjectToConfig(
+      oob,
+      parseRaceProject({ ...minimal, fleet: { boatIds: ['1', '2'] } }),
+    )
+    expect(oob.boatIds).toEqual(['1', '2'])
   })
 
   it('hydrates offsetsStore from calibration; old packs leave store alone', () => {

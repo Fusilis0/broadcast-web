@@ -52,6 +52,20 @@ export type IngestHandle = {
     listener: (channel: MockChannel, status: LiveWsStatus) => void,
   ) => () => void
   /**
+   * Live mode only: close every socket, cancel backoff, keep per-id slots
+   * as `closed`. Nothing auto-reopens until `startTelemetryIngest` /
+   * Connect / Reconnect. Absent for mock/replay.
+   */
+  disconnectLive?: () => void
+  /**
+   * Live mode only: close sockets whose ids are no longer enabled, open
+   * newly enabled ids if still running. Absent for mock/replay.
+   */
+  syncLiveIds?: (ids: {
+    boatIds: readonly string[]
+    povIds: readonly string[]
+  }) => void
+  /**
    * Replay mode only: playback snapshot (`idle` | `playing` | `ended` | `error`).
    * Absent for mock/live. Not wired to SCN HUD in this slice.
    */
@@ -100,6 +114,11 @@ export type StartTelemetryIngestOptions = {
   bus?: TelemetryBus
   /** Injectable WebSocket for tests (live mode only). */
   WebSocketImpl?: typeof WebSocket
+  /**
+   * Live mode only. Default true. False creates the live handle without
+   * opening sockets (Disconnect / restartIngest while held disconnected).
+   */
+  liveConnect?: boolean
 }
 
 export type IngestPacketOptions = {
@@ -422,7 +441,25 @@ export async function startTelemetryIngest(
       },
       WebSocketImpl: options?.WebSocketImpl,
     })
-    source.start()
+    if (options?.liveConnect !== false) {
+      source.start()
+    }
+
+    const rebuildLiveUrls = (
+      nextPovIds: readonly string[],
+      nextBoatIds: readonly string[],
+    ): { droneUrls: string[]; boatUrls: string[] } => {
+      const nextDrone =
+        droneBase !== '' && nextPovIds.length > 0
+          ? buildLiveWsUrlsForIds(droneBase, nextPovIds)
+          : []
+      const nextBoatSubscribe = [...new Set([...nextBoatIds, ...buoyIds])]
+      const nextBoat =
+        boatBase !== '' && nextBoatSubscribe.length > 0
+          ? buildLiveWsUrlsForIds(boatBase, nextBoatSubscribe)
+          : []
+      return { droneUrls: nextDrone, boatUrls: nextBoat }
+    }
 
     return {
       mode,
@@ -437,6 +474,13 @@ export async function startTelemetryIngest(
         return () => {
           statusListeners.delete(listener)
         }
+      },
+      disconnectLive: () => {
+        source.stop({ retainSlots: true })
+      },
+      syncLiveIds: ({ boatIds: nextBoats, povIds: nextPovs }) => {
+        const next = rebuildLiveUrls(nextPovs, nextBoats)
+        source.syncUrls(next.droneUrls, next.boatUrls)
       },
     }
   }

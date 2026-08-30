@@ -4,10 +4,14 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   createSendFpsCounter,
+  createStageAccumulator,
+  createIntHistogram,
+  formatIntHistogram,
   formatGpuHudLabel,
   formatNdiSendFps,
   readWebGlGpuInfo,
   shortenUnmaskedRenderer,
+  tickIntervalBucketMs,
 } from './perfCounters.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -104,5 +108,50 @@ describe('perfCounters source (no GPU fps asserts)', () => {
     expect(ar).toMatch(/NDI_AR_DEFAULT_FPS\s*=\s*30/)
     expect(d3).toMatch(/NDI_3D_DEFAULT_FPS\s*=\s*30/)
     expect(map).toMatch(/STREAM_MAP_NDI_DEFAULT_FPS\s*=\s*30/)
+  })
+})
+
+describe('createStageAccumulator', () => {
+  it('reports mean and max without storing each sample', () => {
+    const a = createStageAccumulator()
+    a.add(2)
+    a.add(4)
+    a.add(6)
+    expect(a.snapshot()).toEqual({
+      count: 3,
+      sumMs: 12,
+      maxMs: 6,
+      meanMs: 4,
+    })
+    a.reset()
+    expect(a.snapshot().count).toBe(0)
+  })
+})
+
+describe('createIntHistogram', () => {
+  it('keeps a 2-vs-3 split instead of a mean', () => {
+    const h = createIntHistogram(6)
+    for (let i = 0; i < 8; i++) h.record(2)
+    for (let i = 0; i < 4; i++) h.record(3)
+    expect(h.snapshot()).toEqual({ '2': 8, '3': 4 })
+    expect(formatIntHistogram(h.snapshot())).toBe('2:8 3:4')
+    expect(formatIntHistogram(h.snapshot())).not.toMatch(/2\.5/)
+  })
+
+  it('overflows at maxExact as N+', () => {
+    const h = createIntHistogram(6)
+    h.record(6)
+    h.record(9)
+    expect(h.snapshot()).toEqual({ '6+': 2 })
+  })
+})
+
+describe('tickIntervalBucketMs', () => {
+  it('puts a 16.7 ms tick in 16, not a 17 mean', () => {
+    expect(tickIntervalBucketMs(16.7)).toBe('16')
+    expect(tickIntervalBucketMs(16.1)).toBe('16')
+    expect(tickIntervalBucketMs(17.2)).toBe('17')
+    expect(tickIntervalBucketMs(21.4)).toBe('21-24')
+    expect(tickIntervalBucketMs(33.3)).toBe('25-33')
   })
 })

@@ -1,3 +1,7 @@
+/**
+ * @vitest-environment happy-dom
+ */
+import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
 import { normalizeSponsors } from './normalizeSponsors.ts'
 import {
@@ -5,7 +9,12 @@ import {
   horizontalSpanFromEnu,
   SPONSOR_WATER_Y,
 } from './sponsorLayout.ts'
-import { facingBasisFromSpan } from './sponsorBillboard.ts'
+import { facingBasisFromSpan, createSponsorBillboard } from './sponsorBillboard.ts'
+import { createLineSignMesh } from '../lineSigns/lineSignMesh.ts'
+import {
+  WATER_PLANE_Y,
+  WATER_PLANE_Y_OFFSET,
+} from '../waterPlanePlacement.ts'
 import {
   containFitRect,
   DEFAULT_FRAME_COLOR,
@@ -15,7 +24,7 @@ import {
   planSponsorBoard,
   recordSponsorBoardDraws,
 } from './boardCompose.ts'
-import type { GpsToEnuAmslFn } from './types.ts'
+import type { GpsToEnuAmslFn, SponsorEnuEndpoints } from './types.ts'
 
 describe('normalizeSponsors', () => {
   it('keeps valid entries and fills defaults', () => {
@@ -252,5 +261,95 @@ describe('recordSponsorBoardDraws', () => {
     })
     expect(calls[0]).toMatchObject({ op: 'fillRect', fill: '#ffeeaa' })
     expect(calls[1]).toMatchObject({ op: 'strokeRect', stroke: '#112233' })
+  })
+})
+
+function eastWestSponsor(heightM: number): SponsorEnuEndpoints {
+  return {
+    id: 'sp-test',
+    label: 'Acme',
+    heightM,
+    textureUrl: null,
+    color: 0x2a6f7a,
+    ax: 0,
+    az: 0,
+    bx: 30,
+    bz: 0,
+    midX: 15,
+    midZ: 0,
+    widthM: 30,
+  }
+}
+
+describe('createSponsorBillboard placement', () => {
+  it('lies flat on the water matching the line-sign basis and Y', async () => {
+    const endpoints = eastWestSponsor(8)
+    const panel = await createSponsorBillboard(endpoints)
+    const sign = createLineSignMesh({
+      id: 'start:1',
+      kind: 'start',
+      label: 'START',
+      color: 0xad0000,
+      ax: endpoints.ax,
+      az: endpoints.az,
+      bx: endpoints.bx,
+      bz: endpoints.bz,
+      midX: endpoints.midX,
+      midZ: endpoints.midZ,
+      widthM: endpoints.widthM,
+    })
+    try {
+      expect(panel.root.position.y).toBeCloseTo(
+        WATER_PLANE_Y + WATER_PLANE_Y_OFFSET,
+      )
+      expect(sign.root.position.y).toBeCloseTo(panel.root.position.y)
+      expect(panel.root.quaternion.angleTo(sign.root.quaternion)).toBeLessThan(
+        1e-6,
+      )
+      const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(
+        panel.root.quaternion,
+      )
+      expect(normal.x).toBeCloseTo(0)
+      expect(normal.y).toBeCloseTo(1)
+      expect(normal.z).toBeCloseTo(0)
+      const along = new THREE.Vector3(1, 0, 0).applyQuaternion(
+        panel.root.quaternion,
+      )
+      expect(along.x).toBeCloseTo(1)
+      expect(along.y).toBeCloseTo(0)
+      const geo = panel.root.geometry as THREE.PlaneGeometry
+      expect(geo.parameters.width).toBe(30)
+      expect(geo.parameters.height).toBe(8)
+      const mat = panel.root.material as THREE.MeshBasicMaterial
+      expect(mat.transparent).toBe(true)
+      expect(mat.depthWrite).toBe(false)
+      expect(panel.root.position.y).not.toBeCloseTo(endpoints.heightM / 2)
+    } finally {
+      panel.dispose()
+      sign.dispose()
+    }
+  })
+
+  it('keeps an explicit upright wall for billboardChain', async () => {
+    const endpoints = eastWestSponsor(8)
+    const panel = await createSponsorBillboard(endpoints, {
+      placement: 'upright',
+    })
+    try {
+      expect(panel.root.position.y).toBeCloseTo(SPONSOR_WATER_Y + 4)
+      const localUp = new THREE.Vector3(0, 1, 0).applyQuaternion(
+        panel.root.quaternion,
+      )
+      expect(localUp.y).toBeCloseTo(1)
+      const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(
+        panel.root.quaternion,
+      )
+      expect(normal.y).toBeCloseTo(0)
+      const mat = panel.root.material as THREE.MeshBasicMaterial
+      expect(mat.transparent).toBe(false)
+      expect(mat.depthWrite).toBe(true)
+    } finally {
+      panel.dispose()
+    }
   })
 })

@@ -14,7 +14,7 @@ Owned by **TEL**. WebSocket-shaped ingest: DTOs, JSON router, mock / replay / li
 | `replaySource.ts` | Timer playback of a fixture onto `ingestPacket` |
 | `liveSource.ts` | Browser WebSocket client(s) for live mode (drone + optional boat) |
 | `bus.ts` | Typed pub-sub |
-| `ingest.ts` | Start ingest from `telemetryMode`; route JSON onto the bus; live `getLiveStatus` / `onLiveStatus`; replay `getReplayStatus` |
+| `ingest.ts` | Start ingest from `telemetryMode`; route JSON onto the bus; live `getLiveStatus` / `onLiveStatus` / `disconnectLive` / `syncLiveIds`; replay `getReplayStatus` |
 | `windTypes.ts` | Wind DTOs (`WindFrame.directionFromDeg`, `speedMs`, `source`) |
 | `windBus.ts` | Sticky `windBus`: `publish` / `subscribe` / `getSnapshot` (default 6 kt from 000°) |
 | `windDirection.ts` | `windTravelSceneXZ` (from→to, post-14.0 `x=East z=−North`) + knots↔m/s |
@@ -133,8 +133,12 @@ If `/config.json` fetch fails, mode defaults to `mock`, `boatIds` to the four-id
 | `initialBackoffMs` | `500` | Delay before first reconnect attempt |
 | `maxBackoffMs` | `10_000` | Cap; delay doubles after each attempt (`500 → 1000 → … → 10000`) |
 | On successful `open` | — | Backoff resets to `initialBackoffMs` |
-| `stop()` | — | Sets intentional-stop, **clears reconnect timers**, closes sockets; no further connects |
+| Unexpected close | — | Status becomes `retrying` (with remaining delay); then reconnect |
+| `stop()` | — | Bumps a **generation** tag, sets intentional-stop, **clears reconnect timers**, detaches handlers, closes sockets; no further connects. Optional `{ retainSlots: true }` keeps per-id rows as `closed` (operator Disconnect) |
+| `disconnectLive()` | — | Ingest wrapper: `stop({ retainSlots: true })`. Nothing auto-reopens — not backoff, not the status poll, not a live-mode reassertion. Only Connect / Reconnect (`restartIngest` with `fromLiveApply`) |
 | Empty URLs | — | Stay `idle` (warn once); **no** fake `open` |
+
+Reconnect is stop-then-start: handlers are detached and generation is bumped **before** the old `ws.close()`, so a late `onclose` / `onmessage` cannot touch the new sockets. We do **not** await TCP close (impractical in the browser); the generation guard is the safety net.
 
 HUD mode switches and `beforeunload` call ingest `stop()` so reconnect cannot fire after leave-live / teardown.
 
@@ -162,16 +166,18 @@ Empty drone URL in live mode: console warn, idle handle, app does not crash. Emp
 
 Live `IngestHandle` adds optional:
 
-- `getLiveStatus()` → `LiveStatusSnapshot`: aggregate `{ drone, boat }` plus `droneIds[]` / `boatIds[]` each with `id`, `status`, `lastPacketAtMs`, `lastPacketAgeMs` (`null` = no packets yet)
+- `getLiveStatus()` → `LiveStatusSnapshot`: aggregate `{ drone, boat }` plus `droneIds[]` / `boatIds[]` each with `id`, `status` (`idle` \| `connecting` \| `open` \| `closed` \| `retrying`), `lastPacketAtMs`, `lastPacketAgeMs` (`null` = no packets yet), `retryInMs` (backoff remaining while `retrying`)
 - `onLiveStatus(listener)` → unsubscribe; forwards channel-level `onStatus` (poll `getLiveStatus` for packet ages)
+- `disconnectLive()` → close every socket, cancel backoff, keep per-id rows as `closed`
+- `syncLiveIds({ boatIds, povIds })` → close sockets for ids that left the enabled set; open newly enabled ids only while still running
 
-HUD compact line example: `ws d1=open/120ms b40=open/nopkt` — distinguishes connected-empty from receiving. Soft console warn if a socket stays `open` with no packets for ~8s.
+HUD compact line example: `ws d1=open/120ms b40=open/nopkt` — distinguishes connected-empty from receiving. `d1=retrying/500ms` is a backoff, not a dead socket. Soft console warn if a socket stays `open` with no packets for ~8s.
 
 Mock/replay handles omit these — SCN HUD shows `ws=n/a (mock|replay)` instead of inventing sockets. Empty URLs / empty enabled ids stay `idle` (no fake `open`).
 
 ### Fleet Live enable toggles (ops)
 
-Fleet / Live panel: per-row **Live** checkbox. **Connect live** opens sockets only for checked ids. Defaults start unchecked (prefer empty); Add/Save turns Live on for that id. Session persists `enabledBoatIds` / `enabledPovIds`.
+Fleet / Live panel: per-row **Live** checkbox. **Connect live** opens sockets for checked ids. **Disconnect** closes every live telemetry socket and stays down until Connect or Reconnect (independent of SRT). While connected, unchecking Live (or deleting the row) **closes that id's socket immediately**; checking Live opens it. Defaults start unchecked (prefer empty); Add/Save turns Live on for that id. Session persists `enabledBoatIds` / `enabledPovIds`.
 
 ### Replay status expose (optional)
 
@@ -315,3 +321,7 @@ This is the amended live behaviour vs `ntp-matching.md` §4.a (pairwise interpol
 ## Flow tap (`flowTap.ts`, TEL-10)
 
 Per-id ring of the last **12** JSON-safe events (`drone` / `boat` / `buoy` / `anchor` / `srt`) for the SCN-10 Flow panel. `push` copies enumerable JSON fields only and redacts `streamid` last segment / `passphrase` in any string. `snapshot()` returns a serialisable list (newest first). Pose pipeline pushes accepted packets and every `stream_anchor`. SCN may `push` `kind:'srt'` with an already-redacted body. **No DOM here.**
+
+`remove(id)` drops one ring. `retain(ids)` keeps only those ids. `reset()` still clears everything. `main` calls `retain` on fleet change and project load so a deleted drone/boat/buoy disappears from the tap immediately. Do **not** clear `telemetryHistory`, `ptsNtpMap`, or the pose bus from this path — the tap is a debug view.
+
+SCN `buildFlowCards` always shows current registry ids (empty card if idle, including operator-disconnected). An id **not** in the registry is shown only while its newest tap event is within **5 s** (`FLOW_CARD_RECENCY_MS`).

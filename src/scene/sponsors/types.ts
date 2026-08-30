@@ -17,6 +17,7 @@ export type SponsorEntry = {
   label: string
   a: SponsorGpsPoint
   b: SponsorGpsPoint
+  /** Across-water depth (meters); default 8. Not wall height. */
   heightM: number
   /** Optional image under `public/`; null → procedural label on the board. */
   textureUrl: string | null
@@ -37,6 +38,7 @@ export type SponsorsData = {
 export type SponsorEnuEndpoints = {
   id: string
   label: string
+  /** Across-water depth for flat sponsors; vertical height for upright chain instances. */
   heightM: number
   textureUrl: string | null
   color: number

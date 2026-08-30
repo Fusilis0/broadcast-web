@@ -3,6 +3,7 @@
  * Browser cannot write into `public/races/` — download is the V1 “save”.
  */
 
+import { parseProjectFleetIds, snapshotFleetBoats } from './fleetBoats.ts'
 import { parseRaceProject } from './parseRaceProject.ts'
 import type {
   RaceProject,
@@ -19,8 +20,9 @@ export type BuildRaceProjectInput = {
   origin: RaceProjectOrigin
   boatIds: readonly string[]
   /**
-   * Full Live-fleet rows. Written as `fleet.boats` in `boatIds` order.
-   * Custom names live here; `boatNamesUrl` is fallback for old packs.
+   * Full Live-fleet rows. Written as `fleet.boats` in `boatIds` order
+   * (always emitted, including `[]`). Custom names live here; `boatNamesUrl`
+   * is fallback for old packs that omit `boats`.
    */
   boats?: readonly RaceProjectFleetBoat[]
   povIds: readonly string[]
@@ -69,6 +71,8 @@ function cloneFeatures(
  */
 export function buildRaceProject(input: BuildRaceProjectInput): RaceProject {
   const features = cloneFeatures(input.features)
+  const boatIds = parseProjectFleetIds(input.boatIds)
+  const boats = snapshotFleetBoats(boatIds, input.boats)
   const raw: Record<string, unknown> = {
     schemaVersion: 1,
     id: input.id,
@@ -76,7 +80,8 @@ export function buildRaceProject(input: BuildRaceProjectInput): RaceProject {
     updatedAt: input.updatedAt ?? new Date().toISOString(),
     origin: { ...input.origin },
     fleet: {
-      boatIds: [...input.boatIds],
+      boatIds,
+      boats: boats.map((b) => ({ ...b })),
     },
     povIds: [...input.povIds],
   }
@@ -84,11 +89,6 @@ export function buildRaceProject(input: BuildRaceProjectInput): RaceProject {
   if (input.revision !== undefined) raw.revision = input.revision
   if (input.takeoffAltitudeMSL !== undefined) {
     raw.takeoffAltitudeMSL = input.takeoffAltitudeMSL
-  }
-  if (input.boats && input.boats.length > 0) {
-    ;(raw.fleet as Record<string, unknown>).boats = input.boats.map((b) => ({
-      ...b,
-    }))
   }
   if (input.boatNamesUrl) {
     ;(raw.fleet as Record<string, unknown>).boatNamesUrl = input.boatNamesUrl

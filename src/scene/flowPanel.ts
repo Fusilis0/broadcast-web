@@ -11,6 +11,11 @@ import type { FlowTapEvent, FlowTapKind } from '../telemetry/flowTap.ts'
 export const FLOW_LIVE_JSON_STORAGE_KEY = 'bw.flowPanel.liveJson'
 /** Cap: 4 Hz. Callers cannot poll faster. */
 export const FLOW_POLL_MS = 250
+/**
+ * Non-registry Flow cards stay only while an event is this fresh.
+ * Registry ids (including disconnected) always keep a card.
+ */
+export const FLOW_CARD_RECENCY_MS = 5_000
 
 export type FlowRegistryIds = {
   boats?: readonly string[]
@@ -187,23 +192,42 @@ function displayKindFor(
   return 'entity'
 }
 
+function newestReceivedAtMs(events: readonly FlowTapEvent[]): number | null {
+  let best: number | null = null
+  for (const ev of events) {
+    if (typeof ev.receivedAtMs !== 'number' || !Number.isFinite(ev.receivedAtMs)) {
+      continue
+    }
+    if (best == null || ev.receivedAtMs > best) best = ev.receivedAtMs
+  }
+  return best
+}
+
 export function buildFlowCards(
   snapshot: unknown,
   registry: FlowRegistryIds = {},
+  nowMs: number,
 ): FlowCardModel[] {
   const entities = normalizeFlowSnapshot(snapshot)
   const byId = new Map(entities.map((e) => [e.id, e.events]))
-  const ids = new Set<string>()
+  const registryIds = new Set<string>()
   for (const id of registry.povs ?? []) {
-    if (id) ids.add(id)
+    if (id) registryIds.add(id)
   }
   for (const id of registry.boats ?? []) {
-    if (id) ids.add(id)
+    if (id) registryIds.add(id)
   }
   for (const id of registry.buoys ?? []) {
-    if (id) ids.add(id)
+    if (id) registryIds.add(id)
   }
-  for (const id of byId.keys()) ids.add(id)
+  const ids = new Set(registryIds)
+  const recencyOk = Number.isFinite(nowMs)
+  for (const [id, events] of byId) {
+    if (registryIds.has(id)) continue
+    if (!recencyOk) continue
+    const newest = newestReceivedAtMs(events)
+    if (newest != null && nowMs - newest <= FLOW_CARD_RECENCY_MS) ids.add(id)
+  }
 
   const cards: FlowCardModel[] = []
   for (const id of ids) {
@@ -489,6 +513,7 @@ export function startFlowPanel(options: FlowPanelOptions): FlowPanelHandle {
     const models = buildFlowCards(
       options.getSnapshot(),
       options.getRegistryIds?.() ?? {},
+      Date.now(),
     )
     const seen = new Set<string>()
     for (const el of [...body.querySelectorAll(':scope > .flow-panel__hint')]) {

@@ -289,6 +289,173 @@ describe('LiveTelemetrySource', () => {
     )
     source.stop()
   })
+
+  it('stop({ retainSlots }) stays closed and cancels a scheduled reconnect', async () => {
+    vi.useFakeTimers()
+    class ManualWebSocket {
+      static instances: ManualWebSocket[] = []
+      readonly url: string
+      readyState = FakeWebSocket.CONNECTING
+      onopen: Listener = null
+      onclose: Listener = null
+      onmessage: Listener = null
+      onerror: Listener = null
+      constructor(url: string) {
+        this.url = url
+        ManualWebSocket.instances.push(this)
+      }
+      close(): void {
+        if (this.readyState === FakeWebSocket.CLOSED) return
+        this.readyState = FakeWebSocket.CLOSED
+        this.onclose?.(new CloseEvent('close'))
+      }
+    }
+
+    const source = new LiveTelemetrySource({
+      droneUrls: ['ws://example.invalid/ws?type=client&subscribe=1'],
+      WebSocketImpl: ManualWebSocket as unknown as typeof WebSocket,
+      initialBackoffMs: 200,
+      maxBackoffMs: 400,
+    })
+    source.start()
+    expect(ManualWebSocket.instances).toHaveLength(1)
+    ManualWebSocket.instances[0]!.close()
+    expect(source.getStatus().drone).toBe('retrying')
+    expect(source.getStatus().droneIds[0]?.retryInMs).toBeGreaterThan(0)
+
+    source.stop({ retainSlots: true })
+    const n = ManualWebSocket.instances.length
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(ManualWebSocket.instances.length).toBe(n)
+    expect(source.isRunning).toBe(false)
+    expect(source.getStatus()).toMatchObject({
+      drone: 'closed',
+      droneIds: [{ id: '1', status: 'closed' }],
+    })
+  })
+
+  it('generation guard ignores late close/message from a previous socket after restart', async () => {
+    type Captured = ((ev?: unknown) => void) | null
+    class LateWebSocket {
+      static instances: LateWebSocket[] = []
+      readonly url: string
+      readyState = FakeWebSocket.CONNECTING
+      onopen: Captured = null
+      onerror: Captured = null
+      lastClose: Captured = null
+      lastMessage: Captured = null
+      private _onclose: Captured = null
+      private _onmessage: Captured = null
+      constructor(url: string) {
+        this.url = url
+        LateWebSocket.instances.push(this)
+        queueMicrotask(() => {
+          if (this.readyState !== FakeWebSocket.CONNECTING) return
+          this.readyState = FakeWebSocket.OPEN
+          this.onopen?.(new Event('open'))
+        })
+      }
+      get onclose(): Captured {
+        return this._onclose
+      }
+      set onclose(v: Captured) {
+        this._onclose = v
+        if (v) this.lastClose = v
+      }
+      get onmessage(): Captured {
+        return this._onmessage
+      }
+      set onmessage(v: Captured) {
+        this._onmessage = v
+        if (v) this.lastMessage = v
+      }
+      close(): void {
+        this.readyState = FakeWebSocket.CLOSED
+      }
+    }
+
+    const packets: MockPacket[] = []
+    const source = new LiveTelemetrySource({
+      droneUrls: ['ws://example.invalid/ws?type=client&subscribe=1'],
+      WebSocketImpl: LateWebSocket as unknown as typeof WebSocket,
+      onPacket: (p) => packets.push(p),
+      noPacketWarnMs: 0,
+    })
+    source.start()
+    await Promise.resolve()
+    const first = LateWebSocket.instances[0]
+    expect(first).toBeDefined()
+    expect(first!.lastClose).toBeTruthy()
+    expect(first!.lastMessage).toBeTruthy()
+
+    source.stop()
+    source.start()
+    await Promise.resolve()
+    const afterRestart = LateWebSocket.instances.length
+    expect(afterRestart).toBe(2)
+
+    first!.lastMessage?.({
+      data: JSON.stringify({
+        id: '1',
+        ts: 1,
+        pos: { lat: 1, lon: 2, alt: 3 },
+      }),
+    })
+    first!.lastClose?.(new CloseEvent('close'))
+    await Promise.resolve()
+    expect(packets).toHaveLength(0)
+    expect(LateWebSocket.instances.length).toBe(afterRestart)
+    expect(source.getStatus().drone).toBe('open')
+    source.stop()
+  })
+
+  it('syncUrls closes only the removed id', async () => {
+    const packets: MockPacket[] = []
+    const source = new LiveTelemetrySource({
+      droneUrls: [
+        'ws://example.invalid/ws?type=client&subscribe=1',
+        'ws://example.invalid/ws?type=client&subscribe=2',
+      ],
+      WebSocketImpl: FakeWebSocket as unknown as typeof WebSocket,
+      onPacket: (p) => packets.push(p),
+      noPacketWarnMs: 0,
+    })
+    source.start()
+    await Promise.resolve()
+    expect(FakeWebSocket.instances).toHaveLength(2)
+    const keep = FakeWebSocket.instances.find((w) =>
+      w.url.includes('subscribe=2'),
+    )!
+    const drop = FakeWebSocket.instances.find((w) =>
+      w.url.includes('subscribe=1'),
+    )!
+
+    source.syncUrls(
+      ['ws://example.invalid/ws?type=client&subscribe=2'],
+      [],
+    )
+    expect(drop.readyState).toBe(FakeWebSocket.CLOSED)
+    expect(keep.readyState).toBe(FakeWebSocket.OPEN)
+    expect(source.getStatus().droneIds.map((s) => s.id)).toEqual(['2'])
+
+    keep.emitMessage(
+      JSON.stringify({
+        id: '2',
+        ts: 1,
+        pos: { lat: 1, lon: 2, alt: 3 },
+      }),
+    )
+    drop.emitMessage(
+      JSON.stringify({
+        id: '1',
+        ts: 1,
+        pos: { lat: 1, lon: 2, alt: 3 },
+      }),
+    )
+    expect(packets).toHaveLength(1)
+    expect(packets[0]?.jsonText).toContain('"id":"2"')
+    source.stop()
+  })
 })
 
 describe('live ingest → bus', () => {
@@ -476,10 +643,10 @@ describe('live ingest → bus', () => {
       w.url.includes('subscribe=1'),
     )!
     droneWs.close()
-    expect(handle.getLiveStatus?.().drone).toBe('closed')
-    expect(seen.some((e) => e.channel === 'drone' && e.status === 'closed')).toBe(
-      true,
-    )
+    expect(handle.getLiveStatus?.().drone).toBe('retrying')
+    expect(
+      seen.some((e) => e.channel === 'drone' && e.status === 'retrying'),
+    ).toBe(true)
 
     unsub()
     handle.stop()
@@ -515,5 +682,94 @@ describe('live ingest → bus', () => {
       bus,
     )
     expect(drone).toHaveLength(1)
+  })
+
+  it('disconnectLive cancels a scheduled reconnect and stays closed', async () => {
+    vi.useFakeTimers()
+    class ManualWebSocket {
+      static instances: ManualWebSocket[] = []
+      readonly url: string
+      readyState = FakeWebSocket.CONNECTING
+      onopen: Listener = null
+      onclose: Listener = null
+      onmessage: Listener = null
+      onerror: Listener = null
+      constructor(url: string) {
+        this.url = url
+        ManualWebSocket.instances.push(this)
+      }
+      close(): void {
+        if (this.readyState === FakeWebSocket.CLOSED) return
+        this.readyState = FakeWebSocket.CLOSED
+        this.onclose?.(new CloseEvent('close'))
+      }
+    }
+
+    const bus = new TelemetryBus()
+    const handle = await startTelemetryIngest({
+      mode: 'live',
+      wsUrl: 'ws://example.invalid/ws',
+      wsBoatUrl: '',
+      boatIds: [],
+      povIds: ['1'],
+      bus,
+      WebSocketImpl: ManualWebSocket as unknown as typeof WebSocket,
+    })
+    expect(ManualWebSocket.instances).toHaveLength(1)
+    ManualWebSocket.instances[0]!.close()
+    expect(handle.getLiveStatus?.().drone).toBe('retrying')
+
+    handle.disconnectLive?.()
+    const n = ManualWebSocket.instances.length
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(ManualWebSocket.instances.length).toBe(n)
+    expect(handle.getLiveStatus?.().drone).toBe('closed')
+    expect(handle.getLiveStatus?.().droneIds.map((s) => s.id)).toEqual(['1'])
+    handle.stop()
+  })
+
+  it('syncLiveIds unchecking one id closes that socket only', async () => {
+    const bus = new TelemetryBus()
+    const handle = await startTelemetryIngest({
+      mode: 'live',
+      wsUrl: 'ws://example.invalid/ws',
+      wsBoatUrl: 'ws://example.invalid/ws',
+      boatIds: ['21', '22'],
+      povIds: [],
+      bus,
+      WebSocketImpl: FakeWebSocket as unknown as typeof WebSocket,
+    })
+    await Promise.resolve()
+    expect(FakeWebSocket.instances).toHaveLength(2)
+    const keep = FakeWebSocket.instances.find((w) =>
+      w.url.includes('subscribe=22'),
+    )!
+    const drop = FakeWebSocket.instances.find((w) =>
+      w.url.includes('subscribe=21'),
+    )!
+
+    handle.syncLiveIds?.({ boatIds: ['22'], povIds: [] })
+    expect(drop.readyState).toBe(FakeWebSocket.CLOSED)
+    expect(keep.readyState).toBe(FakeWebSocket.OPEN)
+    expect(handle.getLiveStatus?.().boatIds.map((s) => s.id)).toEqual(['22'])
+    handle.stop()
+  })
+
+  it('liveConnect: false does not open sockets', async () => {
+    const bus = new TelemetryBus()
+    const handle = await startTelemetryIngest({
+      mode: 'live',
+      wsUrl: 'ws://example.invalid/ws',
+      wsBoatUrl: '',
+      boatIds: [],
+      povIds: ['1'],
+      bus,
+      liveConnect: false,
+      WebSocketImpl: FakeWebSocket as unknown as typeof WebSocket,
+    })
+    await Promise.resolve()
+    expect(FakeWebSocket.instances).toHaveLength(0)
+    expect(handle.getLiveStatus?.().drone).toBe('idle')
+    handle.stop()
   })
 })

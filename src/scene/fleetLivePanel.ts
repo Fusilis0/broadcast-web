@@ -2,7 +2,8 @@
  * Ops Fleet / Live panel — register/edit boats & drones; base WS URLs.
  * Live connect opens one socket per **enabled** id (`base?type=client&subscribe=<id>`).
  * SRT: per-drone SRT id (≠ telemetry id); empty template → catalog; filled `{srtId}` template is the escape hatch.
- * Video checkbox is independent of Live WS. sessionStorage is a tab cache only;
+ * Video checkbox is independent of Live WS. Uncheck Vid closes that POV's SRT
+ * session immediately while connected. sessionStorage is a tab cache only;
  * RaceProject `fleet.boats` + `output.srtUrlTemplate` / `srtByPovId` are persist (Save/Load).
  * Relay token in the template is session-only — Save redacts it.
  */
@@ -81,6 +82,23 @@ export type FleetLivePanelState = {
   enabledSrtPovIds?: string[]
 }
 
+export type SrtPovUiState =
+  | 'idle'
+  | 'connecting'
+  | 'live'
+  | 'retrying'
+  | 'closed'
+
+export type SrtPovUiStatus = {
+  povId: string
+  state: SrtPovUiState
+  bitrateKbps: number
+}
+
+export type SrtPanelSnapshot = {
+  povs: SrtPovUiStatus[]
+}
+
 export type FleetLivePanelOptions = {
   container: HTMLElement
   initial: FleetLivePanelState
@@ -111,11 +129,37 @@ export type FleetLivePanelOptions = {
     goLive: boolean
   }) => void
   /**
+   * Close every live telemetry socket. Independent of SRT.
+   * Only Connect / Reconnect may bring sockets back.
+   */
+  onLiveDisconnect?: () => void
+  /**
+   * Live checkbox / row-delete changed the enabled id lists.
+   * While sockets are open this must close/open that id only.
+   */
+  onLiveEnabledChange?: (state: {
+    boatIds: string[]
+    povIds: string[]
+  }) => void
+  /**
    * SRT video apply — independent of Live WS. Empty SRT id rows are omitted.
    * URLs are composed; the token stays in the URL (do not log it).
    */
   onSrtApply?: (state: {
     srtUrlTemplate: string
+    streams: { povId: string; srtId: string; url: string }[]
+  }) => void
+  /**
+   * Close every SRT caller. Independent of telemetry.
+   * Only Connect SRT may bring sessions back.
+   */
+  onSrtDisconnect?: () => void
+  /**
+   * Vid checkbox / row-delete changed the enabled SRT list.
+   * While SRT is connected this must close/open that POV only.
+   */
+  onSrtEnabledChange?: (state: {
+    enabledSrtPovIds: string[]
     streams: { povId: string; srtId: string; url: string }[]
   }) => void
 }
@@ -156,6 +200,8 @@ export type FleetLivePanelHandle = {
   }) => { ok: boolean; created: boolean }
   /** Live SRT caller / decode lines (Race ops + Fleet). Never include raw tokens. */
   setSrtSituation: (text: string) => void
+  /** Per-POV SRT idle/connecting/live/retrying/closed + button enablement. */
+  setSrtStatus: (status: SrtPanelSnapshot | null) => void
   /** Expand panel and flash a boat row (Assets Details deep-link). */
   highlightBoat: (id: string) => void
   stop: () => void
@@ -315,6 +361,7 @@ export function startFleetLivePanel(
   }
 
   let liveStatus: LiveStatusSnapshot | null = null
+  let srtStatus: SrtPanelSnapshot | null = null
 
   const root = document.createElement('div')
   root.className = 'fleet-live'
@@ -344,7 +391,7 @@ export function startFleetLivePanel(
   const hint = document.createElement('div')
   hint.className = 'fleet-live__hint'
   hint.textContent =
-    'Check Live on rows below → Connect opens only those ids (…/ws?type=client&subscribe=<id>). open ≠ packets.'
+    'Live checkbox applies immediately while connected (uncheck closes that id). Connect opens checked ids. Disconnect closes all and stays down. open ≠ packets.'
   liveSec.appendChild(hint)
 
   const droneUrlInput = document.createElement('input')
@@ -374,7 +421,7 @@ export function startFleetLivePanel(
   const srtHint = document.createElement('div')
   srtHint.className = 'fleet-live__hint'
   srtHint.textContent =
-    'Empty template + SRT id (e.g. 18) uses the catalog. Vid is independent of Live WS. Dummy srt://host:… is ignored. Token stays in this tab only.'
+    'Empty template + SRT id (e.g. 18) uses the catalog. Vid applies immediately while SRT is connected (uncheck closes that POV). Disconnect SRT closes all and stays down. Dummy srt://host:… is ignored. Token stays in this tab only.'
   liveSec.appendChild(srtHint)
 
   const liveRow = document.createElement('div')
@@ -383,18 +430,51 @@ export function startFleetLivePanel(
   applyLiveBtn.type = 'button'
   applyLiveBtn.className = 'fleet-live__btn fleet-live__btn--primary'
   applyLiveBtn.textContent = 'Connect live'
+  applyLiveBtn.title =
+    'Open sockets for Live-checked ids. Greyed while already connected — use Reconnect.'
+  const disconnectBtn = document.createElement('button')
+  disconnectBtn.type = 'button'
+  disconnectBtn.className = 'fleet-live__btn'
+  disconnectBtn.textContent = 'Disconnect'
+  disconnectBtn.setAttribute('data-ops', 'live-ws-disconnect')
+  disconnectBtn.title =
+    'Close every live telemetry socket and cancel reconnect. Stays disconnected until Connect or Reconnect.'
+  disconnectBtn.disabled = true
   const reconnectBtn = document.createElement('button')
   reconnectBtn.type = 'button'
   reconnectBtn.className = 'fleet-live__btn'
   reconnectBtn.textContent = 'Reconnect'
+  reconnectBtn.title =
+    'Stop then start live telemetry. Safe after Disconnect. Independent of SRT.'
   const applySrtBtn = document.createElement('button')
   applySrtBtn.type = 'button'
   applySrtBtn.className = 'fleet-live__btn fleet-live__btn--primary'
   applySrtBtn.textContent = 'Connect SRT'
   applySrtBtn.title =
-    'Open SRT caller for Video-checked POVs with an SRT id (cap 4). Independent of Connect live.'
-  liveRow.append(applyLiveBtn, reconnectBtn, applySrtBtn)
+    'Open SRT caller for Vid-checked POVs with an SRT id (cap 4). Greyed while already connected. Independent of Connect live.'
+  const disconnectSrtBtn = document.createElement('button')
+  disconnectSrtBtn.type = 'button'
+  disconnectSrtBtn.className = 'fleet-live__btn'
+  disconnectSrtBtn.textContent = 'Disconnect SRT'
+  disconnectSrtBtn.setAttribute('data-ops', 'srt-disconnect')
+  disconnectSrtBtn.title =
+    'Close every SRT caller and kill ffmpeg. Stays disconnected until Connect SRT. Independent of telemetry.'
+  disconnectSrtBtn.disabled = true
+  liveRow.append(applyLiveBtn, reconnectBtn, applySrtBtn, disconnectSrtBtn)
+  liveRow.insertBefore(disconnectBtn, reconnectBtn)
   liveSec.appendChild(liveRow)
+
+  const liveSummaryEl = document.createElement('div')
+  liveSummaryEl.className = 'fleet-live__hint'
+  liveSummaryEl.setAttribute('data-ops', 'live-ws-summary')
+  liveSummaryEl.textContent = 'Live WS  n/a (not live mode)'
+  liveSec.appendChild(liveSummaryEl)
+
+  const srtSummaryEl = document.createElement('div')
+  srtSummaryEl.className = 'fleet-live__hint'
+  srtSummaryEl.setAttribute('data-ops', 'srt-summary')
+  srtSummaryEl.textContent = 'SRT  idle'
+  liveSec.appendChild(srtSummaryEl)
 
   const srtSitEl = document.createElement('pre')
   srtSitEl.className = 'fleet-live__srt-sit'
@@ -567,6 +647,53 @@ export function startFleetLivePanel(
     return row
   }
 
+  function notifyLiveEnabled(): void {
+    options.onLiveEnabledChange?.({
+      boatIds: [...state.enabledBoatIds],
+      povIds: [...state.enabledPovIds],
+    })
+  }
+
+  function collectSrtStreams(opts?: { clearDummyTemplate?: boolean }): {
+    streams: { povId: string; srtId: string; url: string }[]
+    skipped: string[]
+  } {
+    const streams: { povId: string; srtId: string; url: string }[] = []
+    const skipped: string[] = []
+    const template = (state.srtUrlTemplate ?? '').trim()
+    const useCatalog = shouldUseSrtCatalog(template)
+    if (opts?.clearDummyTemplate && useCatalog && template) {
+      state.srtUrlTemplate = ''
+      srtTemplateInput.value = ''
+      persist()
+    }
+    for (const povId of state.enabledSrtPovIds ?? []) {
+      if (streams.length >= SRT_WARM_POV_CAP) break
+      const srtId = (state.srtByPovId?.[povId] ?? '').trim()
+      if (!srtId) {
+        skipped.push(povId)
+        continue
+      }
+      const composed = useCatalog
+        ? resolveSrtUrlForId(srtId)
+        : buildSrtCallerUrl(template, srtId)
+      if (!composed.ok) {
+        skipped.push(`${povId} (${composed.error})`)
+        continue
+      }
+      streams.push({ povId, srtId, url: composed.href })
+    }
+    return { streams, skipped }
+  }
+
+  function notifySrtEnabled(): void {
+    const { streams } = collectSrtStreams()
+    options.onSrtEnabledChange?.({
+      enabledSrtPovIds: [...(state.enabledSrtPovIds ?? [])],
+      streams,
+    })
+  }
+
   function setEnabledBoat(id: string, on: boolean): void {
     if (on) {
       if (!state.enabledBoatIds.includes(id)) state.enabledBoatIds.push(id)
@@ -633,7 +760,115 @@ export function startFleetLivePanel(
           : state.enabledPovIds.includes(id)
       return enabled ? ' · —' : ''
     }
+    if (row.status === 'retrying') {
+      return ` · retrying/${fmtPktAge(row.retryInMs ?? null)}`
+    }
     return ` · ${row.status}/${fmtPktAge(row.lastPacketAgeMs)}`
+  }
+
+  function liveSocketCounts(): {
+    total: number
+    open: number
+    connecting: number
+    retrying: number
+    active: number
+  } {
+    if (!liveStatus) {
+      return { total: 0, open: 0, connecting: 0, retrying: 0, active: 0 }
+    }
+    const ids = [...liveStatus.droneIds, ...liveStatus.boatIds]
+    let open = 0
+    let connecting = 0
+    let retrying = 0
+    for (const s of ids) {
+      if (s.status === 'open') open += 1
+      else if (s.status === 'connecting') connecting += 1
+      else if (s.status === 'retrying') retrying += 1
+    }
+    return {
+      total: ids.length,
+      open,
+      connecting,
+      retrying,
+      active: open + connecting + retrying,
+    }
+  }
+
+  function syncLiveButtons(): void {
+    const { active, total, open, connecting, retrying } = liveSocketCounts()
+    applyLiveBtn.disabled = active > 0
+    disconnectBtn.disabled = active === 0
+    if (!liveStatus) {
+      liveSummaryEl.textContent = 'Live WS  n/a (not live mode)'
+      return
+    }
+    if (total === 0) {
+      liveSummaryEl.textContent = 'Live WS  idle · no sockets'
+      return
+    }
+    const parts = [`${open} of ${total} open`]
+    if (connecting > 0) parts.push(`${connecting} connecting`)
+    if (retrying > 0) parts.push(`${retrying} retrying`)
+    if (active === 0) parts.push('disconnected')
+    liveSummaryEl.textContent = `Live WS  ${parts.join(' · ')}`
+  }
+
+  function srtHintFor(id: string): string {
+    if (!srtStatus) return ''
+    const row = srtStatus.povs.find((s) => s.povId === id)
+    if (!row) return ''
+    if (row.state === 'live') {
+      return ` · srt live/${Math.round(row.bitrateKbps)}kbps`
+    }
+    if (row.state === 'retrying') return ' · srt retrying'
+    return ` · srt ${row.state}`
+  }
+
+  function srtSessionCounts(): {
+    total: number
+    live: number
+    connecting: number
+    retrying: number
+    active: number
+  } {
+    if (!srtStatus) {
+      return { total: 0, live: 0, connecting: 0, retrying: 0, active: 0 }
+    }
+    let live = 0
+    let connecting = 0
+    let retrying = 0
+    for (const s of srtStatus.povs) {
+      if (s.state === 'live') live += 1
+      else if (s.state === 'connecting') connecting += 1
+      else if (s.state === 'retrying') retrying += 1
+    }
+    const active = live + connecting + retrying
+    return {
+      total: srtStatus.povs.length,
+      live,
+      connecting,
+      retrying,
+      active,
+    }
+  }
+
+  function syncSrtButtons(): void {
+    const { active, live, connecting, retrying } = srtSessionCounts()
+    applySrtBtn.disabled = active > 0
+    disconnectSrtBtn.disabled = active === 0
+    if (!srtStatus) {
+      srtSummaryEl.textContent = 'SRT  idle'
+      return
+    }
+    if (active === 0) {
+      const disconnected = srtStatus.povs.some((s) => s.state === 'closed')
+      srtSummaryEl.textContent = disconnected ? 'SRT  disconnected' : 'SRT  idle'
+      return
+    }
+    const parts = [`${live} of ${active} live`]
+    if (connecting > 0) parts.push(`${connecting} connecting`)
+    if (retrying > 0) parts.push(`${retrying} retrying`)
+    srtSummaryEl.textContent = `SRT  ${parts.join(' · ')}`
   }
 
   function renderBoats(): void {
@@ -647,11 +882,16 @@ export function startFleetLivePanel(
       const en = document.createElement('input')
       en.type = 'checkbox'
       en.className = 'fleet-live__enable'
-      en.title = 'Enable for Connect live'
+      en.title =
+        'Live WS — uncheck closes this id now if connected; check opens it if connected'
       en.checked = state.enabledBoatIds.includes(id)
       en.addEventListener('change', () => {
         setEnabledBoat(id, en.checked)
+        notifyLiveEnabled()
         renderBoats()
+        statusEl.textContent = en.checked
+          ? `Boat ${id} Live on — socket opens now if connected`
+          : `Boat ${id} Live off — socket closed`
       })
 
       const idIn = document.createElement('input')
@@ -747,6 +987,7 @@ export function startFleetLivePanel(
         setEnabledBoat(newId, true)
         renderBoats()
         emitFleet()
+        notifyLiveEnabled()
         options.onBoatVisibilityChange?.(newId, visibility)
         statusEl.textContent = `Boat ${newId} updated (Live on)`
       })
@@ -761,6 +1002,7 @@ export function startFleetLivePanel(
         state.boats = state.boats.filter((b) => b.id !== id)
         renderBoats()
         emitFleet()
+        notifyLiveEnabled()
         statusEl.textContent = `Boat ${id} removed`
       })
 
@@ -778,11 +1020,16 @@ export function startFleetLivePanel(
       const en = document.createElement('input')
       en.type = 'checkbox'
       en.className = 'fleet-live__enable'
-      en.title = 'Enable for Connect live'
+      en.title =
+        'Live WS — uncheck closes this id now if connected; check opens it if connected'
       en.checked = state.enabledPovIds.includes(id)
       en.addEventListener('change', () => {
         setEnabledPov(id, en.checked)
+        notifyLiveEnabled()
         renderPovs()
+        statusEl.textContent = en.checked
+          ? `Drone ${id} Live on — socket opens now if connected`
+          : `Drone ${id} Live off — socket closed`
       })
 
       const idIn = document.createElement('input')
@@ -804,20 +1051,31 @@ export function startFleetLivePanel(
       const vid = document.createElement('input')
       vid.type = 'checkbox'
       vid.className = 'fleet-live__enable'
-      vid.title = 'Enable SRT video (independent of Live WS)'
+      vid.setAttribute('data-ops', 'srt-vid')
+      vid.title =
+        'SRT video — uncheck closes this POV now if connected; check opens it if connected'
       vid.checked = (state.enabledSrtPovIds ?? []).includes(id)
       vid.addEventListener('change', () => {
         setEnabledSrtPov(id, vid.checked)
+        notifySrtEnabled()
         renderPovs()
+        statusEl.textContent = vid.checked
+          ? `Drone ${id} Vid on — SRT opens now if connected`
+          : `Drone ${id} Vid off — SRT session closed`
       })
       const vidLab = document.createElement('span')
       vidLab.className = 'fleet-live__srt-lab'
       vidLab.textContent = 'Vid'
-      vidLab.title = 'SRT video enable — independent of Live WS'
+      vidLab.title =
+        'SRT video enable — uncheck closes that POV now if SRT is connected'
 
       const sock = document.createElement('span')
       sock.className = 'fleet-live__sock'
       sock.textContent = liveHintFor('drone', id)
+      const srtSock = document.createElement('span')
+      srtSock.className = 'fleet-live__sock'
+      srtSock.setAttribute('data-ops', 'srt-pov-status')
+      srtSock.textContent = srtHintFor(id)
 
       const saveBtn = document.createElement('button')
       saveBtn.type = 'button'
@@ -854,6 +1112,8 @@ export function startFleetLivePanel(
         setEnabledPov(newId, true)
         renderPovs()
         emitFleet()
+        notifyLiveEnabled()
+        notifySrtEnabled()
         statusEl.textContent = `Drone ${newId} updated (Live on)`
       })
 
@@ -899,10 +1159,12 @@ export function startFleetLivePanel(
         }
         renderPovs()
         emitFleet()
+        notifyLiveEnabled()
+        notifySrtEnabled()
         statusEl.textContent = `Drone ${id} removed`
       })
 
-      el.append(en, idIn, srtIn, vid, vidLab, sock, saveBtn, sw, rm)
+      el.append(en, idIn, srtIn, vid, vidLab, sock, srtSock, saveBtn, sw, rm)
       povList.appendChild(el)
     }
   }
@@ -934,7 +1196,8 @@ export function startFleetLivePanel(
     boatColorIn.value = ''
     renderBoats()
     emitFleet()
-    statusEl.textContent = `Boat ${id} added (Live on) — Connect to open id=${id}`
+    notifyLiveEnabled()
+    statusEl.textContent = `Boat ${id} added (Live on)`
   })
 
   povAddBtn.addEventListener('click', () => {
@@ -948,7 +1211,8 @@ export function startFleetLivePanel(
     povIdIn.value = ''
     renderPovs()
     emitFleet()
-    statusEl.textContent = `Drone ${id} added (Live on) — Connect to open id=${id}`
+    notifyLiveEnabled()
+    statusEl.textContent = `Drone ${id} added (Live on)`
   })
 
   function applyLive(goLive: boolean): void {
@@ -978,6 +1242,12 @@ export function startFleetLivePanel(
 
   applyLiveBtn.addEventListener('click', () => applyLive(true))
   reconnectBtn.addEventListener('click', () => applyLive(false))
+  disconnectBtn.addEventListener('click', () => {
+    options.onLiveDisconnect?.()
+    statusEl.textContent =
+      'disconnected · all live telemetry sockets closed — Connect or Reconnect to resume'
+    syncLiveButtons()
+  })
 
   function applySrt(): void {
     readUrls()
@@ -987,31 +1257,9 @@ export function startFleetLivePanel(
       statusEl.textContent = 'Enable Video on at least one drone and set its SRT id'
       return
     }
-    const streams: { povId: string; srtId: string; url: string }[] = []
-    const skipped: string[] = []
-    const template = (state.srtUrlTemplate ?? '').trim()
-    const useCatalog = shouldUseSrtCatalog(template)
-    if (useCatalog && template) {
-      state.srtUrlTemplate = ''
-      srtTemplateInput.value = ''
-      persist()
-    }
-    for (const povId of enabled) {
-      if (streams.length >= SRT_WARM_POV_CAP) break
-      const srtId = (state.srtByPovId?.[povId] ?? '').trim()
-      if (!srtId) {
-        skipped.push(povId)
-        continue
-      }
-      const composed = useCatalog
-        ? resolveSrtUrlForId(srtId)
-        : buildSrtCallerUrl(template, srtId)
-      if (!composed.ok) {
-        skipped.push(`${povId} (${composed.error})`)
-        continue
-      }
-      streams.push({ povId, srtId, url: composed.href })
-    }
+    const { streams, skipped } = collectSrtStreams({
+      clearDummyTemplate: true,
+    })
     if (streams.length === 0) {
       statusEl.textContent =
         skipped.length > 0
@@ -1023,6 +1271,8 @@ export function startFleetLivePanel(
       srtUrlTemplate: state.srtUrlTemplate ?? '',
       streams,
     })
+    applySrtBtn.disabled = true
+    disconnectSrtBtn.disabled = false
     statusEl.textContent = `SRT · ${streams.length} caller(s)${
       skipped.length ? ` · skipped ${skipped.length}` : ''
     } · cap ${SRT_WARM_POV_CAP}${
@@ -1031,6 +1281,14 @@ export function startFleetLivePanel(
   }
 
   applySrtBtn.addEventListener('click', () => applySrt())
+  disconnectSrtBtn.addEventListener('click', () => {
+    options.onSrtDisconnect?.()
+    applySrtBtn.disabled = false
+    disconnectSrtBtn.disabled = true
+    statusEl.textContent =
+      'SRT disconnected · all callers closed — Connect SRT to resume'
+    syncSrtButtons()
+  })
 
   srtTemplateInput.addEventListener('change', () => {
     state.srtUrlTemplate = srtTemplateInput.value.trim()
@@ -1040,6 +1298,8 @@ export function startFleetLivePanel(
   renderBoats()
   renderPovs()
   syncInputsFromState()
+  syncLiveButtons()
+  syncSrtButtons()
 
   return {
     setState(partial): void {
@@ -1128,9 +1388,15 @@ export function startFleetLivePanel(
       liveStatus = status
       renderBoats()
       renderPovs()
+      syncLiveButtons()
     },
     setSrtSituation(text): void {
       srtSitEl.textContent = text
+    },
+    setSrtStatus(status): void {
+      srtStatus = status
+      renderPovs()
+      syncSrtButtons()
     },
     addBoat(input): { ok: boolean; created: boolean } {
       const id = input.id.trim()
@@ -1157,6 +1423,7 @@ export function startFleetLivePanel(
       renderBoats()
       emitFleet()
       persist()
+      notifyLiveEnabled()
       statusEl.textContent = created
         ? `Boat ${id} added from map`
         : `Boat ${id} already in fleet — planned position updated`
@@ -1205,6 +1472,7 @@ export function startFleetLivePanel(
       renderPovs()
       emitFleet()
       persist()
+      notifyLiveEnabled()
       statusEl.textContent = created
         ? `Drone ${id} added from map`
         : `Drone ${id} already in fleet — planned position updated`

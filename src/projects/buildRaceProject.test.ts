@@ -94,12 +94,41 @@ describe('buildRaceProject', () => {
 
     expect(project.origin).toEqual(origin)
     expect(project.fleet.boatIds).toEqual(['21', '25', '30'])
+    expect(project.fleet.boats?.map((b) => b.id)).toEqual(['21', '25', '30'])
     expect(project.fleet.boatNamesUrl).toBe(
       '/fixtures/boats/demo-istanbul-names.json',
     )
     expect(project.povIds).toEqual(['1', '3', '11'])
     expect(project.id).toBe('bosphorus-heat')
     expect(project.name).toBe('Bosphorus Heat')
+  })
+
+  it('always writes fleet.boats, including an empty fleet, in sync with boatIds', () => {
+    const empty = buildRaceProject({
+      id: 'empty-fleet',
+      name: 'Empty',
+      origin: { lat: 41, lon: 29, altMsl: 0 },
+      boatIds: [],
+      povIds: ['1'],
+      updatedAt: '2026-08-29T12:00:00.000Z',
+    })
+    expect(empty.fleet.boatIds).toEqual([])
+    expect(empty.fleet.boats).toEqual([])
+
+    const oob = buildRaceProject({
+      id: 'oob-fleet',
+      name: 'OOB',
+      origin: { lat: 41, lon: 29, altMsl: 0 },
+      boatIds: ['1', '2'],
+      boats: [
+        { id: '1', name: 'One', category: '' },
+        { id: '2', name: 'Two', category: '' },
+      ],
+      povIds: ['1'],
+      updatedAt: '2026-08-29T12:00:00.000Z',
+    })
+    expect(oob.fleet.boatIds).toEqual(['1', '2'])
+    expect(oob.fleet.boats?.map((b) => b.id)).toEqual(['1', '2'])
   })
 
   it('embeds calibration.byPovId and round-trips through parse', () => {

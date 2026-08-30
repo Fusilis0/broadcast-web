@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { applyFlatOnWaterPlacement } from '../waterPlanePlacement.ts'
 import {
   drawSponsorBoard,
   planSponsorBoard,
@@ -7,6 +8,9 @@ import {
 } from './boardCompose.ts'
 import { SPONSOR_WATER_Y } from './sponsorLayout.ts'
 import type { SponsorEnuEndpoints } from './types.ts'
+
+/** `flat` = sponsor on the sea; `upright` = billboardChain wall (must not leak). */
+export type SponsorBillboardPlacement = 'flat' | 'upright'
 
 export type SponsorBillboardHandle = {
   root: THREE.Mesh
@@ -102,12 +106,15 @@ function loadHtmlImage(url: string): Promise<HTMLImageElement> {
 }
 
 /**
- * Vertical world panel between A–B at water baseline. Fixed orientation (not camera-billboard).
+ * Branded board between A–B. Default `flat` lies on the water (sponsor features).
+ * Pass `upright` for billboardChain walls — do not change that default.
  * Texture is always a composed board (opaque background + frame + logo or label).
  */
 export async function createSponsorBillboard(
   endpoints: SponsorEnuEndpoints,
+  options?: { placement?: SponsorBillboardPlacement },
 ): Promise<SponsorBillboardHandle> {
+  const placement = options?.placement ?? 'flat'
   const basis = facingBasisFromSpan(
     endpoints.ax,
     endpoints.az,
@@ -141,24 +148,46 @@ export async function createSponsorBillboard(
   })
 
   const geo = new THREE.PlaneGeometry(endpoints.widthM, endpoints.heightM)
-  const mat = new THREE.MeshBasicMaterial({
-    map,
-    side: THREE.DoubleSide,
-    toneMapped: false,
-    transparent: false,
-    depthWrite: true,
-  })
+  const mat =
+    placement === 'flat'
+      ? new THREE.MeshBasicMaterial({
+          map,
+          side: THREE.DoubleSide,
+          toneMapped: false,
+          transparent: true,
+          depthWrite: false,
+          // Stronger than Gerstner ocean (−2) so a filled board wins when coplanar.
+          polygonOffset: true,
+          polygonOffsetFactor: -4,
+          polygonOffsetUnits: -4,
+        })
+      : new THREE.MeshBasicMaterial({
+          map,
+          side: THREE.DoubleSide,
+          toneMapped: false,
+          transparent: false,
+          depthWrite: true,
+        })
   const mesh = new THREE.Mesh(geo, mat)
   mesh.name = `sponsor:${endpoints.id}`
 
-  const up = new THREE.Vector3(0, 1, 0)
-  const m = new THREE.Matrix4().makeBasis(basis.along, up, basis.normal)
-  mesh.quaternion.setFromRotationMatrix(m)
-  mesh.position.set(
-    endpoints.midX,
-    SPONSOR_WATER_Y + endpoints.heightM / 2,
-    endpoints.midZ,
-  )
+  if (placement === 'flat') {
+    if (!applyFlatOnWaterPlacement(mesh, endpoints)) {
+      geo.dispose()
+      mat.dispose()
+      map.dispose()
+      throw new Error(`[sponsors] degenerate span for ${endpoints.id}`)
+    }
+  } else {
+    const up = new THREE.Vector3(0, 1, 0)
+    const m = new THREE.Matrix4().makeBasis(basis.along, up, basis.normal)
+    mesh.quaternion.setFromRotationMatrix(m)
+    mesh.position.set(
+      endpoints.midX,
+      SPONSOR_WATER_Y + endpoints.heightM / 2,
+      endpoints.midZ,
+    )
+  }
 
   return {
     root: mesh,
@@ -168,4 +197,11 @@ export async function createSponsorBillboard(
       map.dispose()
     },
   }
+}
+
+/** Billboard-chain instances: keep the pre-18.7 upright wall. */
+export async function createUprightSponsorBillboard(
+  endpoints: SponsorEnuEndpoints,
+): Promise<SponsorBillboardHandle> {
+  return createSponsorBillboard(endpoints, { placement: 'upright' })
 }

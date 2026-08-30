@@ -40,6 +40,7 @@ import {
   parseVenuePack,
   persistRaceProjectLocal,
   projectsApiBearerToken,
+  resolveBootPanelBoats,
   resolveLoadedFleetBoats,
   resolveProjectsRole,
   retainMaterializedVenuePack,
@@ -56,6 +57,11 @@ import {
   applyOutputMode,
   getStudioBridge,
   getSrtBridge,
+  bumpSrtConnect,
+  bumpSrtDisconnect,
+  createSrtDisconnectHold,
+  srtCheckboxOpenAllowed,
+  srtReopenAllowed,
   normalizeOutputMode,
   resolveClearAppearance,
   resolveLocalFocusPresentation,
@@ -237,6 +243,8 @@ let povIds: string[] = ['1', '2']
 /** Enabled ids for live sockets only (subset of registry; may be empty). */
 let liveBoatIds: string[] = []
 let livePovIds: string[] = []
+/** Explicit Disconnect — `restartIngest('live')` must not reopen sockets. */
+let liveExplicitlyDisconnected = false
 /** Live WS bases (no id) — Fleet panel / sessionStorage; not written to config.json. */
 let wsUrl = DEFAULT_LIVE_WS_BASE
 let wsBoatUrl = DEFAULT_LIVE_WS_BASE
@@ -251,6 +259,7 @@ const lastSrtDecodeError = new Map<string, string>()
 const srtStatusByPov = new Map<string, SrtStatus>()
 const srtTranscodeH264 = new Set<string>()
 let srtSituationTimer: ReturnType<typeof setInterval> | null = null
+const srtHold = createSrtDisconnectHold()
 
 /** Push catalogue category colours onto 2D map boat dots (hull tint is via scene). */
 function syncMapBoatDotColors(): void {
@@ -487,8 +496,13 @@ function clearLiveStatusSub(): void {
   }
 }
 
+function pruneFlowTapToFleet(): void {
+  flowTap.retain([...boatIds, ...povIds, ...(bootConfig?.buoyIds ?? [])])
+}
+
 function applyFleetToScene(): void {
   if (!scene) return
+  pruneFlowTapToFleet()
   const active = scene.setFleetAllowLists({ boatIds, povIds })
   hud.setPovIds(povIds, active)
   hud.setBoatIds(boatIds)
@@ -513,13 +527,20 @@ function syncFleetMapPosesToAllowList(): void {
   seedPlannedFleetOnMap(hud.getStreamMap(), boats, plannedPovs)
 }
 
-async function restartIngest(mode?: 'mock' | 'replay' | 'live'): Promise<void> {
+async function restartIngest(
+  mode?: 'mock' | 'replay' | 'live',
+  opts?: { fromLiveApply?: boolean },
+): Promise<void> {
   clearLiveStatusSub()
   const nextMode = mode ?? ingest?.mode ?? bootConfig?.telemetryMode ?? 'mock'
   ingest?.stop()
   // Live uses enabled-id lists only; mock/replay keep full registry.
   const useBoatIds = nextMode === 'live' ? liveBoatIds : boatIds
   const usePovIds = nextMode === 'live' ? livePovIds : povIds
+  const holdDisconnect =
+    liveExplicitlyDisconnected &&
+    nextMode === 'live' &&
+    opts?.fromLiveApply !== true
   ingest = await startTelemetryIngest({
     mode: nextMode,
     replayUrl,
@@ -527,6 +548,7 @@ async function restartIngest(mode?: 'mock' | 'replay' | 'live'): Promise<void> {
     povIds: usePovIds,
     wsUrl,
     wsBoatUrl,
+    liveConnect: !holdDisconnect,
   })
   applyIngestConnectionStatus(ingest)
   hud.setMode(ingest.mode)
@@ -787,7 +809,63 @@ function srtLiveAnchorMs(povId: string): number {
   return lastSrtTranscodeAt.get(povId) ?? lastSrtOpenAt.get(povId) ?? 0
 }
 
+function restoreSrtUnderlayPlaceholder(): void {
+  videoStreamManager?.dropPresented()
+  if (videoBackgroundTestPattern) {
+    videoBackground?.setTexture(videoBackgroundTestPattern)
+  }
+}
+
+function pushSrtPanelStatus(): void {
+  const fleet = fleetPanel?.getState()
+  if (!fleet) return
+  const povs = fleet.povIds.map((povId) => {
+    if (srtHold.explicitlyDisconnected) {
+      return { povId, state: 'closed' as const, bitrateKbps: 0 }
+    }
+    const st = srtStatusByPov.get(povId)
+    const opened = lastSrtOpenByPov.has(povId)
+    if (st?.state === 'live') {
+      return { povId, state: 'live' as const, bitrateKbps: st.bitrateKbps }
+    }
+    if (st?.state === 'connecting' || (opened && !st)) {
+      return {
+        povId,
+        state: 'connecting' as const,
+        bitrateKbps: st?.bitrateKbps ?? 0,
+      }
+    }
+    if (st?.state === 'error') {
+      return {
+        povId,
+        state: 'retrying' as const,
+        bitrateKbps: st.bitrateKbps,
+      }
+    }
+    if ((fleet.enabledSrtPovIds ?? []).includes(povId)) {
+      return { povId, state: 'idle' as const, bitrateKbps: 0 }
+    }
+    return { povId, state: 'closed' as const, bitrateKbps: 0 }
+  })
+  fleetPanel?.setSrtStatus({ povs })
+}
+
+function forgetSrtPov(povId: string): void {
+  lastSrtOpenByPov.delete(povId)
+  lastSrtOpenAt.delete(povId)
+  lastSrtTranscodeAt.delete(povId)
+  lastSrtDecodeError.delete(povId)
+  srtTranscodeH264.delete(povId)
+  srtStatusByPov.delete(povId)
+  const stillBound = videoStreamManager?.dropPov(povId) ?? false
+  if (!stillBound && videoBackgroundTestPattern) {
+    videoBackground?.setTexture(videoBackgroundTestPattern)
+  }
+}
+
 function beginFfmpegH264Fallback(povId: string, note: string): void {
+  const gen = srtHold.generation
+  if (!srtReopenAllowed(srtHold, gen)) return
   if (srtTranscodeH264.has(povId)) return
   const opened = lastSrtOpenByPov.get(povId)
   const bridge = getSrtBridge()
@@ -807,15 +885,20 @@ function beginFfmpegH264Fallback(povId: string, note: string): void {
       transcodeToH264: true,
     })
     .then((result) => {
+      if (!srtReopenAllowed(srtHold, gen)) return
       lastSrtDecodeError.set(
         povId,
         result.ok ? HEVC_FFMPEG_H264_NOTE : result.error,
       )
       publishSrtSituation()
+      pushSrtPanelStatus()
     })
 }
 
 function maybeFallbackSrtDecodeStall(): void {
+  pushSrtPanelStatus()
+  const gen = srtHold.generation
+  if (!srtReopenAllowed(srtHold, gen)) return
   const now = Date.now()
   const fleet = fleetPanel?.getState()
   for (const povId of fleet?.enabledSrtPovIds ?? []) {
@@ -1404,6 +1487,7 @@ async function applyLoadedRaceProject(project: RaceProject): Promise<void> {
   boatNamesUrl = config.boatNamesUrl
   boatIds = config.boatIds
   povIds = config.povIds
+  pruneFlowTapToFleet()
 
   applyConfigOrigin(config.origin)
   hud.setOrigin(config.origin)
@@ -2016,7 +2100,9 @@ void (async () => {
   wsBoatUrl = stripLiveWsId(config.wsBoatUrl) || DEFAULT_LIVE_WS_BASE
 
   // Ops Fleet panel session overlays config (URLs / ids) without editing files.
+  // A loaded pack's fleet always wins; session boats/ids apply only with no pack.
   const sessionFleet = loadFleetLiveFromSession()
+  const packLoaded = raceProject !== null
   if (sessionFleet) {
     if (typeof sessionFleet.wsUrl === 'string') {
       wsUrl = stripLiveWsId(sessionFleet.wsUrl) || DEFAULT_LIVE_WS_BASE
@@ -2025,10 +2111,12 @@ void (async () => {
       wsBoatUrl =
         stripLiveWsId(sessionFleet.wsBoatUrl) || DEFAULT_LIVE_WS_BASE
     }
-    if (sessionFleet.boatIds?.length) boatIds = [...sessionFleet.boatIds]
+    if (!packLoaded && sessionFleet.boatIds?.length) {
+      boatIds = [...sessionFleet.boatIds]
+    }
     if (sessionFleet.povIds?.length) povIds = [...sessionFleet.povIds]
     // Enabled-for-live subset (may be empty — do not reopen full default fleet).
-    if (Array.isArray(sessionFleet.enabledBoatIds)) {
+    if (!packLoaded && Array.isArray(sessionFleet.enabledBoatIds)) {
       liveBoatIds = sessionFleet.enabledBoatIds.filter((id) =>
         boatIds.includes(id),
       )
@@ -2453,16 +2541,17 @@ void (async () => {
         ? false
         : undefined,
   }))
-  const bootBoats =
-    sessionFleet?.boats?.length && sessionFleet.boats.length > 0
-      ? sessionFleet.boats.map((b) => ({
-          ...b,
-          mapVisible:
-            b.mapVisible === false || packBoatMap[b.id] === false
-              ? false
-              : b.mapVisible,
-        }))
-      : packPanelBoats
+  const bootBoats = resolveBootPanelBoats({
+    packLoaded,
+    packBoats: packPanelBoats,
+    sessionBoats: sessionFleet?.boats,
+  }).map((b) => ({
+    ...b,
+    mapVisible:
+      b.mapVisible === false || packBoatMap[b.id] === false
+        ? false
+        : b.mapVisible,
+  }))
   for (const b of bootBoats) {
     scene.upsertBoatName({
       id: b.id,
@@ -2471,7 +2560,7 @@ void (async () => {
       color: b.color,
     })
   }
-  // Soft pack field (if boot race had boatVisibility) — session boats win after.
+  // Soft pack field (if boot race had boatVisibility). Pack fleet wins over session.
   if (raceProject?.fleet.boatVisibility) {
     scene.setBoatVisibilityModes(raceProject.fleet.boatVisibility)
   }
@@ -2566,7 +2655,10 @@ void (async () => {
           // Connect uses enabled ids only — do not replace scene registry.
           liveBoatIds = [...enabledBoats]
           livePovIds = [...enabledPovs]
-          await restartIngest(goLive ? 'live' : undefined)
+          liveExplicitlyDisconnected = false
+          await restartIngest(goLive ? 'live' : undefined, {
+            fromLiveApply: true,
+          })
           fleetPanel?.setStatus(
             goLive
               ? `live · ${liveBoatIds.length} boat + ${livePovIds.length} drone socket(s) · open ≠ packets`
@@ -2577,40 +2669,128 @@ void (async () => {
         }
       })()
     },
+    onLiveDisconnect: () => {
+      liveExplicitlyDisconnected = true
+      ingest?.disconnectLive?.()
+      const snap = ingest?.getLiveStatus?.()
+      if (snap) pushLiveStatus(snap)
+      else fleetPanel?.setLiveStatus(null)
+      fleetPanel?.setStatus(
+        'disconnected · all live telemetry sockets closed — Connect or Reconnect to resume',
+      )
+    },
+    onLiveEnabledChange: ({
+      boatIds: enabledBoats,
+      povIds: enabledPovs,
+    }) => {
+      liveBoatIds = [...enabledBoats]
+      livePovIds = [...enabledPovs]
+      ingest?.syncLiveIds?.({
+        boatIds: liveBoatIds,
+        povIds: livePovIds,
+      })
+      const snap = ingest?.getLiveStatus?.()
+      if (snap) pushLiveStatus(snap)
+    },
     onSrtApply: ({ streams }) => {
       void (async () => {
-        const bridge = getSrtBridge()
+        const gen = bumpSrtConnect(srtHold)
+        videoStreamManager?.resumeIngest()
         lastSrtOpenByPov.clear()
         lastSrtOpenAt.clear()
         lastSrtTranscodeAt.clear()
         lastSrtDecodeError.clear()
         srtTranscodeH264.clear()
+        const bridge = getSrtBridge()
         if (!bridge) {
           fleetPanel?.setStatus(
             'SRT needs Electron studio — template stored, no caller here',
           )
+          pushSrtPanelStatus()
           publishSrtSituation()
           return
         }
         await bridge.close('all')
+        if (!srtReopenAllowed(srtHold, gen)) return
         srtStatusByPov.clear()
         let opened = 0
         for (const s of streams.slice(0, SRT_WARM_POV_CAP)) {
+          if (!srtReopenAllowed(srtHold, gen)) return
           lastSrtOpenByPov.set(s.povId, { srtId: s.srtId, url: s.url })
           lastSrtOpenAt.set(s.povId, Date.now())
           const result = await bridge.open({ povId: s.povId, url: s.url })
+          if (!srtReopenAllowed(srtHold, gen)) return
           if (result.ok) opened += 1
           else {
             lastSrtDecodeError.set(s.povId, result.error)
-            console.warn('[srt] open failed', s.povId, result.error)
+            console.warn('[srt] open failed', s.povId)
           }
         }
         fleetPanel?.setStatus(
           `SRT · ${opened}/${streams.length} caller(s) · cap ${SRT_WARM_POV_CAP}`,
         )
         const all = await bridge.getStatus()
+        if (!srtReopenAllowed(srtHold, gen)) return
         srtStatusByPov.clear()
         for (const [id, st] of Object.entries(all)) srtStatusByPov.set(id, st)
+        pushSrtPanelStatus()
+        publishSrtSituation()
+      })()
+    },
+    onSrtDisconnect: () => {
+      bumpSrtDisconnect(srtHold)
+      lastSrtOpenByPov.clear()
+      lastSrtOpenAt.clear()
+      lastSrtTranscodeAt.clear()
+      lastSrtDecodeError.clear()
+      srtTranscodeH264.clear()
+      srtStatusByPov.clear()
+      restoreSrtUnderlayPlaceholder()
+      const bridge = getSrtBridge()
+      if (bridge) void bridge.close('all')
+      pushSrtPanelStatus()
+      publishSrtSituation()
+      fleetPanel?.setStatus(
+        'SRT disconnected · all callers closed — Connect SRT to resume',
+      )
+    },
+    onSrtEnabledChange: ({ streams }) => {
+      void (async () => {
+        const gen = srtHold.generation
+        const wanted = new Set(streams.map((s) => s.povId))
+        const bridge = getSrtBridge()
+        for (const povId of [...lastSrtOpenByPov.keys()]) {
+          if (wanted.has(povId)) continue
+          forgetSrtPov(povId)
+          if (bridge) void bridge.close({ povId })
+        }
+        if (!srtCheckboxOpenAllowed(srtHold) || !srtReopenAllowed(srtHold, gen)) {
+          pushSrtPanelStatus()
+          publishSrtSituation()
+          return
+        }
+        if (!bridge) {
+          pushSrtPanelStatus()
+          publishSrtSituation()
+          return
+        }
+        for (const s of streams.slice(0, SRT_WARM_POV_CAP)) {
+          if (!srtReopenAllowed(srtHold, gen)) return
+          if (lastSrtOpenByPov.has(s.povId)) continue
+          lastSrtOpenByPov.set(s.povId, { srtId: s.srtId, url: s.url })
+          lastSrtOpenAt.set(s.povId, Date.now())
+          const result = await bridge.open({ povId: s.povId, url: s.url })
+          if (!srtReopenAllowed(srtHold, gen)) return
+          if (!result.ok) {
+            lastSrtDecodeError.set(s.povId, result.error)
+            console.warn('[srt] open failed', s.povId)
+          }
+        }
+        const all = await bridge.getStatus()
+        if (!srtReopenAllowed(srtHold, gen)) return
+        srtStatusByPov.clear()
+        for (const [id, st] of Object.entries(all)) srtStatusByPov.set(id, st)
+        pushSrtPanelStatus()
         publishSrtSituation()
       })()
     },
@@ -2735,6 +2915,8 @@ void (async () => {
       clearInterval(srtSituationTimer)
       srtSituationTimer = null
     }
+    const srtBridge = getSrtBridge()
+    if (srtBridge) void srtBridge.close('all')
     ingest?.stop()
     stopOpenMeteoWind()
     ndiController?.dispose()

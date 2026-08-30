@@ -45,7 +45,7 @@ export type WorldFeature = {
   name: string
   type: WorldFeatureType
   points: WorldGpsPoint[]
-  /** Optional vertical extent (sponsors, poles). */
+  /** Optional extent in meters: sponsor across-water depth; billboardChain / poles vertical height. */
   heightM?: number
   /** Hex fill 0xRRGGBB when known. */
   color?: number

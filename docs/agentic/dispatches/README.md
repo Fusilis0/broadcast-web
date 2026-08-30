@@ -32,9 +32,67 @@ Templates: see `../DISPATCH_PROTOCOL.md`.
 
 PRF accepted 2026-08-27 (`npm test` **869 + 23**). Operator 2026-08-28: HUD matches then-caps. **Studio 60 cancelled.** Lock is three NDI senders at 30.
 
-### Active
+### Active 2026-08-29 — Phase 18 (operator notes)
 
-None. Worker queue **clear**. Next gate is operator smoke: video mode, Sync `PTS → NTP` (not `→ —`).
+Roadmap: [`../../roadmap/phases-roadmap.md`](../../roadmap/phases-roadmap.md) → Phase 18. Root causes traced and operator locks recorded in `BW_MEMO` (2026-08-29). **Ten dispatches issued; wave 1 accepted 2026-08-29.** Each is one worker chat.
+
+Everything inside a wave has **disjoint file ownership and runs in parallel**. Waves are sequential.
+
+**Wave 1 — accepted 2026-08-29.** BW verified merged tree: `npm test` **950 + 23**, `npm run build` green.
+
+| DSP | Owner | Result |
+| --- | --- | --- |
+| [`done/DSP-OUT-20260829-01-ndi-color-space.md`](./done/DSP-OUT-20260829-01-ndi-color-space.md) | OUT | ★ `applyNdiCaptureColorSpace` pins AR/3D FBOs `SRGBColorSpace` on create **and** resize; `createScene` pins `renderer.outputColorSpace`. 2D untouched (already canvas sRGB). Alpha not rewritten. **OBS smoke accepted 2026-08-29** — operator: match is fine, slightly more saturated/bright, no follow-up. |
+| [`done/DSP-SCN-20260829-01-project-fleet-fidelity.md`](./done/DSP-SCN-20260829-01-project-fleet-fidelity.md) | SCN | ★ `boats` present (incl. `[]`) is the complete fleet; never `DEFAULT_BOAT_IDS`. Out-of-band ids round-trip; loaded pack beats stale session. `loadConfig.normalizeBoatIds` untouched for config/mock. |
+| [`done/DSP-SCN-20260829-02-sponsor-flat-on-sea.md`](./done/DSP-SCN-20260829-02-sponsor-flat-on-sea.md) | SCN | Sponsors flat on water via shared `applyFlatOnWaterPlacement` (`y = 0.08`, polygon offset −4); `billboardChain` → `createUprightSponsorBillboard`. `heightM` is now across-water depth. |
+| [`done/DSP-TEL-20260829-01-telemetry-disconnect.md`](./done/DSP-TEL-20260829-01-telemetry-disconnect.md) | TEL | `disconnectLive()` + `intentionalStop` + generation bump; only Connect / Reconnect reopen. Uncheck Live closes that id now. SRT half left structurally alone for SRT-01. |
+
+**Wave-1 note for future waves:** SCN-02 reported a "pre-existing TEL flake" in `live.test.ts` (`retrying` vs `closed`). BW re-ran that file **six times at HEAD: 22/22 every run**. It is deterministic (fake timers + `ManualWebSocket`). That report was a mid-merge artefact, not a flake and not pre-existing — the same pattern as OUT-07 in Phase 17 wave 2. **Do not chase it.**
+
+**Human smoke 2026-08-29:** OBS colour **accepted** (slightly bright/saturated, no work). Telemetry + SRT Connect/Disconnect **accepted**. Sponsor flat-on-sea still open (not re-checked this session). FPS still failed — that is the dump below, not a wave-1 miss.
+
+**Wave 2 — accepted 2026-08-29.** BW verified merged tree: `npm test` **982 + 23**, `npm run build` green. The `src/main.ts` region locks **held** — all hunks fall inside their owners' ranges.
+
+| DSP | Owner | Result |
+| --- | --- | --- |
+| [`done/DSP-PRF-20260829-01-ndi-stage-timing.md`](./done/DSP-PRF-20260829-01-ndi-stage-timing.md) | PRF | ★ Instrument landed; **operator dump received 2026-08-29**. Send AR **15** / 3D **15** / 2D **3**. Clock ~50 Hz (495 ticks / 10 s, mean 20.2 ms, max 109.5). Walls: `*EnqueueIpc` 17–23 ms, `2dGrab` 120–193 ms. `rgbaToBgra` 7 ms with `dropBusy=0`. Phase-lock drowned in a mixed `captureTicks` smear. |
+| [`done/DSP-TEL-20260829-02-flow-live-assets.md`](./done/DSP-TEL-20260829-02-flow-live-assets.md) | TEL (+SCN file) | Registry ids always carded (incl. deliberately-disconnected); non-registry ids only within `FLOW_CARD_RECENCY_MS = 5000`. `buildFlowCards(snapshot, registry, nowMs)` is pure. `flowTap.remove` / `retain`; prune on allow-list rebuild + project load. |
+| [`done/DSP-SRT-20260829-01-srt-disconnect.md`](./done/DSP-SRT-20260829-01-srt-disconnect.md) | SRT | Disconnect SRT: generation hold + `explicitlyDisconnected`; `srtReopenAllowed` consulted by the stall watchdog **and** `beginFfmpegH264Fallback`. Deliberate disconnect → **colour bars**, not the frozen last frame. `beforeunload` → `close('all')`. `open failed` logs povId only. |
+
+**Region locks worked — keep doing this.** Three workers edited `src/main.ts` in parallel with zero conflicts. The only cross-boundary edit was PRF-01 adding `?.` to `fleetPanel?.setSrtStatus` on a line SRT-01 had just created, to satisfy `tsc`. BW checked it: `pushSrtPanelStatus()` already early-returns when the panel is null, so the `?.` is redundant-but-correct and hides nothing.
+
+### Wave 3 — accepted 2026-08-30 (code). Live after-dump still open.
+
+BW verified merged tree: `npm test` **1007 + 23**, `npm run build` green. Mid-wave red reports were merge artefacts.
+
+| DSP | Owner | Result |
+| --- | --- | --- |
+| [`done/DSP-OUT-20260829-02-zero-copy-ndi-frames.md`](./done/DSP-OUT-20260829-02-zero-copy-ndi-frames.md) | OUT + PLT | ★ `grandi.FourCC` has **RGBA/RGBX**. Hot path native RGBA + `Buffer.copy`. Pool of 3, keep-newest. Rate 30/1. **Negative stride rejected** — AR/3D inverted until `-02` flip. |
+| [`done/DSP-OUT-20260829-04-independent-channel-clocks.md`](./done/DSP-OUT-20260829-04-independent-channel-clocks.md) | OUT | ★ Phase gate ~32 nominal; PBO stagger retired; `canBegin()` before render; `sendFrame` via `setTimeout(0)`; slice replaced by stolen pixel ring. |
+| [`done/DSP-OUT-20260830-01-2d-native-grab.md`](./done/DSP-OUT-20260830-01-2d-native-grab.md) | OUT | ★ Native-size `getImageData(srcW,srcH)` + `blitRgbaLetterbox` into pooled 1080p. Output still 1920×1080. |
+
+**Cancelled:** [`done/DSP-OUT-20260829-05-gpu-swizzle.md`](./done/DSP-OUT-20260829-05-gpu-swizzle.md) — RGBA exists; nothing to swizzle.
+
+**Known air regression:** AR/3D upside-down until [`done/DSP-OUT-20260830-02-ndi-capture-flip.md`](./done/DSP-OUT-20260830-02-ndi-capture-flip.md) — **accepted 2026-08-30** (GPU `blitFramebuffer` inverted dest Y before PBO). Human OBS smoke still open.
+
+**Wave 4:**
+
+| DSP | Owner | Goal |
+| --- | --- | --- |
+| [`done/DSP-OUT-20260829-05-gpu-swizzle.md`](./done/DSP-OUT-20260829-05-gpu-swizzle.md) | OUT | ★ **Cancelled** — `grandi` has RGBA |
+| [`done/DSP-OUT-20260830-02-ndi-capture-flip.md`](./done/DSP-OUT-20260830-02-ndi-capture-flip.md) | OUT | ★ GPU Y-flip via `blitFramebuffer` inverted dest Y **before** PBO; `bottomUp: false`. 2D untouched. Suite **1014 + 23**. OBS smoke open. |
+| [`active/DSP-OUT-20260829-03-remove-timecode-ui.md`](./active/DSP-OUT-20260829-03-remove-timecode-ui.md) | OUT | Timecode/qlock out of the picture; code kept |
+| [`active/DSP-SCN-20260829-03-remove-pip-minimap.md`](./active/DSP-SCN-20260829-03-remove-pip-minimap.md) | SCN | PiP card out of the UI; 2D NDI keeps sending and now fills 16:9 |
+
+**Cancelled:** portrait 1080×1920 for the 2D map — operator correction, 2D stays 1920×1080. The 2D UI redesign waits for the operator's next-iteration details.
+
+### Pulled 2026-08-29 (no DSP) — HEVC WebCodecs copy-decode
+
+`1a4e0ae` `fix(srt): unescape HEVC SPS so WebCodecs can copy-decode DJI`. EPB `0x000003` was leaking into `hev1.*` → transcode. `unescapeRbsp` in `tsDemux.ts`. ffmpeg `-c copy` + WebCodecs HEVC is the intended live path again; H.264 fallback stays for real stalls.
+
+**Human:** Race ops `codec=hevc`, no `ffmpeg→h264`. Sync `PTS → NTP` still TEL-04.
+
+### Done 2026-08-28 night (SRT NTP alias + frame fit)
 
 ### Done 2026-08-28 night (SRT NTP alias + frame fit)
 

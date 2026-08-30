@@ -71,6 +71,13 @@ function fmtPktAge(ageMs: number | null): string {
 /** Compact per-id token: `d1=open/120ms` or `b40=open/nopkt`. */
 function formatIdSocket(prefix: 'd' | 'b', s: LiveIdSocketStatus): string {
   const id = s.id !== '' ? s.id : '?'
+  if (s.status === 'retrying') {
+    const delay =
+      s.retryInMs === undefined || s.retryInMs === null
+        ? '?'
+        : fmtPktAge(s.retryInMs)
+    return `${prefix}${id}=retrying/${delay}`
+  }
   return `${prefix}${id}=${s.status}/${fmtPktAge(s.lastPacketAgeMs)}`
 }
 

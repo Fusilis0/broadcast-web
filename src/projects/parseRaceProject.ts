@@ -3,7 +3,8 @@ import { parseRounding } from '../scene/features/rounding.ts'
 import { parseHexColorCss } from '../scene/boatNames/categoryColor.ts'
 import type { WorldFeature, WorldFeatureType } from '../scene/features/types.ts'
 import { parseOptionalHexColor } from '../scene/sponsors/boardCompose.ts'
-import { normalizeBoatIds, normalizePovIds } from '../config/loadConfig.ts'
+import { normalizePovIds } from '../config/loadConfig.ts'
+import { parseProjectFleetIds } from './fleetBoats.ts'
 import { parseSrtByPovId } from '../output/srtCallerUrl.ts'
 import type {
   RaceProject,
@@ -62,7 +63,11 @@ function parseBoatVisibility(
   return Object.keys(out).length > 0 ? out : undefined
 }
 
-/** Soft optional fleet.boats — invalid entries dropped; omit if empty. */
+/**
+ * Soft optional fleet.boats. Missing / non-array → omitted (legacy pack).
+ * A present array — including `[]` — is the complete fleet; invalid rows
+ * dropped; empty stays empty.
+ */
 function parseFleetBoats(raw: unknown): RaceProjectFleetBoat[] | undefined {
   if (!Array.isArray(raw)) return undefined
   const out: RaceProjectFleetBoat[] = []
@@ -98,7 +103,7 @@ function parseFleetBoats(raw: unknown): RaceProjectFleetBoat[] | undefined {
     }
     out.push(row)
   }
-  return out.length > 0 ? out : undefined
+  return out
 }
 
 /** Soft id→boolean map (map visibility). Non-boolean values dropped; omit if empty. */
@@ -262,9 +267,13 @@ export function parseRaceProject(raw: unknown): RaceProject {
   if (!Array.isArray(fleetRaw.boatIds)) {
     throw new Error('RaceProject.fleet.boatIds must be an array')
   }
-  const boatIds = normalizeBoatIds(fleetRaw.boatIds)
-  const fleet: RaceProjectFleet = { boatIds }
   const boats = parseFleetBoats(fleetRaw.boats)
+  // `boats` present (including []) is the complete fleet; never DEFAULT_BOAT_IDS.
+  const boatIds =
+    boats !== undefined
+      ? boats.map((b) => b.id)
+      : parseProjectFleetIds(fleetRaw.boatIds)
+  const fleet: RaceProjectFleet = { boatIds }
   if (boats !== undefined) fleet.boats = boats
   const boatNamesUrl = parseOptionalUrl(fleetRaw.boatNamesUrl)
   if (boatNamesUrl !== undefined) fleet.boatNamesUrl = boatNamesUrl

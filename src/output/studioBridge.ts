@@ -21,6 +21,16 @@ export type StudioNdiStatus = {
 
 export type StudioNdiStatusAll = Record<NdiChannelId, StudioNdiStatus>
 
+export type NdiMainPerfChannel = {
+  rgbaToBgra: { count: number; sumMs: number; maxMs: number; meanMs: number }
+  video: { count: number; sumMs: number; maxMs: number; meanMs: number }
+  dropBusy: number
+}
+
+export type NdiMainPerfSummary = {
+  channels: Record<NdiChannelId, NdiMainPerfChannel>
+}
+
 export type StudioNdiStartResult = {
   ok: boolean
   channel?: NdiChannelId
@@ -29,14 +39,20 @@ export type StudioNdiStartResult = {
   error?: string
 }
 
+export type NdiPixelFormat = 'rgba' | 'uyvy' | 'uyva'
+
 export type StudioNdiFrame = {
   /** Omit → `'ar'` (back-compat). */
   channel?: NdiChannelId
   width: number
   height: number
-  /** RGBA8888, WebGL bottom-up (readPixels order). */
+  /**
+   * Packed pixels. Default / omit = RGBA8888.
+   * `uyvy` = 4:2:2 (2 bytes/px). `uyva` = UYVY + alpha plane (3 bytes/px).
+   */
   data: ArrayBuffer
   bottomUp?: boolean
+  pixelFormat?: NdiPixelFormat
 }
 
 export type StudioNdiBridge = {
@@ -52,7 +68,8 @@ export type StudioNdiBridge = {
     channelOrOpts?: NdiChannelId | 'all' | { channel?: NdiChannelId | 'all' },
   ) => Promise<void>
   /**
-   * Push one RGBA frame (top-down or bottom-up — main flips as needed).
+   * Push one packed frame. Default `pixelFormat` is RGBA; pumps send
+   * `uyvy` (3D/2D) or `uyva` (AR alpha plate) to cut the IPC clone.
    * `data` is transferred when possible; do not reuse after send.
    */
   sendFrame: (frame: StudioNdiFrame) => void
@@ -61,6 +78,10 @@ export type StudioNdiBridge = {
     channel?: NdiChannelId | 'all',
   ) => Promise<StudioNdiStatus | StudioNdiStatusAll>
   getStatusAll: () => Promise<StudioNdiStatusAll>
+  /** Last 1 s main-process stage window (does not reset). Optional. */
+  getPerfSummary?: () => Promise<NdiMainPerfSummary>
+  /** 1 Hz push of main-process rgbaToBgra / grandi.video / busy-drop counts. */
+  onPerfSummary?: (cb: (summary: NdiMainPerfSummary) => void) => () => void
 }
 
 export type StudioConfigKind = 'public' | 'userData'
@@ -90,6 +111,8 @@ export type BroadcastStudioBridge = {
    * Returns an unsubscribe function.
    */
   onStudioTick: (cb: () => void) => () => void
+  /** Debug-session only: renderer → main NDJSON (Electron sandbox blocks fetch). */
+  debugLog?: (payload: unknown) => void
 }
 
 declare global {
@@ -109,4 +132,36 @@ export function getStudioBridge(): BroadcastStudioBridge | null {
     return bridge
   }
   return null
+}
+
+/** Renderer debug ingest: IPC (works in studio) + HTTP (works in Chrome/tests). */
+export function debugSessionLog(payload: {
+  hypothesisId: string
+  location: string
+  message: string
+  data?: Record<string, unknown>
+  runId?: string
+}): void {
+  const body = {
+    sessionId: '173fbb',
+    runId: payload.runId ?? 'post-fix',
+    hypothesisId: payload.hypothesisId,
+    location: payload.location,
+    message: payload.message,
+    data: payload.data ?? {},
+    timestamp: Date.now(),
+  }
+  try {
+    getStudioBridge()?.debugLog?.(body)
+  } catch {
+    /* ignore */
+  }
+  fetch('http://127.0.0.1:7438/ingest/7196fb84-148e-4d0c-af68-4fcb53313232', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Debug-Session-Id': '173fbb',
+    },
+    body: JSON.stringify(body),
+  }).catch(() => {})
 }

@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { createFlowTap } from '../telemetry/flowTap.ts'
 import {
   buildFlowCards,
+  FLOW_CARD_RECENCY_MS,
   FLOW_LIVE_JSON_STORAGE_KEY,
   FLOW_POLL_MS,
   formatFlowJson,
@@ -44,15 +45,19 @@ describe('normalizeFlowSnapshot / buildFlowCards', () => {
   it('stubs empty when TEL-10 snapshot is missing', () => {
     expect(normalizeFlowSnapshot(undefined)).toEqual([])
     expect(normalizeFlowSnapshot(null)).toEqual([])
-    expect(buildFlowCards(undefined, {})).toEqual([])
+    expect(buildFlowCards(undefined, {}, 0)).toEqual([])
   })
 
   it('keeps registry boats as closed telem-only windows', () => {
-    const cards = buildFlowCards([], {
-      boats: ['21'],
-      povs: ['5'],
-      buoys: ['91'],
-    })
+    const cards = buildFlowCards(
+      [],
+      {
+        boats: ['21'],
+        povs: ['5'],
+        buoys: ['91'],
+      },
+      0,
+    )
     expect(cards.map((c) => c.id).sort()).toEqual(['21', '5', '91'])
     const boat = cards.find((c) => c.id === '21')!
     expect(boat.kind).toBe('boat')
@@ -85,11 +90,79 @@ describe('normalizeFlowSnapshot / buildFlowCards', () => {
       receivedAtMs: 12,
       body: { srtId: '30', framesDecoded: 3, redactedUrl: 'srt://h/?streamid=read:cam30:pub30:***' },
     })
-    const cards = buildFlowCards(tap.snapshot(), { povs: ['5'] })
+    const cards = buildFlowCards(tap.snapshot(), { povs: ['5'] }, 12)
     expect(cards).toHaveLength(1)
     expect(cards[0]!.badges).toEqual(['telem', 'srt', 'anchor'])
     expect(cards[0]!.telem?.body).toMatchObject({ ts: 99 })
     expect(cards[0]!.srt?.body).toMatchObject({ srtId: '30' })
+  })
+
+  it('always shows a registry id with no traffic (disconnected stays)', () => {
+    const nowMs = 50_000
+    const cards = buildFlowCards([], { povs: ['1', '2'] }, nowMs)
+    expect(cards.map((c) => c.id)).toEqual(['1', '2'])
+    expect(cards.every((c) => c.telem == null && c.srt == null)).toBe(true)
+  })
+
+  it('shows an unknown id that is actively sending', () => {
+    const tap = createFlowTap()
+    tap.push({
+      kind: 'drone',
+      id: 'dji-7',
+      receivedAtMs: 9_000,
+      body: { id: 'dji-7' },
+    })
+    const cards = buildFlowCards(tap.snapshot(), { povs: ['1'] }, 10_000)
+    expect(cards.map((c) => c.id)).toEqual(['1', 'dji-7'])
+  })
+
+  it('drops an unknown id once it stops sending past the recency window', () => {
+    const tap = createFlowTap()
+    tap.push({
+      kind: 'drone',
+      id: 'dji-7',
+      receivedAtMs: 4_000,
+      body: { id: 'dji-7' },
+    })
+    const stillLive = buildFlowCards(
+      tap.snapshot(),
+      { povs: ['1'] },
+      4_000 + FLOW_CARD_RECENCY_MS,
+    )
+    expect(stillLive.map((c) => c.id)).toEqual(['1', 'dji-7'])
+    const aged = buildFlowCards(
+      tap.snapshot(),
+      { povs: ['1'] },
+      4_000 + FLOW_CARD_RECENCY_MS + 1,
+    )
+    expect(aged.map((c) => c.id)).toEqual(['1'])
+  })
+
+  it('drops a deleted id after the tap is pruned, even if the last event is still recent', () => {
+    const tap = createFlowTap()
+    tap.push({ kind: 'drone', id: '1', receivedAtMs: 10_000, body: { id: '1' } })
+    tap.push({ kind: 'drone', id: '2', receivedAtMs: 10_000, body: { id: '2' } })
+    tap.retain(['1'])
+    const cards = buildFlowCards(tap.snapshot(), { povs: ['1'] }, 10_000)
+    expect(cards.map((c) => c.id)).toEqual(['1'])
+  })
+
+  it('ages out a non-registry SRT-only id when pushes stop', () => {
+    const tap = createFlowTap()
+    tap.push({
+      kind: 'srt',
+      id: '7',
+      receivedAtMs: 1_000,
+      body: { srtId: '30', framesDecoded: 1 },
+    })
+    const live = buildFlowCards(tap.snapshot(), { povs: ['1'] }, 2_000)
+    expect(live.map((c) => c.id)).toEqual(['1', '7'])
+    const aged = buildFlowCards(
+      tap.snapshot(),
+      { povs: ['1'] },
+      1_000 + FLOW_CARD_RECENCY_MS + 1,
+    )
+    expect(aged.map((c) => c.id)).toEqual(['1'])
   })
 })
 

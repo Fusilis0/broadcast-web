@@ -9,7 +9,7 @@ Existing `courseUrl` / `sponsorsUrl` / `flagsUrl` fixtures remain the V1 source 
 | --- | --- | --- | --- |
 | `mark` | 1 | buoy + label | orange dot |
 | `gateLeft` / `gateRight` | 1 each (paired by name) | gate segment + buoys | green line |
-| `sponsor` | 2 (A–B) | billboard panel | coloured footprint line |
+| `sponsor` | 2 (A–B) | flat water board | coloured footprint line |
 | `billboardChain` | ≥2 polyline | repeated sponsor panels at `spacingM` | polyline |
 | `buoy` | 1 | racing-mark buoy prop | orange dot (+ cyan ring if `telemetryId`) |
 | `flagP1` / `flagP2` | 1 each | countdown poles | diamond icons |

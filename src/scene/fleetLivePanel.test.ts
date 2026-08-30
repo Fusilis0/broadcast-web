@@ -221,3 +221,222 @@ describe('fleet live SRT config (L9)', () => {
     handle.stop()
   })
 })
+
+describe('fleet live telemetry disconnect', () => {
+  afterEach(() => {
+    document.body.replaceChildren()
+    sessionStorage.clear()
+  })
+
+  function mount(opts?: {
+    onLiveDisconnect?: () => void
+    onLiveEnabledChange?: (s: { boatIds: string[]; povIds: string[] }) => void
+    onLiveApply?: () => void
+  }) {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    const handle = startFleetLivePanel({
+      container: host,
+      initial: {
+        wsUrl: 'ws://example/ws',
+        wsBoatUrl: 'ws://example/ws',
+        boatIds: ['21', '22'],
+        povIds: ['1'],
+        enabledBoatIds: ['21', '22'],
+        enabledPovIds: ['1'],
+        boats: [
+          { id: '21', name: '21', category: '' },
+          { id: '22', name: '22', category: '' },
+        ],
+        activePovId: '1',
+      },
+      onFleetChange: () => {},
+      onPovChange: () => {},
+      onLiveApply: opts?.onLiveApply ?? (() => {}),
+      onLiveDisconnect: opts?.onLiveDisconnect,
+      onLiveEnabledChange: opts?.onLiveEnabledChange,
+    })
+    return { host, handle }
+  }
+
+  it('places Disconnect beside Connect live / Reconnect without renaming Connect SRT', () => {
+    const { host, handle } = mount()
+    const labels = [...host.querySelectorAll('button')].map((b) => b.textContent)
+    expect(labels).toContain('Disconnect')
+    expect(labels).toContain('Connect live')
+    expect(labels).toContain('Reconnect')
+    expect(labels).toContain('Connect SRT')
+    const disconnect = host.querySelector(
+      '[data-ops="live-ws-disconnect"]',
+    ) as HTMLButtonElement
+    expect(disconnect).toBeTruthy()
+    expect(disconnect.disabled).toBe(true)
+    expect(host.querySelector('[data-ops="srt-situation"]')).toBeTruthy()
+    handle.stop()
+  })
+
+  it('Disconnect click fires onLiveDisconnect', () => {
+    let n = 0
+    const { host, handle } = mount({ onLiveDisconnect: () => n++ })
+    handle.setLiveStatus({
+      drone: 'open',
+      boat: 'open',
+      droneIds: [
+        {
+          id: '1',
+          url: 'ws://example/ws?subscribe=1',
+          status: 'open',
+          lastPacketAtMs: null,
+          lastPacketAgeMs: null,
+        },
+      ],
+      boatIds: [
+        {
+          id: '21',
+          url: 'ws://example/ws?subscribe=21',
+          status: 'open',
+          lastPacketAtMs: null,
+          lastPacketAgeMs: null,
+        },
+      ],
+    })
+    const disconnect = host.querySelector(
+      '[data-ops="live-ws-disconnect"]',
+    ) as HTMLButtonElement
+    expect(disconnect.disabled).toBe(false)
+    const connect = [...host.querySelectorAll('button')].find(
+      (b) => b.textContent === 'Connect live',
+    ) as HTMLButtonElement
+    expect(connect.disabled).toBe(true)
+    disconnect.click()
+    expect(n).toBe(1)
+    const status = host.querySelector('.fleet-live__status')
+    expect(status?.textContent).toMatch(/disconnected/i)
+    handle.stop()
+  })
+
+  it('unchecking Live notifies onLiveEnabledChange with that id removed', () => {
+    const seen: { boatIds: string[]; povIds: string[] }[] = []
+    const { host, handle } = mount({
+      onLiveEnabledChange: (s) => seen.push(s),
+    })
+    const row = host.querySelector('[data-fleet-boat-id="21"]')
+    const enable = row?.querySelector(
+      '.fleet-live__enable',
+    ) as HTMLInputElement
+    expect(enable?.checked).toBe(true)
+    enable.checked = false
+    enable.dispatchEvent(new Event('change'))
+    expect(seen.length).toBeGreaterThan(0)
+    expect(seen[seen.length - 1]?.boatIds).not.toContain('21')
+    expect(seen[seen.length - 1]?.boatIds).toContain('22')
+    handle.stop()
+  })
+})
+
+describe('fleet live SRT disconnect', () => {
+  afterEach(() => {
+    document.body.replaceChildren()
+    sessionStorage.clear()
+  })
+
+  function mount(opts?: {
+    onSrtDisconnect?: () => void
+    onSrtEnabledChange?: (s: {
+      enabledSrtPovIds: string[]
+      streams: { povId: string; srtId: string; url: string }[]
+    }) => void
+    onSrtApply?: (s: {
+      streams: { povId: string; srtId: string; url: string }[]
+    }) => void
+  }) {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    const handle = startFleetLivePanel({
+      container: host,
+      initial: {
+        wsUrl: 'ws://example/ws',
+        wsBoatUrl: 'ws://example/ws',
+        boatIds: [],
+        povIds: ['1', '2'],
+        enabledBoatIds: [],
+        enabledPovIds: [],
+        boats: [],
+        activePovId: '1',
+        srtUrlTemplate: '',
+        srtByPovId: { '1': '18', '2': '19' },
+        enabledSrtPovIds: ['1', '2'],
+      },
+      onFleetChange: () => {},
+      onPovChange: () => {},
+      onLiveApply: () => {},
+      onSrtApply: opts?.onSrtApply,
+      onSrtDisconnect: opts?.onSrtDisconnect,
+      onSrtEnabledChange: opts?.onSrtEnabledChange,
+    })
+    return { host, handle }
+  }
+
+  it('places Disconnect SRT beside Connect SRT without renaming telemetry Disconnect', () => {
+    const { host, handle } = mount()
+    const labels = [...host.querySelectorAll('button')].map((b) => b.textContent)
+    expect(labels).toContain('Disconnect SRT')
+    expect(labels).toContain('Connect SRT')
+    expect(labels).toContain('Disconnect')
+    const disconnect = host.querySelector(
+      '[data-ops="srt-disconnect"]',
+    ) as HTMLButtonElement
+    expect(disconnect).toBeTruthy()
+    expect(disconnect.disabled).toBe(true)
+    expect(host.querySelector('[data-ops="srt-summary"]')).toBeTruthy()
+    handle.stop()
+  })
+
+  it('Disconnect SRT click fires onSrtDisconnect', () => {
+    let n = 0
+    const { host, handle } = mount({ onSrtDisconnect: () => n++ })
+    handle.setSrtStatus({
+      povs: [
+        { povId: '1', state: 'live', bitrateKbps: 1200 },
+        { povId: '2', state: 'connecting', bitrateKbps: 0 },
+      ],
+    })
+    const disconnect = host.querySelector(
+      '[data-ops="srt-disconnect"]',
+    ) as HTMLButtonElement
+    expect(disconnect.disabled).toBe(false)
+    const connect = [...host.querySelectorAll('button')].find(
+      (b) => b.textContent === 'Connect SRT',
+    ) as HTMLButtonElement
+    expect(connect.disabled).toBe(true)
+    disconnect.click()
+    expect(n).toBe(1)
+    const status = host.querySelector('.fleet-live__status')
+    expect(status?.textContent).toMatch(/SRT disconnected/i)
+    handle.stop()
+  })
+
+  it('unchecking Vid notifies onSrtEnabledChange with that POV removed', () => {
+    const seen: {
+      enabledSrtPovIds: string[]
+      streams: { povId: string }[]
+    }[] = []
+    const { host, handle } = mount({
+      onSrtEnabledChange: (s) => seen.push(s),
+    })
+    const vids = [
+      ...host.querySelectorAll('[data-ops="srt-vid"]'),
+    ] as HTMLInputElement[]
+    expect(vids).toHaveLength(2)
+    expect(vids[0]?.checked).toBe(true)
+    vids[0]!.checked = false
+    vids[0]!.dispatchEvent(new Event('change'))
+    expect(seen.length).toBeGreaterThan(0)
+    const last = seen[seen.length - 1]!
+    expect(last.enabledSrtPovIds).not.toContain('1')
+    expect(last.enabledSrtPovIds).toContain('2')
+    expect(last.streams.map((s) => s.povId)).not.toContain('1')
+    expect(last.streams.map((s) => s.povId)).toContain('2')
+    handle.stop()
+  })
+})

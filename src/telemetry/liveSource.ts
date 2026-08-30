@@ -1,6 +1,11 @@
 import type { MockChannel, MockPacket } from './mockSource.ts'
 
-export type LiveWsStatus = 'idle' | 'connecting' | 'open' | 'closed'
+export type LiveWsStatus =
+  | 'idle'
+  | 'connecting'
+  | 'open'
+  | 'closed'
+  | 'retrying'
 
 /** Per-id live socket snapshot (handshake vs data). */
 export type LiveIdSocketStatus = {
@@ -11,6 +16,11 @@ export type LiveIdSocketStatus = {
   lastPacketAtMs: number | null
   /** Age in ms at snapshot time; null if no packets. */
   lastPacketAgeMs: number | null
+  /**
+   * Remaining backoff until the next reconnect attempt; set only while
+   * `status === 'retrying'`.
+   */
+  retryInMs?: number | null
 }
 
 export type LiveStatusSnapshot = {
@@ -48,6 +58,14 @@ export type LiveSourceOptions = {
   noPacketWarnMs?: number
 }
 
+export type LiveStopOptions = {
+  /**
+   * Keep per-id slots as `closed` so the HUD can show "disconnected"
+   * instead of idle-empty. Default false (teardown / restart).
+   */
+  retainSlots?: boolean
+}
+
 type ChannelSocket = {
   channel: MockChannel
   id: string
@@ -59,6 +77,8 @@ type ChannelSocket = {
   openAtMs: number | null
   lastPacketAtMs: number | null
   noPacketWarned: boolean
+  /** Wall-clock when the scheduled reconnect fires; null if none. */
+  retryAtMs: number | null
 }
 
 function trimUrl(value: string | undefined): string {
@@ -88,6 +108,7 @@ function aggregateStatus(statuses: LiveWsStatus[]): LiveWsStatus {
   if (statuses.length === 0) return 'idle'
   if (statuses.some((s) => s === 'open')) return 'open'
   if (statuses.some((s) => s === 'connecting')) return 'connecting'
+  if (statuses.some((s) => s === 'retrying')) return 'retrying'
   if (statuses.every((s) => s === 'closed')) return 'closed'
   return 'idle'
 }
@@ -118,8 +139,6 @@ export function idFromLiveWsUrl(url: string): string {
  * Soft-fails on missing URLs / connect errors; reconnects with capped exponential backoff.
  */
 export class LiveTelemetrySource {
-  private readonly droneUrls: string[]
-  private readonly boatUrls: string[]
   private readonly onPacket?: (packet: MockPacket) => void
   private readonly onStatus?: (channel: MockChannel, status: LiveWsStatus) => void
   private readonly WebSocketImpl: typeof WebSocket
@@ -129,6 +148,14 @@ export class LiveTelemetrySource {
 
   private running = false
   private intentionalStop = false
+  /**
+   * Bumped on every `start()` / `stop()`. Socket handlers capture the
+   * generation at `connect()` so a late `onclose` / `onmessage` from a
+   * previous socket cannot touch the current source.
+   */
+  private generation = 0
+  private droneUrls: string[]
+  private boatUrls: string[]
   private readonly sockets: ChannelSocket[] = []
   private noPacketTimer: ReturnType<typeof setInterval> | null = null
 
@@ -162,6 +189,7 @@ export class LiveTelemetrySource {
 
   start(): void {
     if (this.running) return
+    this.generation += 1
     this.running = true
     this.intentionalStop = false
     this.sockets.length = 0
@@ -194,17 +222,65 @@ export class LiveTelemetrySource {
     this.startNoPacketWatch()
   }
 
-  stop(): void {
-    if (!this.running) return
-    this.running = false
+  /**
+   * Close every socket, cancel backoff, and refuse further connects until
+   * `start()`. Generation is bumped first so in-flight / late handlers die.
+   */
+  stop(options?: LiveStopOptions): void {
+    const retain = options?.retainSlots === true
+    this.generation += 1
     this.intentionalStop = true
+    if (!this.running) {
+      if (!retain) this.sockets.length = 0
+      return
+    }
+    this.running = false
     this.stopNoPacketWatch()
     for (const s of this.sockets) {
       this.clearReconnect(s)
       this.closeSocket(s)
+      s.retryAtMs = null
       this.setStatus(s, 'closed')
     }
-    this.sockets.length = 0
+    if (!retain) this.sockets.length = 0
+  }
+
+  /**
+   * Add/remove sockets to match `droneUrls` / `boatUrls`.
+   * Removed ids are closed immediately (other sockets stay).
+   * Added ids open only while running (not after an explicit Disconnect).
+   */
+  syncUrls(droneUrls: readonly string[], boatUrls: readonly string[]): void {
+    this.droneUrls = resolveUrlList(droneUrls, undefined)
+    this.boatUrls = resolveUrlList(boatUrls, undefined)
+    const wantedDrone = new Set(this.droneUrls)
+    const wantedBoat = new Set(this.boatUrls)
+
+    for (let i = this.sockets.length - 1; i >= 0; i--) {
+      const slot = this.sockets[i]!
+      const wanted = slot.channel === 'drone' ? wantedDrone : wantedBoat
+      if (wanted.has(slot.url)) continue
+      this.clearReconnect(slot)
+      this.closeSocket(slot)
+      slot.retryAtMs = null
+      this.sockets.splice(i, 1)
+    }
+
+    this.emitChannelStatus('drone')
+    this.emitChannelStatus('boat')
+
+    if (!this.running || this.intentionalStop) return
+
+    for (const url of this.droneUrls) {
+      if (!this.sockets.some((s) => s.channel === 'drone' && s.url === url)) {
+        this.openChannel('drone', url)
+      }
+    }
+    for (const url of this.boatUrls) {
+      if (!this.sockets.some((s) => s.channel === 'boat' && s.url === url)) {
+        this.openChannel('boat', url)
+      }
+    }
   }
 
   private toIdStatus(slot: ChannelSocket, now: number): LiveIdSocketStatus {
@@ -215,6 +291,10 @@ export class LiveTelemetrySource {
       lastPacketAtMs: slot.lastPacketAtMs,
       lastPacketAgeMs:
         slot.lastPacketAtMs === null ? null : now - slot.lastPacketAtMs,
+      retryInMs:
+        slot.status === 'retrying' && slot.retryAtMs !== null
+          ? Math.max(0, slot.retryAtMs - now)
+          : null,
     }
   }
 
@@ -230,6 +310,7 @@ export class LiveTelemetrySource {
       openAtMs: null,
       lastPacketAtMs: null,
       noPacketWarned: false,
+      retryAtMs: null,
     }
     this.sockets.push(slot)
     this.connect(slot)
@@ -240,8 +321,10 @@ export class LiveTelemetrySource {
 
     this.clearReconnect(slot)
     this.closeSocket(slot)
+    slot.retryAtMs = null
     this.setStatus(slot, 'connecting')
 
+    const gen = this.generation
     let ws: WebSocket
     try {
       ws = new this.WebSocketImpl(slot.url)
@@ -258,10 +341,11 @@ export class LiveTelemetrySource {
     slot.ws = ws
 
     ws.onopen = () => {
-      if (!this.running || slot.ws !== ws) return
+      if (gen !== this.generation || slot.ws !== ws) return
       slot.backoffMs = this.initialBackoffMs
       slot.openAtMs = Date.now()
       slot.noPacketWarned = false
+      slot.retryAtMs = null
       this.setStatus(slot, 'open')
       console.info(
         `[telemetry] live: ${slot.channel}${slot.id ? ` id=${slot.id}` : ''} open (${slot.url})`,
@@ -269,7 +353,7 @@ export class LiveTelemetrySource {
     }
 
     ws.onmessage = (event: MessageEvent) => {
-      if (!this.running || slot.ws !== ws) return
+      if (gen !== this.generation || slot.ws !== ws) return
       const jsonText = decodeWsData(event.data)
       if (jsonText === null) {
         console.warn(
@@ -290,16 +374,20 @@ export class LiveTelemetrySource {
     }
 
     ws.onerror = () => {
-      if (!this.running || slot.ws !== ws) return
+      if (gen !== this.generation || slot.ws !== ws) return
       console.warn(`[telemetry] live: ${slot.channel} WebSocket error`)
     }
 
     ws.onclose = () => {
-      if (slot.ws !== ws) return
+      if (gen !== this.generation) return
+      if (slot.ws !== ws && slot.ws !== null) return
       slot.ws = null
       slot.openAtMs = null
-      this.setStatus(slot, 'closed')
-      if (!this.running || this.intentionalStop) return
+      if (!this.running || this.intentionalStop) {
+        slot.retryAtMs = null
+        this.setStatus(slot, 'closed')
+        return
+      }
       console.warn(
         `[telemetry] live: ${slot.channel} closed — reconnect in ${slot.backoffMs}ms`,
       )
@@ -312,8 +400,11 @@ export class LiveTelemetrySource {
     this.clearReconnect(slot)
     const delay = slot.backoffMs
     slot.backoffMs = Math.min(slot.backoffMs * 2, this.maxBackoffMs)
+    slot.retryAtMs = Date.now() + delay
+    this.setStatus(slot, 'retrying')
     slot.reconnectTimer = setTimeout(() => {
       slot.reconnectTimer = null
+      slot.retryAtMs = null
       this.connect(slot)
     }, delay)
   }
@@ -342,9 +433,16 @@ export class LiveTelemetrySource {
 
   private setStatus(slot: ChannelSocket, status: LiveWsStatus): void {
     slot.status = status
-    this.onStatus?.(slot.channel, aggregateStatus(
-      this.sockets.filter((s) => s.channel === slot.channel).map((s) => s.status),
-    ))
+    this.emitChannelStatus(slot.channel)
+  }
+
+  private emitChannelStatus(channel: MockChannel): void {
+    this.onStatus?.(
+      channel,
+      aggregateStatus(
+        this.sockets.filter((s) => s.channel === channel).map((s) => s.status),
+      ),
+    )
   }
 
   private startNoPacketWatch(): void {

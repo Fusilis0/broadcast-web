@@ -344,10 +344,19 @@ export function startAssetInspector(
           label: v.trim() === '' ? undefined : v.trim(),
         })
       })
-      addNumber('Height m', f.heightM, (v) => {
-        void options.onFeaturePatch(f.id, { heightM: v })
-      })
-      if (f.type === 'billboardChain') {
+      if (f.type === 'sponsor') {
+        addNumber('heightM (depth across water)', f.heightM, (v) => {
+          void options.onFeaturePatch(f.id, { heightM: v })
+        })
+        const note = document.createElement('p')
+        note.className = 'asset-insp__note'
+        note.textContent =
+          'Sponsors lie flat on the sea (like start/finish). A→B is board width; heightM is depth across the water, not wall height. Billboard chains stay upright.'
+        form.appendChild(note)
+      } else {
+        addNumber('Height m', f.heightM, (v) => {
+          void options.onFeaturePatch(f.id, { heightM: v })
+        })
         addNumber('Spacing m', f.spacingM, (v) => {
           void options.onFeaturePatch(f.id, { spacingM: v })
         })

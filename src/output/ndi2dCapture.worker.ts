@@ -1,10 +1,16 @@
 /**
- * Canvas-2D NDI grab worker (DSP-OUT-20260828-07).
+ * Native-size 2D NDI grab worker (DSP-OUT-20260830-01).
  *
- * Receives a transferred ImageBitmap of the stream-map source, letterboxes it
- * into the studio lock (typically 1920×1080) on an OffscreenCanvas, then
- * transfers the RGBA buffer back. `getImageData` stays off the renderer tick.
+ * Receives a transferred ImageBitmap of the stream-map source at native size,
+ * reads those pixels only, letterboxes them into a pooled 1920×1080 RGBA8
+ * buffer, packs Rec.709 UYVY, then transfers the 4:2:2 buffer back.
  */
+
+import {
+  blitRgbaLetterbox,
+  createRgbaFramePool,
+} from './letterboxRect.ts'
+import { packedFrameBytes, rgbaToUyvy } from './ndiUyvy.ts'
 
 type Ndi2dWorkerRequest = {
   id: number
@@ -33,8 +39,9 @@ const scope = globalThis as unknown as WorkerScope
 
 let canvas: OffscreenCanvas | null = null
 let ctx: OffscreenCanvasRenderingContext2D | null = null
+const pool = createRgbaFramePool()
 
-function ensureContext(
+function ensureNativeContext(
   width: number,
   height: number,
 ): OffscreenCanvasRenderingContext2D {
@@ -52,33 +59,31 @@ function ensureContext(
   return ctx
 }
 
-function transferablePixels(imageData: ImageData): ArrayBuffer {
-  const view = imageData.data
-  const buf = view.buffer
-  if (
-    buf instanceof ArrayBuffer &&
-    view.byteOffset === 0 &&
-    view.byteLength === buf.byteLength
-  ) {
-    return buf
-  }
-  return buf.slice(
-    view.byteOffset,
-    view.byteOffset + view.byteLength,
-  ) as ArrayBuffer
-}
-
 scope.addEventListener('message', (event: MessageEvent<Ndi2dWorkerRequest>) => {
   const msg = event.data
   if (!msg || typeof msg.id !== 'number') return
   try {
-    const context = ensureContext(msg.outW, msg.outH)
-    context.fillStyle = msg.fill
-    context.fillRect(0, 0, msg.outW, msg.outH)
-    context.drawImage(msg.bitmap, msg.dx, msg.dy, msg.dw, msg.dh)
+    const srcW = msg.bitmap.width
+    const srcH = msg.bitmap.height
+    const context = ensureNativeContext(srcW, srcH)
+    context.drawImage(msg.bitmap, 0, 0)
     msg.bitmap.close()
-    const imageData = context.getImageData(0, 0, msg.outW, msg.outH)
-    const data = transferablePixels(imageData)
+    const imageData = context.getImageData(0, 0, srcW, srcH)
+    const dest = pool.acquire(msg.outW, msg.outH, msg.fill)
+    blitRgbaLetterbox(imageData.data, srcW, srcH, dest, msg.outW, msg.outH, {
+      dx: msg.dx,
+      dy: msg.dy,
+      dw: msg.dw,
+      dh: msg.dh,
+    })
+    const uyvyBytes = packedFrameBytes('uyvy', msg.outW, msg.outH)
+    const uyvy = new Uint8Array(uyvyBytes)
+    const wrote = rgbaToUyvy(dest, msg.outW, msg.outH, uyvy)
+    pool.take()
+    if (wrote !== uyvyBytes) {
+      throw new Error('2D UYVY pack failed')
+    }
+    const data = uyvy.buffer
     scope.postMessage({ id: msg.id, data } satisfies Ndi2dWorkerOk, [data])
   } catch (err) {
     try {

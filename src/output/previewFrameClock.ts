@@ -11,6 +11,7 @@
  * render per tick (AR vs 3D stagger). Do not also render two FBOs on one tick.
  */
 
+import { beginStudioTickTiming } from './ndiStageTiming.ts'
 import { HITCH_DT_MS_33, HITCH_DT_MS_50 } from './perfCounters.ts'
 
 export type ClockUnsubscribe = () => void
@@ -113,6 +114,7 @@ export function startDualFrameClock(
 
   const unsubStudio = options.subscribeStudioTick(() => {
     if (stopped) return
+    beginStudioTickTiming()
     notify(ndiSubs)
     if (!isHidden()) return
     firePreview()

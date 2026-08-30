@@ -321,13 +321,14 @@ export function startMapFeatureEditor(
 
   const heightLabel = document.createElement('label')
   heightLabel.className = 'ops-editor__field'
-  heightLabel.textContent = 'heightM'
+  const heightCaption = document.createElement('span')
+  heightCaption.textContent = 'heightM'
   const heightInput = document.createElement('input')
   heightInput.className = 'ops-editor__input'
   heightInput.type = 'number'
   heightInput.step = '0.5'
   heightInput.min = '0.5'
-  heightLabel.appendChild(heightInput)
+  heightLabel.append(heightCaption, heightInput)
   props.appendChild(heightLabel)
 
   const colorLabel = document.createElement('label')
@@ -526,7 +527,10 @@ export function startMapFeatureEditor(
       hint.textContent =
         'Click points for the chain path; Finish chain / Enter (≥2)'
     } else if (TWO_CLICK_TOOLS.has(tool)) {
-      hint.textContent = 'Click A, then B (or Enter at cursor)'
+      hint.textContent =
+        tool === 'sponsor'
+          ? 'Click A, then B — board lies flat on the sea; heightM is depth across the water'
+          : 'Click A, then B (or Enter at cursor)'
     } else {
       hint.textContent = 'Placement cancelled'
     }
@@ -749,7 +753,9 @@ export function startMapFeatureEditor(
           ? 'Click position A, then heading tip B (or Enter)'
           : tool === 'start' || tool === 'finish'
             ? 'Click line end A, then B (or Enter at cursor)'
-            : 'Click A, then B (or Enter at cursor)'
+            : tool === 'sponsor'
+              ? 'Click A, then B — board lies flat on the sea; heightM is depth across the water'
+              : 'Click A, then B (or Enter at cursor)'
     } else if (tool === 'placeBoat') {
 
       hint.textContent = 'Click map to place a boat (prompts for id)'
@@ -809,6 +815,10 @@ export function startMapFeatureEditor(
     }
     nameInput.value = f.name
     labelInput.value = f.label ?? ''
+    heightCaption.textContent =
+      f.type === 'sponsor'
+        ? 'heightM (across-water depth)'
+        : 'heightM'
     heightInput.value = f.heightM !== undefined ? String(f.heightM) : ''
     colorInput.value =
       f.color !== undefined

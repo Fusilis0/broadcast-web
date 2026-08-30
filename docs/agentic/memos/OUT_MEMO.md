@@ -1,7 +1,50 @@
 # OUT_MEMO
 
-**Last updated:** 2026-08-28  
-**Status:** Idle — TEL-04 landed; wait video-mode smoke (Sync `PTS → NTP`)
+**Last updated:** 2026-08-30  
+**Status:** Wave 3 + flip **accepted in code**. Live Send still ~5–7 after UYVY IPC cut. Next wall is renderer-thread pack / 2D grab — GPU + workers landed in tree, not yet live-proven.
+
+## GPU / extra-core pack 2026-08-30 (live, not dispatched)
+
+~17% CPU is **one busy renderer core**, not unused headroom. Electron JS is single-threaded; more RAM / Delay does not raise fps. Scene draw is already GPU; `grandi` still wants a CPU `Buffer` after IPC.
+
+- **3D:** GPU Rec.709 UYVY (half-width RGBA, Y-flip in shader, dest `NoColorSpace`). PBO reads 4 MB. CPU pack is fallback only.
+- **AR:** stays **UYVA** (alpha plate). CPU row-flip, then `ndiUyvy.worker` pack so 4:2:2+alpha leaves the GL thread.
+- **2D:** dropped the `getContext('2d')` sync fast path. Worker letterbox + UYVY. Pump skips a second pack when bytes already match.
+
+Human: full Electron quit/relaunch. Expect Send up if pack left the tick. If still ~7, next wall is 2D `createImageBitmap` + IPC + PBO begin on the same thread.
+
+## Flip accepted 2026-08-30 (BW) — `DSP-OUT-20260830-02`
+
+## Flip accepted 2026-08-30 (BW) — `DSP-OUT-20260830-02`
+
+- AR/3D: `createNdiCaptureFlip` `blitFramebuffer` into a second colour FBO with inverted dest Y, **before** `readback.begin`. Dest is sRGB-pinned (no second encode). `sendFrame` `bottomUp: false`.
+- 2D never imports the helper. Preview / `createScene` untouched. `desktop/` not modified.
+- Soft: if `blitFramebuffer` is missing, `gpuBlit` no-ops onto an empty dest (black). Studio is WebGL2; do not invent a CPU fallback. Triangle-with-inverted-V is the named fallback if a driver ignores dest-Y invert.
+- Human: OBS AR/3D upright, 2D still upright, alpha still keys.
+
+## Wave 3 accepted 2026-08-30 (BW)
+
+- `grandi.FourCC` includes **RGBA/RGBX**. Hot path native RGBA. **OUT-05 swizzle cancelled.**
+- grandi **rejects** negative `lineStrideBytes`. AR/3D inverted until `DSP-OUT-20260830-02` (GPU flip before PBO). Do not restore `rgbaToBgra` as the flip.
+- Pool of 3 + keep-newest; `dropBusy` is replace-count. Rate 30/1. Fallback: `NDI_BGRA_FALLBACK_NOTE` — if `main … bgra` returns to ~7 ms, the slow path is on.
+- Clocks: ~32 nominal gate; PBO stagger retired; `canBegin()` before render; `sendFrame` off the tick.
+- 2D grab: native-size read + `blitRgbaLetterbox`; output still 1920×1080.
+
+## Live dump 2026-08-29 (PRF-01 instrument) — recut
+
+Send **AR 15 / 3D 15 / 2D 3**. PBO on, 2D worker on. Clock ~50 Hz under load (495 ticks / 10 s, mean 20.2 ms, max 109.5).
+
+- `*EnqueueIpc` 17–23 ms — `slice` + sync `ipcRenderer.send` of 8 MB **inside** the tick. `DSP-OUT-20260829-04`.
+- `2dGrab` 120–193 ms — worker `getImageData(1920,1080)` after 520→1080 upscale. `DSP-OUT-20260830-01`.
+- `rgbaToBgra` ~7 ms, `dropBusy=0` — not today's 15 fps cause; delete it before 30×3. `DSP-OUT-20260829-02`.
+- OBS colour: operator accepted (slightly bright). No follow-up.
+
+## HEVC codec string 2026-08-29 (SRT / demux)
+
+## HEVC codec string 2026-08-29 (SRT / demux)
+Live `ffmpeg→h264` was **garbage `hev1` from Annex-B EPB**, not missing Store pack and not “Chromium cannot HEVC.” `unescapeRbsp` in `tsDemux.ts`. OUT plate / NDI / stall-pin untouched. Fallback transcode still exists if WebCodecs still rejects.
+
+**Human:** after pull, expect `codec=hevc` and no `ffmpeg→h264` on a working DJI SRT. Sync NTP is still TEL-04.
 
 ## LUT-miss plate accepted 2026-08-28 (BW)
 - `done/DSP-OUT-20260828-08` — empty LUT (`toNtp` all null) → newest decoded frame, `reason: lut-miss-live`, `degraded`. OUT-03 stall-pin on empty LUT is **void**.

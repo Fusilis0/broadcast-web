@@ -821,6 +821,53 @@ body.output-transparent,
   line-height: 1.35;
 }
 
+.ndi-ctrl__fallback {
+  margin: 6px 0 0;
+  padding: 4px 6px;
+  border: 1px solid #c9a227;
+  background: #2a2410;
+  color: #e8c547;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.ndi-ctrl__perf {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid #2a323c;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ndi-ctrl__perf-pre {
+  margin: 0;
+  padding: 4px;
+  max-height: 16em;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #0d1116;
+  color: #c5ccd3;
+  font: 10px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.ndi-ctrl__dump-btn {
+  align-self: flex-start;
+  padding: 3px 8px;
+  border: 1px solid #2a323c;
+  border-radius: 2px;
+  background: #12161c;
+  color: #c5ccd3;
+  font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  cursor: pointer;
+}
+
+.ndi-ctrl__dump-btn:hover {
+  border-color: #4a5868;
+}
+
 /* Sync-debug overlay (OUT-07) — DOM-only, never on the AR / NDI plate */
 .sync-debug {
   display: flex;
@@ -1135,6 +1182,12 @@ body.output-transparent,
 .fleet-live__btn:hover {
   border-color: #5a6a7a;
   color: #e8eef4;
+}
+
+.fleet-live__btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+  pointer-events: none;
 }
 
 .fleet-live__btn--primary {

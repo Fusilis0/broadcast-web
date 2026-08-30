@@ -106,8 +106,8 @@ Renders an ENU grid (50 m / ±1 km), origin pole, and high-contrast helpers for 
 
 - Fixture: `public/fixtures/sponsors/demo-istanbul.json` (config key `sponsorsUrl`) — **2–4** demo panels near the course.
 - Schema: `a`/`b` GPS anchors + `heightM` + optional `textureUrl` / `label` / `color` / `panelColor` / `frameColor` — see fixture README.
-- Placement: **`gpsToEnuAmsl` only**; panel baseline **water Y = 0** (same as course).
-- Mesh: vertical quad spanning A↔B; **fixed** world orientation (not camera-billboard). Face normal = flatten(A→B) × up (left of A→B). Order points so the course is on the facing side.
+- Placement: **`gpsToEnuAmsl` only**; board on the water plane at **`y = 0.08`** (same lift as start/finish). Shared helper `waterPlanePlacement.ts`.
+- Mesh: **flat** quad spanning A↔B (`widthM` along, `heightM` across-water depth). Normal points **up**. Logo/text reads along A→B. `billboardChain` stays an upright wall (`createUprightSponsorBillboard`).
 - **Board (16.4):** every panel is a composed canvas — opaque background (default `#f4f4f2`), dark slate frame, then contain-fit `textureUrl` or procedural `label`. Optional additive `panelColor` / `frameColor`. Missing/failed texture → label on the same board (not a floating transparent logo). Demo logos under `public/textures/sponsors/` (Unity Sprites copy — see unity-asset-port).
 - Dispose on `scene.stop()`. Full Unity Sponsors pack / BillboardChain tiling remain backlog.
 

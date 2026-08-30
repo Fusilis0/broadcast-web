@@ -86,4 +86,22 @@ describe('createFlowTap', () => {
     tap.reset()
     expect(tap.snapshot()).toEqual([])
   })
+
+  it('remove drops one id and leaves others', () => {
+    const tap = createFlowTap()
+    tap.push({ kind: 'drone', id: '1', body: { id: '1' } })
+    tap.push({ kind: 'drone', id: '2', body: { id: '2' } })
+    tap.remove('2')
+    tap.remove('  ')
+    expect(tap.snapshot().map((e) => e.id)).toEqual(['1'])
+  })
+
+  it('retain keeps only the given ids', () => {
+    const tap = createFlowTap()
+    tap.push({ kind: 'drone', id: '1', body: { id: '1' } })
+    tap.push({ kind: 'drone', id: '2', body: { id: '2' } })
+    tap.push({ kind: 'boat', id: '21', body: { id: '21' } })
+    tap.retain(['1', '21', '  '])
+    expect(tap.snapshot().map((e) => e.id).sort()).toEqual(['1', '21'])
+  })
 })

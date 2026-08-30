@@ -9,6 +9,7 @@
 import * as THREE from 'three'
 import { getPtsNtpMap } from '../telemetry/ptsNtpMap.ts'
 import { telemetryBus } from '../telemetry/bus.ts'
+import { timeNdiStage } from './ndiStageTiming.ts'
 import { getSrtBridge, type SrtBridge } from './srtBridge.ts'
 import {
   createVideoDecodePipeline,
@@ -59,6 +60,18 @@ export type VideoStreamManager = {
   listPovIds(): string[]
   ready(): Promise<void>
   resetForH264Fallback(povId: string): void
+  /**
+   * Explicit Disconnect: drop every decode slot so the last frame cannot
+   * stay bound. Late `srt:data` is ignored until `resumeIngest()`.
+   */
+  dropPresented(): void
+  /**
+   * Close one POV's decoder. Returns true if a texture is still bound
+   * (another warm POV). False → caller should restore the placeholder.
+   */
+  dropPov(povId: string): boolean
+  /** Connect SRT — accept bytes again after `dropPresented()`. */
+  resumeIngest(): void
   dispose(): void
 }
 
@@ -135,6 +148,8 @@ export function startVideoStreamManager(
   let activePov: string | null = null
   let disposed = false
   let boundTexture: StreamTextureLike | null = null
+  /** False after explicit Disconnect until Connect SRT (`resumeIngest`). */
+  let acceptingBytes = true
 
   const unsubs: Array<() => void> = []
 
@@ -170,13 +185,18 @@ export function startVideoStreamManager(
       if (!victim || slot.lastUsedAt < victim.lastUsedAt) victim = slot
     }
     if (!victim) return
-    victim.pipe.dispose()
+    disposeSlot(victim)
+    streams.delete(victim.povId)
+  }
+
+  function disposeSlot(slot: StreamSlot): void {
+    slot.pipe.dispose()
     try {
-      victim.texture.dispose()
+      slot.texture.dispose()
     } catch {
       /* fake textures */
     }
-    streams.delete(victim.povId)
+    if (boundTexture === slot.texture) boundTexture = null
   }
 
   function ensure(povId: string): StreamSlot | null {
@@ -215,7 +235,7 @@ export function startVideoStreamManager(
 
   const handle: VideoStreamManager = {
     pushBytes(povId: string, chunk: Uint8Array): void {
-      if (disposed || !povId) return
+      if (disposed || !acceptingBytes || !povId) return
       const slot = ensure(povId)
       if (!slot) return
       slot.pipe.pushBytes(Uint8Array.from(chunk))
@@ -235,16 +255,18 @@ export function startVideoStreamManager(
     },
     getActivePov: () => activePov,
     present(): void {
-      if (disposed) return
-      const polled = options.getActivePovId?.() ?? null
-      if (polled && polled !== activePov) handle.setActivePov(polled)
-      for (const slot of streams.values()) {
-        const shown = slot.pipe.present()
-        if (!shown) continue
-        uploadFrame(slot.texture, shown.frame)
-        slot.hasFrame = true
-      }
-      bindActiveTexture()
+      timeNdiStage('present', () => {
+        if (disposed) return
+        const polled = options.getActivePovId?.() ?? null
+        if (polled && polled !== activePov) handle.setActivePov(polled)
+        for (const slot of streams.values()) {
+          const shown = slot.pipe.present()
+          if (!shown) continue
+          uploadFrame(slot.texture, shown.frame)
+          slot.hasFrame = true
+        }
+        bindActiveTexture()
+      })
     },
     getCounters(povId: string): VideoStreamCounters | null {
       const slot = streams.get(povId)
@@ -268,6 +290,28 @@ export function startVideoStreamManager(
       if (!slot) return
       slot.pipe.resetForH264Fallback()
       slot.hasFrame = false
+    },
+    dropPresented(): void {
+      if (disposed) return
+      acceptingBytes = false
+      for (const slot of streams.values()) disposeSlot(slot)
+      streams.clear()
+      boundTexture = null
+      options.setTexture(null)
+    },
+    dropPov(povId: string): boolean {
+      if (disposed || !povId) return boundTexture != null
+      const slot = streams.get(povId)
+      if (slot) {
+        disposeSlot(slot)
+        streams.delete(povId)
+      }
+      bindActiveTexture()
+      return boundTexture != null
+    },
+    resumeIngest(): void {
+      if (disposed) return
+      acceptingBytes = true
     },
     dispose(): void {
       if (disposed) return

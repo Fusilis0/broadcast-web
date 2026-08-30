@@ -74,6 +74,8 @@ app.commandLine.appendSwitch(
 let powerBlockerId = null
 /** @type {ReturnType<typeof setInterval> | null} */
 let studioTickTimer = null
+/** @type {ReturnType<typeof setInterval> | null} */
+let ndiPerfTimer = null
 /** @type {import('electron').Tray | null} */
 let tray = null
 /** @type {BrowserWindow | null} */
@@ -195,12 +197,55 @@ function registerNdiIpc() {
 
   ipcMain.handle('ndi:statusAll', () => ndiSender.getStatusAll())
 
+  ipcMain.handle('ndi:perfSummary', () => ndiSender.getPerfSummary())
+
+  ipcMain.on('debug:ndjson', (_evt, payload) => {
+    // #region agent log
+    try {
+      const line = `${typeof payload === 'string' ? payload : JSON.stringify(payload)}\n`
+      fs.appendFileSync(path.join(__dirname, '..', 'debug-173fbb.log'), line)
+    } catch {
+      /* ignore */
+    }
+    // #endregion
+  })
+
   ipcMain.on('ndi:frame', (_evt, frame) => {
     if (!ndiEnabled) return
     const channel =
       frame && typeof frame === 'object' && 'channel' in frame
         ? frame.channel
         : ndiSender.DEFAULT_CHANNEL
+    // #region agent log
+    const now = Date.now()
+    const last = global.__ndiDebugLogAt || 0
+    if (now - last > 1000) {
+      global.__ndiDebugLogAt = now
+      try {
+        const data = frame && frame.data
+        fs.appendFileSync(
+          path.join(__dirname, '..', 'debug-173fbb.log'),
+          `${JSON.stringify({
+            sessionId: '173fbb',
+            runId: 'post-fix',
+            hypothesisId: 'H4',
+            location: 'desktop/main.cjs:ndi:frame',
+            message: 'main received NDI frame',
+            data: {
+              channel,
+              w: frame && frame.width,
+              h: frame && frame.height,
+              bytes: data && data.byteLength,
+              bottomUp: frame && frame.bottomUp,
+            },
+            timestamp: now,
+          })}\n`,
+        )
+      } catch {
+        /* ignore */
+      }
+    }
+    // #endregion
     ndiSender.sendFrame(channel, frame)
   })
 }
@@ -481,12 +526,25 @@ function startStudioClock() {
     }
   }, intervalMs)
   console.info(`[desktop] studio tick clock ${STUDIO_TICK_FPS} fps (main process)`)
+  if (ndiPerfTimer === null) {
+    ndiPerfTimer = setInterval(() => {
+      const summary = ndiSender.rotatePerf()
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (win.isDestroyed()) continue
+        win.webContents.send('ndi:perf', summary)
+      }
+    }, 1000)
+  }
 }
 
 function stopStudioClock() {
   if (studioTickTimer === null) return
   clearInterval(studioTickTimer)
   studioTickTimer = null
+  if (ndiPerfTimer !== null) {
+    clearInterval(ndiPerfTimer)
+    ndiPerfTimer = null
+  }
 }
 
 app.whenReady().then(async () => {

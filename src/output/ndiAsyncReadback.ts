@@ -1,4 +1,5 @@
 import type { WebGLRenderer, WebGLRenderTarget } from 'three'
+import { markNdiSyncReadback } from './ndiStageTiming.ts'
 
 /**
  * Pipelined GPU readback for NDI (DSP-OUT-20260828-01).
@@ -13,8 +14,9 @@ import type { WebGLRenderer, WebGLRenderTarget } from 'three'
  * tick. Logs {@link NDI_SYNC_READBACK_NOTE} once. NDI still sends — do not
  * pretend the path is async.
  *
- * Caps: AR 30 / 3D 30 / 2D on@30 / `STUDIO_TICK_FPS` 60 NDI-only
- * (DSP-OUT-20260828-04). Preview stays rAF.
+ * Caps: AR 30 / 3D 30 / 2D on@30 / `STUDIO_TICK_FPS` 60
+ * (DSP-OUT-20260829-04: both FBO channels may capture on the same PBO tick).
+ * Preview stays rAF.
  */
 
 export type NdiReadbackMode = 'pbo' | 'sync'
@@ -38,7 +40,7 @@ export const NDI_SYNC_READBACK_NOTE =
 export type NdiReadbackPixels = {
   width: number
   height: number
-  /** RGBA8, bottom-up. Owned by the helper until the next begin/poll reuse. */
+  /** RGBA8, bottom-up. Owned by the caller after `poll` until `release`. */
   data: Uint8Array
 }
 
@@ -57,10 +59,19 @@ export type CreateNdiAsyncReadbackOptions = {
   onFallbackNote?: (message: string) => void
 }
 
+/** Recycled RGBA CPU buffers — in-flight PBO + deferred IPC, no `slice`. */
+export const NDI_PIXEL_RING_CAPACITY = 4
+
 export type NdiAsyncReadback = {
   readonly mode: NdiReadbackMode
   /** True while at least one PBO pack is in flight. Sync mode: false after poll. */
   isPending(): boolean
+  /**
+   * True when `begin` can accept a pack without dropping (free PBO slot, or
+   * sync fallback). Check **before** the 1080p render so a failed begin cannot
+   * waste a pass (DSP-OUT-20260829-04 burned-slot defect).
+   */
+  canBegin(): boolean
   /**
    * Issue a read. Call while the FBO is still bound (`setRenderTarget` after
    * the capture render, before restore). Returns false when both PBO slots
@@ -77,9 +88,16 @@ export type NdiAsyncReadback = {
   ): boolean
   /**
    * Non-blocking. Returns the oldest completed pack, or null.
-   * Caller must copy `data` before the next begin/poll that reuses the slot.
+   * `data` is **owned by the caller** — this helper will not overwrite it.
+   * Recycle with {@link NdiAsyncReadback.release} after `sendFrame` returns.
    */
   poll(nowMs?: number): NdiReadbackPixels | null
+  /**
+   * Return a polled CPU buffer to the ring. Safe to call after IPC send
+   * (structured clone has finished). Unknown / already-released buffers are
+   * ignored.
+   */
+  release(data: Uint8Array | ArrayBuffer): void
   dispose(): void
 }
 
@@ -174,11 +192,35 @@ function byteLengthFor(w: number, h: number): number {
   return Math.max(0, w) * Math.max(0, h) * 4
 }
 
-function ensureCpu(slot: { cpu: Uint8Array | null }, bytes: number): Uint8Array {
-  if (!slot.cpu || slot.cpu.byteLength !== bytes) {
-    slot.cpu = new Uint8Array(bytes)
+function viewOf(data: Uint8Array | ArrayBuffer): Uint8Array {
+  return data instanceof ArrayBuffer ? new Uint8Array(data) : data
+}
+
+function createPixelRing(capacity: number): {
+  acquire(bytes: number): Uint8Array
+  release(data: Uint8Array | ArrayBuffer): void
+  clear(): void
+} {
+  const free: Uint8Array[] = []
+  return {
+    acquire(bytes: number): Uint8Array {
+      const i = free.findIndex((b) => b.byteLength === bytes)
+      if (i >= 0) return free.splice(i, 1)[0]!
+      return new Uint8Array(bytes)
+    },
+    release(data: Uint8Array | ArrayBuffer): void {
+      const buf = viewOf(data)
+      if (buf.byteLength < 4) return
+      if (free.length >= capacity) return
+      if (free.some((b) => b.buffer === buf.buffer && b.byteOffset === buf.byteOffset)) {
+        return
+      }
+      free.push(buf)
+    },
+    clear(): void {
+      free.length = 0
+    },
   }
-  return slot.cpu
 }
 
 /**
@@ -206,11 +248,25 @@ export function createNdiAsyncReadback(
 
   const slots: PboSlot[] = []
   let syncReady: NdiReadbackPixels | null = null
-  const syncStore: { cpu: Uint8Array | null } = { cpu: null }
+  const pixelRing = createPixelRing(NDI_PIXEL_RING_CAPACITY)
+
+  function ensureCpu(slot: { cpu: Uint8Array | null }, bytes: number): Uint8Array {
+    if (!slot.cpu || slot.cpu.byteLength !== bytes) {
+      slot.cpu = pixelRing.acquire(bytes)
+    }
+    return slot.cpu
+  }
+
+  function stealCpu(slot: { cpu: Uint8Array | null }): Uint8Array | null {
+    const cpu = slot.cpu
+    slot.cpu = null
+    return cpu
+  }
 
   function noteFallback(): void {
     if (notedFallback) return
     notedFallback = true
+    markNdiSyncReadback()
     onFallbackNote(NDI_SYNC_READBACK_NOTE)
   }
 
@@ -265,6 +321,7 @@ export function createNdiAsyncReadback(
         /* ignore */
       }
       slot.inFlight = false
+      if (slot.cpu) pixelRing.release(slot.cpu)
       slot.cpu = null
     }
     slots.length = 0
@@ -273,10 +330,15 @@ export function createNdiAsyncReadback(
   function beginSync(target: WebGLRenderTarget, w: number, h: number): boolean {
     const bytes = byteLengthFor(w, h)
     if (bytes < 4) return false
-    const buf = ensureCpu(syncStore, bytes)
+    if (syncReady) {
+      pixelRing.release(syncReady.data)
+      syncReady = null
+    }
+    const buf = pixelRing.acquire(bytes)
     try {
       renderer.readRenderTargetPixels(target, 0, 0, w, h, buf)
     } catch {
+      pixelRing.release(buf)
       return false
     }
     syncReady = { width: w, height: h, data: buf }
@@ -310,6 +372,7 @@ export function createNdiAsyncReadback(
       if (slot.byteLength !== bytes) {
         gl.bufferData(gl.PIXEL_PACK_BUFFER, bytes, gl.STREAM_READ)
         slot.byteLength = bytes
+        if (slot.cpu) pixelRing.release(slot.cpu)
         slot.cpu = null
       }
       if (typeof gl.PACK_ALIGNMENT === 'number') {
@@ -317,7 +380,18 @@ export function createNdiAsyncReadback(
       }
       gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, 0)
       const fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0)
+      // #region agent log
+      const __flushT0 = performance.now()
+      // #endregion
       gl.flush()
+      // #region agent log
+      const __flushMs = performance.now() - __flushT0
+      if (!(globalThis as { __ndiBeginLogAt?: number }).__ndiBeginLogAt ||
+        performance.now() - ((globalThis as { __ndiBeginLogAt?: number }).__ndiBeginLogAt ?? 0) > 1000) {
+        ;(globalThis as { __ndiBeginLogAt?: number }).__ndiBeginLogAt = performance.now()
+        fetch('http://127.0.0.1:7438/ingest/7196fb84-148e-4d0c-af68-4fcb53313232',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'173fbb'},body:JSON.stringify({sessionId:'173fbb',runId:'pre-fix',hypothesisId:'H2',location:'ndiAsyncReadback.ts:packPbo',message:'PBO pack+flush',data:{w,h,flushMs:__flushMs,bytes},timestamp:Date.now()})}).catch(()=>{});
+      }
+      // #endregion
       if (!fence) return false
       slot.fence = fence
       slot.width = w
@@ -356,6 +430,23 @@ export function createNdiAsyncReadback(
     try {
       gl.bindBuffer(gl.PIXEL_PACK_BUFFER, slot.buffer)
       gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, cpu)
+      // #region agent log
+      if (cpu.byteLength >= slot.width * slot.height * 4 &&
+        (!(globalThis as { __ndiLumaLogAt?: number }).__ndiLumaLogAt ||
+          performance.now() - ((globalThis as { __ndiLumaLogAt?: number }).__ndiLumaLogAt ?? 0) > 2000)) {
+        ;(globalThis as { __ndiLumaLogAt?: number }).__ndiLumaLogAt = performance.now()
+        const row = slot.width * 4
+        let top = 0
+        let bot = 0
+        const n = Math.min(64, slot.width)
+        const last = (slot.height - 1) * row
+        for (let i = 0; i < n; i++) {
+          top += cpu[i * 4]! + cpu[i * 4 + 1]! + cpu[i * 4 + 2]!
+          bot += cpu[last + i * 4]! + cpu[last + i * 4 + 1]! + cpu[last + i * 4 + 2]!
+        }
+        fetch('http://127.0.0.1:7438/ingest/7196fb84-148e-4d0c-af68-4fcb53313232',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'173fbb'},body:JSON.stringify({sessionId:'173fbb',runId:'pre-fix',hypothesisId:'H5',location:'ndiAsyncReadback.ts:completeSlot',message:'packed row luma (first vs last)',data:{w:slot.width,h:slot.height,topLuma:top/n,botLuma:bot/n,topBrighter:top>bot},timestamp:Date.now()})}).catch(()=>{});
+      }
+      // #endregion
     } finally {
       gl.bindBuffer(gl.PIXEL_PACK_BUFFER, prevPack ?? null)
       if (slot.fence) {
@@ -368,7 +459,8 @@ export function createNdiAsyncReadback(
       slot.fence = null
       slot.inFlight = false
     }
-    return { width: slot.width, height: slot.height, data: cpu }
+    const stolen = stealCpu(slot) ?? cpu
+    return { width: slot.width, height: slot.height, data: stolen }
   }
 
   const handle: NdiAsyncReadback = {
@@ -378,6 +470,12 @@ export function createNdiAsyncReadback(
     isPending(): boolean {
       if (mode === 'sync') return syncReady !== null
       return slots.some((s) => s.inFlight)
+    },
+    canBegin(): boolean {
+      if (disposed) return false
+      if (mode === 'sync' || !gl) return true
+      if (slots.length === 0) return true
+      return slots.some((s) => !s.inFlight)
     },
     begin(target, width, height, capturedAt?: number): boolean {
       if (disposed) return false
@@ -468,12 +566,17 @@ export function createNdiAsyncReadback(
       }
       return null
     },
+    release(data: Uint8Array | ArrayBuffer): void {
+      if (disposed) return
+      pixelRing.release(data)
+    },
     dispose(): void {
       if (disposed) return
       disposed = true
+      if (syncReady) pixelRing.release(syncReady.data)
       syncReady = null
-      syncStore.cpu = null
       disposeSlots()
+      pixelRing.clear()
     },
   }
 

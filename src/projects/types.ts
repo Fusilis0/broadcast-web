@@ -16,8 +16,10 @@ export type RaceProjectOrigin = {
 }
 
 /**
- * Embedded Live-fleet row (SCN 15.4). Additive — old packs omit `fleet.boats`.
- * `fleet.boatIds` stays required and must match `boats[].id` order on save.
+ * Embedded Live-fleet row (SCN 15.4). Always written on save (including `[]`).
+ * Old packs may omit `fleet.boats`; then `boatIds` + names catalogue applies.
+ * On save, `fleet.boatIds` matches `boats[].id` membership and order.
+ * Any non-empty string id is legal; an empty fleet is legal.
  */
 export type RaceProjectFleetBoat = {
   id: string
@@ -34,8 +36,9 @@ export type RaceProjectFleetBoat = {
 export type RaceProjectFleet = {
   boatIds: string[]
   /**
-   * Full Live-fleet rows (ids, names, category, colour, visibility, map flag, planned GPS).
-   * Source of truth on Load when present. Names URL is fallback for missing ids.
+   * Full Live-fleet rows. Source of truth on Load when present (including `[]`).
+   * Never topped up from the names catalogue or from `boatIds`.
+   * Names URL is fallback only for legacy packs that omit this field.
    */
   boats?: RaceProjectFleetBoat[]
   /** Boat name/colour catalogue JSON URL. */

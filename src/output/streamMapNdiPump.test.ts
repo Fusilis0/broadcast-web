@@ -344,12 +344,14 @@ describe('startStreamMapNdiPump defers capture off the studio:tick stack', () =>
       height: number
       data: ArrayBuffer
       bottomUp: boolean
+      pixelFormat?: string
     }
     expect(frame.channel).toBe('2d')
     expect(frame.width).toBe(16)
     expect(frame.height).toBe(8)
-    expect(frame.data.byteLength).toBe(16 * 8 * 4)
+    expect(frame.data.byteLength).toBe(16 * 8 * 2)
     expect(frame.bottomUp).toBe(false)
+    expect(frame.pixelFormat).toBe('uyvy')
     pump?.stop()
   })
 })

@@ -1,9 +1,25 @@
 import { createSendFpsCounter } from './perfCounters.ts'
 import type { Camera, Object3D, WebGLRenderer } from 'three'
 import { Color, WebGLRenderTarget } from 'three'
+import { createNdiCaptureGate } from './ndiCaptureClock.ts'
+import { createNdiDeferredSend, takeNdiArrayBuffer } from './ndiDeferredSend.ts'
 import { createNdiAsyncReadback } from './ndiAsyncReadback.ts'
-import { tryClaimNdiHeavyCapture } from './ndiCaptureStagger.ts'
+import { applyNdiCaptureColorSpace } from './ndiCaptureColorSpace.ts'
+import { NDI_CAPTURE_FLIPPED_BOTTOM_UP } from './ndiCaptureFlip.ts'
+import { flipOwnedRgbaFrame } from './ndiFlipRows.ts'
+import { createNdiPackPool } from './ndiUyvy.ts'
+import { createNdiUyvyWorker } from './ndiUyvyBridge.ts'
+import {
+  releaseNdiHeavyCapture,
+  tryClaimNdiHeavyCapture,
+} from './ndiCaptureStagger.ts'
 import { NdiDelayBuffer } from './ndiDelayBuffer.ts'
+import {
+  noteNdiSkip,
+  recordNdiCapture,
+  recordNdiStage,
+  timeNdiStage,
+} from './ndiStageTiming.ts'
 import {
   restoreClearPass,
   snapshotClearPass,
@@ -11,6 +27,7 @@ import {
 } from './ndiOpaquePass.ts'
 import {
   DEFAULT_NDI_CHANNEL,
+  debugSessionLog,
   getStudioBridge,
   type NdiChannelId,
 } from './studioBridge.ts'
@@ -50,8 +67,8 @@ export type NdiFramePumpOptions = {
   setEnvironmentOpaqueClearSafe?: (safe: boolean) => void
   getEnvironmentOpaqueClearSafe?: () => boolean
   /**
-   * Target send rate. Default **30** (air path). Dropped when previous IPC
-   * is still busy, or when another NDI FBO already claimed this stagger window.
+   * Target send rate. Default **30** (air path). Dropped when the phase gate
+   * is not due, or when the sync-readback stagger refuses this tick.
    */
   fps?: number
   /** NDI source name (hostname is prepended by the SDK). Default `broadcast-web`. */
@@ -84,16 +101,16 @@ export const NDI_AR_DEFAULT_FPS = 30
 const DEFAULT_NAME = 'broadcast-web'
 
 /**
- * Electron-only: on each `studio:tick` (60 Hz NDI stagger clock), render the
- * active POV into an FBO, pack RGBA via WebGL2 PBO (sync
- * `readRenderTargetPixels` fallback), and push to the main-process NDI sender
- * (BGRA + alpha). One frame of capture latency on the PBO path is expected.
+ * Electron-only: on each `studio:tick` (60 Hz), render the active POV into an
+ * FBO, GPU Y-flip (WebGL2 blit, inverted dest Y), pack RGBA via WebGL2 PBO
+ * (sync `readRenderTargetPixels` fallback), and push to the main-process NDI
+ * sender. Packed bytes are top-down (`NDI_CAPTURE_FLIPPED_BOTTOM_UP`). One
+ * frame of capture latency on the PBO path is expected.
  *
  * Does **not** monkey-patch `renderer.render` and does **not** subscribe to
- * rAF — ops preview stays rAF. `tryClaimNdiHeavyCapture` is the FBO-render
- * slot: a true claim means this pump **will render** this tick. AR and 3D
- * alternate (~30 Send each). PBO drain/poll may still run on a skipped tick
- * (`DSP-OUT-20260828-04`).
+ * rAF — ops preview stays rAF. On the PBO path AR and 3D may both capture in
+ * the same tick. `tryClaimNdiHeavyCapture` is **sync-fallback only**. IPC
+ * `sendFrame` is deferred off this tick (`createNdiDeferredSend`).
  *
  * **Air lock:** capture is always the active POV (`getAirCamera`). Optional
  * `prepareCameraPass` re-orients SCN billboard scales for that camera.
@@ -127,7 +144,7 @@ export function startNdiFramePump(
     typeof options.fps === 'number' && options.fps > 0
       ? options.fps
       : NDI_AR_DEFAULT_FPS
-  const minIntervalMs = 1000 / fps
+  const captureGate = createNdiCaptureGate(fps)
   const sourceNameOpt = options.sourceName?.trim() || DEFAULT_NAME
   const channel: NdiChannelId = options.channel ?? DEFAULT_NDI_CHANNEL
   const delayBuffer = new NdiDelayBuffer()
@@ -141,8 +158,6 @@ export function startNdiFramePump(
   let sourceName: string | null = null
   let sdkVersion: string | null = null
   let error: string | null = null
-  let lastCaptureMs = 0
-  let busy = false
   let airTarget: WebGLRenderTarget | null = null
   let airTargetW = 0
   let airTargetH = 0
@@ -207,6 +222,7 @@ export function startNdiFramePump(
         depthBuffer: true,
         stencilBuffer: false,
       })
+      applyNdiCaptureColorSpace(airTarget)
       airTargetW = w
       airTargetH = h
     }
@@ -219,27 +235,71 @@ export function startNdiFramePump(
     data: ArrayBuffer,
     bottomUp: boolean,
   ): void {
-    busy = true
     try {
-      ndi.sendFrame({
-        channel,
-        width,
-        height,
-        data,
-        bottomUp,
+      timeNdiStage('arEnqueueIpc', () => {
+        ndi.sendFrame({
+          channel,
+          width,
+          height,
+          data,
+          bottomUp,
+          pixelFormat: 'uyva',
+        })
       })
       sendFps.record(performance.now())
     } catch (err) {
       error = err instanceof Error ? err.message : String(err)
-    } finally {
-      busy = false
+    }
+  }
+
+  const packPool = createNdiPackPool('uyva')
+  const uyvyWorker = createNdiUyvyWorker()
+  const ipc = createNdiDeferredSend({
+    send: (frame) => {
+      sendFrameData(frame.width, frame.height, frame.data, frame.bottomUp)
+    },
+    release: (data) => {
+      packPool.release(data)
+    },
+  })
+
+  function queueOwnedFrame(
+    width: number,
+    height: number,
+    data: ArrayBuffer,
+    bottomUp: boolean,
+    capturedAtMs: number,
+    nowMs: number,
+  ): void {
+    const ready = delayBuffer.push(
+      {
+        capturedAtMs,
+        width,
+        height,
+        data,
+        bottomUp,
+      },
+      nowMs,
+    )
+    for (const frame of ready) {
+      ipc.enqueue({
+        width: frame.width,
+        height: frame.height,
+        data: frame.data,
+        bottomUp: frame.bottomUp,
+      })
     }
   }
 
   function flushDelay(nowMs: number): void {
-    if (stopped || busy || delayBuffer.getDelayMs() <= 0) return
+    if (stopped || delayBuffer.getDelayMs() <= 0) return
     for (const frame of delayBuffer.popReady(nowMs)) {
-      sendFrameData(frame.width, frame.height, frame.data, frame.bottomUp)
+      ipc.enqueue({
+        width: frame.width,
+        height: frame.height,
+        data: frame.data,
+        bottomUp: frame.bottomUp,
+      })
     }
   }
 
@@ -250,30 +310,66 @@ export function startNdiFramePump(
     bottomUp: boolean,
     nowMs: number,
   ): void {
-    const copy = buf.buffer.slice(
-      buf.byteOffset,
-      buf.byteOffset + buf.byteLength,
-    ) as ArrayBuffer
-    const ready = delayBuffer.push(
-      {
-        capturedAtMs: nowMs,
-        width: w,
-        height: h,
-        data: copy,
-        bottomUp,
-      },
-      nowMs,
-    )
-    for (const frame of ready) {
-      sendFrameData(frame.width, frame.height, frame.data, frame.bottomUp)
+    const __flipT0 = performance.now()
+    const rgba = flipOwnedRgbaFrame(takeNdiArrayBuffer(buf), w, h)
+    const __flipMs = performance.now() - __flipT0
+    if (uyvyWorker) {
+      void uyvyWorker
+        .pack(rgba, w, h, 'uyva')
+        .then((owned) => {
+          if (stopped) {
+            packPool.release(owned)
+            return
+          }
+          // #region agent log
+          if (!(globalThis as { __ndiArWorkerAt?: number }).__ndiArWorkerAt ||
+            performance.now() - ((globalThis as { __ndiArWorkerAt?: number }).__ndiArWorkerAt ?? 0) > 1000) {
+            ;(globalThis as { __ndiArWorkerAt?: number }).__ndiArWorkerAt = performance.now()
+            debugSessionLog({
+              hypothesisId: 'H13',
+              location: 'ndiFramePump.ts:enqueueRgba',
+              message: 'AR worker UYVA pack',
+              data: { w, h, flipMs: __flipMs, bytes: owned.byteLength, bottomUp },
+            })
+          }
+          // #endregion
+          queueOwnedFrame(w, h, owned, bottomUp, nowMs, performance.now())
+        })
+        .catch(() => {})
+      return
     }
+    const owned = packPool.pack(rgba, w, h)
+    readback.release(rgba)
+    if (!owned) return
+    // #region agent log
+    if (!(globalThis as { __ndiRowFlipAt?: number }).__ndiRowFlipAt ||
+      performance.now() - ((globalThis as { __ndiRowFlipAt?: number }).__ndiRowFlipAt ?? 0) > 1000) {
+      ;(globalThis as { __ndiRowFlipAt?: number }).__ndiRowFlipAt = performance.now()
+      fetch('http://127.0.0.1:7438/ingest/7196fb84-148e-4d0c-af68-4fcb53313232',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'173fbb'},body:JSON.stringify({sessionId:'173fbb',runId:'post-fix',hypothesisId:'H1',location:'ndiFramePump.ts:enqueueRgba',message:'AR row-flip after PBO (no GPU blit)',data:{w,h,bytes:owned.byteLength,bottomUp},timestamp:Date.now()})}).catch(()=>{});
+      debugSessionLog({
+        hypothesisId: 'H9',
+        location: 'ndiFramePump.ts:enqueueRgba',
+        message: 'AR row-flip',
+        data: { w, h, flipMs: __flipMs, bytes: owned.byteLength, bottomUp },
+      })
+    }
+    // #endregion
+    queueOwnedFrame(w, h, owned, bottomUp, nowMs, nowMs)
   }
 
   function drainReadback(nowMs: number): void {
-    if (stopped || busy) return
+    if (stopped) return
+    const t0 = performance.now()
     const pixels = readback.poll(nowMs)
+    recordNdiStage('arReadbackDrain', performance.now() - t0)
     if (!pixels) return
-    enqueueRgba(pixels.width, pixels.height, pixels.data, true, nowMs)
+    enqueueRgba(
+      pixels.width,
+      pixels.height,
+      pixels.data,
+      NDI_CAPTURE_FLIPPED_BOTTOM_UP,
+      nowMs,
+    )
   }
 
   function captureAirTarget(
@@ -281,20 +377,32 @@ export function startNdiFramePump(
     w: number,
     h: number,
     nowMs: number,
-  ): void {
-    if (stopped || busy) return
-    if (!readback.begin(target, w, h, nowMs)) return
-    lastCaptureMs = nowMs
+    syncClaim: boolean,
+  ): boolean {
+    if (stopped) return false
+    renderer.setRenderTarget(target)
+    const t0 = performance.now()
+    const ok = readback.begin(target, w, h, nowMs)
+    recordNdiStage('arReadbackBegin', performance.now() - t0)
+    if (!ok) {
+      if (syncClaim) releaseNdiHeavyCapture('ar', nowMs)
+      return false
+    }
+    recordNdiCapture('ar', nowMs)
     drainReadback(nowMs)
+    return true
   }
 
   function captureFrame(): void {
-    if (stopped || busy) return
+    if (stopped) return
     const now = performance.now()
     flushDelay(now)
     drainReadback(now)
-    if (stopped || busy) return
-    if (now - lastCaptureMs < minIntervalMs) return
+    if (stopped) return
+    if (!captureGate.isDue(now)) {
+      noteNdiSkip('ar', 'rateCap')
+      return
+    }
 
     const airCamera = getAirCamera?.() ?? null
     if (!airCamera) return
@@ -303,12 +411,21 @@ export function startNdiFramePump(
     const w = canvas.width
     const h = canvas.height
     if (w < 1 || h < 1) return
-    if (
-      !tryClaimNdiHeavyCapture('ar', now, {
-        blocking: readback.mode === 'sync',
-      })
-    ) {
-      // Another FBO already rendered this window. Drain above still ran.
+
+    const syncClaim = readback.mode === 'sync'
+    if (syncClaim) {
+      if (!tryClaimNdiHeavyCapture('ar', now, { blocking: true })) {
+        noteNdiSkip('ar', 'stagger')
+        return
+      }
+    }
+    if (!readback.canBegin()) {
+      if (syncClaim) releaseNdiHeavyCapture('ar', now)
+      return
+    }
+    if (!captureGate.tryAdmit(now)) {
+      if (syncClaim) releaseNdiHeavyCapture('ar', now)
+      noteNdiSkip('ar', 'rateCap')
       return
     }
 
@@ -320,8 +437,10 @@ export function startNdiFramePump(
       preparePass(airCamera)
       const target = ensureAirTarget(w, h)
       renderer.setRenderTarget(target)
-      tickRender(sceneRoot, airCamera)
-      captureAirTarget(target, w, h, now)
+      timeNdiStage('arFboRender', () => {
+        tickRender(sceneRoot, airCamera)
+      })
+      captureAirTarget(target, w, h, now, syncClaim)
     } finally {
       renderer.setRenderTarget(prevTarget)
       renderer.xr.enabled = prevXrEnabled
@@ -368,7 +487,9 @@ export function startNdiFramePump(
       if (stopped) return
       stopped = true
       unsubTick()
+      ipc.dispose()
       delayBuffer.clear()
+      uyvyWorker?.dispose()
       readback.dispose()
       airTarget?.dispose()
       airTarget = null

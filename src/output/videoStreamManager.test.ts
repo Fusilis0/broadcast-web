@@ -280,6 +280,58 @@ describe('startVideoStreamManager', () => {
       true,
     )
   })
+
+  it('dropPresented unbinds the last frame and ignores bytes until resumeIngest', async () => {
+    const bound: Array<StreamTextureLike | null> = []
+    const fake = fakeFactory()
+    const mgr = startVideoStreamManager({
+      setTexture: (tex) => {
+        bound.push(tex)
+      },
+      decoderFactory: fake.factory,
+      createTexture: fakeTexture,
+    })
+    managers.push(mgr)
+    mgr.pushBytes('cam', oneFrameTs(0, true))
+    await mgr.ready()
+    mgr.setActivePov('cam')
+    mgr.present()
+    expect(mgr.listPovIds()).toEqual(['cam'])
+    expect(bound.at(-1)).toBeTruthy()
+
+    mgr.dropPresented()
+    expect(mgr.listPovIds()).toEqual([])
+    expect(bound.at(-1)).toBeNull()
+
+    mgr.pushBytes('cam', oneFrameTs(90_000, true))
+    await mgr.ready()
+    expect(mgr.listPovIds()).toEqual([])
+
+    mgr.resumeIngest()
+    mgr.pushBytes('cam', oneFrameTs(180_000, true))
+    await mgr.ready()
+    expect(mgr.listPovIds()).toEqual(['cam'])
+  })
+
+  it('dropPov closes only that decoder and reports whether a texture remains', async () => {
+    const fake = fakeFactory()
+    const mgr = startVideoStreamManager({
+      setTexture: () => {},
+      decoderFactory: fake.factory,
+      createTexture: fakeTexture,
+    })
+    managers.push(mgr)
+    mgr.pushBytes('a', oneFrameTs(0, true))
+    mgr.pushBytes('b', oneFrameTs(0, true))
+    await mgr.ready()
+    mgr.setActivePov('a')
+    mgr.present()
+    const stillBound = mgr.dropPov('b')
+    expect(mgr.listPovIds()).toEqual(['a'])
+    expect(stillBound).toBe(true)
+    expect(mgr.dropPov('a')).toBe(false)
+    expect(mgr.listPovIds()).toEqual([])
+  })
 })
 
 describe('main.ts wiring (DSP-OUT-06)', () => {

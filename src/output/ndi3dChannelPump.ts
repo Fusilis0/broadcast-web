@@ -1,17 +1,33 @@
 import { createSendFpsCounter } from './perfCounters.ts'
 import type { Camera, Object3D, WebGLRenderer } from 'three'
 import { Color, WebGLRenderTarget } from 'three'
+import { createNdiGpuUyvyPack } from './ndiGpuUyvy.ts'
 import { createNdiAsyncReadback } from './ndiAsyncReadback.ts'
+import { createNdiCaptureGate } from './ndiCaptureClock.ts'
+import { applyNdiCaptureColorSpace } from './ndiCaptureColorSpace.ts'
+import { NDI_CAPTURE_FLIPPED_BOTTOM_UP } from './ndiCaptureFlip.ts'
+import { flipOwnedRgbaFrame } from './ndiFlipRows.ts'
+import { createNdiPackPool } from './ndiUyvy.ts'
 import { NdiDelayBuffer } from './ndiDelayBuffer.ts'
+import { createNdiDeferredSend, takeNdiArrayBuffer } from './ndiDeferredSend.ts'
 import {
   applyOpaque3dPassState,
   NDI_3D_OPAQUE_CLEAR_COLOR,
   restoreClearPass,
   snapshotClearPass,
 } from './ndiOpaquePass.ts'
-import { tryClaimNdiHeavyCapture } from './ndiCaptureStagger.ts'
+import {
+  noteNdiSkip,
+  recordNdiCapture,
+  recordNdiStage,
+  timeNdiStage,
+} from './ndiStageTiming.ts'
+import {
+  releaseNdiHeavyCapture,
+  tryClaimNdiHeavyCapture,
+} from './ndiCaptureStagger.ts'
 import type { NdiFramePumpHandle } from './ndiFramePump.ts'
-import { getStudioBridge } from './studioBridge.ts'
+import { debugSessionLog, getStudioBridge } from './studioBridge.ts'
 
 export type Ndi3dChannelPumpOptions = {
   renderer: WebGLRenderer
@@ -29,8 +45,8 @@ export type Ndi3dChannelPumpOptions = {
   setEnvironmentOpaqueClearSafe: (safe: boolean) => void
   getEnvironmentOpaqueClearSafe: () => boolean
   /**
-   * Target send rate. Default **30** (DSP-OUT-20260828-04; alternate ticks
-   * with AR — one FBO render per stagger window).
+   * Target send rate. Default **30** (DSP-OUT-20260828-04). Independent of
+   * AR on the PBO path (DSP-OUT-20260829-04).
    */
   fps?: number
   /** NDI source name. Default `broadcast-web-3d`. */
@@ -53,15 +69,17 @@ const _clearColor = new Color()
  * Electron-only continuous **3D** NDI pump (`channel: '3d'`).
  *
  * Each studio tick: opaque clear + `opaqueClearSafe(true)` → render active POV
- * into an FBO → PBO pack (sync `readRenderTargetPixels` fallback) →
- * `sendFrame({ channel: '3d' })` → restore the previous clear / opaque-safe
- * gate so the AR transparent plate stays clean. One frame of PBO latency is OK.
+ * into an FBO → GPU UYVY pack (Y-flip in shader) → PBO of the half-width
+ * target (sync `readRenderTargetPixels` fallback) → `sendFrame({ channel:
+ * '3d' })` → restore the previous clear / opaque-safe gate so the AR
+ * transparent plate stays clean. Packed bytes are top-down.
+ * One frame of PBO latency is OK.
  *
  * Does **not** monkey-patch `renderer.render`. Captures via `onStudioTick`
  * using the render function bound at start time (typically the visual-timecode
  * wrap). Start **after** `startVisualTimecode` and **after** `startNdiFramePump`.
- * `tryClaimNdiHeavyCapture` is the FBO-render slot (PBO `blocking: false`
- * still refused if AR already rendered this window). Preview rAF does not
+ * On the PBO path this pump may render in the same tick as AR. Sync
+ * `readPixels` still uses `tryClaimNdiHeavyCapture`. Preview rAF does not
  * drive this pump.
  *
  * No-ops when `window.broadcastStudio` is missing (Chrome path).
@@ -86,7 +104,7 @@ export function startNdi3dChannelPump(
     typeof options.fps === 'number' && options.fps > 0
       ? options.fps
       : NDI_3D_DEFAULT_FPS
-  const minIntervalMs = 1000 / fps
+  const captureGate = createNdiCaptureGate(fps)
   const sourceNameOpt = options.sourceName?.trim() || DEFAULT_3D_NAME
   const delayBuffer = new NdiDelayBuffer()
   if (options.delayMs !== undefined) delayBuffer.setDelayMs(options.delayMs)
@@ -99,12 +117,13 @@ export function startNdi3dChannelPump(
   let sourceName: string | null = null
   let sdkVersion: string | null = null
   let error: string | null = null
-  let lastCaptureMs = 0
-  let busy = false
   let target: WebGLRenderTarget | null = null
   let targetW = 0
   let targetH = 0
   const readback = createNdiAsyncReadback({ renderer })
+  const gpuPack = createNdiGpuUyvyPack(renderer)
+  let lastPackSrcW = 0
+  let lastPackSrcH = 0
 
   const clearReader = {
     getClearColorHex: () => {
@@ -139,6 +158,7 @@ export function startNdi3dChannelPump(
         depthBuffer: true,
         stencilBuffer: false,
       })
+      applyNdiCaptureColorSpace(target)
       targetW = w
       targetH = h
     }
@@ -146,64 +166,139 @@ export function startNdi3dChannelPump(
   }
 
   function sendFrameData(width: number, height: number, data: ArrayBuffer): void {
-    busy = true
     try {
-      ndi.sendFrame({
-        channel: CHANNEL,
-        width,
-        height,
-        data,
-        bottomUp: true,
+      timeNdiStage('3dEnqueueIpc', () => {
+        ndi.sendFrame({
+          channel: CHANNEL,
+          width,
+          height,
+          data,
+          bottomUp: NDI_CAPTURE_FLIPPED_BOTTOM_UP,
+          pixelFormat: 'uyvy',
+        })
       })
       sendFps.record(performance.now())
     } catch (err) {
       error = err instanceof Error ? err.message : String(err)
-    } finally {
-      busy = false
     }
   }
 
-  function flushDelay(nowMs: number): void {
-    if (stopped || busy || delayBuffer.getDelayMs() <= 0) return
-    for (const frame of delayBuffer.popReady(nowMs)) {
+  const packPool = createNdiPackPool('uyvy')
+  const gpuPackedBuffers = new Set<ArrayBuffer>()
+  const ipc = createNdiDeferredSend({
+    send: (frame) => {
       sendFrameData(frame.width, frame.height, frame.data)
-    }
-  }
+    },
+    release: (data) => {
+      if (gpuPackedBuffers.delete(data)) {
+        readback.release(data)
+        return
+      }
+      packPool.release(data)
+    },
+  })
 
-  function enqueueRgba(w: number, h: number, buf: Uint8Array, nowMs: number): void {
-    const copy = buf.buffer.slice(
-      buf.byteOffset,
-      buf.byteOffset + buf.byteLength,
-    ) as ArrayBuffer
+  function queueOwnedFrame(
+    width: number,
+    height: number,
+    data: ArrayBuffer,
+    nowMs: number,
+  ): void {
     const ready = delayBuffer.push(
       {
         capturedAtMs: nowMs,
-        width: w,
-        height: h,
-        data: copy,
-        bottomUp: true,
+        width,
+        height,
+        data,
+        bottomUp: NDI_CAPTURE_FLIPPED_BOTTOM_UP,
       },
       nowMs,
     )
     for (const frame of ready) {
-      sendFrameData(frame.width, frame.height, frame.data)
+      ipc.enqueue({
+        width: frame.width,
+        height: frame.height,
+        data: frame.data,
+        bottomUp: NDI_CAPTURE_FLIPPED_BOTTOM_UP,
+      })
     }
   }
 
+  function flushDelay(nowMs: number): void {
+    if (stopped || delayBuffer.getDelayMs() <= 0) return
+    for (const frame of delayBuffer.popReady(nowMs)) {
+      ipc.enqueue({
+        width: frame.width,
+        height: frame.height,
+        data: frame.data,
+        bottomUp: NDI_CAPTURE_FLIPPED_BOTTOM_UP,
+      })
+    }
+  }
+
+  function enqueueRgba(w: number, h: number, buf: Uint8Array, nowMs: number): void {
+    if (
+      lastPackSrcW > 0 &&
+      w * 2 === lastPackSrcW &&
+      h === lastPackSrcH
+    ) {
+      const owned = takeNdiArrayBuffer(buf)
+      gpuPackedBuffers.add(owned)
+      // #region agent log
+      if (!(globalThis as { __ndi3dGpuAt?: number }).__ndi3dGpuAt ||
+        performance.now() - ((globalThis as { __ndi3dGpuAt?: number }).__ndi3dGpuAt ?? 0) > 1000) {
+        ;(globalThis as { __ndi3dGpuAt?: number }).__ndi3dGpuAt = performance.now()
+        debugSessionLog({
+          hypothesisId: 'H12',
+          location: 'ndi3dChannelPump.ts:enqueueRgba',
+          message: '3D GPU UYVY skip CPU pack',
+          data: { readW: w, readH: h, srcW: lastPackSrcW, srcH: lastPackSrcH, bytes: owned.byteLength },
+        })
+      }
+      // #endregion
+      queueOwnedFrame(lastPackSrcW, lastPackSrcH, owned, nowMs)
+      return
+    }
+    const __flipT0 = performance.now()
+    const rgba = flipOwnedRgbaFrame(takeNdiArrayBuffer(buf), w, h)
+    const __flipMs = performance.now() - __flipT0
+    const owned = packPool.pack(rgba, w, h)
+    readback.release(rgba)
+    if (!owned) return
+    // #region agent log
+    if (!(globalThis as { __ndi3dFlipAt?: number }).__ndi3dFlipAt ||
+      performance.now() - ((globalThis as { __ndi3dFlipAt?: number }).__ndi3dFlipAt ?? 0) > 1000) {
+      ;(globalThis as { __ndi3dFlipAt?: number }).__ndi3dFlipAt = performance.now()
+      debugSessionLog({
+        hypothesisId: 'H9',
+        location: 'ndi3dChannelPump.ts:enqueueRgba',
+        message: '3D row-flip',
+        data: { w, h, flipMs: __flipMs, bytes: owned.byteLength },
+      })
+    }
+    // #endregion
+    queueOwnedFrame(w, h, owned, nowMs)
+  }
+
   function drainReadback(nowMs: number): void {
-    if (stopped || busy) return
+    if (stopped) return
+    const t0 = performance.now()
     const pixels = readback.poll(nowMs)
+    recordNdiStage('3dReadbackDrain', performance.now() - t0)
     if (!pixels) return
     enqueueRgba(pixels.width, pixels.height, pixels.data, nowMs)
   }
 
   function captureFrame(): void {
-    if (stopped || busy) return
+    if (stopped) return
     const now = performance.now()
     flushDelay(now)
     drainReadback(now)
-    if (stopped || busy) return
-    if (now - lastCaptureMs < minIntervalMs) return
+    if (stopped) return
+    if (!captureGate.isDue(now)) {
+      noteNdiSkip('3d', 'rateCap')
+      return
+    }
 
     const airCamera = getAirCamera() ?? null
     if (!airCamera) return
@@ -212,12 +307,21 @@ export function startNdi3dChannelPump(
     const w = canvas.width
     const h = canvas.height
     if (w < 1 || h < 1) return
-    if (
-      !tryClaimNdiHeavyCapture('3d', now, {
-        blocking: readback.mode === 'sync',
-      })
-    ) {
-      // Another FBO already rendered this window. Drain above still ran.
+
+    const syncClaim = readback.mode === 'sync'
+    if (syncClaim) {
+      if (!tryClaimNdiHeavyCapture('3d', now, { blocking: true })) {
+        noteNdiSkip('3d', 'stagger')
+        return
+      }
+    }
+    if (!readback.canBegin()) {
+      if (syncClaim) releaseNdiHeavyCapture('3d', now)
+      return
+    }
+    if (!captureGate.tryAdmit(now)) {
+      if (syncClaim) releaseNdiHeavyCapture('3d', now)
+      noteNdiSkip('3d', 'rateCap')
       return
     }
 
@@ -231,10 +335,26 @@ export function startNdi3dChannelPump(
     try {
       preparePass(airCamera)
       renderer.setRenderTarget(fbo)
-      directRender(sceneRoot, airCamera)
+      timeNdiStage('3dFboRender', () => {
+        directRender(sceneRoot, airCamera)
+      })
+      const packed = gpuPack.pack(fbo, w, h)
+      const readTarget = packed ?? fbo
+      const readW = packed ? packed.width : w
+      const readH = packed ? packed.height : h
+      if (packed) {
+        lastPackSrcW = w
+        lastPackSrcH = h
+      }
 
-      if (!readback.begin(fbo, w, h, now)) return
-      lastCaptureMs = now
+      const t0 = performance.now()
+      const ok = readback.begin(readTarget, readW, readH, now)
+      recordNdiStage('3dReadbackBegin', performance.now() - t0)
+      if (!ok) {
+        if (syncClaim) releaseNdiHeavyCapture('3d', now)
+        return
+      }
+      recordNdiCapture('3d', now)
       drainReadback(now)
     } finally {
       renderer.setRenderTarget(prevTarget)
@@ -282,8 +402,11 @@ export function startNdi3dChannelPump(
       if (stopped) return
       stopped = true
       unsubTick()
+      ipc.dispose()
       delayBuffer.clear()
       readback.dispose()
+      gpuPack.dispose()
+      gpuPackedBuffers.clear()
       target?.dispose()
       target = null
       void ndi.stop({ channel: CHANNEL }).catch(() => {

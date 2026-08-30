@@ -5,7 +5,7 @@ import type {
   WorldFeature,
 } from './features/types.ts'
 import {
-  createSponsorBillboard,
+  createUprightSponsorBillboard,
   type SponsorBillboardHandle,
 } from './sponsors/sponsorBillboard.ts'
 import type { SponsorEnuEndpoints } from './sponsors/types.ts'
@@ -179,7 +179,7 @@ async function mountOneChain(
     idx += 1
     try {
       const handle: SponsorBillboardHandle =
-        await createSponsorBillboard(endpoints)
+        await createUprightSponsorBillboard(endpoints)
       parent.add(handle.root)
       disposers.push(handle.dispose)
     } catch (err) {

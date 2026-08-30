@@ -43,6 +43,15 @@ describe('orphanBoatIds', () => {
     const allow = boatIdAllowSet(['21', '22'])
     expect(orphanBoatIds(['21', '22'], allow)).toEqual([])
   })
+
+  it('drops a previous 4-boat pack when the next pack has one boat', () => {
+    const allow = boatIdAllowSet(['1'])
+    expect(
+      orphanBoatIds(['21', '22', '23', '24'], allow).sort(),
+    ).toEqual(['21', '22', '23', '24'])
+    expect(allow.has('1')).toBe(true)
+    expect(allow.has('21')).toBe(false)
+  })
 })
 
 describe('formatBoatEnuStatus', () => {

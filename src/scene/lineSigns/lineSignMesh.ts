@@ -1,9 +1,6 @@
 import * as THREE from 'three'
-import {
-  LINE_SIGN_BAND_DEPTH_M,
-  LINE_SIGN_WATER_Y,
-  LINE_SIGN_Y_OFFSET,
-} from './lineSignLayout.ts'
+import { applyFlatOnWaterPlacement } from '../waterPlanePlacement.ts'
+import { LINE_SIGN_BAND_DEPTH_M } from './lineSignLayout.ts'
 import type { LineSignEnu } from './types.ts'
 
 export type LineSignHandle = {
@@ -55,15 +52,6 @@ export function createLineSignTexture(
  * Plane faces +Y (readable from drone / free cam above).
  */
 export function createLineSignMesh(sign: LineSignEnu): LineSignHandle {
-  const along = new THREE.Vector3(sign.bx - sign.ax, 0, sign.bz - sign.az)
-  if (along.lengthSq() < 1e-8) {
-    throw new Error(`[lineSigns] degenerate span for ${sign.id}`)
-  }
-  along.normalize()
-  const up = new THREE.Vector3(0, 1, 0)
-  // Across on water = up × along so local Y of PlaneGeometry lies on water.
-  const across = new THREE.Vector3().crossVectors(up, along).normalize()
-
   const map = createLineSignTexture(sign.label, sign.color)
   const geo = new THREE.PlaneGeometry(sign.widthM, LINE_SIGN_BAND_DEPTH_M)
   const mat = new THREE.MeshBasicMaterial({
@@ -76,14 +64,12 @@ export function createLineSignMesh(sign: LineSignEnu): LineSignHandle {
   const mesh = new THREE.Mesh(geo, mat)
   mesh.name = `lineSign:${sign.kind}:${sign.id}`
 
-  // PlaneGeometry in XY, normal +Z → map X=along, Y=across, Z=up (face sky).
-  const m = new THREE.Matrix4().makeBasis(along, across, up)
-  mesh.quaternion.setFromRotationMatrix(m)
-  mesh.position.set(
-    sign.midX,
-    LINE_SIGN_WATER_Y + LINE_SIGN_Y_OFFSET,
-    sign.midZ,
-  )
+  if (!applyFlatOnWaterPlacement(mesh, sign)) {
+    geo.dispose()
+    mat.dispose()
+    map.dispose()
+    throw new Error(`[lineSigns] degenerate span for ${sign.id}`)
+  }
 
   return {
     root: mesh,

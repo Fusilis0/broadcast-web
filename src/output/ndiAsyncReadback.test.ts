@@ -8,6 +8,7 @@ import {
   NDI_ASYNC_READBACK_FENCE_MAX_MS,
   NDI_ASYNC_READBACK_LATENCY_FRAMES,
   NDI_ASYNC_READBACK_PBO_COUNT,
+  NDI_PIXEL_RING_CAPACITY,
   NDI_SYNC_READBACK_NOTE,
   probeNdiPboReadback,
 } from './ndiAsyncReadback.ts'
@@ -178,6 +179,39 @@ describe('createNdiAsyncReadback sync fallback', () => {
     rb.dispose()
   })
 
+  it('transfers poll ownership so a later begin does not overwrite sent pixels', () => {
+    const notes: string[] = []
+    const stub = stubRenderer({ gl: null, fill: 11 })
+    const rb = createNdiAsyncReadback({
+      renderer: stub.renderer,
+      gl: null,
+      onFallbackNote: (m) => notes.push(m),
+    })
+    expect(rb.begin(dummyTarget, 2, 1)).toBe(true)
+    const first = rb.poll()
+    expect(first?.data[0]).toBe(11)
+    const held = first!.data
+    stub.renderer.readRenderTargetPixels = (
+      _t,
+      _x,
+      _y,
+      w,
+      h,
+      buffer: Uint8Array,
+    ) => {
+      const n = Math.min(buffer.byteLength, w * h * 4)
+      for (let i = 0; i < n; i++) buffer[i] = 99
+    }
+    expect(rb.begin(dummyTarget, 2, 1)).toBe(true)
+    expect(held[0]).toBe(11)
+    const second = rb.poll()
+    expect(second?.data[0]).toBe(99)
+    expect(held[0]).toBe(11)
+    rb.release(held)
+    rb.release(second!.data)
+    rb.dispose()
+  })
+
   it('forceSync skips PBO even when GL looks capable', () => {
     const fake = makeFakeGl2()
     const stub = stubRenderer({ gl: fake.gl, fill: 5 })
@@ -266,6 +300,46 @@ describe('createNdiAsyncReadback PBO path', () => {
     expect(rb.begin(dummyTarget, 1, 1)).toBe(true)
     expect(rb.begin(dummyTarget, 1, 1)).toBe(false)
     expect(fake.readPixelCount()).toBe(2)
+    rb.dispose()
+  })
+
+  it('canBegin is false when both PBO slots are in flight', () => {
+    const fake = makeFakeGl2({ fenceReady: false, fill: 7 })
+    const stub = stubRenderer({ gl: fake.gl })
+    const rb = createNdiAsyncReadback({
+      renderer: stub.renderer,
+      gl: fake.gl,
+      onFallbackNote: () => {},
+    })
+    expect(NDI_PIXEL_RING_CAPACITY).toBe(4)
+    expect(rb.canBegin()).toBe(true)
+    expect(rb.begin(dummyTarget, 1, 1)).toBe(true)
+    expect(rb.canBegin()).toBe(true)
+    expect(rb.begin(dummyTarget, 1, 1)).toBe(true)
+    expect(rb.canBegin()).toBe(false)
+    expect(rb.begin(dummyTarget, 1, 1)).toBe(false)
+    rb.dispose()
+  })
+
+  it('poll does not reuse the CPU buffer until release (PBO path)', () => {
+    const fake = makeFakeGl2({ fenceReady: true, fill: 42 })
+    const stub = stubRenderer({ gl: fake.gl })
+    const rb = createNdiAsyncReadback({
+      renderer: stub.renderer,
+      gl: fake.gl,
+      onFallbackNote: () => {},
+    })
+    expect(rb.begin(dummyTarget, 2, 2, 0)).toBe(true)
+    const first = rb.poll(16)
+    expect(first?.data[0]).toBe(42)
+    const held = first!.data
+    expect(rb.begin(dummyTarget, 2, 2, 32)).toBe(true)
+    const second = rb.poll(48)
+    expect(second).not.toBeNull()
+    expect(second!.data.buffer).not.toBe(held.buffer)
+    expect(held[0]).toBe(42)
+    rb.release(held)
+    rb.release(second!.data)
     rb.dispose()
   })
 

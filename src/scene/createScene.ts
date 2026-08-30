@@ -580,6 +580,10 @@ export function startScene(options: SceneOptions): SceneHandle {
     alpha: true,
     powerPreference: 'high-performance',
   })
+  // Pin: three default is already SRGBColorSpace (canvas encode). Explicit so a
+  // future three upgrade cannot silently change preview. NDI AR/3D FBOs pin the
+  // same via applyNdiCaptureColorSpace — this is not a look change.
+  renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.setClearColor(clearColor, 1)
   const lockedOut = options.outputSize
   const keepWhenHidden = options.keepRenderingWhenHidden === true

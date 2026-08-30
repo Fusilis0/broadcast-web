@@ -89,6 +89,37 @@ Key properties:
   (or a dedicated higher-res render target) becomes a fourth-ish frame source, but conceptually
   one of the three requested channels.
 
+### Capture colour space (AR / 3D FBO)
+
+AR and 3D capture into a `WebGLRenderTarget` and `readPixels` RGBA8. three applies output
+colour-space conversion from the **destination**: the preview canvas uses
+`renderer.outputColorSpace` (pinned `SRGBColorSpace` in `createScene.ts`); a bound render
+target uses `target.texture.colorSpace`, which defaults to no conversion (linear-light).
+Without an explicit pin, OBS displays those linear bytes as sRGB and the picture looks
+dark and desaturated — 2D looked correct because it never used WebGL (`getImageData` from
+a 2D canvas is already sRGB).
+
+`applyNdiCaptureColorSpace` (`src/output/ndiCaptureColorSpace.ts`) sets the AR
+(`ndiFramePump.ts`) and 3D (`ndi3dChannelPump.ts`) capture textures to `SRGBColorSpace` on
+every create and resize so FBO bytes match the canvas. The encode is RGB-only (three's
+LinearTosRGB leaves alpha untouched — AR plate contract in
+[`ndi-alpha-electron.md`](./ndi-alpha-electron.md) §2). Do **not** apply it to the 2D
+channel: that path is already a 2D-canvas bitmap; a second encode would go bright.
+`desktop/ndiSender.cjs` declares native `grandi.FourCC.RGBA` on the hot path (no
+colour matrix, no RGBA→BGRA loop). CPU `rgbaToBgra` is an announced fallback
+only. `grandi` rejects negative `lineStrideBytes`, so WebGL bottom-up frames
+are not flipped in main.
+
+AR and 3D therefore GPU-blit the capture FBO into a second colour target with
+**inverted dest Y** (`createNdiCaptureFlip`, `blitFramebuffer`) after the scene
+pass and **before** `readback.begin`, so the packed PBO is already top-down.
+`sendFrame` uses `bottomUp: false`. The blit copies RGBA together (alpha is
+not stripped; transparent clear stays `(0,0,0,0)`). The flip target is created
+and resized with the same `applyNdiCaptureColorSpace` pin as the scene FBO so
+the blit does not re-encode. Preview canvas is unchanged. Do **not** run this
+helper on the 2D channel: that path is already a top-down canvas bitmap
+(`bottomUp: false`).
+
 ## 3. Multi-sender NDI bridge (blocking prerequisite)
 
 Today `desktop/ndiSender.cjs` owns exactly **one** `grandi` sender and one IPC pair

@@ -1,6 +1,8 @@
 /**
  * RaceProject `fleet.boats` snapshot / Load reconstruction (SCN 15.4).
  * Pack rows are the persist source of truth; names URL is fallback only.
+ * Project fleets accept any non-empty string id and may be empty — never
+ * `DEFAULT_BOAT_IDS`.
  */
 
 import { parseHexColorCss } from '../scene/boatNames/categoryColor.ts'
@@ -57,8 +59,45 @@ export function serializeFleetBoat(
 }
 
 /**
+ * Project-fleet id reader. Any non-empty string is legal; author order is
+ * preserved; duplicates dropped. Empty stays empty — never the config
+ * `DEFAULT_BOAT_IDS` demo slice.
+ */
+export function parseProjectFleetIds(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return []
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const item of raw) {
+    if (typeof item !== 'string') continue
+    const id = item.trim()
+    if (id === '' || seen.has(id)) continue
+    seen.add(id)
+    out.push(id)
+  }
+  return out
+}
+
+function hydratePackBoatRow(
+  row: RaceProjectFleetBoat,
+  catalogue: ReadonlyMap<string, FleetBoatNameEntry>,
+): RaceProjectFleetBoat {
+  const id = row.id.trim()
+  const fromCat = catalogue.get(id)
+  const name = row.name.trim() || fromCat?.name || id
+  const category = row.category.trim() || fromCat?.category || ''
+  const out: RaceProjectFleetBoat = { id, name, category }
+  const color = parseHexColorCss(row.color)
+  if (color) out.color = color
+  if (row.visibility) out.visibility = row.visibility
+  if (row.mapVisible === false) out.mapVisible = false
+  Object.assign(out, clonePlannedGps(row))
+  return out
+}
+
+/**
  * Write `fleet.boats` in `boatIds` order so both fields stay in sync.
- * Missing rows become `{ id, name: id, category: '' }`.
+ * Missing rows become `{ id, name: id, category: '' }`. Empty `boatIds`
+ * yields `[]`.
  */
 export function snapshotFleetBoats(
   boatIds: readonly string[],
@@ -70,17 +109,16 @@ export function snapshotFleetBoats(
     if (id === '' || byId.has(id)) continue
     byId.set(id, row)
   }
-  return boatIds.map((raw) => {
-    const id = raw.trim()
-    return serializeFleetBoat(byId.get(id) ?? { id, name: id, category: '' })
-  })
+  return parseProjectFleetIds(boatIds).map((id) =>
+    serializeFleetBoat(byId.get(id) ?? { id, name: id, category: '' }),
+  )
 }
 
 /**
  * Rebuild Live-panel rows from a loaded pack.
  *
- * - `fleet.boats` present → use those rows (by `boatIds` order); names URL /
- *   catalogue fills ids missing from `boats[]`.
+ * - `fleet.boats` present (including `[]`) → that array is the complete fleet.
+ *   Do not add ids from `boatIds` or from the names catalogue.
  * - `fleet.boats` omitted → one row per `boatIds` from the catalogue (do **not**
  *   dump extra catalogue-only demo ids).
  */
@@ -89,31 +127,42 @@ export function resolveLoadedFleetBoats(input: {
   boats?: readonly RaceProjectFleetBoat[]
   catalogue: ReadonlyMap<string, FleetBoatNameEntry>
 }): RaceProjectFleetBoat[] {
-  const packed = new Map<string, RaceProjectFleetBoat>()
-  for (const row of input.boats ?? []) {
-    const id = row.id.trim()
-    if (id === '' || packed.has(id)) continue
-    packed.set(id, row)
-  }
-  return input.boatIds.map((raw) => {
-    const id = raw.trim()
-    const fromPack = packed.get(id)
-    const fromCat = input.catalogue.get(id)
-    if (fromPack) {
-      const name = fromPack.name.trim() || fromCat?.name || id
-      const category = fromPack.category.trim() || fromCat?.category || ''
-      const out: RaceProjectFleetBoat = { id, name, category }
-      const color = parseHexColorCss(fromPack.color)
-      if (color) out.color = color
-      if (fromPack.visibility) out.visibility = fromPack.visibility
-      if (fromPack.mapVisible === false) out.mapVisible = false
-      Object.assign(out, clonePlannedGps(fromPack))
-      return out
+  if (input.boats !== undefined) {
+    const out: RaceProjectFleetBoat[] = []
+    const seen = new Set<string>()
+    for (const row of input.boats) {
+      const id = row.id.trim()
+      if (id === '' || seen.has(id)) continue
+      seen.add(id)
+      out.push(hydratePackBoatRow(row, input.catalogue))
     }
+    return out
+  }
+  return parseProjectFleetIds(input.boatIds).map((id) => {
+    const fromCat = input.catalogue.get(id)
     return {
       id,
       name: fromCat?.name ?? id,
       category: fromCat?.category ?? '',
     }
   })
+}
+
+/**
+ * Session fleet overlays boot only when no RaceProject pack is loaded
+ * (`?race=` / later `switchRace`). A loaded pack always wins.
+ */
+export function resolveBootPanelBoats(input: {
+  packLoaded: boolean
+  packBoats: readonly RaceProjectFleetBoat[]
+  sessionBoats?: readonly RaceProjectFleetBoat[] | null
+}): RaceProjectFleetBoat[] {
+  if (
+    !input.packLoaded &&
+    input.sessionBoats &&
+    input.sessionBoats.length > 0
+  ) {
+    return input.sessionBoats.map((b) => ({ ...b }))
+  }
+  return input.packBoats.map((b) => ({ ...b }))
 }

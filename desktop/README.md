@@ -22,7 +22,7 @@ Default product remains the browser SPA (Hetzner / preview). Electron is the **p
 | Multi-sender | `ndiSender.cjs` Map of channel → sender (`ar` \| `3d` \| `2d`) |
 | Default AR name | `broadcast-web` → `HOSTNAME (broadcast-web)` (unchanged; not renamed to `-ar`) |
 | Default 3D / 2D names | `broadcast-web-3d` / `broadcast-web-2d` (idle until Phase 13.3 / 13.4 pumps) |
-| Pixel path | WebGL `readPixels` RGBA → main converts to top-down **BGRA** (straight alpha) |
+| Pixel path | WebGL `readPixels` RGBA → native NDI **RGBA** (`grandi.FourCC.RGBA`, straight alpha). CPU BGRA fallback if RGBA is missing at runtime. |
 | Output size | **1920×1080** locked in the SPA (window may resize; NDI stays 1080p) |
 | Timecode size | Fixed — canvas displayed at native **1920×1080** CSS px (window scroll/letterbox, no scale) |
 | Minimize / close | **Parks off-screen** (OS minimize freezes WebGL). NDI stays ~30 fps. **Tray → Show studio** to restore; **Tray → Quit** to exit |

@@ -4,7 +4,9 @@ import {
   buildLineSignLayout,
   DEFAULT_LINE_SIGN_WIDTH_M,
   LINE_SIGN_WATER_Y,
+  LINE_SIGN_Y_OFFSET,
 } from './lineSignLayout.ts'
+import { WATER_PLANE_Y, WATER_PLANE_Y_OFFSET } from '../waterPlanePlacement.ts'
 import type { GpsToEnuAmslFn } from './types.ts'
 
 const mockEnu: GpsToEnuAmslFn = (lat, lon, alt) => ({
@@ -34,6 +36,8 @@ describe('buildLineSignLayout', () => {
     expect(layout[0]!.widthM).toBeCloseTo(30)
     expect(layout[0]!.midX).toBeCloseTo(35)
     expect(LINE_SIGN_WATER_Y).toBe(0)
+    expect(LINE_SIGN_WATER_Y).toBe(WATER_PLANE_Y)
+    expect(LINE_SIGN_Y_OFFSET).toBe(WATER_PLANE_Y_OFFSET)
   })
 
   it('expands single-point finish east–west', () => {

@@ -174,6 +174,10 @@ export {
 
   type StudioNdiStatusAll,
 
+  type NdiMainPerfSummary,
+
+  type NdiMainPerfChannel,
+
 } from './studioBridge.ts'
 
 
@@ -206,6 +210,14 @@ export {
 
   createSendFpsCounter,
 
+  createStageAccumulator,
+
+  createIntHistogram,
+
+  formatIntHistogram,
+
+  tickIntervalBucketMs,
+
   formatGpuHudLabel,
 
   formatNdiSendFps,
@@ -216,9 +228,51 @@ export {
 
   type SendFpsCounter,
 
+  type StageStats,
+
+  type IntHistogram,
+
   type WebGlGpuInfo,
 
 } from './perfCounters.ts'
+
+
+
+export {
+
+  beginStudioTickTiming,
+
+  formatNdiStageDump,
+
+  formatNdiStageHud,
+
+  getNdiStageSnapshot,
+
+  recordNdiStage,
+
+  timeNdiStage,
+
+  noteNdiSkip,
+
+  recordNdiCapture,
+
+  applyNdiMainPerfSummary,
+
+  markNdiSyncReadback,
+
+  markNdiSync2dCapture,
+
+  resetNdiStageTiming,
+
+  NDI_STAGE_NAMES,
+
+  type NdiStageName,
+
+  type NdiStageSnapshot,
+
+  type NdiSkipCause,
+
+} from './ndiStageTiming.ts'
 
 
 
@@ -252,11 +306,47 @@ export {
 
 export {
 
+  createNdiCaptureGate,
+
+  ndiCaptureGateFps,
+
+  NDI_CAPTURE_NOMINAL_FPS,
+
+  NDI_CAPTURE_GATE_TOLERANCE_MS,
+
+  NDI_STUDIO_TICK_HZ,
+
+  type NdiCaptureGate,
+
+} from './ndiCaptureClock.ts'
+
+
+
+export {
+
+  createNdiDeferredSend,
+
+  deferNdiSendOffTick,
+
+  takeNdiArrayBuffer,
+
+  type NdiDeferredSend,
+
+  type NdiDeferredFrame,
+
+} from './ndiDeferredSend.ts'
+
+
+
+export {
+
   createNdiAsyncReadback,
 
   probeNdiPboReadback,
 
   NDI_ASYNC_READBACK_LATENCY_FRAMES,
+
+  NDI_PIXEL_RING_CAPACITY,
 
   NDI_SYNC_READBACK_NOTE,
 
@@ -294,6 +384,8 @@ export {
 
   tryClaimNdiHeavyCapture,
 
+  releaseNdiHeavyCapture,
+
   resetNdiHeavyCaptureStagger,
 
   NDI_HEAVY_STAGGER_MS,
@@ -303,6 +395,50 @@ export {
   type NdiHeavyCaptureClaimOptions,
 
 } from './ndiCaptureStagger.ts'
+
+
+
+export {
+
+  applyNdiCaptureColorSpace,
+
+} from './ndiCaptureColorSpace.ts'
+
+
+
+export {
+
+  createNdiCaptureFlip,
+
+  createNdiFlipTarget,
+
+  ndiCaptureFlipBlitRect,
+
+  probeNdiCaptureFlipBlit,
+
+  NDI_CAPTURE_FLIPPED_BOTTOM_UP,
+
+} from './ndiCaptureFlip.ts'
+
+export { flipRgbaRowsInPlace, flipOwnedRgbaFrame } from './ndiFlipRows.ts'
+
+export {
+  createNdiPackPool,
+  evenPackWidth,
+  packedFrameBytes,
+  rgbaToUyva,
+  rgbaToUyvy,
+  type NdiPackPool,
+  type NdiPackedFormat,
+} from './ndiUyvy.ts'
+
+export {
+  createNdiGpuUyvyPack,
+  ndiGpuUyvySize,
+  type NdiGpuUyvyPack,
+} from './ndiGpuUyvy.ts'
+
+export { createNdiUyvyWorker, type NdiUyvyWorkerHandle } from './ndiUyvyBridge.ts'
 
 
 
@@ -471,6 +607,24 @@ export {
   type SrtStatus,
 
 } from './srtBridge.ts'
+
+
+
+export {
+
+  bumpSrtConnect,
+
+  bumpSrtDisconnect,
+
+  createSrtDisconnectHold,
+
+  srtCheckboxOpenAllowed,
+
+  srtReopenAllowed,
+
+  type SrtDisconnectHold,
+
+} from './srtDisconnect.ts'
 
 
 
