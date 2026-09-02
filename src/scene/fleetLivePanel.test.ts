@@ -71,6 +71,39 @@ describe('fleet live SRT config (L9)', () => {
     handle.stop()
   })
 
+  it('connectSrt() matches the Connect SRT button after setState Vid ids', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    const srtApplies: string[] = []
+    const handle = startFleetLivePanel({
+      container: host,
+      initial: {
+        wsUrl: 'ws://example/ws',
+        wsBoatUrl: 'ws://example/ws',
+        boatIds: [],
+        povIds: ['1'],
+        enabledBoatIds: [],
+        enabledPovIds: [],
+        boats: [],
+        activePovId: '1',
+        srtByPovId: { '1': '1' },
+        enabledSrtPovIds: [],
+      },
+      onFleetChange: () => {},
+      onPovChange: () => {},
+      onLiveApply: () => {},
+      onSrtApply: ({ streams }) => {
+        srtApplies.push(...streams.map((s) => s.povId))
+      },
+    })
+    handle.connectSrt()
+    expect(srtApplies).toEqual([])
+    handle.setState({ enabledSrtPovIds: ['1'] })
+    handle.connectSrt()
+    expect(srtApplies).toEqual(['1'])
+    handle.stop()
+  })
+
   it('empty template uses the catalog; filled template remains the escape hatch', () => {
     const host = document.createElement('div')
     document.body.appendChild(host)

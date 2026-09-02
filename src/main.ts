@@ -120,6 +120,10 @@ import {
   SRT_TRANSCODE_STALL_MS,
 } from './output/index.ts'
 import {
+  diagAutoConnectIsNoop,
+  parseDiagAutoConnect,
+} from './output/diagAutoConnect.ts'
+import {
   startPosePipeline,
   stopPosePipeline,
   type PosePipelineHandle,
@@ -2132,6 +2136,11 @@ void (async () => {
   const outputMode = normalizeOutputMode(config.outputMode)
   arOutputMode = outputMode
   arBackgroundMode = normalizeArBackground(config.arBackground)
+  /* DIAG:auto-connect — query wins over config.json; default URL is a no-op. */
+  const diagAutoConnect = parseDiagAutoConnect(window.location.search)
+  if (diagAutoConnect.arBackground) {
+    arBackgroundMode = diagAutoConnect.arBackground
+  }
   const clear = resolveClearAppearance(outputMode, {
     chromaKey: chromaKey || undefined,
   })
@@ -2801,6 +2810,43 @@ void (async () => {
   syncFleetMapPosesToAllowList()
   syncFleetHullsFromPanel()
   startSrtSituationWatch()
+
+  /* DIAG:auto-connect — checkboxes then Connect live then Connect SRT. */
+  if (!diagAutoConnectIsNoop(diagAutoConnect)) {
+    if (diagAutoConnect.livePovIds.length > 0) {
+      fleetPanel.setState({ enabledPovIds: diagAutoConnect.livePovIds })
+    }
+    if (diagAutoConnect.srtPovIds.length > 0) {
+      fleetPanel.setState({ enabledSrtPovIds: diagAutoConnect.srtPovIds })
+    }
+    console.info(
+      `[diag:auto-connect] ${JSON.stringify({
+        arBackground: arBackgroundMode,
+        livePovIds: diagAutoConnect.livePovIds,
+        srtPovIds: diagAutoConnect.srtPovIds,
+        autoConnectLive: diagAutoConnect.autoConnectLive,
+        autoConnectSrt: diagAutoConnect.autoConnectSrt,
+      })}`,
+    )
+    if (diagAutoConnect.autoConnectLive) {
+      if (diagAutoConnect.livePovIds.length === 0) {
+        console.warn(
+          '[diag:auto-connect] autoConnectLive=1 but livePov is empty — not guessing a POV',
+        )
+      } else {
+        fleetPanel.connectLive()
+      }
+    }
+    if (diagAutoConnect.autoConnectSrt) {
+      if (diagAutoConnect.srtPovIds.length === 0) {
+        console.warn(
+          '[diag:auto-connect] autoConnectSrt=1 but srtPov is empty — not guessing a POV',
+        )
+      } else {
+        fleetPanel.connectSrt()
+      }
+    }
+  }
 
   assetInspector = startAssetInspector({
     container: assetsSectionEl,

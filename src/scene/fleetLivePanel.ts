@@ -202,6 +202,16 @@ export type FleetLivePanelHandle = {
   setSrtSituation: (text: string) => void
   /** Per-POV SRT idle/connecting/live/retrying/closed + button enablement. */
   setSrtStatus: (status: SrtPanelSnapshot | null) => void
+  /**
+   * Same as clicking Connect live. No-op (status text) if no Live ids.
+   * DIAG:auto-connect uses this; prefer the button for operators.
+   */
+  connectLive: () => void
+  /**
+   * Same as clicking Connect SRT. No-op (status text) if no Vid ids.
+   * DIAG:auto-connect uses this; prefer the button for operators.
+   */
+  connectSrt: () => void
   /** Expand panel and flash a boat row (Assets Details deep-link). */
   highlightBoat: (id: string) => void
   stop: () => void
@@ -1397,6 +1407,12 @@ export function startFleetLivePanel(
       srtStatus = status
       renderPovs()
       syncSrtButtons()
+    },
+    connectLive(): void {
+      applyLive(true)
+    },
+    connectSrt(): void {
+      applySrt()
     },
     addBoat(input): { ok: boolean; created: boolean } {
       const id = input.id.trim()

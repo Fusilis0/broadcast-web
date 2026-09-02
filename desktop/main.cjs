@@ -451,7 +451,13 @@ function createWindow() {
   /* DIAG:srt-fps — forward renderer rate logs to the studio terminal + log file. */
   const diagLogPath = path.join(__dirname, '..', 'diag-srt-fps.log')
   win.webContents.on('console-message', (_event, _level, message) => {
-    if (typeof message !== 'string' || !message.includes('[diag:srt-fps]')) return
+    if (
+      typeof message !== 'string' ||
+      (!message.includes('[diag:srt-fps]') &&
+        !message.includes('[diag:auto-connect]'))
+    ) {
+      return
+    }
     console.info(message)
     try {
       fs.appendFileSync(diagLogPath, `${message}\n`)

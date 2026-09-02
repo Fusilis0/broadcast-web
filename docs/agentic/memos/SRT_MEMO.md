@@ -1,7 +1,25 @@
 # SRT_MEMO
 
 **Last updated:** 2026-09-02  
-**Status:** Live verification — bdb4c73 served by Vite but 10–15fps still visible; diag planted, waiting tray-quit + 20s SRT log
+**Status:** Idle — no-click repro via `?arBackground=video&autoConnectLive=1&livePov=&autoConnectSrt=1&srtPov=` (diag; revert). present() skip already verified.
+
+## no-click repro 2026-09-02
+No existing query/config auto-connect. Checkboxes = sessionStorage tab cache (not restored as Connect). Connect SRT is an explicit `operatorConnected` hold. `arBackground` is `config.json` (`alpha`); URL had `outputMode` only. Order: Vid/Live checkboxes → Connect live and Connect SRT (independent) → AR video can be anytime (no SRT/autoplay gate; ffmpeg is main-process). `desktop/configFs.cjs` does not persist these. Diag query params; POV ids must be in the URL (no default POV in source).
+
+## live verify log 2026-09-02 (4404a68, post tray-quit)
+New session starts at log line 2751 (`sameFrameUpload` field). Steady HEVC copy, `decodedFps>20`, `kfRise=0`, **n=148 s**.
+
+| Metric | Steady mean |
+| --- | --- |
+| ffmpeg | 29.69 fps / 0.982x / 0.007 CPU cores |
+| ipcDropPerSec | 0.06 (10 drops whole session) |
+| auFps / decodedFps / uniquePresentFps | **29.87 / 29.71 / 29.73** (unique/decoded = **1.001**) |
+| presentHz | **58.80** (min 54.65, never <50) |
+| reasonCounts | min-clamp **4468 (50.57%)**, repeat **4368 (49.43%)**. max-clamp/stall-pin/lut-miss-live/**other = 0** |
+| AU per present | 0: 77.4%, 1: 2.0%, 2: 13.1%, 3: 7.6%, 4+: 0 |
+| latency / queue | 113 ms / depth 5.4 |
+
+First 20s rollup uniquePresent **13.93** is idle+connect dilution (~10 empty seconds). Seven later 20s windows unique **28.1–29.8**. Verdict **(c)**: present() unique tracks decode; studio:tick still feeds present() at ~59 Hz. Pre-restart HUD AR Send 10–19 / `arEnqueueIpc n≈11–13` is downstream NDI capture, not this skip bug. `droppedFps≈decoded` is prevPresented recycle (one drop per unique advance), not hole-skip.
 
 ## live verify after present() fix 2026-09-02
 Running instance (no restart this pass): Electron `--dev` pid 29452 started 11:22:32; Vite pid 34280 since 08:54; HEAD `bdb4c73` 09:38:51, clean tree. Vite is serving `allowsCatchUpSkip` from `videoDecodePipeline.ts`. Packaged app is not in use.
