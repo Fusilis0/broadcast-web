@@ -427,6 +427,7 @@ export function startNdiFramePump(
     }
     if (!readback.canBegin()) {
       if (syncClaim) releaseNdiHeavyCapture('ar', now)
+      noteNdiSkip('ar', 'busy')
       return
     }
     if (!captureGate.tryAdmit(now)) {

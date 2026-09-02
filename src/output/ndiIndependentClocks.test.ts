@@ -288,6 +288,12 @@ describe('independent AR/3D/2D clocks (DSP-OUT-20260829-04)', () => {
     expect(d3).toMatch(/takeNdiArrayBuffer/)
     expect(ar).toMatch(/readback\.canBegin/)
     expect(d3).toMatch(/readback\.canBegin/)
+    expect(ar).toMatch(
+      /if \(!readback\.canBegin\(\)\)[\s\S]{0,160}noteNdiSkip\('ar', 'busy'\)/,
+    )
+    expect(d3).toMatch(
+      /if \(!readback\.canBegin\(\)\)[\s\S]{0,160}noteNdiSkip\('3d', 'busy'\)/,
+    )
     expect(ar).not.toMatch(/\.slice\(/)
     expect(d3).not.toMatch(/\.slice\(/)
     expect(ar).toMatch(/readback\.mode === ['"]sync['"]/)

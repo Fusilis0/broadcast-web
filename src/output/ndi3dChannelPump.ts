@@ -322,6 +322,7 @@ export function startNdi3dChannelPump(
     }
     if (!readback.canBegin()) {
       if (syncClaim) releaseNdiHeavyCapture('3d', now)
+      noteNdiSkip('3d', 'busy')
       return
     }
     if (!captureGate.tryAdmit(now)) {
