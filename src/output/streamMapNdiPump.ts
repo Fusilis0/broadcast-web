@@ -28,6 +28,7 @@ import { createNdiCaptureGate } from './ndiCaptureClock.ts'
 import { createNdiDeferredSend } from './ndiDeferredSend.ts'
 import { NdiDelayBuffer } from './ndiDelayBuffer.ts'
 import { createSendFpsCounter } from './perfCounters.ts'
+import { diagRegisterNdiSendFps } from './diagNdiPeek.ts'
 import {
   noteNdiSkip,
   recordNdiCapture,
@@ -151,6 +152,10 @@ export function startStreamMapNdiPump(
 
   let disposed = false
   let enabled = options.enabled !== false
+  /* DIAG:srt-fps — same getter the 2D Send HUD reads. */
+  const unregSendFps = diagRegisterNdiSendFps(channel, () =>
+    enabled ? sendFps.getFps(performance.now()) : 0,
+  )
   let sourceName: string | null = null
   let sdkVersion: string | null = null
   let error: string | null = null
@@ -401,6 +406,7 @@ export function startStreamMapNdiPump(
     stop(): void {
       if (disposed) return
       disposed = true
+      unregSendFps()
       enabled = false
       queued = false
       grabbing = false

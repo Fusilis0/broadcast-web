@@ -1,4 +1,5 @@
 import { createSendFpsCounter } from './perfCounters.ts'
+import { diagRegisterNdiSendFps } from './diagNdiPeek.ts'
 import type { Camera, Object3D, WebGLRenderer } from 'three'
 import { Color, WebGLRenderTarget } from 'three'
 import { createNdiGpuUyvyPack } from './ndiGpuUyvy.ts'
@@ -109,6 +110,10 @@ export function startNdi3dChannelPump(
   const delayBuffer = new NdiDelayBuffer()
   if (options.delayMs !== undefined) delayBuffer.setDelayMs(options.delayMs)
   const sendFps = createSendFpsCounter()
+  /* DIAG:srt-fps */
+  const unregSendFps = diagRegisterNdiSendFps(CHANNEL, () =>
+    sendFps.getFps(performance.now()),
+  )
 
   // Timecode wrap (caller starts this pump after startVisualTimecode).
   const directRender = renderer.render.bind(renderer)
@@ -401,6 +406,7 @@ export function startNdi3dChannelPump(
     stop(): void {
       if (stopped) return
       stopped = true
+      unregSendFps()
       unsubTick()
       ipc.dispose()
       delayBuffer.clear()

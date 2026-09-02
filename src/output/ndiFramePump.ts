@@ -1,4 +1,5 @@
 import { createSendFpsCounter } from './perfCounters.ts'
+import { diagRegisterNdiSendFps } from './diagNdiPeek.ts'
 import type { Camera, Object3D, WebGLRenderer } from 'three'
 import { Color, WebGLRenderTarget } from 'three'
 import { createNdiCaptureGate } from './ndiCaptureClock.ts'
@@ -151,6 +152,10 @@ export function startNdiFramePump(
   const delayBuffer = new NdiDelayBuffer()
   if (options.delayMs !== undefined) delayBuffer.setDelayMs(options.delayMs)
   const sendFps = createSendFpsCounter()
+  /* DIAG:srt-fps — same counter the AR Send HUD reads. */
+  const unregSendFps = diagRegisterNdiSendFps(channel, () =>
+    sendFps.getFps(performance.now()),
+  )
 
   // Timecode wrap (caller starts this pump after startVisualTimecode).
   const tickRender = renderer.render.bind(renderer)
@@ -487,6 +492,7 @@ export function startNdiFramePump(
     stop(): void {
       if (stopped) return
       stopped = true
+      unregSendFps()
       unsubTick()
       ipc.dispose()
       delayBuffer.clear()

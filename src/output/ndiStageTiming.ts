@@ -72,6 +72,26 @@ const skips1s: Record<NdiChannelId, NdiSkipCounts> = {
 
 const hzRing: NdiStageSnapshot[] = []
 let lastHzMs = 0
+
+/* DIAG:srt-fps — 1s sample rings for p90; revert after diagnosis. */
+const diagStageSamples = Object.fromEntries(
+  NDI_STAGE_NAMES.map((name) => [name, [] as number[]]),
+) as Record<NdiStageName, number[]>
+let lastDiagP90Ms: Record<NdiStageName, number | null> | null = null
+
+function diagP90Ms(samples: number[]): number | null {
+  if (samples.length === 0) return null
+  const sorted = samples.slice().sort((a, b) => a - b)
+  return sorted[Math.min(sorted.length - 1, Math.floor(0.9 * (sorted.length - 1)))]!
+}
+
+export function diagLastNdiStageP90Ms(): Record<
+  NdiStageName,
+  number | null
+> | null {
+  return lastDiagP90Ms
+}
+
 let tickSeq = 0
 let lastTickMs: number | null = null
 let lastCaptureTick: Record<NdiChannelId, number | null> = {
@@ -221,6 +241,13 @@ function rotateHz(now: number): void {
   }
   hzRing.push(snap)
   while (hzRing.length > 10) hzRing.shift()
+  /* DIAG:srt-fps */
+  const p90 = {} as Record<NdiStageName, number | null>
+  for (const name of NDI_STAGE_NAMES) {
+    p90[name] = diagP90Ms(diagStageSamples[name])
+    diagStageSamples[name].length = 0
+  }
+  lastDiagP90Ms = p90
   // #region agent log
   const pick = (name: NdiStageName) => ({
     mean: snap.stages[name].meanMs,
@@ -349,6 +376,10 @@ export function beginStudioTickTiming(nowMs?: number): void {
 export function recordNdiStage(name: NdiStageName, elapsedMs: number): void {
   const inst0 = performance.now()
   stages[name].add(elapsedMs)
+  /* DIAG:srt-fps */
+  if (Number.isFinite(elapsedMs) && elapsedMs >= 0) {
+    diagStageSamples[name].push(elapsedMs)
+  }
   addOverhead(performance.now() - inst0 + 2 * nowCostMs)
 }
 
@@ -514,6 +545,9 @@ export function resetNdiStageTiming(): void {
   resetStagesAndSkips()
   hzRing.length = 0
   lastHzMs = 0
+  /* DIAG:srt-fps */
+  for (const name of NDI_STAGE_NAMES) diagStageSamples[name].length = 0
+  lastDiagP90Ms = null
   tickSeq = 0
   lastTickMs = null
   lastCaptureTick = { ar: null, '3d': null, '2d': null }

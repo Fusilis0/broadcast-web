@@ -9,7 +9,14 @@
 import * as THREE from 'three'
 import { getPtsNtpMap } from '../telemetry/ptsNtpMap.ts'
 import { telemetryBus } from '../telemetry/bus.ts'
-import { timeNdiStage } from './ndiStageTiming.ts'
+import {
+  timeNdiStage,
+  getNdiStageSnapshot,
+  diagLastNdiStageP90Ms,
+  NDI_STAGE_NAMES,
+  type NdiSkipCounts,
+} from './ndiStageTiming.ts'
+import { diagPeekNdiSendFps } from './diagNdiPeek.ts'
 import { getSrtBridge, type SrtBridge } from './srtBridge.ts'
 import {
   createVideoDecodePipeline,
@@ -247,6 +254,38 @@ export function startVideoStreamManager(
     }
     const auHist: Record<string, number> = {}
     for (const [k, v] of diag.auDeltaHist) auHist[k] = v
+    /* DIAG:srt-fps — NDI from the same counters/snapshot the AR Send HUD reads. */
+    const ndiSnap = getNdiStageSnapshot()
+    const ndiP90 = diagLastNdiStageP90Ms()
+    const round2 = (n: number) => Math.round(n * 100) / 100
+    const ndiStages: Record<
+      string,
+      { n: number; meanMs: number; p90Ms: number | null; maxMs: number }
+    > = {}
+    for (const name of NDI_STAGE_NAMES) {
+      const st = ndiSnap.stages[name]
+      const p90 = ndiP90?.[name]
+      ndiStages[name] = {
+        n: st.count,
+        meanMs: round2(st.meanMs),
+        p90Ms: p90 == null ? null : round2(p90),
+        maxMs: round2(st.maxMs),
+      }
+    }
+    const skipShares = (s: NdiSkipCounts) => {
+      const total = s.rateCap + s.stagger + s.busy
+      const share = (n: number) =>
+        total === 0 ? 0 : Math.round((n / total) * 1000) / 10
+      return {
+        rateCap: s.rateCap,
+        stagger: s.stagger,
+        busy: s.busy,
+        total,
+        rateCapShare: share(s.rateCap),
+        staggerShare: share(s.stagger),
+        busyShare: share(s.busy),
+      }
+    }
     console.info(
       `[diag:srt-fps] ${JSON.stringify({
         stage: 'decode-present',
@@ -257,6 +296,19 @@ export function startVideoStreamManager(
         auDeltaPerPresent: auHist,
         traces: diag.traces.slice(-8),
         streams: rows,
+        ndi: {
+          sendFps: diagPeekNdiSendFps(),
+          windowMs: round2(ndiSnap.windowMs),
+          skips: ndiSnap.skips,
+          skipShares: {
+            ar: skipShares(ndiSnap.skips.ar),
+            '3d': skipShares(ndiSnap.skips['3d']),
+            '2d': skipShares(ndiSnap.skips['2d']),
+          },
+          stages: ndiStages,
+          tickInterval: ndiSnap.tickInterval,
+          captureTicks: ndiSnap.captureTicks,
+        },
       })}`,
     )
     const winDt = (now - diag.windowT0) / 1000
