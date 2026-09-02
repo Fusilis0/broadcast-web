@@ -48,11 +48,6 @@ const {
  *   generation: number,
  *   closing: boolean,
  *   stderrTail: string,
- *   ffProgress: Record<string, string>,
- *   diagDropAtLastLog: number,
- *   cpuSampling: boolean,
- *   cpuSecLast: number | null,
- *   cpuCoresLast: number | null,
  * }} SrtSession
  */
 
@@ -62,84 +57,6 @@ const sessions = new Map()
 /** @type {Map<string, number>} */
 const lastErrorLogAt = new Map()
 const ERROR_LOG_THROTTLE_MS = 10_000
-
-/* DIAG:srt-fps — temporary ingest instrumentation; revert after diagnosis. */
-const DIAG_LOG_PATH = path.join(__dirname, '..', 'diag-srt-fps.log')
-const DIAG_PROGRESS_PREFIX =
-  /^(frame|fps|stream_|bitrate|total_size|out_time|dup_frames|drop_frames|speed|progress)/
-
-/**
- * @param {Record<string, unknown>} payload
- */
-function diagSrtFpsLog(payload) {
-  const line = `[diag:srt-fps] ${JSON.stringify(payload)}`
-  console.info(line)
-  try {
-    fs.appendFileSync(DIAG_LOG_PATH, `${line}\n`)
-  } catch {
-    /* diagnostics must never break ingest */
-  }
-}
-
-/**
- * @param {SrtSession} session
- * @param {string} text
- */
-function parseFfmpegProgress(session, text) {
-  const lines = text.split(/\r?\n/)
-  for (const line of lines) {
-    const eq = line.indexOf('=')
-    if (eq <= 0) continue
-    const key = line.slice(0, eq).trim()
-    const val = line.slice(eq + 1).trim()
-    if (
-      key === 'frame' ||
-      key === 'fps' ||
-      key === 'bitrate' ||
-      key === 'speed' ||
-      key === 'drop_frames' ||
-      key === 'dup_frames' ||
-      key === 'out_time' ||
-      key === 'progress'
-    ) {
-      session.ffProgress[key] = val
-    }
-  }
-}
-
-/**
- * @param {SrtSession} session
- */
-function sampleChildCpu(session) {
-  const pid = session.childPid
-  if (!pid || session.cpuSampling) return
-  if (process.platform !== 'win32') return
-  session.cpuSampling = true
-  const ps = spawn(
-    'powershell.exe',
-    [
-      '-NoProfile',
-      '-NonInteractive',
-      '-Command',
-      `try { (Get-Process -Id ${pid} -ErrorAction Stop).CPU } catch { '' }`,
-    ],
-    { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] },
-  )
-  let out = ''
-  ps.stdout?.on('data', (buf) => {
-    out += buf.toString('utf8')
-  })
-  ps.on('close', () => {
-    session.cpuSampling = false
-    const cpuSec = Number.parseFloat(out.trim().replace(',', '.'))
-    if (!Number.isFinite(cpuSec)) return
-    const prev = session.cpuSecLast
-    session.cpuSecLast = cpuSec
-    if (typeof prev === 'number') {
-      session.cpuCoresLast = Math.max(0, cpuSec - prev)
-    }
-  })
-}
 
 function resolveFfmpegPath() {
   const fromEnv = process.env.BROADCAST_FFMPEG?.trim()
@@ -335,16 +252,7 @@ function onStdoutChunk(session, buf) {
  * @param {Buffer} buf
  */
 function onStderrChunk(session, buf) {
-  const text = buf.toString('utf8')
-  /* DIAG:srt-fps */
-  parseFfmpegProgress(session, text)
-  const cleaned = text
-    .split(/\r?\n/)
-    .filter((line) => !DIAG_PROGRESS_PREFIX.test(line))
-    .join('\n')
-  if (cleaned.trim()) {
-    session.stderrTail = (session.stderrTail + cleaned).slice(-2000)
-  }
+  session.stderrTail = (session.stderrTail + buf.toString('utf8')).slice(-2000)
 }
 
 /**
@@ -385,9 +293,6 @@ function spawnSession(session) {
   session.queued.length = 0
   session.sending = false
   session.stderrTail = ''
-  session.ffProgress = {}
-  session.cpuSecLast = null
-  session.cpuCoresLast = null
   session.generation += 1
   const gen = session.generation
   setState(session, 'connecting', session.lastError)
@@ -411,10 +316,6 @@ function spawnSession(session) {
   const argv = buildFfmpegArgv(inputUrl, {
     transcodeToH264: session.transcodeToH264,
   })
-  /* DIAG:srt-fps — progress on stderr; does not change copy vs transcode. */
-  const hideIdx = argv.indexOf('-hide_banner')
-  if (hideIdx >= 0) argv.splice(hideIdx + 1, 0, '-progress', 'pipe:2')
-  else argv.unshift('-progress', 'pipe:2')
   logSrt(
     session.povId,
     `connecting${session.transcodeToH264 ? ' (ffmpeg HEVC→H.264)' : ''} ${redactSrtUrl(inputUrl)}`,
@@ -481,31 +382,10 @@ function startBitrateTimer(session) {
   if (session.bitrateTimer !== null) return
   session.bitrateTimer = setInterval(() => {
     session.bitrateKbps = Math.round((session.bytesWindow * 8) / 1000)
-    const stdoutBytesPerSec = session.bytesWindow
     session.bytesWindow = 0
     if (session.state === 'live') {
       sendToOwner(session, 'srt:status', statusPayload(session))
     }
-    /* DIAG:srt-fps */
-    const dropNow = session.dropCount
-    const ipcDropPerSec = dropNow - session.diagDropAtLastLog
-    session.diagDropAtLastLog = dropNow
-    diagSrtFpsLog({
-      stage: 'ingest',
-      povId: session.povId,
-      transcodeToH264: session.transcodeToH264,
-      state: session.state,
-      bitrateKbps: session.bitrateKbps,
-      stdoutBytesPerSec,
-      ipcDropCount: dropNow,
-      ipcDropPerSec,
-      queued: session.queued.length,
-      sending: session.sending,
-      ffmpeg: { ...session.ffProgress },
-      ffmpegCpuCores: session.cpuCoresLast,
-      childPid: session.childPid,
-    })
-    sampleChildCpu(session)
   }, 1000)
 }
 
@@ -567,11 +447,6 @@ function open(webContents, raw) {
     generation: 0,
     closing: false,
     stderrTail: '',
-    ffProgress: {},
-    diagDropAtLastLog: 0,
-    cpuSampling: false,
-    cpuSecLast: null,
-    cpuCoresLast: null,
   }
   sessions.set(pov.povId, session)
   startBitrateTimer(session)
