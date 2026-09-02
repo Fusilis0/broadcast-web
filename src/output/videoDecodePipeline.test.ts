@@ -459,4 +459,147 @@ describe('createVideoDecodePipeline', () => {
       shown!.frame.timestamp,
     )
   })
+
+  it('cold start: first present() with presented null still picks a min-clamp frame', async () => {
+    const { pipe } = start(createFakeFactory(), {
+      toNtp: (pts) => pts / 90,
+      getNewestPoseNtp: () => 1e12,
+    })
+    expect(pipe.getCounters().presentedPts90k).toBeNull()
+    pipe.pushAu(au(0, { key: true }))
+    await pipe.ready()
+    for (let i = 1; i <= 10; i++) {
+      pipe.pushAu(au(i * TICKS_30FPS, { key: false }))
+    }
+    expect(pipe.getCounters().presentedPts90k).toBeNull()
+    const shown = pipe.present()
+    expect(shown).not.toBeNull()
+    expect(shown!.pick.reason).toBe('min-clamp')
+    expect(shown!.pts90k).not.toBeNull()
+    expect(pipe.getCounters().presentedPts90k).toBe(shown!.pts90k)
+    expect(shown!.pick.latencyMs).toBeGreaterThanOrEqual(MIN_PRESENT_LATENCY_MS - 1e-6)
+    expect(shown!.pick.latencyMs).toBeLessThanOrEqual(MAX_PRESENT_LATENCY_MS)
+  })
+})
+
+describe('present() unique PTS vs 30fps decode (min-clamp)', () => {
+  const pipes: ReturnType<typeof createVideoDecodePipeline>[] = []
+  afterEach(() => {
+    while (pipes.length) pipes.pop()!.dispose()
+  })
+
+  function startMinClamp() {
+    const fake = createFakeFactory()
+    const pipe = createVideoDecodePipeline({
+      decoderFactory: fake.factory,
+      toNtp: (pts) => pts / 90,
+      getNewestPoseNtp: () => 1e12,
+      minLatencyMs: MIN_PRESENT_LATENCY_MS,
+      maxLatencyMs: MAX_PRESENT_LATENCY_MS,
+    })
+    pipes.push(pipe)
+    return { pipe, fake, nextPts: { n: 0 } }
+  }
+
+  async function pushFrames(
+    ctx: { pipe: ReturnType<typeof createVideoDecodePipeline>; nextPts: { n: number } },
+    count: number,
+  ): Promise<void> {
+    for (let i = 0; i < count; i++) {
+      const pts = ctx.nextPts.n
+      ctx.nextPts.n += TICKS_30FPS
+      ctx.pipe.pushAu(au(pts, { key: pts === 0 }))
+    }
+    await ctx.pipe.ready()
+  }
+
+  type PlayAcc = {
+    unique: number
+    lastPts: number | null
+    latencies: number[]
+    depths: number[]
+  }
+
+  function tickPresent(
+    pipe: ReturnType<typeof createVideoDecodePipeline>,
+    acc: PlayAcc,
+  ): void {
+    const shown = pipe.present()
+    const depth = pipe.getCounters().queueDepth
+    acc.depths.push(depth)
+    if (!shown) return
+    acc.latencies.push(shown.pick.latencyMs)
+    if (shown.pts90k !== acc.lastPts) {
+      acc.unique += 1
+      acc.lastPts = shown.pts90k
+    }
+  }
+
+  function assertBoundedPlayback(acc: PlayAcc): void {
+    expect(acc.latencies.length).toBeGreaterThan(0)
+    for (const L of acc.latencies) {
+      expect(L).toBeGreaterThanOrEqual(MIN_PRESENT_LATENCY_MS - 1e-6)
+      expect(L).toBeLessThanOrEqual(MAX_PRESENT_LATENCY_MS)
+    }
+    const maxDepth = Math.max(...acc.depths)
+    expect(maxDepth).toBeLessThanOrEqual(16)
+    const third = Math.max(1, Math.floor(acc.depths.length / 3))
+    const firstMax = Math.max(...acc.depths.slice(0, third))
+    const lastMax = Math.max(...acc.depths.slice(-third))
+    expect(lastMax).toBeLessThanOrEqual(firstMax + 4)
+  }
+
+  async function runPattern(
+    ticks: number,
+    onTick: (t: number, ctx: ReturnType<typeof startMinClamp>) => Promise<void>,
+  ): Promise<{ unique: number; decoded: number; acc: PlayAcc }> {
+    const ctx = startMinClamp()
+    await pushFrames(ctx, 8)
+    for (let i = 0; i < 12; i++) tickPresent(ctx.pipe, {
+      unique: 0,
+      lastPts: null,
+      latencies: [],
+      depths: [],
+    })
+    const decoded0 = ctx.pipe.getCounters().framesDecoded
+    const acc: PlayAcc = {
+      unique: 0,
+      lastPts: ctx.pipe.getCounters().presentedPts90k,
+      latencies: [],
+      depths: [],
+    }
+    for (let t = 0; t < ticks; t++) {
+      await onTick(t, ctx)
+      tickPresent(ctx.pipe, acc)
+    }
+    const decoded = ctx.pipe.getCounters().framesDecoded - decoded0
+    return { unique: acc.unique, decoded, acc }
+  }
+
+  it('paired burst (2 AU / 4 presents) unique PTS stays with decode rate', async () => {
+    const { unique, decoded, acc } = await runPattern(180, async (t, ctx) => {
+      if (t % 4 === 0) await pushFrames(ctx, 2)
+    })
+    expect(decoded).toBeGreaterThan(0)
+    expect(unique / decoded).toBeGreaterThanOrEqual(0.95)
+    assertBoundedPlayback(acc)
+  })
+
+  it('smooth cadence (1 AU / 2 presents) unique PTS stays with decode rate', async () => {
+    const { unique, decoded, acc } = await runPattern(180, async (t, ctx) => {
+      if (t % 2 === 0) await pushFrames(ctx, 1)
+    })
+    expect(decoded).toBeGreaterThan(0)
+    expect(unique / decoded).toBeGreaterThanOrEqual(0.95)
+    assertBoundedPlayback(acc)
+  })
+
+  it('asymmetric burst (3 AU then 5 empty presents) unique PTS stays with decode rate', async () => {
+    const { unique, decoded, acc } = await runPattern(180, async (t, ctx) => {
+      if (t % 6 === 0) await pushFrames(ctx, 3)
+    })
+    expect(decoded).toBeGreaterThan(0)
+    expect(unique / decoded).toBeGreaterThanOrEqual(0.95)
+    assertBoundedPlayback(acc)
+  })
 })

@@ -11,7 +11,7 @@
  * VideoDecoder is injectable — vitest-node has no WebCodecs.
  */
 
-import { maskPts33 } from '../telemetry/ptsNtpMap.ts'
+import { maskPts33, ptsDiff33 } from '../telemetry/ptsNtpMap.ts'
 import {
   type DemuxedAccessUnit,
   type ParamSetCache,
@@ -381,6 +381,15 @@ export function pickPresentationPts(
   return finish(candidate.pts90k, 'adaptive', false)
 }
 
+/** Catch-up reasons may jump/skip; steady playback must not hole PTS. */
+function allowsCatchUpSkip(reason: PresentationReason): boolean {
+  return (
+    reason === 'max-clamp' ||
+    reason === 'stall-pin' ||
+    reason === 'lut-miss-live'
+  )
+}
+
 function closeFrame(frame: VideoFrameLike, closed: WeakSet<object>): void {
   if (closed.has(frame)) return
   closed.add(frame)
@@ -644,7 +653,7 @@ export function createVideoDecodePipeline(
         }
       }
 
-      const pick = pickPresentationPts({
+      let pick = pickPresentationPts({
         frames: candidates,
         toNtp,
         newestPoseNtp: poseNtp,
@@ -661,6 +670,35 @@ export function createVideoDecodePipeline(
           pts90k: presented.pts90k,
           timestampUs: presented.timestampUs,
           pick: lastPick,
+        }
+      }
+
+      if (
+        presented &&
+        presented.pts90k !== null &&
+        !allowsCatchUpSkip(pick.reason)
+      ) {
+        let next: QueuedDecodeFrame | null = null
+        let nextDelta = Infinity
+        for (const q of queue) {
+          if (q.pts90k === null) continue
+          const d = ptsDiff33(presented.pts90k, q.pts90k)
+          if (d > 0 && d < nextDelta) {
+            nextDelta = d
+            next = q
+          }
+        }
+        if (next && next.pts90k !== pick.pts90k) {
+          const jump = ptsDiff33(presented.pts90k, pick.pts90k)
+          if (jump > nextDelta) {
+            const newestPts90k = candidates[candidates.length - 1]!.pts90k
+            pick = {
+              pts90k: next.pts90k,
+              latencyMs: latencyMsOf(next.pts90k, newestPts90k, toNtp),
+              degraded: pick.degraded,
+              reason: pick.reason,
+            }
+          }
         }
       }
 
@@ -696,8 +734,9 @@ export function createVideoDecodePipeline(
       const keep: QueuedDecodeFrame[] = []
       for (let i = 0; i < queue.length; i++) {
         const q = queue[i]!
-        if (q.pts90k === null || q.pts90k < pick.pts90k) skip.push(q)
-        else if (q.pts90k === pick.pts90k) {
+        if (q.pts90k === null || ptsDiff33(q.pts90k, pick.pts90k) > 0) {
+          skip.push(q)
+        } else if (q.pts90k === pick.pts90k) {
           /* becomes presented */
         } else keep.push(q)
       }

@@ -1,7 +1,17 @@
 # SRT_MEMO
 
-**Last updated:** 2026-08-29  
-**Status:** Idle — HEVC copy-decode unblocked (`1a4e0ae`); fallback remains
+**Last updated:** 2026-09-02  
+**Status:** Idle — present() snap-to-next shipped; diag `6099188` reverted (`23c37e7`)
+
+## present() 2:1 skip 2026-09-02
+Live: copy HEVC ~30 decoded, `presentHz` ~60, `uniquePresentFps` ~14. Cause: `dropQueued` of every `pts < pick` when `frameAtLatency(100ms)` jumped two PTS steps on a decode burst. Fix: snap pick to the next queued PTS for `min-clamp` / `adaptive` / `fixed`; skip-jump only for `max-clamp` / `stall-pin` / `lut-miss-live`. Tests: paired 87/90 after (44/90 before), asymmetric 87/90 after (29/90 before), smooth already 87/90. Diag instrumentation reverted.
+
+## FPS collapse bisect 2026-09-02 (measured)
+`diag-srt-fps.log` after Electron restart + Connect SRT. First live run ~116s; `transcodeToH264=false` (bitstream copy), `codec=hevc`.
+
+Steady seconds (`kfRise=0`, `decodedFps>20`, n=110): ffmpeg **29.60 fps** / **0.98x** / **~0.009 CPU cores**; `ipcDropPerSec` **0** (7 drops in the whole run); `auFps` **29.06**; `decodedFps` **29.06**; `droppedFps` **29.01**; `uniquePresentFps` **14.31**; `presentHz` **59.19**; `kfRise` **0**. Latency pinned ~100 ms; reason `min-clamp` / `repeat`.
+
+Collapse is **presentation skip** (suspect 4), not ingest/IPC/tick/transcode. Brief HEVC `"Decoding error."` seconds dip decode further (secondary). Diag `6099188` reverted in `23c37e7`.
 
 ## HEVC SPS RBSP unescape 2026-08-29 (pulled main)
 Far-device `fix(srt): unescape HEVC SPS so WebCodecs can copy-decode DJI`.
