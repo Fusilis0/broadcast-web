@@ -1,7 +1,14 @@
 # SRT_MEMO
 
 **Last updated:** 2026-09-02  
-**Status:** Idle — present() snap-to-next shipped; diag `6099188` reverted (`23c37e7`)
+**Status:** Live verification — bdb4c73 served by Vite but 10–15fps still visible; diag planted, waiting tray-quit + 20s SRT log
+
+## live verify after present() fix 2026-09-02
+Running instance (no restart this pass): Electron `--dev` pid 29452 started 11:22:32; Vite pid 34280 since 08:54; HEAD `bdb4c73` 09:38:51, clean tree. Vite is serving `allowsCatchUpSkip` from `videoDecodePipeline.ts`. Packaged app is not in use.
+
+Existing HUD (this process, SRT already connected): `pov 1 srt=1 live ~4.6–5.1 Mbps codec=hevc picture=yes err=Decoding error.` Cumulative demux/decoded ~25–28 fps session average (e.g. demux 10123 / decoded 9506 at ~6.5 min). **No `reason`, uniquePresent, dropped, or queueDepth** on the Race SRT HUD. Sync debug is off and below the NDI fold. NDI AR Send oscillating **10–19 fps**; `arEnqueueIpc n≈11–13`; `3dFboRender n≈21–25`; `2dGrab ~80ms n=6`; studio tick mean ~17ms but `>20ms` ~38%. `dropBusy=0`.
+
+Cannot tell skip-vs-catch-up-vs-NDI from this HUD. Diag `diag:` commit restores ingest+decode logs plus per-reason counts / AU-per-present hist / uniquePresentFps. **Needs tray-quit (not park) + Connect SRT ~20s.** Do not patch `present()` until that log is read.
 
 ## present() 2:1 skip 2026-09-02
 Live: copy HEVC ~30 decoded, `presentHz` ~60, `uniquePresentFps` ~14. Cause: `dropQueued` of every `pts < pick` when `frameAtLatency(100ms)` jumped two PTS steps on a decode burst. Fix: snap pick to the next queued PTS for `min-clamp` / `adaptive` / `fixed`; skip-jump only for `max-clamp` / `stall-pin` / `lut-miss-live`. Tests: paired 87/90 after (44/90 before), asymmetric 87/90 after (29/90 before), smooth already 87/90. Diag instrumentation reverted.

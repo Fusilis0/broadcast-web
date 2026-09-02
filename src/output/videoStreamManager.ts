@@ -153,6 +153,145 @@ export function startVideoStreamManager(
 
   const unsubs: Array<() => void> = []
 
+  /* DIAG:srt-fps — temporary decode/present rates; revert after diagnosis. */
+  type DiagSnap = {
+    framesDecoded: number
+    framesDropped: number
+    accessUnits: number
+    bytesPushed: number
+  }
+  const diag = {
+    t0: performance.now(),
+    windowT0: performance.now(),
+    presentCalls: 0,
+    uniquePts: new Map<string, number>(),
+    repeatPts: new Map<string, number>(),
+    kfTrue: new Map<string, number>(),
+    kfRise: new Map<string, number>(),
+    lastKf: new Map<string, boolean>(),
+    lastPts: new Map<string, number | null>(),
+    lastReason: new Map<string, string | null>(),
+    reasonCounts: new Map<string, Map<string, number>>(),
+    auDeltaHist: new Map<string, number>(),
+    lastAu: new Map<string, number>(),
+    sameFrameUpload: 0,
+    bytesIn: 0,
+    snap: new Map<string, DiagSnap>(),
+    traces: [] as Array<Record<string, unknown>>,
+    window: {
+      presentCalls: 0,
+      unique: 0,
+      repeat: 0,
+      reasonCounts: new Map<string, number>(),
+    },
+  }
+
+  function diagBump(map: Map<string, number>, key: string): void {
+    map.set(key, (map.get(key) ?? 0) + 1)
+  }
+
+  function diagBumpReason(povId: string, reason: string): void {
+    let per = diag.reasonCounts.get(povId)
+    if (!per) {
+      per = new Map()
+      diag.reasonCounts.set(povId, per)
+    }
+    diagBump(per, reason)
+    diagBump(diag.window.reasonCounts, `${povId}:${reason}`)
+  }
+
+  function diagFlushIfDue(): void {
+    const now = performance.now()
+    const dt = (now - diag.t0) / 1000
+    if (dt < 1) return
+    const rows: Record<string, unknown>[] = []
+    for (const slot of streams.values()) {
+      const c = slot.pipe.getCounters()
+      const prev = diag.snap.get(slot.povId)
+      const rate = (cur: number, old: number | undefined) =>
+        old == null ? null : (cur - old) / dt
+      const reasons: Record<string, number> = {}
+      for (const [k, v] of diag.reasonCounts.get(slot.povId) ?? []) {
+        reasons[k] = v
+      }
+      rows.push({
+        povId: slot.povId,
+        active: slot.povId === activePov,
+        codec: c.codec,
+        decodedFps: rate(c.framesDecoded, prev?.framesDecoded),
+        droppedFps: rate(c.framesDropped, prev?.framesDropped),
+        auFps: rate(c.accessUnits, prev?.accessUnits),
+        bytesPushedPerSec: rate(c.bytesPushed, prev?.bytesPushed),
+        uniquePresentFps: (diag.uniquePts.get(slot.povId) ?? 0) / dt,
+        repeatPresentPerSec: (diag.repeatPts.get(slot.povId) ?? 0) / dt,
+        kfWaitTicks: diag.kfTrue.get(slot.povId) ?? 0,
+        kfRise: diag.kfRise.get(slot.povId) ?? 0,
+        waitingForKeyframe: c.waitingForKeyframe,
+        reason: diag.lastReason.get(slot.povId) ?? c.reason,
+        reasonCounts: reasons,
+        degraded: c.degraded,
+        latencyMs: c.latencyMs,
+        queueDepth: c.queueDepth,
+        outstandingFrames: c.outstandingFrames,
+        decodeError: c.decodeError,
+        framesDecoded: c.framesDecoded,
+        framesDropped: c.framesDropped,
+        accessUnits: c.accessUnits,
+      })
+      diag.snap.set(slot.povId, {
+        framesDecoded: c.framesDecoded,
+        framesDropped: c.framesDropped,
+        accessUnits: c.accessUnits,
+        bytesPushed: c.bytesPushed,
+      })
+    }
+    const auHist: Record<string, number> = {}
+    for (const [k, v] of diag.auDeltaHist) auHist[k] = v
+    console.info(
+      `[diag:srt-fps] ${JSON.stringify({
+        stage: 'decode-present',
+        dtSec: Math.round(dt * 1000) / 1000,
+        presentHz: diag.presentCalls / dt,
+        ipcBytesPerSec: diag.bytesIn / dt,
+        sameFrameUpload: diag.sameFrameUpload,
+        auDeltaPerPresent: auHist,
+        traces: diag.traces.slice(-8),
+        streams: rows,
+      })}`,
+    )
+    const winDt = (now - diag.windowT0) / 1000
+    if (winDt >= 20) {
+      const winReasons: Record<string, number> = {}
+      for (const [k, v] of diag.window.reasonCounts) winReasons[k] = v
+      console.info(
+        `[diag:srt-fps] ${JSON.stringify({
+          stage: 'decode-present-20s',
+          dtSec: Math.round(winDt * 1000) / 1000,
+          presentHz: diag.window.presentCalls / winDt,
+          uniquePresentFps: diag.window.unique / winDt,
+          repeatPresentPerSec: diag.window.repeat / winDt,
+          reasonCounts: winReasons,
+        })}`,
+      )
+      diag.windowT0 = now
+      diag.window.presentCalls = 0
+      diag.window.unique = 0
+      diag.window.repeat = 0
+      diag.window.reasonCounts.clear()
+    }
+    diag.t0 = now
+    diag.presentCalls = 0
+    diag.bytesIn = 0
+    diag.sameFrameUpload = 0
+    diag.uniquePts.clear()
+    diag.repeatPts.clear()
+    diag.kfTrue.clear()
+    diag.kfRise.clear()
+    diag.reasonCounts.clear()
+    diag.auDeltaHist.clear()
+    diag.traces.length = 0
+  }
+
   if (!options.getNewestPoseNtp) {
     unsubs.push(
       telemetryBus.on('drone', (packet) => {
@@ -238,6 +377,8 @@ export function startVideoStreamManager(
       if (disposed || !acceptingBytes || !povId) return
       const slot = ensure(povId)
       if (!slot) return
+      /* DIAG:srt-fps */
+      diag.bytesIn += chunk.byteLength
       slot.pipe.pushBytes(Uint8Array.from(chunk))
     },
     setActivePov(povId: string | null): void {
@@ -259,13 +400,55 @@ export function startVideoStreamManager(
         if (disposed) return
         const polled = options.getActivePovId?.() ?? null
         if (polled && polled !== activePov) handle.setActivePov(polled)
+        /* DIAG:srt-fps */
+        diag.presentCalls += 1
+        diag.window.presentCalls += 1
         for (const slot of streams.values()) {
           const shown = slot.pipe.present()
+          const c = slot.pipe.getCounters()
+          const prevKf = diag.lastKf.get(slot.povId)
+          if (prevKf === false && c.waitingForKeyframe) {
+            diagBump(diag.kfRise, slot.povId)
+          }
+          diag.lastKf.set(slot.povId, c.waitingForKeyframe)
+          if (c.waitingForKeyframe) diagBump(diag.kfTrue, slot.povId)
+          const prevAu = diag.lastAu.get(slot.povId) ?? c.accessUnits
+          const auDelta = Math.max(0, c.accessUnits - prevAu)
+          diag.lastAu.set(slot.povId, c.accessUnits)
+          const auKey = auDelta >= 4 ? '4+' : String(auDelta)
+          diagBump(diag.auDeltaHist, `${slot.povId}:${auKey}`)
+          if (shown) {
+            diag.lastReason.set(slot.povId, shown.pick.reason)
+            diagBumpReason(slot.povId, shown.pick.reason)
+            const prevPts = diag.lastPts.get(slot.povId)
+            if (prevPts !== shown.pts90k) {
+              diagBump(diag.uniquePts, slot.povId)
+              diag.window.unique += 1
+              diag.lastPts.set(slot.povId, shown.pts90k)
+              if (diag.traces.length < 8) {
+                diag.traces.push({
+                  povId: slot.povId,
+                  presentedPts90k: prevPts ?? null,
+                  pickPts90k: shown.pts90k,
+                  reason: shown.pick.reason,
+                  latencyMs: shown.pick.latencyMs,
+                  degraded: shown.pick.degraded,
+                  queueDepth: c.queueDepth,
+                  auDelta,
+                })
+              }
+            } else {
+              diagBump(diag.repeatPts, slot.povId)
+              diag.window.repeat += 1
+            }
+            if (slot.texture.image === shown.frame) diag.sameFrameUpload += 1
+          }
           if (!shown) continue
           uploadFrame(slot.texture, shown.frame)
           slot.hasFrame = true
         }
         bindActiveTexture()
+        diagFlushIfDue()
       })
     },
     getCounters(povId: string): VideoStreamCounters | null {
