@@ -448,6 +448,18 @@ function createWindow() {
 
   win.webContents.setBackgroundThrottling(false)
 
+  /* DIAG:srt-fps — forward renderer rate logs to the studio terminal + log file. */
+  const diagLogPath = path.join(__dirname, '..', 'diag-srt-fps.log')
+  win.webContents.on('console-message', (_event, _level, message) => {
+    if (typeof message !== 'string' || !message.includes('[diag:srt-fps]')) return
+    console.info(message)
+    try {
+      fs.appendFileSync(diagLogPath, `${message}\n`)
+    } catch {
+      /* ignore */
+    }
+  })
+
   // Minimize → park (do not stay minimized; that stalls WebGL ~0.2 fps).
   win.on('minimize', () => {
     setImmediate(() => {
