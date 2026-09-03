@@ -328,6 +328,10 @@ export {
 
   deferNdiSendOffTick,
 
+  parseNdiDefer,
+
+  parseNdiQueueDepth,
+
   takeNdiArrayBuffer,
 
   type NdiDeferredSend,

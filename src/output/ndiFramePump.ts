@@ -261,6 +261,10 @@ export function startNdiFramePump(
   const packPool = createNdiPackPool('uyva')
   const uyvyWorker = createNdiUyvyWorker()
   const ipc = createNdiDeferredSend({
+    channel,
+    // Measured: AR drop is awaitingMacrotask keep-newest (healthy ~6–8 evict/s).
+    // Depth 2 holds the late slot-1 frame; recovered frames can be ~31 ms older.
+    maxPending: 2,
     send: (frame) => {
       sendFrameData(frame.width, frame.height, frame.data, frame.bottomUp)
     },

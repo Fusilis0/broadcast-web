@@ -191,6 +191,9 @@ export function startNdi3dChannelPump(
   const packPool = createNdiPackPool('uyvy')
   const gpuPackedBuffers = new Set<ArrayBuffer>()
   const ipc = createNdiDeferredSend({
+    channel: CHANNEL,
+    // Measured: 3D still ~4 evict/s awaitingMacrotask (better than AR, not zero).
+    maxPending: 2,
     send: (frame) => {
       sendFrameData(frame.width, frame.height, frame.data)
     },

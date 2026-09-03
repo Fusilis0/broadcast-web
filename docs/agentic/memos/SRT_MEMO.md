@@ -1,7 +1,32 @@
 # SRT_MEMO
 
 **Last updated:** 2026-09-03  
-**Status:** Shipped texImage2D VideoFrame upload (RGBA8 + DECODE_VIDEO_TEXTURE). Original AR readback stall closed. Next investigation: 2dGrab (OUT/PRF) — do not start here.
+**Status:** Depth-2 ordered deferred-send queue shipped for AR and 3D. `?ndiQueueDepth=1` restores single-slot latest-wins. B (`?ndiDefer=microtask`) stays diag-only. C (cut rAF/tick load) is OUT/PRF, not started. No depth 3.
+
+## Depth-2 keep-newest-of-2 queue 2026-09-03
+
+Approved: **A now, depth 2 only**, drain-all-in-order when the late timer fires. Recovered frames can be up to **~31 ms older glass-to-glass**; newer frames follow immediately after. Depth 3 is a separate follow-up from new measurement if the 32–82 ms tail recurs.
+
+### Coverage (not symmetry)
+
+| Channel | Before (timeout healthy) | Why this depth |
+| --- | --- | --- |
+| **AR** | Send **~25.6**, evict **6.4/s**, begin ~32 | Depth **2** |
+| **3D** | Send **~27.6**, evict **4.4/s**, begin ~32 | Depth **2** (better than AR, still real drops) |
+| **2D** | 0 evicts in that window | Stay depth **1** |
+
+Killswitch: `?ndiQueueDepth=1`. Default defer remains `setTimeout(0)`. `?ndiDefer=microtask` not shipped.
+
+### Live after (same auto-connect URL, HEVC `decodedFps` 22–40, 64 s)
+
+| | AR before | AR after | 3D before | 3D after |
+| --- | --- | --- | --- | --- |
+| **Send fps** | **25.6** | **30.5** (med 31, min 23, max 34) | **27.6** | **31.1** (med 32) |
+| **evict/s** | **6.4** | **0.55** | **4.4** | **0.00** |
+| begin n | ~32 | 31.2 | ~32 | 31.2 |
+| `queueWait` mean | 17.9 ms | **27.5 ms** | 22.7 ms | 34.2 ms |
+
+Send now tracks begin (~30–32). Eviction collapsed. `queueWait` is **not** shorter — the change tolerates the delay instead of dropping the older slot. Residual AR evicts (~0.55/s) are the depth-2 overflow tail (`queueWait` max 108 ms in this window). That tail is **not** depth 3 in this change.
 
 ## HEVC texture upload path 2026-09-03
 
@@ -44,7 +69,144 @@ The 15 ms first-pack stall is **gone**; it did **not** move into `arFboRender` o
 
 Do **not** pin `texStorage2D(SRGB8_ALPHA8)` on the `isVideoTexture` path: Three.js `DECODE_VIDEO_TEXTURE` already applies `sRGBTransferEOTF` in `map_fragment` ([#26516](https://github.com/mrdoob/three.js/issues/26516) — SRGB8_ALPHA8 + video is not reliable). Hardware SRGB8_ALPHA8 (old texSubImage) and shader EOTF (new texImage) are the same IEC sRGB transfer; combining both would double-decode (too dark).
 
-Production `createVideoStreamTexture()` now sets `isVideoTexture` + `SRGBColorSpace` + `internalFormat=null` → GL **RGBA8** + shader decode. Killswitch: `?ndiUploadProbe=texSubImage`. Default auto-connect URL is the new path.
+Production `createVideoStreamTexture()` now sets `isVideoTexture` + `SRGBColorSpace` + `internalFormat=null` → GL **RGBA8** + shader decode. Killswitch: `?ndiUploadProbe=texSubImage`. Default auto-connect URL is the new path. Commit `0e1838e`.
+
+## AR Send 22–26 after texImage2D (not closed) 2026-09-03
+
+Same healthy 15 s as the texImage report (`decodedFps>20`, AR Send 22–26, `arReadbackBegin` ~2.6 ms, busy ~1%). Symptom 10–15 fps is improved, not fixed.
+
+### 1. Skip histogram (exact, not busy share)
+
+Per 1 s decode-present row, AR skips:
+
+| cause | mean n/s | range | share of skips |
+| --- | --- | --- | --- |
+| **rateCap** | **25.67** | 24–28 | **99.0%** (92.6–100) |
+| stagger | **0** | 0 | 0% |
+| busy | **0.27** | 0–2 | **1.0%** (0–7.4) |
+
+Stagger is dead (PBO path, `blocking: false`). Busy is gone. **Every refused tick is `rateCap`.**
+
+### 2. Rate-cap target vs achieved begin vs Send
+
+- Declared AR/3D/2D `fps: 30`. `STUDIO_TICK_FPS = 60` (`desktop/main.cjs` `setInterval`).
+- Gate (`ndiCaptureClock.ts`): declared ≥30 → **`NDI_CAPTURE_NOMINAL_FPS = 32`**, interval **31.25 ms**, tolerance **half a 60 Hz tick (8.33 ms)**. Designed so a 1 s Send readout never shows 29; resyncs when >1 interval behind (**no burst**).
+- `noteNdiSkip('ar','rateCap')` is `!captureGate.isDue(now)` on that studio:tick — “not due yet”, not a 22–26 ceiling.
+
+| 1 s mean | AR | 3D |
+| --- | --- | --- |
+| studio ticks (`presentHz`) | **57.7** | same clock |
+| rateCap skips | 25.7 | ~24 |
+| **readback begin n** | **32.1** (30–33) | **32.3** |
+| **arEnqueueIpc / Send** | **24.4 / 24.3** (22–26) | **28.5 / 28.5** (26–31) |
+| begin − Send | **~7.7 fps dropped** | **~3.8 fps dropped** |
+| IPC stage mean | **7.04 ms** | **4.79 ms** |
+
+**The 32 fps gate is hitting its target.** 57.7 ticks − 25.7 rateCap ≈ 32 admits. Send 22–26 is **after** a successful begin.
+
+### 3. Where frames die (keep-newest deferred send)
+
+`ndiDeferredSend`: `setTimeout(0)` off the tick; **one pending slot**; a second `enqueue` **releases the older buffer and keeps newest** (intentional: 8 MB `ipcRenderer.send` used to collapse the tick to ~50 Hz).
+
+`arEnqueueIpc` is counted inside `sendFrameData` (the deferred `send`), not at `ipc.enqueue`. Sustained begin 32 vs Send 24 for 15 s is not pipeline fill. Completions that land while a send is in flight / a flush already scheduled replace `pending` → drop. AR UYVA send is slower (7.0 vs 4.8 ms) and drops more (~8 vs ~4), same mechanism.
+
+Worker `uyvyWorker.pack` is unbounded async; PBO `begin`+`drain` on the same tick can post two packs close together. Those resolve into the same keep-newest slot.
+
+### 4. Tick jitter vs Send jitter
+
+`tickInterval` 10 s window: mean **17.33 ms** (~**57.7 Hz**, not 60), **>20 ms = 211 / 576 (~37%)**. Matches earlier ~38%.
+
+`captureTicks` AR (10 s): **1** and **2** and **3** mixed (e.g. 1:115–142, 2:109–146, 3:45–60) — not `tight on 2`. Long ticks (>20 ms) make the 31.25 ms gate due on the *next* tick (gap **1**); phase then waits a gap **3**. That **spaces** captures; it does **not** cut begin below 32.
+
+Send 22–26 (min–max 4) is the 1 s send **count** moving as keep-newest drops vary, not the rate-cap refusing 22–26 by design. 2dGrab **42 ms** mean @ ~10 fps (~420 ms/s main thread) lengthens the macrotask queue under the same `setTimeout(0)` — correlates with drops; not measured as a skip cause.
+
+No fix this pass. Diag stays. `0e1838e` stays.
+
+### 5. AR vs 3D send cost, eviction timing, 2dGrab (2026-09-03, no fix)
+
+Diag-only: per-channel enqueue→evict wait, `duringSend` vs `awaitingMacrotask`, send-start `queueWait`, 2dGrab wall vs `createImageBitmap` occupancy. Logged as `[diag:srt-fps] stage:deferred-send`. Restarted Electron to load it; SRT ingest stayed `connecting`/`error` (no `decodedFps>20` with these counters). Two windows still answer the three questions:
+
+| Window | HEVC | AR begin n | AR Send | AR evict/s |
+| --- | --- | --- | --- | --- |
+| **A** 15 s post-restart | none (`streams: []`) | **32.3** | **27.7** (23–31) | **4.3** |
+| **B** 192 s HMR on old instance | already dead | **31.6** | **17.8** (14–18) | **13.7** |
+
+Window A is the 32-admit → ~28-send gap (same class as 22–26, milder). Window B is the contended later-Send-16 class. Eviction *kind* is identical in both.
+
+**1. Why AR send is slower — size, not extra send-path CPU**
+
+Live bytes on every send: **AR 6,220,800** (UYVA 1920×1080×3) vs **3D 4,147,200** (UYVY 1920×1080×2 = GPU 960×1080 RGBA8). Ratio **1.50×**. `bytesAfterSend` equals `bytes` — the ArrayBuffer is still attached after `sendStudioNdiFrame` (not a MessagePort transfer; full clone).
+
+| | AR | 3D | ratio |
+| --- | --- | --- | --- |
+| payload | 6.221 MB | 4.147 MB | 1.50 |
+| Window A send mean | **7.16 ms** | **4.97 ms** | **1.44** |
+| A effective BW | 869 MB/s | 834 MB/s | ~1 |
+| Window B send mean | 8.30 ms | 5.76 ms | 1.44 |
+| B effective BW | 750 MB/s | 720 MB/s | ~1 |
+
+The 7.0/4.8 (~1.46×) from the healthy 15 s matches the byte-size ratio. Same memcpy bandwidth; AR is not disproportionately worse.
+
+AR extra CPU (`rgbaToUyva` = Rec.709 UYVY + copy the A plane, **no premultiply**) runs on `uyvyWorker` **before** `ipc.enqueue`. 3D GPU UYVY is packed before enqueue too. `arEnqueueIpc` / `3dEnqueueIpc` wrap only `sendStudioNdiFrame`. Main `fillSlot` is `Buffer.copy` for both `uyvy` and `uyva` (no `rgbaToBgra`).
+
+**2. Drop mechanism is queue delay, not in-flight send**
+
+Capture interval is 31.25 ms; a 7 ms send cannot occupy multiple intervals unless flush is delayed.
+
+| | A AR | A 3D | B AR | B 3D |
+| --- | --- | --- | --- | --- |
+| `evictDuringSend` | **0** | **0** | **0** | **0** |
+| `evictAwaitingMacrotask` | **100%** (4.3/s) | 100% (1.5/s) | **100%** (13.7/s) | 100% (12.6/s) |
+| enqueue→evict wait mean / max | **11.2 / 28.8 ms** | 5.8 / 23.4 | **21.7 / 81.8 ms** | 19.4 / 42.6 |
+| send-start `queueWait` mean / max | **16.8 / 40.8 ms** | 19.8 / 37.6 | **23.0 / 101 ms** | 27.7 / 73.7 |
+| `queueWait` >16 ms (per s) | 16.0 / 28 sends | 23.2 / 31 | 11.9 / 18 | 16.2 / 19 |
+
+**0 of 2242** AR evict samples in window B were `duringSend`. The pending slot is replaced while `setTimeout(0)` is still queued — typically **8–32 ms** after enqueue (B buckets: 16–32 ms = 1481, 32+ = 433, 8–16 = 400). Completions bunch from async UYVA pack; they do not wait on a 7 ms in-flight IPC.
+
+**3. 2dGrab does not raise the drop rate**
+
+`2dGrab` wall (~42 ms @ ~10.6/s) is **awaiting the worker**, not a 42 ms main-thread block. `createImageBitmap` occupancy is **0.63 ms/s** (A) / **6.7 ms/s** (B). Evicts *do* run during the grab wall (main thread is free). Drop **rate** is **lower** during the wall than in the gaps:
+
+| AR evict/s | during 2dGrab wall | outside (gaps) | wall share of time |
+| --- | --- | --- | --- |
+| A | **1.5–2.9** | **5.3–6.4** | 43% |
+| B | **8.8** | **16.1** | 40% |
+
+`evictDuringGrabBitmap` ≈ 0. A samples after a grab: mean `afterGrabMs` **~43 ms** (next gap), not a spike in the 8 ms after grab (`evictAfterGrab8ms` 0.3/s vs 4.3 total). 2dGrab is **not** a proven `setTimeout(0)` blocker for these drops.
+
+No production queue/policy/2dGrab change. Diag stays.
+
+### 6. What delays setTimeout(0) (2026-09-03, no fix)
+
+The delayed timer is **`src/output/ndiDeferredSend.ts` in the Electron renderer** (Chromium), not Node’s main-process timers/check phases. Main still *feeds* `studio:tick` IPC (~60 Hz `setInterval` + `webContents.invalidate()`). ffmpeg stdout / NDI `fillSlot` run on main **during** `sendStudioNdiFrame`, i.e. after flush starts — they cannot explain enqueue→flush `queueWait`.
+
+**Renderer macrotasks sharing the thread with the deferred send:** `studio:tick` IPC (present + AR FBO + 3D FBO + 2D `setTimeout(0)` schedule, several `ipcRenderer.on` handlers in one turn); **rAF preview** (`previewFrameClock`, full scene); three keep-newest send timers (AR/3D/2D); 2D grab defer; UYVA `uyvyWorker` messages. `flushInTickN = 0` (send never runs inside the tick, as designed).
+
+Live 59 s, `?ndiDefer` default timeout, ingest live, AR Send ~25, begin ~32:
+
+| AR | |
+| --- | --- |
+| `queueWait` mean / max | **17.9 / 103 ms** |
+| studio ticks during wait | mean **1.57**, max **8** |
+| enqueue on tick | **0** (worker completions) |
+| evict preceding | **100% `uyvyWorker`** |
+| late flush preceding (`queueWait>8`) | **rAF 67%** (832), **studio:tick:end 26%** (324), flush:2d 5%, 2dDefer/flush:3d <2% |
+
+3D enqueues **on-tick** (`enqueueInTickN` = all 32). Late 3D flush preceding is **flush:ar 57%** (serial behind AR’s 7 ms clone), then rAF 16%, studio:tick:end 13%. Evict preceding **100% `studio:tick`**.
+
+**Scheduler experiment** (probes scheduled at the same enqueue as the real defer; then a 42 s `?ndiDefer=immediate` run):
+
+| primitive | AR fire delay | 3D fire delay | actual send path |
+| --- | --- | --- | --- |
+| `setTimeout(0)` | **20.7 ms** | 22.7 ms | baseline: Send 25.6, evict 6.4/s, wait 17.9 |
+| MessageChannel (`setImmediate` stand-in) | **20.8 ms** | 22.7 ms | `?ndiDefer=immediate`: Send **25.1**, evict **6.8/s**, wait **18.8** — **no win** |
+| `queueMicrotask` | **0.05 ms** | **6.2 ms** | not used for send (would run before rAF; 3D’s 6.2 ms is leftover tick work after in-tick enqueue) |
+
+Immediate and timeout are the same stall: Chromium is busy with **rAF + queued studio:tick** before *any* macrotask (timer or port message). Microtask is the only primitive that fires before that work. Using it for send would put AR IPC at worker-completion (~0 ms extra) and 3D IPC at end-of-tick (~6 ms, then rAF waits). That is the original tick-collapse risk; not a fix this pass.
+
+**Queue depth (symptom, not cause).** This timeout window, 377 AR evicts: **96.3% wait <32 ms**, 3.4% 32–48, 0.3% 48–64. At 32 fps (~31 ms arrivals), **depth 2** (keep-newest, 2 slots) covers ~one extra frame → ~95% of *this* window. Contended window B had **16.5% of evicts ≥32 ms** (max 82 ms) — depth 2 would miss that tail; depth 3 (~62 ms) would be closer. Depth increase does **not** stop rAF/tick from delaying the first send; it only keeps extra newest frames until the late macrotask finally runs.
+
+Default defer remains `setTimeout(0)`. `?ndiDefer=immediate|microtask` is diag-only.
 
 ## contended idle + early 2026-09-03
 Early-pack instance recovered overnight (first `decodedFps>20` ~line 62942). Reported that window, then force-stopped (one GPU) and launched solo `ndiReadbackProbe=idle`. Idle reached contention in **<1 min** (no 12-frame stall this time).

@@ -25,7 +25,11 @@ import {
   type CreateNdi2dAsyncCaptureOptions,
 } from './ndi2dAsyncCapture.ts'
 import { createNdiCaptureGate } from './ndiCaptureClock.ts'
-import { createNdiDeferredSend } from './ndiDeferredSend.ts'
+import {
+  createNdiDeferredSend,
+  diagMark2dGrabWall,
+  diagMarkMacrotask,
+} from './ndiDeferredSend.ts'
 import { NdiDelayBuffer } from './ndiDelayBuffer.ts'
 import { createSendFpsCounter } from './perfCounters.ts'
 import { diagRegisterNdiSendFps } from './diagNdiPeek.ts'
@@ -237,6 +241,8 @@ export function startStreamMapNdiPump(
   }
 
   const ipc = createNdiDeferredSend({
+    channel: '2d',
+    // Measured: 2D had 0 awaitingMacrotask evicts in the timeout window — stay depth 1.
     send: (frame) => {
       sendFrameData(frame.data)
     },
@@ -325,6 +331,7 @@ export function startStreamMapNdiPump(
     grabbing = true
     try {
       const t0 = performance.now()
+      diagMark2dGrabWall(true)
       try {
         const data = await capture.grab({ source: src, outW, outH, box })
         recordNdiStage('2dGrab', performance.now() - t0)
@@ -335,6 +342,8 @@ export function startStreamMapNdiPump(
         if (!disposed) {
           error = err instanceof Error ? err.message : String(err)
         }
+      } finally {
+        diagMark2dGrabWall(false)
       }
     } finally {
       grabbing = false
@@ -357,6 +366,7 @@ export function startStreamMapNdiPump(
       }
       queued = true
       capture.defer(() => {
+        diagMarkMacrotask('2dDefer')
         queued = false
         void runCapture()
       })
