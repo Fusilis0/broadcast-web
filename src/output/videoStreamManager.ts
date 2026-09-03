@@ -37,6 +37,9 @@ export type StreamTextureLike = {
   image: unknown
   needsUpdate: boolean
   colorSpace?: unknown
+  isVideoTexture?: boolean
+  update?: () => void
+  internalFormat?: string | null
   dispose: () => void
 }
 
@@ -90,13 +93,71 @@ type StreamSlot = {
   hasFrame: boolean
 }
 
+type VideoFrameUploadTexture = THREE.Texture & {
+  isVideoTexture: boolean
+  update: () => void
+}
+
+/**
+ * GL internal format Three.js will pass to `texImage2D` for this stream
+ * texture. Video uploads use RGBA8 + shader `sRGBTransferEOTF`
+ * (`DECODE_VIDEO_TEXTURE`), not `texStorage2D(SRGB8_ALPHA8)` — browsers do
+ * not reliably support sRGB storage with video sources (three.js #26516).
+ * Sampled colour matches the old SRGB8_ALPHA8 hardware-decode path; combining
+ * SRGB8_ALPHA8 *and* DECODE_VIDEO_TEXTURE would double-apply the EOTF.
+ */
+export const VIDEO_FRAME_TEXIMAGE_GL_INTERNAL_FORMAT = 'RGBA8' as const
+
+export function resolveVideoFrameTexImageInternalFormat(tex: {
+  isVideoTexture?: boolean
+  internalFormat?: string | null
+  colorSpace?: unknown
+}): 'RGBA8' | 'SRGB8_ALPHA8' {
+  if (tex.internalFormat === 'SRGB8_ALPHA8' || tex.internalFormat === 'RGBA8') {
+    return tex.internalFormat
+  }
+  if (tex.isVideoTexture === true) return VIDEO_FRAME_TEXIMAGE_GL_INTERNAL_FORMAT
+  return tex.colorSpace === THREE.SRGBColorSpace ? 'SRGB8_ALPHA8' : 'RGBA8'
+}
+
+/**
+ * Mark a stream texture so WebGL2 uses `texImage2D(VideoFrame)` (Chromium
+ * CopyTextureCHROMIUM fast path) instead of `texStorage` + `texSubImage2D`
+ * (webcodecs#421 / three.js #28980). `update()` is a no-op: `present()`
+ * already sets `needsUpdate` on unique frames.
+ */
+export function applyVideoFrameTexImage2DUpload(tex: THREE.Texture): THREE.Texture {
+  const video = tex as VideoFrameUploadTexture
+  video.colorSpace = THREE.SRGBColorSpace
+  video.internalFormat = null
+  video.isVideoTexture = true
+  video.update = () => {
+    /* present() owns needsUpdate */
+  }
+  return video
+}
+
 export function createVideoStreamTexture(): THREE.Texture {
+  const tex = new THREE.Texture()
+  tex.minFilter = THREE.LinearFilter
+  tex.magFilter = THREE.LinearFilter
+  tex.generateMipmaps = false
+  return applyVideoFrameTexImage2DUpload(tex)
+}
+
+/** Killswitch: old texStorage + texSubImage2D + SRGB8_ALPHA8 path. */
+export function createLegacyTexSubImageVideoStreamTexture(): THREE.Texture {
   const tex = new THREE.Texture()
   tex.colorSpace = THREE.SRGBColorSpace
   tex.minFilter = THREE.LinearFilter
   tex.magFilter = THREE.LinearFilter
   tex.generateMipmaps = false
   return tex
+}
+
+function videoFramePixelFormat(frame: VideoFrameLike): string | null {
+  const fmt = (frame as { format?: unknown }).format
+  return typeof fmt === 'string' ? fmt : null
 }
 
 export function uploadVideoFrameToTexture(
@@ -183,6 +244,7 @@ export function startVideoStreamManager(
     lastAu: new Map<string, number>(),
     sameFrameUpload: 0,
     bytesIn: 0,
+    loggedFrameFormat: false,
     snap: new Map<string, DiagSnap>(),
     traces: [] as Array<Record<string, unknown>>,
     window: {
@@ -477,6 +539,20 @@ export function startVideoStreamManager(
               diagBump(diag.uniquePts, slot.povId)
               diag.window.unique += 1
               diag.lastPts.set(slot.povId, shown.pts90k)
+              const frameFormat = videoFramePixelFormat(shown.frame)
+              if (!diag.loggedFrameFormat) {
+                diag.loggedFrameFormat = true
+                console.info(
+                  `[diag:srt-fps] ${JSON.stringify({
+                    stage: 'video-frame-format',
+                    format: frameFormat,
+                    codedWidth: shown.frame.codedWidth,
+                    codedHeight: shown.frame.codedHeight,
+                    displayWidth: shown.frame.displayWidth ?? null,
+                    displayHeight: shown.frame.displayHeight ?? null,
+                  })}`,
+                )
+              }
               if (diag.traces.length < 8) {
                 diag.traces.push({
                   povId: slot.povId,
@@ -487,6 +563,7 @@ export function startVideoStreamManager(
                   degraded: shown.pick.degraded,
                   queueDepth: c.queueDepth,
                   auDelta,
+                  format: frameFormat,
                 })
               }
             } else {

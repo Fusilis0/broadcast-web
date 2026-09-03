@@ -827,11 +827,19 @@ export {
 
   WARM_STREAM_CAP,
 
+  applyVideoFrameTexImage2DUpload,
+
+  createLegacyTexSubImageVideoStreamTexture,
+
   createVideoStreamTexture,
+
+  resolveVideoFrameTexImageInternalFormat,
 
   startVideoStreamManager,
 
   uploadVideoFrameToTexture,
+
+  VIDEO_FRAME_TEXIMAGE_GL_INTERNAL_FORMAT,
 
   type VideoStreamCounters,
 

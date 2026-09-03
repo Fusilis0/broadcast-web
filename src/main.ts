@@ -78,6 +78,7 @@ import {
   startSyncDebugPanel,
   startVideoBackground,
   startVideoStreamManager,
+  createLegacyTexSubImageVideoStreamTexture,
   startVisualTimecode,
   startWhepUnderlay,
   readWebGlGpuInfo,
@@ -123,6 +124,7 @@ import {
   diagAutoConnectIsNoop,
   parseDiagAutoConnect,
 } from './output/diagAutoConnect.ts'
+import { parseNdiUploadProbe } from './output/diagVideoUploadProbe.ts'
 import {
   startPosePipeline,
   stopPosePipeline,
@@ -2138,6 +2140,7 @@ void (async () => {
   arBackgroundMode = normalizeArBackground(config.arBackground)
   /* DIAG:auto-connect — query wins over config.json; default URL is a no-op. */
   const diagAutoConnect = parseDiagAutoConnect(window.location.search)
+  const ndiUploadProbe = parseNdiUploadProbe(window.location.search)
   if (diagAutoConnect.arBackground) {
     arBackgroundMode = diagAutoConnect.arBackground
   }
@@ -2191,6 +2194,36 @@ void (async () => {
   })
   const gpuInfo = readWebGlGpuInfo(scene.renderer.getContext())
   console.info(`[perf] WebGL renderer: ${gpuInfo.raw ?? 'unknown'}`)
+  try {
+    const gl = scene.renderer.getContext() as WebGLRenderingContext
+    const attributes = gl?.getContextAttributes?.() ?? null
+    let unmaskedVendor: string | null = null
+    const ext = gl?.getExtension?.('WEBGL_debug_renderer_info') as {
+      UNMASKED_VENDOR_WEBGL: number
+      UNMASKED_RENDERER_WEBGL: number
+    } | null
+    if (gl && ext) {
+      const v = gl.getParameter(ext.UNMASKED_VENDOR_WEBGL)
+      unmaskedVendor = typeof v === 'string' ? v : null
+    }
+    console.info(
+      `[diag:srt-fps] ${JSON.stringify({
+        stage: 'webgl-context',
+        attributes,
+        unmaskedVendor,
+        unmaskedRenderer: gpuInfo.raw,
+        three: {
+          antialias: true,
+          alpha: true,
+          powerPreference: 'high-performance',
+          desynchronized: 'omitted (WebGL default false)',
+          preserveDrawingBuffer: 'omitted (WebGL default false)',
+        },
+      })}`,
+    )
+  } catch {
+    /* ignore */
+  }
   hud.setGpuLabel(gpuInfo.display)
   if (studioBridge) {
     console.info(
@@ -2304,6 +2337,14 @@ void (async () => {
 
     // DSP-OUT-06: TS demux + WebCodecs decode. OUT-07 opens SRT; we consume
     // srt:data and swap textures. Do not touch Fleet UI / opaqueClearSafe.
+    if (ndiUploadProbe === 'texSubImage') {
+      console.info(
+        `[diag:srt-fps] ${JSON.stringify({
+          stage: 'upload-probe',
+          mode: ndiUploadProbe,
+        })}`,
+      )
+    }
     videoStreamManager = startVideoStreamManager({
       setTexture: (tex) => {
         if (!videoBackground || !tex) return
@@ -2314,6 +2355,10 @@ void (async () => {
           >,
         )
       },
+      createTexture:
+        ndiUploadProbe === 'texSubImage'
+          ? createLegacyTexSubImageVideoStreamTexture
+          : undefined,
       getActivePovId: () => sceneHandle.getActivePovId(),
       getLutStreamId: lutStreamIdForPov,
       getNewestPoseNtp: (povId) =>
