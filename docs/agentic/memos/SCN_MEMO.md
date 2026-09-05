@@ -1,7 +1,7 @@
 # SCN_MEMO
 
 **Last updated:** 2026-09-05  
-**Status:** Active — **19.17 code done**. Await operator smoke (lists + 2D before 3D remount). **No Cesium vendor switch.** Do not re-seed library.
+**Status:** Phase 19 SCN **Human Pass** (19.2b + 19.17). Returned to **BW** (`HO-SCN-BW-20260905-01`). **19.18** parked GEO. **No Cesium vendor switch.** Do not re-seed library.
 
 Design: `docs/architecture/phase19-senexus-qol.md` · Brief: `docs/agentic/briefs/phase19/SCN_PHASE19.md`
 
@@ -14,7 +14,8 @@ Received `HO-PLT-SCN-20260902-01`: **19.16 seeded** (Rolex / Senexus / Vodafone)
 ## Handoff 2026-09-05
 
 Issued `HO-SCN-PLT-20260905-01`: **19.17** investigation (Electron vs remount).  
-Received `HO-PLT-SCN-20260905-01`: stall is **`remountWorldFromFeatures`** (579–755 ms), not `races.read`. `restartIngest` before `fleetPanel.setState`. Issued `DSP-SCN-20260905-03`. Load-button lock stays.
+Received `HO-PLT-SCN-20260905-01`: stall is **`remountWorldFromFeatures`** (579–755 ms), not `races.read`. `restartIngest` before `fleetPanel.setState`. Issued `DSP-SCN-20260905-03`. Load-button lock stays.  
+Issued `HO-SCN-BW-20260905-01`: **19.2b + 19.17 Human Pass**. SCN Phase 19 parked.
 
 ## Phase 19 domain roadmap (SCN)
 
@@ -45,11 +46,15 @@ Parked: OUT idle · CAL 19.5 done · PLT 19.16 **done** · GEO 19.18 · NDI fps.
 | **B3** | 19.2b declutter + fill | `done/DSP-SCN-20260904-10` | **Fail 2026-09-05** — boats still collide; 960×540 soft |
 | **B3** | 19.2b 1080p + boat slider | `done/DSP-SCN-20260905-01` | **Human Pass (local) 2026-09-05** — follow-up 05-02 |
 | **B3** | 19.2b names / rounding / course scale | `done/DSP-SCN-20260905-02` | **Human Pass 2026-09-05** |
-| **B3** | 19.17 instant project switch | `done/DSP-SCN-20260905-03` | **code done 2026-09-05** — await human smoke |
+| **B3** | 19.17 instant project switch | `done/DSP-SCN-20260905-03` | **Human Pass 2026-09-05** |
 
 ## After each worker (script)
 
-Human: after **05-03** — Load `demo-istanbul` then `30agustos` (button only). Fleet + Assets + 2D must show the new pack **before** 3D finishes. Optional `?debug1917=1`. Then **BW** if Pass.
+Human: **19.17 Pass.** Open **BW** (`BOOTSTRAP_BW.md` + `HO-SCN-BW-20260905-01`). SCN Phase 19 parked unless they reopen look-dev. GEO 19.18 still Q5.
+
+## Operator 2026-09-05 — 05-03 Pass
+
+- Load `demo-istanbul` ↔ `30agustos`: lists + 2D before 3D. Dropdown still pick-only. No white on rapid Load. Issued `HO-SCN-BW-20260905-01`.
 
 ## Worker 2026-09-05 — `DSP-SCN-20260905-03` (lists + 2D before remount)
 
@@ -58,7 +63,7 @@ Human: after **05-03** — Load `demo-istanbul` then `30agustos` (button only). 
 - URL packs: lists first, then `void loadWorldForProject` → `applyWorldFeatures` (loaders still mount). Acceptance packs embed `features`.
 - `?debug1917=1` stages: `readWorldFeatures`, `fleetPanel.setState`, `uiPaint`, `remountStarted`, then `remountWorldFromFeatures`.
 - Suite **1223 + 26**, `npm run build` green.
-- SCN orchestrator **code-accept 2026-09-05**. **Do not Pass until operator smoke.**
+- SCN orchestrator **code-accept 2026-09-05**. **Human Pass 2026-09-05.** Next: BW.
 
 ## Operator 2026-09-05 — 05-02 Pass
 

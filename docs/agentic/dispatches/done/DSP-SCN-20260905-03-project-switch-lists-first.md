@@ -7,7 +7,8 @@
 - Phase: **19.17** — lists + 2D before 3D remount
 - Related: `docs/agentic/handoffs/HO-PLT-SCN-20260905-01.md` (PLT investigation). Incoming `HO-SCN-PLT-20260905-01.md`. Keep `done/DSP-SCN-20260902-01-explicit-race-load.md` (Load button only). Keep `done/DSP-SCN-20260903-01-ar-3d-white-after-load.md` (`remountGen` stale abort).
 - Hold Cesium vendor. Do not re-seed library. No NDI pump rewrite. No `STUDIO_TICK_FPS`.
-- Worker result: **code done 2026-09-05** — packed Load: clone features → 2D + chrome + Fleet/Assets → yield paint → remount; `void restartIngest` after `setState`. Boot still awaits remount. Suite **1223 + 26**, build green. SCN **code-accept**. Await operator smoke.
+- Worker result: **code done 2026-09-05** — packed Load: clone features → 2D + chrome + Fleet/Assets → yield paint → remount; `void restartIngest` after `setState`. Boot still awaits remount. Suite **1223 + 26**, build green. SCN **code-accept**.
+- **Human Pass 2026-09-05.** Next: BW (`HO-SCN-BW-20260905-01`).
 
 ## Goal
 
@@ -78,7 +79,7 @@ Cesium `createTerrain` is **not** on this Load chain (boot only).
 - [x] Rapid Load A then B does not leave AR/3D white (stale remount aborted). *(code; remountGen kept)*
 - [x] `?debug1917=1` still logs stage ms; remount is **after** a UI-paint stage. *(code)*
 - [x] `npm test` + `npm run build` green. *(1223 + 26; build green)*
-- [ ] Operator smoke: Load `demo-istanbul` ↔ `30agustos`; lists+2D before 3D; no white on rapid Load.
+- [x] Operator smoke: Load `demo-istanbul` ↔ `30agustos`; lists+2D before 3D; no white on rapid Load. *(**Human Pass 2026-09-05**)*
 
 ## Report back
 

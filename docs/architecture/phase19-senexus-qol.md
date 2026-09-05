@@ -203,15 +203,11 @@ Per moving boat, a short **foam ribbon / decal** on the water plane (`y ≈ 0.05
 
 ### 19.14 Billboard vanish
 
-No repro. First worker: log why a chain is skipped (no points, `visible3d false`, texture error, frustum, parent hidden). Cheap hardening only if a cause is obvious (e.g. shared dispose). Otherwise **stop** and wait for the operator’s next capture.
+**Closed 2026-09-05** (operator: did not happen again). Reopen only on a new live capture. No worker until then.
 
 ### 19.15 Sea over assets
 
-Image 2: Gerstner overlapping platforms / land. **Do not** wait for a new globe vendor.
-
-- Keep Phase 16.1: terrain **land only**, our ocean is the water.
-- Tighten so **authored platforms / sponsors / line signs** are not buried in clipmap waves (bias, stencil, or local ocean suppress — worker picks the cheapest that does not break NDI).
-- Environment **water discard m** stays the operator knob for terrain.
+**Closed 2026-09-05** (operator: SCN flat-sea + texture look is enough; Gerstner punch-through holes cancelled). No further 19.15 worker. Not a globe vendor change.
 
 ---
 
@@ -271,11 +267,12 @@ File-disjoint work may run in parallel **inside** a wave. Do not start SCN autho
 
 | Wave | Open | Why |
 | --- | --- | --- |
-| **A** | **OUT** (19.3 P0, 19.1, 19.4) + **CAL** (19.5) | Air picture + tiny calib |
-| **B** | **SCN** chrome (19.2, 19.6, 19.9, 19.10) | Safe UI, little schema |
-| **C** | **PLT** 19.16 then **SCN** 19.7 / 19.11 / 19.8 / 19.12 | Library before picker |
-| **D** | SCN 19.13, 19.15, 19.14; **PLT+SCN** 19.17 | Look-dev + load |
-| **Hold** | **GEO** 19.18 | Until operator returns to Q5 |
+| **A** | **OUT** (19.3 P0, 19.1, 19.4) + **CAL** (19.5) | **Pass** (product). Hitch+send Pass; 30×3 parked pending fps track |
+| **B** | **SCN** chrome (19.2, 19.6, 19.9, 19.10) | **Pass** |
+| **C** | **PLT** 19.16 then **SCN** 19.7 / 19.11 / 19.8 / 19.12 | **Pass** (library seeded) |
+| **D** | SCN 19.13, 19.15, 19.14; **PLT+SCN** 19.17; **19.2b** | **Human Pass 2026-09-05** (19.2b + 19.17). SCN idle |
+| **Next** | **OUT** NDI 30×3 | **Wait for operator call** (coworker work). HUD live proof 2026-09-05. |
+| **Hold** | **GEO** 19.18 | Until operator returns to Q5. **No MapTiler via SCN** |
 | **Anytime small** | **TEL** 19.x id contract if SCN is blocked on ids | |
 
 After **each worker** reports to its orchestrator, that orchestrator tells the human: **test now**, **next dispatch**, **next orchestrator**, or **return to BW**. See [`../agentic/briefs/phase19/README.md`](../agentic/briefs/phase19/README.md).

@@ -1,7 +1,25 @@
 # BW_MEMO — Broadcast-Web Master Orchestrator
 
-**Last updated:** 2026-09-02  
+**Last updated:** 2026-09-05  
 **Session role:** BW
+
+## 2026-09-05 — SCN 19.2b + 19.17 Human Pass (`HO-SCN-BW-20260905-01`)
+
+Accepted as Human Pass. **No `src/` in this chat.**
+
+| Item | Verdict |
+| --- | --- |
+| **19.2b** | Pass — stream 1920×1080; Boat size; names not numbers; no marks/drones on stream; S/F centered; buoy names + rounding (`DSP-SCN-20260905-02`) |
+| **19.17** | Pass — Load paints chrome, 2D, Fleet, Assets before 3D remount (`DSP-SCN-20260905-03`). Stall was SCN remount, not Electron `races.read` (`DSP-PLT-20260905-01`). Load stays button-only. |
+| **19.2** | Pass (earlier `DSP-SCN-20260829-03`) |
+
+**SCN Phase 19 idle.** Do not open a new SCN chat for 19.17 follow-up unless Load still feels blocked. Do **not** send SCN a MapTiler / terrain-vendor worker. Sea 19.15 holes + 1/9 stay parked unless the operator reopens look-dev. Library 19.16 already seeded.
+
+**Next orchestrator: OUT.** NDI fps (30×3 vs preview hitch) and **19.3 live proof** are still the open air gate in this memo (2026-09-02 Fail / later hitch+send Pass with 30×3 parked “fine for now”). Product 19.1 / 19.3 OBS / 19.4 are code+smoke Pass; the leftover is **live Send vs preview**, not authoring.
+
+**GEO 19.18** only if the operator reopens **Q5**. Until then: no Cesium vendor switch.
+
+Handoff out: `docs/agentic/handoffs/HO-BW-OUT-20260905-01.md`. Roadmap Phase 19 ticked 2026-09-05.
 
 ## 2026-09-02 — NDI vs preview (HO-OUT-BW-20260902-03) Fail
 

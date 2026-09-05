@@ -1,7 +1,7 @@
 # Phases Roadmap — broadcast-web
 
 **Owner:** BW  
-**Updated:** 2026-09-01  
+**Updated:** 2026-09-05  
 **Design:** [`../architecture/race-projects-and-world-authoring.md`](../architecture/race-projects-and-world-authoring.md) · air: [`../ops/air-runbook.md`](../ops/air-runbook.md) · **Phase 19:** [`../architecture/phase19-senexus-qol.md`](../architecture/phase19-senexus-qol.md)
 
 ---
@@ -20,12 +20,10 @@
 
 ### Current pointer
 
-**Active engineering:** **Phase 19** — Senexus studio QoL. Design locked 2026-09-01. Orchestrator briefs: [`../agentic/briefs/phase19/`](../agentic/briefs/phase19/). Human opens **OUT + CAL** first, then **SCN**, then **PLT**. **GEO** terrain vendor is parked (Q5).  
-**Phase 18 leftover P2** (timecode hide, PiP) is **absorbed into 19.1 / 19.2** (existing DSPs adopted, not duplicated). NDI fps 30×3 remains a Phase 18 live-proof track, not Phase 19 except **19.3** (3D NDI stripes).  
-**Active human:** open OUT chat with `docs/agentic/briefs/phase19/OUT_PHASE19.md`.
+**Active engineering:** **Phase 19** notes **done** (SCN/CAL/PLT/OUT product Pass). **GEO 19.18** parked until Q5. **NDI 30×3** parked until operator call (coworker work). Do **not** send SCN a MapTiler worker. Briefs: [`../agentic/briefs/phase19/`](../agentic/briefs/phase19/).  
+**Phase 18 leftover:** NDI send **30×3** — **wait for operator call** (HUD live proof 2026-09-05; not 30 fps). **19.3** OBS picture Pass. **10.1** Unity **retired** (operator 2026-09-05). **10.2** console deep-link **future**.
 
-**Active:** **Phase 10.1** (Unity vs broadcast-web parallel air — human + BW) is the only remaining
-open gate.  
+**10.1** Unity parallel-air **closed 2026-09-05** (operator: retire Unity; broadcast-web is primary). **10.2** console emit still waiting.  
 **Done:** Phase 11 core (**V1-D**) + follow-up authoring workspace / calib+output into sidebar +
 follow-up #2 (Close bug fix, resizable map/sidebar, Enter/Delete/drag editing, distinct
 viewer-facing stream map) + follow-up #3 (P0 `window.prompt()` throws unconditionally in Electron,
@@ -33,9 +31,8 @@ breaking billboard chain, boat/drone/buoy placement, Save as, Rename, Duplicate 
 `promptModal()` DOM utility, `DSP-SCN-20260811-07` + `DSP-PLT-20260811-03`, accepted 2026-08-12
 after BW drove the real Electron renderer end-to-end) all accepted. See
 `docs/architecture/world-authoring-workspace.md`. Phase 12 cloud still deferred.  
-**Active:** human **Phase 10.1** (Unity vs broadcast-web parallel air).  
-**Done:** Phase 11 (**V1-D**) + follow-ups; **Phase 13 complete** (13.1–13.8). Phase 12 deferred.  
-**Next up:** Human **Phase 15 + 16 look-dev smoke** (preview ~60, sea AA under orbit, Cesium water gone, wind strings, sailboats + palette + tag leaders, sponsor boards, rounding rings, two-rail ops) then **10.1** cutover. Ion-token smoke, CAL yaw, Open-Meteo commercial key still open.
+**Done:** Phase 11 (**V1-D**) + follow-ups; **Phase 13 complete** (13.1–13.8). Phase 12 deferred. **10.1 Unity retired 2026-09-05.**  
+**Parked:** NDI **30×3** until operator call · **10.2** console emit · GEO **19.18** Q5.
 
 ---
 
@@ -85,17 +82,17 @@ after BW drove the real Electron renderer end-to-end) all accepted. See
 
 ---
 
-### Phase 10 — Cutover & console bridge *(ACTIVE)*
+### Phase 10 — Cutover & console bridge *(10.1 done 2026-09-05; 10.2 future)*
 
 **Handoff:** [`../agentic/dispatches/active/HO-BW-20260804-04-open-phase10-cutover.md`](../agentic/dispatches/active/HO-BW-20260804-04-open-phase10-cutover.md)
 
 | # | Work | Owner | Notes |
 | --- | --- | --- | --- |
-| 10.1 | **Parallel air vs Unity** (was **5.6**) | BW + human | Dress/show criteria; Unity retire only on explicit OK |
-| 10.2 | **Console deep-link ack** (was **3.6**) | CON | **SPA pack done** `DSP-CON-20260804-01` → `done/`; **pending console emit ack** |
+| 10.1 | **Parallel air vs Unity** (was **5.6**) | BW + human | **Done 2026-09-05** — operator retired Unity; broadcast-web is primary air |
+| 10.2 | **Console deep-link ack** (was **3.6**) | CON | **SPA pack done** `DSP-CON-20260804-01`. **Future** — wait for console emit (operator 2026-09-05) |
 | 10.3 | Studio NDI smoke checklist | OUT + human | **Done** `DSP-OUT-20260804-01` (Pass 2026-08-04; Studio Monitor + grandi) |
 
-**Exit (Milestone V1-C):** Can run a show on broadcast-web as primary (or documented dual-path).
+**Exit (Milestone V1-C):** **Met 2026-09-05** — broadcast-web is primary air (Unity retired). 10.2 console emit is later, not blocking air.
 
 ---
 
@@ -212,13 +209,13 @@ geodesy returned `East × North = −Y`, and no compensating negative scale exis
 | 14.2d/e | *(optional)* FFT cascade · boat wakes | SCN | Only if look-dev demands it |
 | 14.3a | `windBus` + from/to convention helper + operator entry | TEL + SCN | **Accepted** `done/DSP-TEL-20260817-01` |
 | 14.3b | Open-Meteo wind + marine provider | TEL | **Accepted** `done/DSP-TEL-20260817-02` |
-| 14.3c | Anemometer telemetry channel | TEL | Not issued — needs on-site hardware |
+| 14.3c | Anemometer telemetry channel | TEL | **Cancelled 2026-09-05** — operator: no hardware; Open-Meteo forecast is enough |
 | 14.3d/e | 2D map wind readout · wind streaks in shader | SCN | **Accepted** `done/DSP-SCN-20260817-05` + `done/DSP-SCN-20260817-06` |
 | 14.3f | *(optional)* 3D wind indicator, flags, spray | SCN | **Lite in 15.2** (vane + stronger streaks). Flags/spray still later. |
 
 **Open decisions:** ion **asset IDs** from the Unity project (needed to finish 14.1, not to start
-it) · broadcaster sign-off on the 3D-channel attribution line before air · Open-Meteo commercial
-key before air (14.3b works on the free tier during development).
+it) · broadcaster sign-off on the 3D-channel attribution line before air · Open-Meteo is the
+**only** live wind source (14.3c anemometer **cancelled 2026-09-05**).
 
 **Dispatch order (14):** 14.0 first and alone (`DSP-GEO-20260817-01`). Then 14.1 + 14.2a + 14.3a in
 parallel. Engineering accepted 2026-08-17.
@@ -373,9 +370,11 @@ parallel. Engineering accepted 2026-08-17.
 
 ---
 
-### Phase 19 — Senexus studio QoL *(design locked 2026-09-01; OUT Wave A dispatched)*
+### Phase 19 — Senexus studio QoL *(SCN Human Pass 2026-09-05; next OUT)*
 
-**OUT:** 19.1 / 19.3 / 19.4 **Pass**. Hitch+send P0 `DSP-OUT-20260902-05` human **Pass** 2026-09-02 (operator parked 30×3). **OUT idle.** Next human: **CAL 19.5**, then SCN.  
+**SCN:** 19.2 / 19.2b / 19.17 **Human Pass** (`HO-SCN-BW-20260905-01`). SCN **idle** — no further Phase 19 dispatch unless look-dev reopens. **No MapTiler.**  
+**Next orchestrator: OUT** — NDI fps / 19.3 live proof still in `docs/agentic/memos/BW_MEMO.md`. Handoff: [`../agentic/handoffs/HO-BW-OUT-20260905-01.md`](../agentic/handoffs/HO-BW-OUT-20260905-01.md).  
+**GEO 19.18** parked until Q5.  
 **Handoff / briefs:** [`../agentic/briefs/phase19/`](../agentic/briefs/phase19/) · design [`../architecture/phase19-senexus-qol.md`](../architecture/phase19-senexus-qol.md)
 
 **Requested:** 2026-09-01 (operator notes `senexus.md` + BW Q&A). Studio is on-air capable; this phase is **ops QoL + one P0 picture bug** (3D NDI stripes). Not a new render pipeline.
@@ -388,28 +387,28 @@ parallel. Engineering accepted 2026-08-17.
 | # | Work | Owner | Notes |
 | --- | --- | --- | --- |
 | 19.1 | Hide timecode barcode; keep modules | OUT | **Done** (`DSP-OUT-20260829-03`; smoke Pass) |
-| 19.2 | PiP off; 16:9 2D source; local 2D stays | SCN | Adopt `DSP-SCN-20260829-03` |
-| 19.2b | On-air 2D UI polish | SCN | After 19.2 |
-| 19.3 | 3D NDI green/purple stripes | OUT | **Done** OBS Pass 2026-09-02 (OUT-01…06) |
+| 19.2 | PiP off; 16:9 2D source; local 2D stays | SCN | **Human Pass** (`DSP-SCN-20260829-03`) |
+| 19.2b | On-air 2D UI polish | SCN | **Human Pass 2026-09-05** (`DSP-SCN-20260905-02`) |
+| 19.3 | 3D NDI green/purple stripes | OUT | **Done** OBS Pass 2026-09-02. HUD live proof 2026-09-05. **30×3 wait for operator call** |
 | 19.4 | Hand on/off AR/3D/2D NDI | OUT | **Done** `DSP-OUT-20260901-02` (smoke optional with PBO) |
-| 19.5 | Calib yaw/pitch/roll ±200 | CAL | |
-| 19.6 | World Authoring header toggle; no Close | SCN | |
-| 19.7 | Authoring inspector + lat/lon Add/Edit; instant Assets | SCN | After PLT 19.16 for logos |
-| 19.8 | Tags stay when 3D off; ghost persist leak | SCN | |
-| 19.9 | Save/Load status under buttons | SCN | |
-| 19.10 | Start + finish band ×2 | SCN | |
-| 19.11 | Billboard plate, weights, height vertical, library picker | SCN | Needs 19.16 |
-| 19.12 | OSM zoom/coverage | SCN | |
-| 19.13 | Boat foam wakes | SCN | |
-| 19.14 | Billboard vanish (investigate) | SCN | No repro |
-| 19.15 | Sea over assets (not new globe) | SCN | |
-| 19.16 | Seed library + git-trackable uploads | PLT | Before 19.11 |
-| 19.17 | Instant project switch (UI+2D+list) | PLT+SCN | |
+| 19.5 | Calib yaw/pitch/roll ±200 | CAL | **Done** `DSP-CAL-20260901-01` |
+| 19.6 | World Authoring header toggle; no Close | SCN | **Done** `DSP-SCN-20260901-01` |
+| 19.7 | Authoring inspector + lat/lon Add/Edit; instant Assets | SCN | **Human Pass** `DSP-SCN-20260902-04` |
+| 19.8 | Tags stay when 3D off; ghost persist leak | SCN | **Human Pass** `DSP-SCN-20260902-05` |
+| 19.9 | Save/Load status under buttons | SCN | **Done** `DSP-SCN-20260901-02` |
+| 19.10 | Start + finish band ×2 | SCN | **Done** `DSP-SCN-20260901-03` |
+| 19.11 | Billboard plate, weights, height vertical, library picker | SCN | **Human Pass** `DSP-SCN-20260902-03` + `20260903-02` |
+| 19.12 | OSM zoom/coverage | SCN | **Human Pass** `DSP-SCN-20260902-06` |
+| 19.13 | Boat foam wakes | SCN | **Human Pass** `DSP-SCN-20260903-03` |
+| 19.14 | Billboard vanish (investigate) | SCN | **Closed 2026-09-05** — no second repro. Reopen only on a new live case |
+| 19.15 | Sea over assets (not new globe) | SCN | **Closed 2026-09-05** — flat-sea + texture Pass (`04-08`). Holes/Gerstner punch **cancelled**. **Not MapTiler.** |
+| 19.16 | Seed library + git-trackable uploads | PLT | **Done** `DSP-PLT-20260901-01` |
+| 19.17 | Instant project switch (UI+2D+list) | PLT+SCN | **Human Pass 2026-09-05** (`DSP-SCN-20260905-03`; PLT investigate `DSP-PLT-20260905-01`) |
 | 19.18 | Terrain provider options | GEO | **Parked** until Q5 |
 
-**Human open order:** OUT + CAL → SCN → PLT → TEL only if blocked → GEO never until Q5.
+**Human open order:** No Phase 19 worker. GEO **only** if Q5 reopens. **30×3** only when the operator calls. No MapTiler worker.
 
-**Exit:** Notes inventory in the design doc §2 all done or explicitly parked (19.18).
+**Exit:** Notes inventory in the design doc §2 all done or parked (19.18 Q5). 14.3c cancelled. 19.14 / 19.15 closed 2026-09-05.
 
 ---
 
@@ -450,13 +449,13 @@ Do not re-open unless a regression. Details live in `docs/agentic/dispatches/don
 | Focus | Phase |
 | --- | --- |
 | Auth, offline pack, calib-on-project | **9** *(done)* |
-| Unity cutover + console deep-link | **10** *(active: 10.1 human)* |
+| Unity cutover + console deep-link | **10** *(10.1 Unity retired 2026-09-05; 10.2 future)* |
 | Unified ops sidebar / asset pipeline | **11** *(done — V1-D)* |
 | Public host / WSS TLS | **12** (deferred) |
 | Multi-channel output (2D/3D/AR), NDI delay, AR calib overlay | **13** *(done)* |
-| Cesium terrain, real ocean + waves, wind data & VFX | **14** *(engineering done; 14.3c not issued)* |
+| Cesium terrain, real ocean + waves, wind data & VFX | **14** *(engineering done; 14.3c cancelled — Open-Meteo only)* |
 | Studio 60, ocean polish, fleet authoring | **15** *(done)* |
 | Visual upgrade & two-rail ops | **16** *(done)* |
 | AR SRT underlay + NTP match | **17** *(engineering done)* |
-| Studio air-readiness (NDI colour/fps/fleet) | **18** *(waves 1–3 in code; live fps still open)* |
-| Senexus QoL (authoring, NDI stripes, library) | **19** *(design locked; orchestrators next)* |
+| Studio air-readiness (NDI colour/fps/fleet) | **18** *(waves 1–3 in code; 30×3 wait for operator call)* |
+| Senexus QoL (authoring, NDI stripes, library) | **19** *(notes Pass; 19.18 Q5; 30×3 wait for call)* |

@@ -37,8 +37,9 @@ Do not start the next domain’s implementation. Do not say “we’re done” u
 
 ## Human open order (BW)
 
-1. OUT + CAL (parallel chats)  
-2. SCN  
-3. PLT (before SCN library picker if SCN is already open, warn them)  
-4. TEL only if SCN is blocked on telemetry ids  
-5. GEO only when the operator reopens terrain provider (Q5)
+**Updated 2026-09-05:** SCN Phase 19 **Human Pass** (19.2b + 19.17). CAL / PLT idle. Do not send SCN a MapTiler worker.
+
+1. **OUT** — NDI fps / 19.3 live proof (`HO-BW-OUT-20260905-01`)  
+2. GEO only when the operator reopens terrain provider (Q5)  
+3. TEL only if a new id-contract block appears  
+4. SCN only if look-dev or Load is reopened

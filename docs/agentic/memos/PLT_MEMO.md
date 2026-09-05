@@ -10,7 +10,7 @@ Design: `docs/architecture/phase19-senexus-qol.md` §6 · brief: `docs/agentic/b
 | Wave | Item | DSP | Notes |
 | --- | --- | --- | --- |
 | **C** | 19.16 Seed library + git-trackable uploads | `DSP-PLT-20260901-01-library-seed` | **DONE** — 2026-09-02 |
-| **D** | 19.17 Instant project switch | `DSP-PLT-20260905-01-project-switch-investigate` | **DONE** — owner **SCN**. No PLT plumbing DSP. |
+| **D** | 19.17 Instant project switch | `DSP-PLT-20260905-01` + `DSP-SCN-20260905-03` | **Human Pass 2026-09-05** (SCN lists-first). Investigation: remount, not `races.read`. |
 
 Does not own: World Authoring picker, remount/scene graph (SCN), NDI, Cesium vendor, calib ranges.
 

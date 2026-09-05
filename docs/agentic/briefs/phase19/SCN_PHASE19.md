@@ -32,7 +32,7 @@ NDI FourCC/pumps (OUT), slider degrees (CAL), library **file seeding** (PLT — 
 
 **B1 chrome (parallel OK if files don’t overlap):** 19.2 PiP · 19.6 launcher · 19.9 save logs · 19.10 line signs  
 
-**B2/B3:** 04-08 **Pass**. **19.2b Human Pass** (05-02). **19.17** `DSP-SCN-20260905-03` **code done** — await smoke.
+**B2/B3:** 04-08 **Pass**. **19.2b Human Pass** (05-02). **19.17 Human Pass** (05-03). Return to **BW**.
 
 **B3 look:** 19.13 wakes · 19.15 sea/assets · 19.2b 2D graphic · 19.17 remount with PLT.  
 

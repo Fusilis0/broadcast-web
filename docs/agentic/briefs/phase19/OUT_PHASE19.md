@@ -41,6 +41,20 @@ Follow [`README.md`](./README.md) “After a worker reports back”.
 - After **19.4**: human tests toggling each channel. Then tell them to open **SCN** (or CAL if CAL is not done).  
 - If 19.3 is a scene-clear / colour-space issue that is actually SCN: **stop**, handoff to SCN, do not “fix” the picture by changing scene content.
 
+## Fps / 19.3 live proof (2026-09-05)
+
+BW: `HO-BW-OUT-20260905-01`. Product 19.1 / 19.3 OBS / 19.4 remain Pass. Track is **live Send vs preview**, not authoring.
+
+**This wave:** human live proof first. **No worker DSP** until OBS+HUD are re-confirmed or a dump names a hog.
+
+- Do not clone `DSP-OUT-20260902-01` / `-03` / `-05`.
+- Do not restore skip-forever or `fallToSync` as always-on.
+- 30×3 stays the cap. Do not write “one channel is enough.”
+- Do not HO-PRF-OUT until a dump names a stage (`DSP-PRF-20260902-01` still unlanded).
+- GEO 19.18 / MapTiler: not OUT. Parked until Q5.
+
+**After live proof:** one fps DSP only from a named wall (`2dGrab` / `*EnqueueIpc` / CPU pack). Keep 19.3 picture locks if pack/FourCC moves.
+
 ## Paste-ready chat starter
 
 ```

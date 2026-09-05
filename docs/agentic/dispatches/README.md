@@ -44,15 +44,15 @@ Playbook: `docs/architecture/performance-budgets.md` (idle vs mousedown A/B/C). 
 
 Design: [`../../architecture/phase19-senexus-qol.md`](../../architecture/phase19-senexus-qol.md). SCN memo: [`../memos/SCN_MEMO.md`](../memos/SCN_MEMO.md). Library **seeded** (`HO-PLT-SCN-20260902-01`).
 
-**Wave B1 complete 2026-09-02.** Look-dev **04-08 Human Pass**. **19.2b Human Pass** (05-02). **19.17** `DSP-SCN-20260905-03` **code done** — await smoke.
+**Wave B1 complete 2026-09-02.** Look-dev **04-08 Human Pass**. **19.2b Human Pass** (05-02). **19.17 Human Pass** (05-03). **BW gated 2026-09-05** (`HO-SCN-BW-20260905-01` accepted). Next orchestrator: **OUT** (`HO-BW-OUT-20260905-01`). GEO 19.18 parked. No MapTiler.
 
 ### Done 2026-09-05 (SCN — 19.17 lists first)
 
 | DSP | Owner | Status |
 | --- | --- | --- |
-| [`done/DSP-SCN-20260905-03-project-switch-lists-first.md`](./done/DSP-SCN-20260905-03-project-switch-lists-first.md) | SCN | **code done 2026-09-05** — 2D + lists before remount; ingest after `setState`. Await smoke |
+| [`done/DSP-SCN-20260905-03-project-switch-lists-first.md`](./done/DSP-SCN-20260905-03-project-switch-lists-first.md) | SCN | **Human Pass 2026-09-05** — 2D + lists before remount |
 
-Handoff in: [`../handoffs/HO-PLT-SCN-20260905-01.md`](../handoffs/HO-PLT-SCN-20260905-01.md).
+Handoff out: [`../handoffs/HO-SCN-BW-20260905-01.md`](../handoffs/HO-SCN-BW-20260905-01.md). In: [`../handoffs/HO-PLT-SCN-20260905-01.md`](../handoffs/HO-PLT-SCN-20260905-01.md).
 
 ### Done 2026-09-05 (SCN — 19.2b names / rounding)
 
@@ -377,7 +377,7 @@ Phase 15 engineering accepted 2026-08-18. Human Electron smoke partially done (f
 
 ### Active 2026-08-17 (Phase 14)
 
-Phase 14 engineering is complete (14.3c anemometer not issued — needs hardware). 14.3f lite landed in 15.2.
+Phase 14 engineering is complete (14.3c anemometer **cancelled 2026-09-05** — Open-Meteo only). 14.3f lite landed in 15.2.
 
 ### Accepted 2026-08-17 (Phase 14.3e)
 

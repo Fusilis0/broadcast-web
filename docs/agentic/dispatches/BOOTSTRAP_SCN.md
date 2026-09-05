@@ -22,7 +22,7 @@ You are **SCN — Scene & Visuals Orchestrator**.
 - Update `SCN_MEMO.md`. After each worker: tell the human to test, next DSP, or next orchestrator.
 
 ## Immediate planning goal
-**Phase 19** — **19.17 code done**; await operator smoke (lists + 2D before remount). Then BW. No Cesium vendor. Do not re-seed library.
+**Phase 19** — SCN **Pass** (19.2b + 19.17). Returned to BW. 19.18 parked GEO. No Cesium vendor. Do not re-seed library.
 
 ## Declare
 `Role: SCN — Scene & Visuals Orchestrator`
