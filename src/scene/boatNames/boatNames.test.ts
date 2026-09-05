@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   boatColorsFromCatalogue,
+  boatNamesFromCatalogue,
+  resolveStreamFleetLabel,
   CATEGORY_COLOR_FALLBACK,
   CATEGORY_COLOR_MAVI,
   CATEGORY_COLOR_PEMBE,
@@ -38,6 +40,33 @@ describe('boatColorsFromCatalogue', () => {
     expect(colours.get('21')).toBe(CATEGORY_COLOR_PEMBE)
     expect(colours.get('23')).toBe(CATEGORY_COLOR_MAVI)
     expect(colours.size).toBe(2)
+  })
+})
+
+describe('boatNamesFromCatalogue', () => {
+  it('maps id → trimmed name; skips empty', () => {
+    const names = boatNamesFromCatalogue(
+      new Map([
+        ['21', { name: 'Bora' }],
+        ['22', { name: 'Aksu' }],
+        ['99', { name: '  ' }],
+      ]),
+    )
+    expect(names.get('21')).toBe('Bora')
+    expect(names.get('22')).toBe('Aksu')
+    expect(names.has('99')).toBe(false)
+  })
+})
+
+describe('resolveStreamFleetLabel', () => {
+  it('uses catalogue name; missing or blank → id', () => {
+    const names = new Map([
+      ['21', 'Bora'],
+      ['22', '  '],
+    ])
+    expect(resolveStreamFleetLabel('21', names)).toBe('Bora')
+    expect(resolveStreamFleetLabel('22', names)).toBe('22')
+    expect(resolveStreamFleetLabel('23', names)).toBe('23')
   })
 })
 

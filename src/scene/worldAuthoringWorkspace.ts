@@ -6,7 +6,7 @@
 
  *
 
- * Close uses the `hidden` attribute; CSS must include `.world-authoring[hidden] { display: none }`
+ * Hide uses the `hidden` attribute; CSS must include `.world-authoring[hidden] { display: none }`
 
  * because the panel's author `display: flex` otherwise wins over the UA `[hidden]` rule.
 
@@ -90,7 +90,7 @@ export type WorldAuthoringWorkspaceHandle = {
 
 export type WorldMapAuthoringLauncherHandle = {
 
-  /** Sync Open/Close button + status from workspace. */
+  /** Sync pressed/open state from workspace. */
 
   sync: () => void
 
@@ -269,24 +269,6 @@ export function createWorldAuthoringWorkspace(
   headerActions.appendChild(maximizeBtn)
 
 
-
-  const closeBtn = document.createElement('button')
-
-  closeBtn.type = 'button'
-
-  closeBtn.className = 'ops-hud__btn world-authoring__close-btn'
-
-  closeBtn.textContent = 'Close'
-
-  closeBtn.title = 'Close authoring workspace (features retained)'
-
-  closeBtn.addEventListener('click', () => {
-
-    setOpen(false)
-
-  })
-
-  headerActions.appendChild(closeBtn)
 
 
 
@@ -611,131 +593,43 @@ export function createWorldAuthoringWorkspace(
 
 
 /**
-
- * World Map sidebar section: Open/Close launcher + short hint (not the tool home).
-
+ * Compact World Authoring toggle for the Race setup header (not an accordion).
+ * Click opens; click again closes. Overlay has no Close button — OSM / Fit stay
+ * on the map toolbar inside the window.
  */
-
 export function mountWorldMapAuthoringLauncher(
-
   container: HTMLElement,
-
   workspace: WorldAuthoringWorkspaceHandle,
-
 ): WorldMapAuthoringLauncherHandle {
-
-  const wrap = document.createElement('div')
-
-  wrap.className = 'world-map-launcher'
-
-  wrap.setAttribute('data-ops', 'world-map-launcher')
-
-
-
-  const hint = document.createElement('p')
-
-  hint.className = 'world-map-launcher__hint'
-
-  hint.textContent =
-
-    'Place start, finish, flags, billboard chains, buoys on the 2D map — 3D updates live.'
-
-  wrap.appendChild(hint)
-
-
-
-  const row = document.createElement('div')
-
-  row.className = 'world-map-launcher__row'
-
-  wrap.appendChild(row)
-
-
-
   const toggleBtn = document.createElement('button')
-
   toggleBtn.type = 'button'
-
-  toggleBtn.className = 'ops-hud__btn world-map-launcher__toggle'
-
+  toggleBtn.className = 'ops-hud__btn ops-sidebar__world-toggle'
+  toggleBtn.setAttribute('data-ops', 'world-authoring-toggle')
+  toggleBtn.textContent = 'World'
+  toggleBtn.setAttribute('aria-label', 'World Authoring')
   toggleBtn.addEventListener('click', () => {
-
     workspace.setOpen(!workspace.isOpen())
-
   })
-
-  row.appendChild(toggleBtn)
-
-
-
-  const status = document.createElement('span')
-
-  status.className = 'world-map-launcher__status'
-
-  row.appendChild(status)
-
-
-
-  const note = document.createElement('p')
-
-  note.className = 'world-map-launcher__note'
-
-  note.textContent =
-
-    'OSM / Fit live on the map toolbar inside the authoring window.'
-
-  wrap.appendChild(note)
-
-
-
-  container.appendChild(wrap)
-
-
+  container.appendChild(toggleBtn)
 
   function sync(): void {
-
     const open = workspace.isOpen()
-
-    toggleBtn.textContent = open ? 'Close authoring' : 'Open authoring'
-
+    toggleBtn.setAttribute('aria-pressed', open ? 'true' : 'false')
     toggleBtn.title = open
-
-      ? 'Hide the World Authoring window (features kept)'
-
-      : 'Open the World Authoring window (large map + tools)'
-
-    status.textContent = open ? 'Authoring: open' : 'Authoring: closed'
-
-    wrap.dataset.open = open ? '1' : '0'
-
+      ? 'Hide World Authoring (features kept)'
+      : 'Open World Authoring'
   }
-
-
 
   const unsub = workspace.onOpenChange(() => {
-
     sync()
-
   })
-
   sync()
 
-
-
   return {
-
     sync,
-
     dispose(): void {
-
       unsub()
-
-      wrap.remove()
-
+      toggleBtn.remove()
     },
-
   }
-
 }
-
-

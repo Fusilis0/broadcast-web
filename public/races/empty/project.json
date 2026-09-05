@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "id": "empty",
+  "name": "empty",
+  "origin": {
+    "lat": 41.03555425259904,
+    "lon": 29.014160505269018,
+    "altMsl": 0
+  },
+  "fleet": {
+    "boatIds": [
+      "1"
+    ],
+    "boats": [
+      {
+        "id": "1",
+        "name": "boat",
+        "category": ""
+      }
+    ],
+    "boatNamesUrl": "/fixtures/boats/demo-istanbul-names.json"
+  },
+  "povIds": [
+    "1"
+  ],
+  "updatedAt": "2026-09-02T11:48:35.056Z",
+  "takeoffAltitudeMSL": 0,
+  "features": [],
+  "courseUrl": "/fixtures/course/demo-istanbul.json",
+  "sponsorsUrl": "/fixtures/sponsors/demo-istanbul.json",
+  "flagsUrl": "/fixtures/flags/demo-istanbul-countdown.json",
+  "replayUrl": "/fixtures/telemetry/spine-demo.json",
+  "output": {
+    "outputMode": "transparent",
+    "timecodeEnabled": false,
+    "timecodeCorner": "bottom-right",
+    "timecodeSizePx": 96,
+    "srtByPovId": {
+      "1": "1"
+    }
+  },
+  "calibration": {
+    "byPovId": {
+      "1": {
+        "yawDeg": 35.3,
+        "pitchDeg": 0,
+        "rollDeg": 0,
+        "fovHDeg": 66.8832,
+        "altMeters": 2,
+        "syncTrimMs": 0
+      }
+    }
+  }
+}

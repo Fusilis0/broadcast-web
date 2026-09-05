@@ -1,3 +1,6 @@
+import { existsSync, readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
 import {
   isLibraryUploadConfigured,
@@ -6,6 +9,8 @@ import {
   resolveLibraryAssetUrl,
   uploadLibraryAsset,
 } from './index.ts'
+
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../../..')
 
 const sample = {
   id: 'image/logo-a1b2c3d4.png',
@@ -29,6 +34,39 @@ describe('parseLibraryManifest', () => {
     expect(parseLibraryManifest([sample, { bad: true }, null])).toEqual([
       sample,
     ])
+  })
+})
+
+describe('seeded public library catalogue', () => {
+  it('lists Rolex, Senexus, Vodafone image entries on disk', () => {
+    const raw = JSON.parse(
+      readFileSync(join(repoRoot, 'public/assets/library/index.json'), 'utf8'),
+    ) as unknown
+    const entries = parseLibraryManifest(raw)
+    expect(entries.map((e) => e.label).sort()).toEqual([
+      'Rolex',
+      'Senexus',
+      'Vodafone',
+    ])
+    for (const e of entries) {
+      expect(e.kind).toBe('image')
+      expect(e.filename).toMatch(/^image\/[a-z0-9-]+-[a-f0-9]{8}\.png$/)
+      expect(e.id).toBe(e.filename)
+      expect(e.sizeBytes).toBeGreaterThan(0)
+      expect(Number.isNaN(Date.parse(e.addedAt))).toBe(false)
+      expect(
+        existsSync(join(repoRoot, 'public/assets/library', e.filename)),
+      ).toBe(true)
+    }
+    expect(
+      existsSync(join(repoRoot, 'public/textures/sponsors/rolex.png')),
+    ).toBe(true)
+    expect(
+      existsSync(join(repoRoot, 'public/textures/sponsors/senexus.png')),
+    ).toBe(true)
+    expect(
+      existsSync(join(repoRoot, 'public/textures/sponsors/vodafone.png')),
+    ).toBe(true)
   })
 })
 

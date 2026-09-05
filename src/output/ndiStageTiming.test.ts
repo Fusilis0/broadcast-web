@@ -10,6 +10,8 @@ import {
   getNdiStageSnapshot,
   markNdiSyncReadback,
   markNdiSync2dCapture,
+  clearNdiSyncFallbacks,
+  clearNdiSyncReadback,
   noteNdiSkip,
   recordNdiCapture,
   recordNdiStage,
@@ -98,6 +100,42 @@ describe('ndiStageTiming histograms', () => {
     expect(dump).toMatch(/sync2dCapture=true/)
   })
 
+  it('clears latched sync-readback when all Send is off', () => {
+    markNdiSyncReadback()
+    markNdiSync2dCapture()
+    clearNdiSyncReadback()
+    expect(formatNdiStageDump()).toMatch(/syncReadback=false/)
+    expect(formatNdiStageDump()).toMatch(/sync2dCapture=true/)
+    clearNdiSyncFallbacks()
+    const dump = formatNdiStageDump()
+    expect(dump).toMatch(/syncReadback=false/)
+    expect(dump).toMatch(/sync2dCapture=false/)
+  })
+
+  it('2D captureTicks with no record() reads missed (no record)', () => {
+    beginStudioTickTiming(0)
+    beginStudioTickTiming(16.7)
+    const hud = formatNdiStageHud()
+    expect(hud).toMatch(/captureTicks 2d\s+—\s+\(missed \(no record\)\)/)
+    const snap = getNdiStageSnapshot()
+    expect(Object.keys(snap.captureTicks['2d'])).toHaveLength(0)
+  })
+
+  it('2D record() on consecutive ticks populates captureTicks', () => {
+    const t0 = performance.now()
+    beginStudioTickTiming(t0)
+    recordNdiCapture('2d', t0)
+    beginStudioTickTiming(t0 + 16.7)
+    recordNdiCapture('2d', t0 + 16.7)
+    beginStudioTickTiming(t0 + 33.4)
+    recordNdiCapture('2d', t0 + 33.4)
+    const snap = getNdiStageSnapshot()
+    expect(Object.keys(snap.captureTicks['2d']).length).toBeGreaterThan(0)
+    expect(formatNdiStageHud()).not.toMatch(
+      /captureTicks 2d\s+—\s+\(missed \(no record\)\)/,
+    )
+  })
+
   it('records stage mean/max for named stages including totalTick', async () => {
     recordNdiStage('present', 1.5)
     recordNdiStage('present', 2.5)
@@ -140,6 +178,8 @@ describe('ndiStageTiming does not change caps (source)', () => {
     expect(panel).toMatch(/ndi-perf-dump/)
     expect(panel).toMatch(/__perfDump|formatNdiStageDump/)
     expect(panel).toMatch(/ndi-sync-fallback/)
+    expect(panel).toMatch(/shouldShowNdiSyncFallbackBanner/)
+    expect(panel).toMatch(/clearNdiSyncFallbacks/)
     expect(panel).not.toMatch(/readRenderTargetPixels/)
   })
 })

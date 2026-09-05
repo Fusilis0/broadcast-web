@@ -38,9 +38,10 @@ describe('createSendFpsCounter', () => {
 })
 
 describe('formatNdiSendFps', () => {
-  it('shows em-dash when off / unavailable, rounded fps when live', () => {
+  it('shows em-dash when off, 0 fps when live-but-silent, rounded fps when sending', () => {
     expect(formatNdiSendFps(12, false)).toBe('—')
-    expect(formatNdiSendFps(0, true)).toBe('—')
+    expect(formatNdiSendFps(0, true)).toBe('0 fps')
+    expect(formatNdiSendFps(null, true)).toBe('0 fps')
     expect(formatNdiSendFps(12.4, true)).toBe('12 fps')
   })
 })

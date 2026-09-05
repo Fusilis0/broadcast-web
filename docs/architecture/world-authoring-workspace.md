@@ -30,8 +30,8 @@ Not “unhide the cramped accordion tools” — a **special authoring window**:
   flags, **start**, **finish**, arrow, place boat/drone, set anchor.
 - Opening the workspace remounts 3D on edit via existing `onApply` — user sees 2D + 3D update
   together.
-- World Map sidebar section becomes the **launcher + status** (“Authoring: open/closed”, Fit,
-  OSM toggle if present) — not the only place tools live.
+- Race setup header **World** toggle opens/closes the workspace (second click closes; overlay has
+  **no Close** control). OSM / Fit stay on the map toolbar inside the window.
 - Default: workspace **open for editor role**; air role stays closed. Drop reliance on
   `?editor=1` as the only way to see tools (keep query as optional override).
 - Close/collapse workspace without disposing editor state (same spirit as sidebar collapse).
@@ -74,6 +74,18 @@ Dispatched as two follow-ups (same owner, sequenced to avoid file conflicts — 
 | 3 | `DSP-SCN-20260811-06-stream-map-broadcast-graphic` | SCN | P1 — distinct viewer-facing map style |
 
 Prefer landing #2 before starting #3 (both touch `map2d.ts`/`style.css`).
+
+## Addendum — 19.7 inspector + coordinate place (2026-09-03)
+
+World Authoring overlay form (not the Project section):
+
+- **Show:** name, label, type, lat / lon / alt MSL / height for every world type; type extras (buoy telem + rounding + Full 3D / mesh / tag; sponsor Library picker; chain logos/weights/plate; `spacingM` = ribbon logo pitch; start/finish both GPS ends).
+- **Hide:** project id, project name, pack metadata. Save project still uses stored meta.
+- **Add:** type + numbers + Add mutates the in-memory feature/fleet store immediately → map + Assets list. 3D remount may follow (`onApply`). No wait-for-disk.
+- **Select:** Add becomes **Edit**; Edit writes the selected feature in place.
+- Map click remains. Drones: id/name/label editable; lat/lon/alt read-only from live TEL (`HO-TEL-SCN-20260901-01`).
+- Visibility fields OK. Do not change 19.8 (`hidden` = hull off, tag on).
+- GEO: existing `gpsToEnuAmsl` / `enuToGpsAmsl` only. No OSM / Cesium vendor / ribbon rewrite.
 
 ## Addendum — SCN-05 decisions (2026-08-11)
 

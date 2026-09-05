@@ -1,7 +1,7 @@
 /**
  * GPU RGBA → UYVY pack (half-width RGBA8 = UYVY bytes).
  * Rec. 709 limited, Y flipped so PBO readback is top-down.
- * 3D uses this instead of the CPU pack loop.
+ * Not the live 3D send path (READ vs packed dest mismatch → stripes).
  */
 
 import {

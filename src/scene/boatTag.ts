@@ -17,7 +17,7 @@ export type BoatTagOptions = {
 }
 
 export type BoatTagHandle = {
-  /** Group: sprite plate + leader line to mast top. */
+  /** Group: rectangular sprite plate above the mast. */
   root: THREE.Group
   update: (
     camera: THREE.Camera,
@@ -66,13 +66,6 @@ function readableNameRgb(c: Rgb): Rgb {
 
 function rgba(c: Rgb, a: number): string {
   return `rgba(${c.r}, ${c.g}, ${c.b}, ${a})`
-}
-
-function hexToLineColor(hex: string | undefined): THREE.Color {
-  if (hex && /^#[0-9a-fA-F]{6}$/.test(hex.trim())) {
-    return new THREE.Color().set(hex.trim())
-  }
-  return new THREE.Color().set('#e8eef5')
 }
 
 /**
@@ -147,13 +140,11 @@ function drawTagCanvas(
     : 'rgba(12, 16, 22, 0.72)'
 
   ctx.fillStyle = plate
-  roundRect(ctx, 8, 16, w - 16, h - 32, 18)
-  ctx.fill()
+  ctx.fillRect(0, 0, w, h)
 
   ctx.strokeStyle = tint ? rgba(tint, 0.75) : 'rgba(232, 220, 200, 0.55)'
-  ctx.lineWidth = 3
-  roundRect(ctx, 8, 16, w - 16, h - 32, 18)
-  ctx.stroke()
+  ctx.lineWidth = 6
+  ctx.strokeRect(3, 3, w - 6, h - 6)
 
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
@@ -171,27 +162,9 @@ function drawTagCanvas(
   ctx.fillText(`id ${id}`, w / 2, h / 2 + 32)
 }
 
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number,
-): void {
-  const rr = Math.min(r, w / 2, h / 2)
-  ctx.beginPath()
-  ctx.moveTo(x + rr, y)
-  ctx.arcTo(x + w, y, x + w, y + h, rr)
-  ctx.arcTo(x + w, y + h, x, y + h, rr)
-  ctx.arcTo(x, y, x, y, rr)
-  ctx.arcTo(x, y, x + w, y, rr)
-  ctx.closePath()
-}
-
 /**
- * Billboard boat label (Unity BoatTag / SailGP mast-flag spirit).
- * THREE.Sprite faces the camera; a leader line runs from `mastTop` to the plate.
+ * Billboard boat label — sharp rectangle plate above the mast (no pennant,
+ * no leader triangle). THREE.Sprite faces the camera.
  */
 export function createBoatTag(options: BoatTagOptions): BoatTagHandle {
   const id = options.id
@@ -217,33 +190,9 @@ export function createBoatTag(options: BoatTagOptions): BoatTagHandle {
   sprite.position.set(0, fallbackHeight, 0)
   sprite.scale.set(14, 14 / BOAT_TAG_CANVAS_ASPECT, 1)
 
-  const linePositions = new Float32Array([
-    0,
-    0,
-    0,
-    0,
-    fallbackHeight,
-    0,
-  ])
-  const lineGeo = new THREE.BufferGeometry()
-  lineGeo.setAttribute(
-    'position',
-    new THREE.BufferAttribute(linePositions, 3),
-  )
-  const lineMat = new THREE.LineBasicMaterial({
-    color: hexToLineColor(colorCss),
-    transparent: true,
-    opacity: 0.88,
-    depthWrite: false,
-  })
-  const line = new THREE.Line(lineGeo, lineMat)
-  line.name = 'boatTagLeader'
-  line.frustumCulled = false
-
   const root = new THREE.Group()
   root.name = 'boatTag'
   root.add(sprite)
-  root.add(line)
 
   const _world = new THREE.Vector3()
   const _mastLocal = new THREE.Vector3()
@@ -251,22 +200,7 @@ export function createBoatTag(options: BoatTagOptions): BoatTagHandle {
   function redraw(): void {
     drawTagCanvas(canvas, id, displayName, colorCss)
     map.needsUpdate = true
-    lineMat.color.copy(hexToLineColor(colorCss))
   }
-
-  function writeLeader(mastLocal: THREE.Vector3, plateBottomY: number): void {
-    linePositions[0] = mastLocal.x
-    linePositions[1] = mastLocal.y
-    linePositions[2] = mastLocal.z
-    linePositions[3] = sprite.position.x
-    linePositions[4] = plateBottomY
-    linePositions[5] = sprite.position.z
-    const attr = lineGeo.getAttribute('position')
-    attr.needsUpdate = true
-    lineGeo.computeBoundingSphere()
-  }
-
-  writeLeader(new THREE.Vector3(0, 0, 0), fallbackHeight)
 
   return {
     root,
@@ -295,12 +229,6 @@ export function createBoatTag(options: BoatTagOptions): BoatTagHandle {
         heightWorld,
         1,
       )
-      const plateBottom = sprite.position.y - heightWorld * 0.42
-      if (mastTopWorld) {
-        writeLeader(_mastLocal, plateBottom)
-      } else {
-        writeLeader(new THREE.Vector3(0, 0, 0), plateBottom)
-      }
     },
     setTagIdentity(identity: BoatTagIdentity): void {
       displayName = identity.displayName
@@ -310,8 +238,6 @@ export function createBoatTag(options: BoatTagOptions): BoatTagHandle {
     dispose(): void {
       map.dispose()
       material.dispose()
-      lineGeo.dispose()
-      lineMat.dispose()
     },
   }
 }

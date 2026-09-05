@@ -14,6 +14,10 @@ import {
   type StudioNdiStatus,
   type StudioNdiStatusAll,
 } from './studioBridge.ts'
+import {
+  defaultNdiChannelWanted,
+  type NdiChannelWanted,
+} from './ndiChannelWanted.ts'
 import type { NdiFramePumpHandle } from './ndiFramePump.ts'
 import { formatNdiSendFps } from './perfCounters.ts'
 import type { StreamMapNdiPumpHandle } from './streamMapNdiPump.ts'
@@ -22,6 +26,7 @@ import {
   fallbackHudFlags,
   formatNdiStageDump,
   formatNdiStageHud,
+  clearNdiSyncFallbacks,
 } from './ndiStageTiming.ts'
 
 /** Minimal pump surface for status rows (AR / 3D / 2D). */
@@ -30,12 +35,12 @@ export type NdiStatusPumpHandle = {
   getSdkVersion: () => string | null
   getError: () => string | null
   getSendFps?: () => number
+  isEnabled?: () => boolean
 }
 
 /**
- * Air NDI status for the ops controller tab (read-only).
- * NDI start/stop is tied to the Electron studio session lifecycle — no
- * manual controls in v1.
+ * Air NDI status for the ops controller tab (read-only indicator).
+ * Phase 19.4: hand toggles pause/resume each channel; session-only.
  */
 export type NdiAirIndicator =
   | 'unavailable'
@@ -48,8 +53,8 @@ export type NdiAirIndicator =
 export type NdiChannelIndicator = NdiAirIndicator | 'idle'
 
 /**
- * Multi-sender bridge + 2D stream-map pump (Phase 13.4).
- * When true, the NDI tab toggle enables/disables channel `'2d'` only.
+ * Multi-sender bridge ready (Phase 13.4+). Phase 19.4: AR/3D/2D each have
+ * independent hand toggles (session-only; default all on).
  */
 export const STREAM_MAP_NDI_BRIDGE_SUPPORTED = true
 
@@ -97,9 +102,15 @@ export function resolveNdiChannelIndicator(
     (input.channel === DEFAULT_NDI_CHANNEL || input.channel === '3d') &&
     input.pump !== undefined
   ) {
+    const pump = input.pump ?? null
+    if (pump && pump.isEnabled && !pump.isEnabled()) {
+      if (input.status?.active) return 'live'
+      if (input.status?.error) return 'error'
+      return 'idle'
+    }
     const fromPump = resolveNdiAirIndicator({
       studioBridgePresent: true,
-      pump: input.pump ?? null,
+      pump,
     })
     // Pump stopped + bridge inactive → idle (channel never started / stopped cleanly).
     if (fromPump === 'stopped') {
@@ -131,6 +142,37 @@ export function resolveNdiChannelIndicator(
   return 'idle'
 }
 
+/**
+ * Status text for the NDI tab. Sender **live** with no successful send this
+ * window must not look healthy (BW: Send — while Status live).
+ */
+export function formatNdiLiveStatus(
+  indicator: NdiChannelIndicator,
+  sendFps: number | null | undefined,
+): string {
+  if (indicator !== 'live') return labelFor(indicator)
+  if (sendFps == null || !Number.isFinite(sendFps) || sendFps <= 0) {
+    return 'live · no send'
+  }
+  return 'live'
+}
+
+/**
+ * Yellow SYNC READBACK / SYNC 2D banner. Hidden when every Send box is off
+ * (must not stay latched from a boot probe). Hidden unless a live enabled
+ * channel is actually on emergency sync.
+ */
+export function shouldShowNdiSyncFallbackBanner(input: {
+  syncReadback: boolean
+  sync2dCapture: boolean
+  arEnabled: boolean
+  d3Enabled: boolean
+  mapEnabled: boolean
+}): boolean {
+  if (!input.arEnabled && !input.d3Enabled && !input.mapEnabled) return false
+  return input.syncReadback || input.sync2dCapture
+}
+
 export type NdiControllerPanelOptions = {
   container: HTMLElement
   /** Current air NDI pump (null before boot / after stop / in Chrome). */
@@ -142,10 +184,16 @@ export type NdiControllerPanelOptions = {
   /** 2D stream-map pump (null before boot / Chrome / when unsupported). */
   getStreamMapPump?: () => StreamMapNdiPumpHandle | null
   /**
-   * Toggle callback for channel `'2d'` only (AR/3D unchanged).
-   * Default **on** in studio — uncheck to stop only `'2d'`.
+   * Phase 19.4: hand toggle for any channel (AR / 3D / 2D). Session-only.
+   * Default all **on**.
+   */
+  onNdiChannelWantedChange?: (channel: NdiChannelId, enabled: boolean) => void
+  /**
+   * @deprecated Prefer `onNdiChannelWantedChange` (still fired for `'2d'`).
    */
   onStreamMapNdiEnabledChange?: (enabled: boolean) => void
+  /** Seed toggle UI from session wanted flags (default all on). */
+  initialChannelWanted?: Partial<NdiChannelWanted>
   /**
    * Live per-channel delay (ms). Defaults 0. Changing does not restart pumps;
    * shrinking may drop buffered frames.
@@ -194,11 +242,37 @@ export function startNdiControllerPanel(
 
   const blocks = new Map<NdiChannelId, ChannelBlock>()
   const delayState = normalizeOutputDelayMs(options.initialDelayMs)
+  const wantedState: NdiChannelWanted = {
+    ...defaultNdiChannelWanted(),
+    ...options.initialChannelWanted,
+  }
+  const bridgeAtMount = getStudioBridge() != null
+  const togglesLive = STREAM_MAP_NDI_BRIDGE_SUPPORTED && bridgeAtMount
+  let ready = false
+
+  function emitWanted(channel: NdiChannelId, enabled: boolean): void {
+    wantedState[channel] = enabled
+    options.onNdiChannelWantedChange?.(channel, enabled)
+    if (channel === '2d') {
+      options.onStreamMapNdiEnabledChange?.(enabled)
+    }
+    if (ready) refresh()
+  }
+
   for (const id of NDI_CHANNEL_IDS) {
-    const block = channelBlock(id, delayState[id], (ms) => {
-      delayState[id] = ms
-      options.onDelayMsChange?.(id, ms)
-    })
+    const block = channelBlock(
+      id,
+      delayState[id],
+      (ms) => {
+        delayState[id] = ms
+        options.onDelayMsChange?.(id, ms)
+      },
+      {
+        enabled: wantedState[id] !== false,
+        togglesLive,
+        onEnabledChange: (on) => emitWanted(id, on),
+      },
+    )
     blocks.set(id, block)
     root.appendChild(block.el)
   }
@@ -209,24 +283,9 @@ export function startNdiControllerPanel(
   const lockNote = document.createElement('p')
   lockNote.className = 'ndi-ctrl__hint'
   lockNote.textContent =
-    'Air lock: AR + 3D NDI always frame the active POV (not free cam). Both start/stop with the Electron studio session. Capture rates: AR and 3D ~30 fps on independent clocks (60 Hz studio tick; both may FBO on the same PBO tick). 2D stream-map NDI is a separate sender (toggle below, default on @ ~30 fps) — uncheck to stop only that sender. Per-channel delay (0–30000 ms) holds frames in RAM — default 0 allocates nothing; >3000 ms warns high memory. Shrinking delay drops buffered frames.'
+    'Air lock: AR + 3D NDI always frame the active POV (not free cam). Independent hand toggles (AR / 3D / 2D) pause or resume each sender for this session only — not saved to project.json. Default all on. Capture rates: AR and 3D ~30 fps on independent clocks (60 Hz studio tick). 2D stream-map NDI is a separate sender @ ~30 fps. Per-channel delay (0–30000 ms) holds frames in RAM — default 0 allocates nothing; >3000 ms warns high memory. Shrinking delay drops buffered frames.'
   root.appendChild(lockNote)
 
-  const mapBlock = document.createElement('div')
-  mapBlock.className = 'ndi-ctrl__map-block'
-  const mapLabel = document.createElement('label')
-  mapLabel.className = 'ndi-ctrl__map-label'
-  const mapToggle = document.createElement('input')
-  mapToggle.type = 'checkbox'
-  mapToggle.setAttribute('data-ops', 'ndi-stream-map-toggle')
-  const mapTitle = document.createElement('span')
-  mapTitle.textContent = '2D stream-map NDI source'
-  mapLabel.append(mapToggle, mapTitle)
-  mapBlock.appendChild(mapLabel)
-  const mapHint = document.createElement('p')
-  mapHint.className = 'ndi-ctrl__hint'
-  mapBlock.appendChild(mapHint)
-  root.appendChild(mapBlock)
 
   const fallbackEl = document.createElement('p')
   fallbackEl.className = 'ndi-ctrl__fallback'
@@ -269,23 +328,11 @@ export function startNdiControllerPanel(
   perfBlock.append(perfTitle, perfPre, dumpBtn, dumpHint)
   root.appendChild(perfBlock)
 
-  const bridgeAtMount = getStudioBridge() != null
-  const mapToggleLive = STREAM_MAP_NDI_BRIDGE_SUPPORTED && bridgeAtMount
-  mapToggle.disabled = !mapToggleLive
-  // DSP-OUT-20260828-04/07: 2D NDI stays default on; grab is deferred/async.
-  mapToggle.checked = true
-  mapHint.textContent = mapToggleLive
-    ? 'Sends race map on NDI `broadcast-web-2d` (1920×1080 letterbox @ ~30 fps). Default on — uncheck to stop only this sender. Independent of PiP visibility; does not affect AR/3D.'
-    : STREAM_MAP_NDI_BRIDGE_SUPPORTED
-      ? '2D stream-map NDI requires the Electron studio bridge.'
-      : 'Bridge ready (multi-sender); 2D pump unavailable — toggle stays disabled.'
-
-  if (mapToggleLive && options.onStreamMapNdiEnabledChange) {
-    mapToggle.addEventListener('change', () => {
-      options.onStreamMapNdiEnabledChange?.(mapToggle.checked)
-    })
-    // Apply default immediately so main can sync before pump exists.
-    options.onStreamMapNdiEnabledChange(mapToggle.checked)
+  // Apply session wanted flags so main can sync before pumps exist.
+  if (togglesLive) {
+    for (const id of NDI_CHANNEL_IDS) {
+      emitWanted(id, wantedState[id] !== false)
+    }
   }
 
   options.container.appendChild(root)
@@ -337,7 +384,24 @@ export function startNdiControllerPanel(
       })
 
       block.statusDot.dataset.state = indicator
-      block.statusText.textContent = labelFor(indicator)
+
+      let sendAvailable = false
+      let sendFps: number | null = null
+      if (
+        indicator !== 'unavailable' &&
+        indicator !== 'idle' &&
+        indicator !== 'stopped'
+      ) {
+        if (id === '2d') {
+          sendAvailable = streamMapPump?.isEnabled() === true
+          sendFps = sendAvailable ? streamMapPump!.getSendFps() : null
+        } else {
+          sendAvailable = channelPump != null
+          sendFps = channelPump?.getSendFps?.() ?? null
+        }
+      }
+      block.statusText.textContent = formatNdiLiveStatus(indicator, sendFps)
+      block.send.value.textContent = formatNdiSendFps(sendFps, sendAvailable)
 
       if (indicator === 'unavailable') {
         block.source.value.textContent = '—'
@@ -383,23 +447,6 @@ export function startNdiControllerPanel(
         }
       }
 
-      let sendAvailable = false
-      let sendFps: number | null = null
-      if (
-        indicator !== 'unavailable' &&
-        indicator !== 'idle' &&
-        indicator !== 'stopped'
-      ) {
-        if (id === '2d') {
-          sendAvailable = streamMapPump?.isEnabled() === true
-          sendFps = sendAvailable ? streamMapPump!.getSendFps() : null
-        } else {
-          sendAvailable = channelPump != null
-          sendFps = channelPump?.getSendFps?.() ?? null
-        }
-      }
-      block.send.value.textContent = formatNdiSendFps(sendFps, sendAvailable)
-
       const liveDelay =
         options.getDelayMs?.(id) ??
         (id === DEFAULT_NDI_CHANNEL
@@ -415,8 +462,28 @@ export function startNdiControllerPanel(
     }
 
     // Keep toggle in sync with pump when present (external setEnabled).
-    if (mapToggleLive && streamMapPump) {
-      mapToggle.checked = streamMapPump.isEnabled()
+    // Keep hand toggles in sync with pumps (external setEnabled).
+    if (togglesLive) {
+      const arBlock = blocks.get(DEFAULT_NDI_CHANNEL)
+      const d3Block = blocks.get('3d')
+      const mapBlockUi = blocks.get('2d')
+      if (arBlock && pump && document.activeElement !== arBlock.enableToggle) {
+        arBlock.enableToggle.checked = pump.isEnabled()
+      }
+      if (
+        d3Block &&
+        pump3d &&
+        document.activeElement !== d3Block.enableToggle
+      ) {
+        d3Block.enableToggle.checked = pump3d.isEnabled()
+      }
+      if (
+        mapBlockUi &&
+        streamMapPump &&
+        document.activeElement !== mapBlockUi.enableToggle
+      ) {
+        mapBlockUi.enableToggle.checked = streamMapPump.isEnabled()
+      }
     }
 
     const pov = options.getActivePovId()
@@ -424,7 +491,22 @@ export function startNdiControllerPanel(
       pov != null && String(pov).trim() !== '' ? String(pov) : '—'
 
     const flags = fallbackHudFlags()
-    if (flags.syncReadback || flags.sync2dCapture) {
+    const arEnabled = pump ? pump.isEnabled() : wantedState.ar !== false
+    const d3Enabled = pump3d ? pump3d.isEnabled() : wantedState['3d'] !== false
+    const mapEnabled = streamMapPump
+      ? streamMapPump.isEnabled()
+      : wantedState['2d'] !== false
+    if (!arEnabled && !d3Enabled && !mapEnabled) {
+      clearNdiSyncFallbacks()
+    }
+    const showBanner = shouldShowNdiSyncFallbackBanner({
+      syncReadback: flags.syncReadback,
+      sync2dCapture: flags.sync2dCapture,
+      arEnabled,
+      d3Enabled,
+      mapEnabled,
+    })
+    if (showBanner) {
       fallbackEl.hidden = false
       const parts: string[] = []
       if (flags.syncReadback) {
@@ -441,6 +523,7 @@ export function startNdiControllerPanel(
     perfPre.textContent = formatNdiStageHud()
   }
 
+  ready = true
   refresh()
   const timer = window.setInterval(refresh, pollMs)
 
@@ -463,6 +546,7 @@ type ChannelBlock = {
   sdk: { el: HTMLElement; value: HTMLElement }
   send: { el: HTMLElement; value: HTMLElement }
   error: { el: HTMLElement; value: HTMLElement }
+  enableToggle: HTMLInputElement
   delayInput: HTMLInputElement
   delayWarn: HTMLElement
 }
@@ -471,6 +555,11 @@ function channelBlock(
   id: NdiChannelId,
   initialDelayMs: number,
   onDelayChange: (ms: number) => void,
+  enableOpts: {
+    enabled: boolean
+    togglesLive: boolean
+    onEnabledChange: (on: boolean) => void
+  },
 ): ChannelBlock {
   const el = document.createElement('div')
   el.className = 'ndi-ctrl__channel'
@@ -480,6 +569,26 @@ function channelBlock(
   title.className = 'ndi-ctrl__channel-title'
   title.textContent = CHANNEL_LABELS[id]
   el.appendChild(title)
+
+  const enableRow = document.createElement('label')
+  enableRow.className = 'ndi-ctrl__map-label'
+  const enableToggle = document.createElement('input')
+  enableToggle.type = 'checkbox'
+  enableToggle.setAttribute('data-ops', `ndi-channel-toggle-${id}`)
+  enableToggle.checked = enableOpts.enabled
+  enableToggle.disabled = !enableOpts.togglesLive
+  enableToggle.title = enableOpts.togglesLive
+    ? `Hand toggle ${CHANNEL_LABELS[id]} NDI (session only)`
+    : 'NDI toggles require the Electron studio bridge'
+  const enableTitle = document.createElement('span')
+  enableTitle.textContent = 'Send on NDI'
+  enableRow.append(enableToggle, enableTitle)
+  el.appendChild(enableRow)
+  if (enableOpts.togglesLive) {
+    enableToggle.addEventListener('change', () => {
+      enableOpts.onEnabledChange(enableToggle.checked)
+    })
+  }
 
   const statusRow = row('Status')
   const statusDot = document.createElement('span')
@@ -552,10 +661,12 @@ function channelBlock(
     sdk,
     send,
     error,
+    enableToggle,
     delayInput,
     delayWarn,
   }
 }
+
 
 function labelFor(indicator: NdiChannelIndicator): string {
   switch (indicator) {

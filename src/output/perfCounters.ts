@@ -46,13 +46,18 @@ export function createSendFpsCounter(
   }
 }
 
-/** Ops Output rail: live send fps, or em-dash when off / unavailable. */
+/**
+ * Ops Output rail: live send fps. Em-dash when the channel is off /
+ * unavailable. **0 fps** (not em-dash) when the sender is available but
+ * counted no successful `sendFrame` this window — live + silent must not
+ * look like a healthy dash.
+ */
 export function formatNdiSendFps(
   fps: number | null | undefined,
   available: boolean,
 ): string {
   if (!available) return '—'
-  if (fps == null || !Number.isFinite(fps) || fps <= 0) return '—'
+  if (fps == null || !Number.isFinite(fps) || fps <= 0) return '0 fps'
   return `${Math.round(fps)} fps`
 }
 

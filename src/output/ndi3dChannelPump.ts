@@ -1,13 +1,13 @@
 import { createSendFpsCounter } from './perfCounters.ts'
 import type { Camera, Object3D, WebGLRenderer } from 'three'
 import { Color, WebGLRenderTarget } from 'three'
-import { createNdiGpuUyvyPack } from './ndiGpuUyvy.ts'
 import { createNdiAsyncReadback } from './ndiAsyncReadback.ts'
 import { createNdiCaptureGate } from './ndiCaptureClock.ts'
 import { applyNdiCaptureColorSpace } from './ndiCaptureColorSpace.ts'
 import { NDI_CAPTURE_FLIPPED_BOTTOM_UP } from './ndiCaptureFlip.ts'
 import { flipOwnedRgbaFrame } from './ndiFlipRows.ts'
 import { createNdiPackPool } from './ndiUyvy.ts'
+import { createNdiUyvyWorker } from './ndiUyvyBridge.ts'
 import { NdiDelayBuffer } from './ndiDelayBuffer.ts'
 import { createNdiDeferredSend, takeNdiArrayBuffer } from './ndiDeferredSend.ts'
 import {
@@ -56,6 +56,11 @@ export type Ndi3dChannelPumpOptions = {
    * Live changes via `setDelayMs` (clamped 0..30000).
    */
   delayMs?: number
+  /**
+   * Start sending immediately. Default **true**.
+   * NDI tab hand toggle may pause this channel without tearing down the pump.
+   */
+  enabled?: boolean
 }
 
 /** Default 3D NDI send rate — 30 fps, always on (DSP-OUT-20260828-04). */
@@ -69,11 +74,12 @@ const _clearColor = new Color()
  * Electron-only continuous **3D** NDI pump (`channel: '3d'`).
  *
  * Each studio tick: opaque clear + `opaqueClearSafe(true)` → render active POV
- * into an FBO → GPU UYVY pack (Y-flip in shader) → PBO of the half-width
- * target (sync `readRenderTargetPixels` fallback) → `sendFrame({ channel:
+ * into an FBO → full-size RGBA PBO read (skip this capture if PBO cannot
+ * pack — never `readRenderTargetPixels` on the live path) → UYVY pack on
+ * the existing worker (CPU pool if the worker is missing) → `sendFrame({ channel:
  * '3d' })` → restore the previous clear / opaque-safe gate so the AR
  * transparent plate stays clean. Packed bytes are top-down.
- * One frame of PBO latency is OK.
+ * One frame of PBO latency is OK. Do not PBO a half-width GPU dest.
  *
  * Does **not** monkey-patch `renderer.render`. Captures via `onStudioTick`
  * using the render function bound at start time (typically the visual-timecode
@@ -84,12 +90,36 @@ const _clearColor = new Color()
  *
  * No-ops when `window.broadcastStudio` is missing (Chrome path).
  */
+export type Ndi3dCpuPackSkipInput = {
+  readW: number
+  readH: number
+  lastPackSrcW: number
+  lastPackSrcH: number
+  verifiedGpuPackRead: boolean
+}
+
+/**
+ * Size alone (`readW * 2 === lastPackSrcW`) is **not** proof of GPU UYVY.
+ * Half-width RGBA of the scene FBO looks the same size as packed dest.
+ * Skip CPU pack only when PBO READ was bound to a verified packed dest.
+ * Live 3D never sets `verifiedGpuPackRead` — it reads full-size scene RGBA.
+ */
+export function shouldSkipCpuUyvyPack(input: Ndi3dCpuPackSkipInput): boolean {
+  if (!input.verifiedGpuPackRead) return false
+  return (
+    input.lastPackSrcW > 0 &&
+    input.readW * 2 === input.lastPackSrcW &&
+    input.readH === input.lastPackSrcH
+  )
+}
+
 export function startNdi3dChannelPump(
   options: Ndi3dChannelPumpOptions,
 ): NdiFramePumpHandle | null {
   const studio = getStudioBridge()
   if (!studio) return null
-  const ndi = studio.ndi
+  const bridge = studio
+  const ndi = bridge.ndi
 
   const {
     renderer,
@@ -114,6 +144,9 @@ export function startNdi3dChannelPump(
   const directRender = renderer.render.bind(renderer)
 
   let stopped = false
+  let enabled = options.enabled !== false
+  let starting = false
+  let unsubTick: (() => void) | null = null
   let sourceName: string | null = null
   let sdkVersion: string | null = null
   let error: string | null = null
@@ -121,9 +154,6 @@ export function startNdi3dChannelPump(
   let targetW = 0
   let targetH = 0
   const readback = createNdiAsyncReadback({ renderer })
-  const gpuPack = createNdiGpuUyvyPack(renderer)
-  let lastPackSrcW = 0
-  let lastPackSrcH = 0
 
   const clearReader = {
     getClearColorHex: () => {
@@ -184,16 +214,12 @@ export function startNdi3dChannelPump(
   }
 
   const packPool = createNdiPackPool('uyvy')
-  const gpuPackedBuffers = new Set<ArrayBuffer>()
+  const uyvyWorker = createNdiUyvyWorker()
   const ipc = createNdiDeferredSend({
     send: (frame) => {
       sendFrameData(frame.width, frame.height, frame.data)
     },
     release: (data) => {
-      if (gpuPackedBuffers.delete(data)) {
-        readback.release(data)
-        return
-      }
       packPool.release(data)
     },
   })
@@ -237,31 +263,51 @@ export function startNdi3dChannelPump(
   }
 
   function enqueueRgba(w: number, h: number, buf: Uint8Array, nowMs: number): void {
+    if (stopped || !enabled) {
+      readback.release(takeNdiArrayBuffer(buf))
+      return
+    }
+    // Never treat half-width RGBA as packed UYVY. Size (`w*2===srcW`) is not a
+    // verified GPU dest — that skip advertised scene RGB as FourCC UYVY.
     if (
-      lastPackSrcW > 0 &&
-      w * 2 === lastPackSrcW &&
-      h === lastPackSrcH
+      shouldSkipCpuUyvyPack({
+        readW: w,
+        readH: h,
+        lastPackSrcW: 0,
+        lastPackSrcH: 0,
+        verifiedGpuPackRead: false,
+      })
     ) {
-      const owned = takeNdiArrayBuffer(buf)
-      gpuPackedBuffers.add(owned)
-      // #region agent log
-      if (!(globalThis as { __ndi3dGpuAt?: number }).__ndi3dGpuAt ||
-        performance.now() - ((globalThis as { __ndi3dGpuAt?: number }).__ndi3dGpuAt ?? 0) > 1000) {
-        ;(globalThis as { __ndi3dGpuAt?: number }).__ndi3dGpuAt = performance.now()
-        debugSessionLog({
-          hypothesisId: 'H12',
-          location: 'ndi3dChannelPump.ts:enqueueRgba',
-          message: '3D GPU UYVY skip CPU pack',
-          data: { readW: w, readH: h, srcW: lastPackSrcW, srcH: lastPackSrcH, bytes: owned.byteLength },
-        })
-      }
-      // #endregion
-      queueOwnedFrame(lastPackSrcW, lastPackSrcH, owned, nowMs)
       return
     }
     const __flipT0 = performance.now()
     const rgba = flipOwnedRgbaFrame(takeNdiArrayBuffer(buf), w, h)
     const __flipMs = performance.now() - __flipT0
+    if (uyvyWorker) {
+      void uyvyWorker
+        .pack(rgba, w, h, 'uyvy')
+        .then((owned) => {
+          if (stopped || !enabled) {
+            packPool.release(owned)
+            return
+          }
+          // #region agent log
+          if (!(globalThis as { __ndi3dWorkerAt?: number }).__ndi3dWorkerAt ||
+            performance.now() - ((globalThis as { __ndi3dWorkerAt?: number }).__ndi3dWorkerAt ?? 0) > 1000) {
+            ;(globalThis as { __ndi3dWorkerAt?: number }).__ndi3dWorkerAt = performance.now()
+            debugSessionLog({
+              hypothesisId: 'H13',
+              location: 'ndi3dChannelPump.ts:enqueueRgba',
+              message: '3D worker UYVY pack',
+              data: { w, h, flipMs: __flipMs, bytes: owned.byteLength },
+            })
+          }
+          // #endregion
+          queueOwnedFrame(w, h, owned, performance.now())
+        })
+        .catch(() => {})
+      return
+    }
     const owned = packPool.pack(rgba, w, h)
     readback.release(rgba)
     if (!owned) return
@@ -281,7 +327,7 @@ export function startNdi3dChannelPump(
   }
 
   function drainReadback(nowMs: number): void {
-    if (stopped) return
+    if (stopped || !enabled) return
     const t0 = performance.now()
     const pixels = readback.poll(nowMs)
     recordNdiStage('3dReadbackDrain', performance.now() - t0)
@@ -290,11 +336,11 @@ export function startNdi3dChannelPump(
   }
 
   function captureFrame(): void {
-    if (stopped) return
+    if (stopped || !enabled) return
     const now = performance.now()
     flushDelay(now)
     drainReadback(now)
-    if (stopped) return
+    if (stopped || !enabled) return
     if (!captureGate.isDue(now)) {
       noteNdiSkip('3d', 'rateCap')
       return
@@ -338,20 +384,14 @@ export function startNdi3dChannelPump(
       timeNdiStage('3dFboRender', () => {
         directRender(sceneRoot, airCamera)
       })
-      const packed = gpuPack.pack(fbo, w, h)
-      const readTarget = packed ?? fbo
-      const readW = packed ? packed.width : w
-      const readH = packed ? packed.height : h
-      if (packed) {
-        lastPackSrcW = w
-        lastPackSrcH = h
-      }
-
+      // Full-size scene FBO (same RT just rendered). Do not GPU-pack then read
+      // a half-width dest — READ often stays on the scene → stripes.
       const t0 = performance.now()
-      const ok = readback.begin(readTarget, readW, readH, now)
+      const ok = readback.begin(fbo, w, h, now)
       recordNdiStage('3dReadbackBegin', performance.now() - t0)
       if (!ok) {
         if (syncClaim) releaseNdiHeavyCapture('3d', now)
+        noteNdiSkip('3d', 'busy')
         return
       }
       recordNdiCapture('3d', now)
@@ -363,33 +403,83 @@ export function startNdi3dChannelPump(
     }
   }
 
-  const unsubTick = studio.onStudioTick(() => {
-    if (stopped) return
-    captureFrame()
-  })
+  function clearStatus(): void {
+    sourceName = null
+    sdkVersion = null
+  }
 
-  void ndi
-    .start({ channel: CHANNEL, name: sourceNameOpt })
-    .then((res) => {
-      if (stopped) return
-      if (res.ok) {
-        sourceName = res.sourceName ?? sourceNameOpt
-        sdkVersion = res.sdkVersion ?? null
-        error = null
-        console.info(
-          `[output] NDI[${CHANNEL}] send active: ${sourceName}` +
-            (sdkVersion ? ` (${sdkVersion})` : '') +
-            ' (opaque + active POV)',
-        )
-      } else {
-        error = res.error ?? 'NDI start failed'
-        console.warn(`[output] NDI[${CHANNEL}] start failed: ${error}`)
-      }
+  function startSender(): void {
+    if (stopped || !enabled || starting) return
+    if (sourceName) return
+    starting = true
+    void ndi
+      .start({ channel: CHANNEL, name: sourceNameOpt })
+      .then((res) => {
+        starting = false
+        if (stopped || !enabled) {
+          if (res.ok) void ndi.stop({ channel: CHANNEL }).catch(() => {})
+          return
+        }
+        if (res.ok) {
+          sourceName = res.sourceName ?? sourceNameOpt
+          sdkVersion = res.sdkVersion ?? null
+          error = null
+          console.info(
+            `[output] NDI[${CHANNEL}] send active: ${sourceName}` +
+              (sdkVersion ? ` (${sdkVersion})` : '') +
+              ' (opaque + active POV)',
+          )
+        } else {
+          error = res.error ?? 'NDI start failed'
+          console.warn(`[output] NDI[${CHANNEL}] start failed: ${error}`)
+        }
+      })
+      .catch((err: unknown) => {
+        starting = false
+        error = err instanceof Error ? err.message : String(err)
+        console.warn(`[output] NDI[${CHANNEL}] start error: ${error}`)
+      })
+  }
+
+  function stopSender(): void {
+    starting = false
+    clearStatus()
+    void ndi.stop({ channel: CHANNEL }).catch(() => {
+      /* ignore */
     })
-    .catch((err: unknown) => {
-      error = err instanceof Error ? err.message : String(err)
-      console.warn(`[output] NDI[${CHANNEL}] start error: ${error}`)
+  }
+
+  function ensureTick(): void {
+    if (stopped || !enabled || unsubTick) return
+    unsubTick = bridge.onStudioTick(() => {
+      if (stopped || !enabled) return
+      captureFrame()
     })
+  }
+
+  function clearTick(): void {
+    unsubTick?.()
+    unsubTick = null
+  }
+
+  function setEnabled(on: boolean): void {
+    if (stopped) return
+    if (enabled === on) return
+    enabled = on
+    if (on) {
+      startSender()
+      ensureTick()
+    } else {
+      clearTick()
+      delayBuffer.clear()
+      stopSender()
+    }
+  }
+
+  if (enabled) {
+    startSender()
+    ensureTick()
+  }
 
   return {
     getSourceName: () => sourceName,
@@ -397,21 +487,21 @@ export function startNdi3dChannelPump(
     getError: () => error,
     getDelayMs: () => delayBuffer.getDelayMs(),
     setDelayMs: (ms: number) => delayBuffer.setDelayMs(ms),
-    getSendFps: () => sendFps.getFps(performance.now()),
+    getSendFps: () => (enabled ? sendFps.getFps(performance.now()) : 0),
+    isEnabled: () => enabled,
+    setEnabled,
     stop(): void {
       if (stopped) return
       stopped = true
-      unsubTick()
+      enabled = false
+      clearTick()
       ipc.dispose()
       delayBuffer.clear()
+      uyvyWorker?.dispose()
       readback.dispose()
-      gpuPack.dispose()
-      gpuPackedBuffers.clear()
       target?.dispose()
       target = null
-      void ndi.stop({ channel: CHANNEL }).catch(() => {
-        /* ignore */
-      })
+      stopSender()
     },
   }
 }

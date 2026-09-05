@@ -82,6 +82,7 @@ export function createCountdownTimerSprite(
     depthTest: true,
     depthWrite: false,
     sizeAttenuation: true,
+    fog: false,
   })
   const sprite = new THREE.Sprite(material)
   sprite.name = 'countdownTimer'

@@ -51,6 +51,8 @@ export function featuresToCourseData(
         altMsl: p.altMsl,
       }
       if (f.rounding !== undefined) wp.rounding = f.rounding
+      if (f.visibleBuoyMesh !== undefined) wp.visibleBuoyMesh = f.visibleBuoyMesh
+      if (f.visibleTag !== undefined) wp.visibleTag = f.visibleTag
       return wp
     })
 
@@ -105,6 +107,8 @@ export function featuresToSponsorsData(
       }
       if (f.panelColor !== undefined) entry.panelColor = f.panelColor
       if (f.frameColor !== undefined) entry.frameColor = f.frameColor
+      if (f.panelAlpha !== undefined) entry.panelAlpha = f.panelAlpha
+      if (f.boardAspect !== undefined) entry.boardAspect = f.boardAspect
       return entry
     })
   return { name, sponsors }
@@ -116,7 +120,7 @@ export type FlagsRemountMeta = Partial<
 
 /**
  * flagP1 + flagP2 → CountdownFlagsData.
- * Returns null if either pole missing (keep previous 3D mount).
+ * Returns null if either pole missing (remount disposes leftover flags).
  */
 export function featuresToFlagsData(
   features: readonly WorldFeature[],

@@ -1,15 +1,23 @@
 /**
- * Shared 2D map chrome for ops + stream PiP (Phase 8.7 + Phase 11 stream graphic).
- * Canvas drawing only — no Three.js, no tiles.
+ * Shared 2D map chrome for ops + stream on-air graphic (Phase 8.7 + 11 + 19.2b).
+ * Canvas drawing only — no Three.js. OSM tiles live in `map2dBasemap`.
  *
- * Ops metrics stay dense/utilitarian. Stream metrics favor glanceability;
- * stream-only helpers (`drawStreamMapBackdrop`, `drawStreamCompass`) must not
- * be called from the ops redraw path. Wind readout (`drawMapWindReadout`) is
- * shared; arrow is travel, label is from-deg + kt.
+ * Ops metrics stay dense/utilitarian (pixel-stable). Stream metrics are
+ * compact on-air pills on a 1920×1080 store. Stream-only helpers
+ * (`drawStreamMapBackdrop`, `drawStreamCompass`, `drawStreamTitleStrip`) must
+ * not be called from the ops redraw path. Wind readout (`drawMapWindReadout`)
+ * is shared; arrow is travel, label is from-deg + kt.
  */
 
 import type { LayoutFeature } from './features/types.ts'
 import { pairLayoutGates } from './features/layoutFeatures.ts'
+import {
+  effectiveRounding,
+  roundingYawRad,
+  ROUNDING_REVOLUTION_SEC,
+  isRoundingFeatureType,
+  type RoundingSense,
+} from './features/rounding.ts'
 import { northFromSceneZ } from '../geodesy/index.ts'
 import { msToKnots, normalizeDirectionFromDeg, windTravelSceneXZ } from '../telemetry/windDirection.ts'
 import type { WindFrame, WindTravelXZ } from '../telemetry/windTypes.ts'
@@ -48,6 +56,8 @@ export type MapChromeMetrics = {
   sponsorLine: number
   markR: number
   gateEndR: number
+  /** START/FINISH end-cap radius (px). */
+  sfEndR: number
   /** Label pill box height (px). */
   labelH: number
   /** Label pill horizontal padding (px). */
@@ -60,24 +70,200 @@ export function mapChromeMetrics(variant: MapChromeVariant): MapChromeMetrics {
   const stream = variant === 'stream'
   return {
     variant,
-    boatLen: stream ? 15 : 9,
-    boatBeam: stream ? 7.5 : 4.5,
-    droneR: stream ? 8 : 5,
+    boatLen: stream ? 16 : 9,
+    boatBeam: stream ? 8 : 4.5,
+    droneR: stream ? 6 : 5,
     labelFont: stream
-      ? 'bold 13px ui-sans-serif, system-ui, Segoe UI, sans-serif'
+      ? 'bold 11px ui-sans-serif, system-ui, Segoe UI, sans-serif'
       : '10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
     sfFont: stream
-      ? 'bold 13px ui-sans-serif, system-ui, Segoe UI, sans-serif'
+      ? 'bold 12px ui-sans-serif, system-ui, Segoe UI, sans-serif'
       : 'bold 10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
     gateLine: stream ? 3 : 2,
-    courseLine: stream ? 4.5 : 3,
-    sponsorLine: stream ? 4.5 : 3,
-    markR: stream ? 6 : 3.5,
+    courseLine: stream ? 4 : 3,
+    sponsorLine: stream ? 4 : 3,
+    markR: stream ? 5 : 3.5,
     gateEndR: stream ? 4 : 2.5,
-    labelH: stream ? 16 : 12,
-    labelPadX: stream ? 5 : 3,
+    sfEndR: 3.5,
+    labelH: stream ? 14 : 12,
+    labelPadX: stream ? 4 : 3,
     windArrowLen: stream ? 16 : 10,
   }
+}
+
+/** Local 2D / NDI stream boat icon scale (sessionStorage). */
+export const STREAM_BOAT_ICON_SCALE_MIN = 0.25
+export const STREAM_BOAT_ICON_SCALE_MAX = 2
+export const STREAM_BOAT_ICON_SCALE_STEP = 0.05
+export const STREAM_BOAT_ICON_SCALE_DEFAULT = 0.5
+export const STREAM_BOAT_ICON_SCALE_STORAGE_KEY = 'bw.streamMap.boatScale'
+
+/** Clamp operator boat-size scale; non-finite → default 0.5. */
+export function clampStreamBoatIconScale(scale: number): number {
+  if (!Number.isFinite(scale)) return STREAM_BOAT_ICON_SCALE_DEFAULT
+  return Math.min(
+    STREAM_BOAT_ICON_SCALE_MAX,
+    Math.max(STREAM_BOAT_ICON_SCALE_MIN, scale),
+  )
+}
+
+/** Parse stored / slider text. Missing or invalid → 0.5. */
+export function parseStreamBoatIconScale(
+  raw: string | null | undefined,
+): number {
+  if (raw == null || raw.trim() === '') return STREAM_BOAT_ICON_SCALE_DEFAULT
+  return clampStreamBoatIconScale(Number(raw))
+}
+
+export function readStreamBoatIconScale(): number {
+  try {
+    return parseStreamBoatIconScale(
+      sessionStorage.getItem(STREAM_BOAT_ICON_SCALE_STORAGE_KEY),
+    )
+  } catch {
+    return STREAM_BOAT_ICON_SCALE_DEFAULT
+  }
+}
+
+export function writeStreamBoatIconScale(scale: number): void {
+  try {
+    sessionStorage.setItem(
+      STREAM_BOAT_ICON_SCALE_STORAGE_KEY,
+      String(clampStreamBoatIconScale(scale)),
+    )
+  } catch {
+    // sessionStorage may be blocked
+  }
+}
+
+function scaleCssFontPx(font: string, scale: number): string {
+  return font.replace(/(\d+(?:\.\d+)?)px/g, (_, raw: string) => {
+    const n = Number(raw) * scale
+    const rounded = Math.round(n * 100) / 100
+    return `${rounded}px`
+  })
+}
+
+/**
+ * Scale stream boat hull + fleet pills + course chrome (S/F, buoys, rounding).
+ * Caller must not pass this into compass / title / OSM / wind drawing.
+ */
+export function scaleStreamBoatChrome(
+  metrics: MapChromeMetrics,
+  scale: number,
+): MapChromeMetrics {
+  const s = clampStreamBoatIconScale(scale)
+  return {
+    ...metrics,
+    boatLen: metrics.boatLen * s,
+    boatBeam: metrics.boatBeam * s,
+    labelH: metrics.labelH * s,
+    labelPadX: metrics.labelPadX * s,
+    labelFont: scaleCssFontPx(metrics.labelFont, s),
+    markR: metrics.markR * s,
+    gateEndR: metrics.gateEndR * s,
+    courseLine: metrics.courseLine * s,
+    gateLine: metrics.gateLine * s,
+    sfFont: scaleCssFontPx(metrics.sfFont, s),
+    sfEndR: metrics.sfEndR * s,
+  }
+}
+
+/** Stream rounding ring redraw cap (NDI samples this canvas; hitch + this Hz). */
+export const STREAM_ROUNDING_ANIM_HZ = 10
+
+/**
+ * Canvas yaw for a rounding ring. CW from above = clockwise `ctx.rotate`
+ * (Y-down). `roundingYawRad('cw')` is negative 3D Y — do not copy that sign.
+ */
+export function roundingCanvasYawRad(
+  sense: RoundingSense,
+  timeSec: number,
+  revolutionSec = ROUNDING_REVOLUTION_SEC,
+): number {
+  const yaw = roundingYawRad(sense, timeSec, revolutionSec)
+  return yaw === 0 ? 0 : -yaw
+}
+
+/** Ring radius around a stream buoy/gate (scales with Boat size / markR). */
+export function streamRoundingRadiusPx(metrics: MapChromeMetrics): number {
+  return Math.max(6, metrics.markR * 2.6)
+}
+
+const BUOY_TYPE_ECHO = new Set(['buoy', 'mark'])
+
+/**
+ * Stream buoy pill text: prefer `name`. Use `label` only when it is not a
+ * type echo (`buoy` / `mark` / empty). 30 Ağustos `label: "buoy"` → name.
+ */
+export function streamBuoyName(f: {
+  name?: string
+  label?: string
+}): string | null {
+  const name = typeof f.name === 'string' ? f.name.trim() : ''
+  if (name) return name
+  const label = typeof f.label === 'string' ? f.label.trim() : ''
+  if (!label) return null
+  if (BUOY_TYPE_ECHO.has(label.toLowerCase())) return null
+  return label
+}
+
+/**
+ * Canvas stand-in of the 3D rounding ring: circle + two heads.
+ * Sense from `effectiveRounding` (omit → CW). No-op for `'none'`.
+ */
+export function drawMapRoundingGlyph(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  radius: number,
+  sense: RoundingSense | null | undefined,
+  timeSec: number,
+): void {
+  const effective = effectiveRounding(sense)
+  if (effective === 'none') return
+  const r = Math.max(4, radius)
+  const yaw = roundingCanvasYawRad(effective, timeSec)
+  const aim = effective === 'cw' ? 1 : -1
+  const headLen = Math.max(4, r * 0.32)
+  const headW = Math.max(2.2, r * 0.18)
+
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.rotate(yaw)
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.92)'
+  ctx.lineWidth = Math.max(1.4, r * 0.08)
+  ctx.beginPath()
+  ctx.arc(0, 0, r, 0, Math.PI * 2)
+  ctx.stroke()
+
+  ctx.fillStyle = '#d81c1c'
+  for (let i = 0; i < 2; i++) {
+    const a = i * Math.PI
+    const px = Math.cos(a) * r
+    const py = Math.sin(a) * r
+    // Canvas (cos a, sin a) with +a is clockwise (Y-down). CW tangent = d/da.
+    const tx = -Math.sin(a) * aim
+    const ty = Math.cos(a) * aim
+    ctx.save()
+    ctx.translate(px, py)
+    ctx.rotate(Math.atan2(ty, tx))
+    ctx.beginPath()
+    ctx.moveTo(headLen * 0.55, 0)
+    ctx.lineTo(-headLen * 0.45, headW)
+    ctx.lineTo(-headLen * 0.45, -headW)
+    ctx.closePath()
+    ctx.fill()
+    ctx.restore()
+  }
+  ctx.restore()
+}
+
+/** Stream north-compass radius (px). Sized from 16:9 height, not min(w,h). */
+export function streamCompassRadius(height: number): number {
+  if (!Number.isFinite(height) || height <= 0) return 28
+  return Math.max(28, height * 0.06)
 }
 
 /**
@@ -253,13 +439,26 @@ function drawLabelPill(
   bg = 'rgba(10, 14, 20, 0.72)',
   labelH = 12,
   padX = 3,
+  anchor: 'baseline-left' | 'center' = 'baseline-left',
 ): void {
   ctx.font = font
   const w = ctx.measureText(text).width
   const padY = 2
   const h = labelH
+  const boxW = w + padX * 2
+  if (anchor === 'center') {
+    ctx.fillStyle = bg
+    ctx.fillRect(x - boxW / 2, y - h / 2, boxW, h)
+    ctx.fillStyle = fill
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(text, x, y)
+    ctx.textAlign = 'start'
+    ctx.textBaseline = 'alphabetic'
+    return
+  }
   ctx.fillStyle = bg
-  ctx.fillRect(x - padX, y - h + padY, w + padX * 2, h)
+  ctx.fillRect(x - padX, y - h + padY, boxW, h)
   ctx.fillStyle = fill
   ctx.fillText(text, x, y)
 }
@@ -286,19 +485,16 @@ export function drawStreamMapBackdrop(
   ctx.fillStyle = base
   ctx.fillRect(0, 0, w, h)
 
-  // Soft vignette toward edges for a framed graphic feel.
-  const vig = ctx.createRadialGradient(
-    w * 0.5,
-    h * 0.5,
-    Math.min(w, h) * 0.28,
-    w * 0.5,
-    h * 0.5,
-    Math.max(w, h) * 0.72,
-  )
+  // 16:9 elliptical vignette (not a square min(w,h) blob from the PiP era).
+  ctx.save()
+  ctx.translate(w * 0.5, h * 0.5)
+  ctx.scale(w, h)
+  const vig = ctx.createRadialGradient(0, 0, 0.22, 0, 0, 0.68)
   vig.addColorStop(0, 'rgba(0,0,0,0)')
   vig.addColorStop(1, 'rgba(0,0,0,0.38)')
   ctx.fillStyle = vig
-  ctx.fillRect(0, 0, w, h)
+  ctx.fillRect(-0.5, -0.5, 1, 1)
+  ctx.restore()
 
   // Inner hairline (canvas-side frame complementing CSS card).
   ctx.strokeStyle = 'rgba(140, 180, 210, 0.22)'
@@ -308,16 +504,18 @@ export function drawStreamMapBackdrop(
 
 /**
  * Stream-only north compass ring (replaces plain "N" / "N↑" title cue).
- * Drawn top-right; north is screen-up.
+ * Drawn top-right; north is screen-up. Radius from 16:9 height.
  */
 export function drawStreamCompass(
   ctx: CanvasRenderingContext2D,
   w: number,
-  _h: number,
+  h: number,
 ): void {
-  const r = Math.max(16, Math.min(w, _h) * 0.055)
+  const r = streamCompassRadius(h)
   const cx = w - r - 14
   const cy = r + 14
+  const headW = Math.max(4.5, r * 0.093)
+  const nFont = Math.max(14, Math.round(r * 0.33))
 
   ctx.save()
   ctx.translate(cx, cy)
@@ -328,14 +526,14 @@ export function drawStreamCompass(
   ctx.fill()
 
   ctx.strokeStyle = 'rgba(180, 210, 230, 0.55)'
-  ctx.lineWidth = 1.6
+  ctx.lineWidth = Math.max(1.6, r * 0.033)
   ctx.beginPath()
   ctx.arc(0, 0, r, 0, Math.PI * 2)
   ctx.stroke()
 
   // Cardinal ticks (N emphasized).
   ctx.strokeStyle = 'rgba(200, 220, 235, 0.7)'
-  ctx.lineWidth = 1.2
+  ctx.lineWidth = Math.max(1.2, r * 0.025)
   for (const ang of [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2]) {
     const isN = ang === 0
     const inner = isN ? r * 0.45 : r * 0.72
@@ -352,19 +550,57 @@ export function drawStreamCompass(
   ctx.fillStyle = '#f2f7fb'
   ctx.beginPath()
   ctx.moveTo(0, -r + 2)
-  ctx.lineTo(4.5, -r * 0.35)
-  ctx.lineTo(-4.5, -r * 0.35)
+  ctx.lineTo(headW, -r * 0.35)
+  ctx.lineTo(-headW, -r * 0.35)
   ctx.closePath()
   ctx.fill()
 
   ctx.fillStyle = '#e8f2fa'
-  ctx.font = 'bold 11px ui-sans-serif, system-ui, Segoe UI, sans-serif'
+  ctx.font = `bold ${nFont}px ui-sans-serif, system-ui, Segoe UI, sans-serif`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText('N', 0, r * 0.28)
   ctx.textAlign = 'start'
   ctx.textBaseline = 'alphabetic'
 
+  ctx.restore()
+}
+
+/**
+ * Stream-only race-name strip (top, full width). Text stays left of the
+ * compass so NDI `getCanvas()` sees the title without overlapping north.
+ */
+export function drawStreamTitleStrip(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  title: string,
+): void {
+  const text = (title.trim() || 'Race map').toUpperCase()
+  const barH = 40
+  const r = streamCompassRadius(h)
+  const compassLeft = w - 2 * r - 17
+  const padX = 16
+  const maxW = Math.max(24, compassLeft - padX)
+
+  const grad = ctx.createLinearGradient(0, 0, w, 0)
+  grad.addColorStop(0, 'rgba(36, 58, 78, 0.95)')
+  grad.addColorStop(1, 'rgba(14, 22, 32, 0.55)')
+  ctx.fillStyle = grad
+  ctx.fillRect(0, 0, w, barH)
+  ctx.strokeStyle = 'rgba(110, 150, 180, 0.35)'
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.moveTo(0, barH + 0.5)
+  ctx.lineTo(w, barH + 0.5)
+  ctx.stroke()
+
+  ctx.save()
+  ctx.font = '600 22px ui-sans-serif, system-ui, Segoe UI, sans-serif'
+  ctx.fillStyle = '#e4eef6'
+  ctx.textAlign = 'start'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(text, padX, barH / 2, maxW)
   ctx.restore()
 }
 
@@ -470,9 +706,6 @@ function drawTintedSprite(
   octx.fillRect(0, 0, off.width, off.height)
 
   ctx.drawImage(off, -w / 2, -h / 2, w, h)
-  ctx.strokeStyle = 'rgba(0,0,0,0.4)'
-  ctx.lineWidth = 1
-  ctx.strokeRect(-w / 2, -h / 2, w, h)
 }
 
 export type DrawBoatIconOptions = {
@@ -603,6 +836,8 @@ export type DrawLayoutOptions = {
   project: MapProjectFn
   metrics: MapChromeMetrics
   selectedIds: ReadonlySet<string>
+  /** Seconds; stream rounding spin. Ops may omit. */
+  nowSec?: number
 }
 
 /**
@@ -614,6 +849,8 @@ export function drawMapLayoutFeatures(
   opts: DrawLayoutOptions,
 ): void {
   const { project, metrics, selectedIds } = opts
+  const nowSec = opts.nowSec ?? 0
+  const stream = metrics.variant === 'stream'
 
   for (const gate of pairLayoutGates(features)) {
     const a = gate.left.points[0]
@@ -658,7 +895,7 @@ export function drawMapLayoutFeatures(
 
       // End caps for S/F readability.
       if (isSF) {
-        const r = 3.5
+        const r = metrics.sfEndR
         ctx.fillStyle = hexFill(f.color, fallback)
         ctx.beginPath()
         ctx.arc(pa.x, pa.y, r, 0, Math.PI * 2)
@@ -676,13 +913,14 @@ export function drawMapLayoutFeatures(
         drawLabelPill(
           ctx,
           text,
-          mx + 5,
-          my - 3,
+          isSF ? mx : mx + 5,
+          isSF ? my : my - 3,
           metrics.sfFont,
           isSF ? '#ff9090' : '#c0ccd8',
           'rgba(10, 14, 20, 0.72)',
           metrics.labelH,
           metrics.labelPadX,
+          isSF ? 'center' : 'baseline-left',
         )
       }
       continue
@@ -748,11 +986,49 @@ export function drawMapLayoutFeatures(
         ctx.arc(x, y, metrics.markR + 4, 0, Math.PI * 2)
         ctx.stroke()
       }
+      if (stream && f.type === 'buoy') {
+        if (isRoundingFeatureType(f.type)) {
+          drawMapRoundingGlyph(
+            ctx,
+            x,
+            y,
+            streamRoundingRadiusPx(metrics),
+            f.rounding,
+            nowSec,
+          )
+        }
+        const buoyName = streamBuoyName(f)
+        if (buoyName) {
+          const r = streamRoundingRadiusPx(metrics)
+          drawLabelPill(
+            ctx,
+            buoyName,
+            x,
+            y + r + metrics.labelH * 0.5 + 3,
+            metrics.labelFont,
+            '#eef4fa',
+            'rgba(6, 12, 20, 0.78)',
+            metrics.labelH,
+            metrics.labelPadX,
+            'center',
+          )
+        }
+      }
     } else if (f.type === 'gateLeft' || f.type === 'gateRight') {
       ctx.fillStyle = hexFill(f.color, '#00ff80')
       ctx.beginPath()
       ctx.arc(x, y, metrics.gateEndR, 0, Math.PI * 2)
       ctx.fill()
+      if (stream && isRoundingFeatureType(f.type)) {
+        drawMapRoundingGlyph(
+          ctx,
+          x,
+          y,
+          streamRoundingRadiusPx(metrics),
+          f.rounding,
+          nowSec,
+        )
+      }
     } else if (f.type === 'flagP1') {
       drawDiamond(ctx, x, y, 6, '#f0f0f0')
     } else if (f.type === 'flagP2') {

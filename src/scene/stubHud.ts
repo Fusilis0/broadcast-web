@@ -29,6 +29,12 @@ import {
   type SeaQuality,
 } from './environment/index.ts'
 import {
+  SEA_HEIGHT_Y_DEFAULT,
+  SEA_HEIGHT_Y_MAX,
+  SEA_HEIGHT_Y_MIN,
+  clampSeaHeightYM,
+} from './waterPlanePlacement.ts'
+import {
   DEFAULT_TERRAIN_ENABLED,
   DEFAULT_TERRAIN_WATER_DISCARD_Y,
   TERRAIN_SESSION_LOCK_KEY,
@@ -37,6 +43,12 @@ import {
 import { createMap2d, type Map2dHandle } from './map2d.ts'
 import { formatPovStatus, resolvePovIdList } from './povSwitcher.ts'
 import { createStreamMap2d } from './streamMap.ts'
+import {
+  clampStreamBoatIconScale,
+  STREAM_BOAT_ICON_SCALE_MAX,
+  STREAM_BOAT_ICON_SCALE_MIN,
+  STREAM_BOAT_ICON_SCALE_STEP,
+} from './mapChrome.ts'
 
 export type TelemetryModeUi = AppConfig['telemetryMode']
 
@@ -102,7 +114,7 @@ function formatChannelCompact(
 export type StubHudMountHosts = {
   /** Race Load/Save/Pack + world-anchor origin. */
   project: HTMLElement
-  /** Leftover race-ops rows: telemetry / POV / view / countdown / stream / status. */
+  /** Leftover race-ops rows: telemetry / POV / view / countdown / status. */
   ops: HTMLElement
   /** Environment + terrain + ion token (right rail). Falls back to `ops`. */
   environment?: HTMLElement
@@ -110,21 +122,77 @@ export type StubHudMountHosts = {
   wind?: HTMLElement
   /** Ops 2D map root. */
   map: HTMLElement
-  /** Stream / PiP map host (outside the sidebar rail). */
+  /** Stream / on-air map host (off-screen for 2D NDI; local 2D CSS-hosts it). */
   streamMapHost: HTMLElement
 }
 
-/** Clamp Environment water-discard threshold (m AMSL). Range 0–5, default 0.5. */
+/** Clamp Environment water-discard threshold (m AMSL). Range −20…+5, default 0.5. */
+export const TERRAIN_WATER_DISCARD_Y_MIN = -20
+export const TERRAIN_WATER_DISCARD_Y_MAX = 5
+
 export function clampTerrainWaterDiscardYM(yM: number): number {
   if (!Number.isFinite(yM)) return DEFAULT_TERRAIN_WATER_DISCARD_Y
-  return Math.min(5, Math.max(0, yM))
+  return Math.min(
+    TERRAIN_WATER_DISCARD_Y_MAX,
+    Math.max(TERRAIN_WATER_DISCARD_Y_MIN, yM),
+  )
+}
+
+/** Boat-size strip under local 2D (hidden unless `html.local-focus-2d`). */
+function mountStreamBoatSizeSlider(
+  host: HTMLElement,
+  streamMap: Map2dHandle,
+): HTMLElement {
+  const strip = document.createElement('div')
+  strip.className = 'stream-map-boat-scale'
+  strip.setAttribute('data-ops', 'stream-boat-scale')
+
+  const label = document.createElement('label')
+  label.className = 'stream-map-boat-scale__label'
+  label.textContent = 'Boat size'
+
+  const input = document.createElement('input')
+  input.type = 'range'
+  input.min = String(STREAM_BOAT_ICON_SCALE_MIN)
+  input.max = String(STREAM_BOAT_ICON_SCALE_MAX)
+  input.step = String(STREAM_BOAT_ICON_SCALE_STEP)
+  input.value = String(streamMap.getBoatIconScale())
+  input.setAttribute('aria-label', 'Boat size')
+  input.className = 'stream-map-boat-scale__range'
+
+  const value = document.createElement('span')
+  value.className = 'stream-map-boat-scale__value'
+  value.textContent = input.value
+
+  const sync = (raw: string) => {
+    const scale = clampStreamBoatIconScale(Number(raw))
+    streamMap.setBoatIconScale(scale)
+    input.value = String(scale)
+    value.textContent = String(scale)
+  }
+
+  input.addEventListener('input', () => {
+    sync(input.value)
+  })
+
+  strip.append(label, input, value)
+  host.appendChild(strip)
+  return strip
+}
+
+export {
+  SEA_HEIGHT_Y_DEFAULT,
+  SEA_HEIGHT_Y_MAX,
+  SEA_HEIGHT_Y_MIN,
+  clampSeaHeightYM,
 }
 
 export type StubHudOptions = {
   container: HTMLElement
   /**
    * Sidebar section hosts. Splits Project / Ops / Map DOM without changing
-   * handle/callback contracts. Stream PiP stays on `streamMapHost`.
+   * handle/callback contracts. Stream map stays on `streamMapHost` (off-screen
+   * for NDI; local 2D focus CSS-hosts the same element).
    */
   hosts?: StubHudMountHosts
   initialMode?: TelemetryModeUi
@@ -168,6 +236,12 @@ export type StubHudOptions = {
   /** Height-fallback AMSL (m) for hiding Cesium water. Default 0.5. */
   onTerrainWaterDiscardYChange?: (yM: number) => void
   terrainWaterDiscardYM?: number
+  /**
+   * Environment **sea m** (−20…+20, default 0). Moves Gerstner rest Y.
+   * Separate from Cesium hide.
+   */
+  onSeaHeightYChange?: (yM: number) => void
+  seaHeightYM?: number
   /** Initial status line (token missing, etc.). */
   terrainStatus?: string
   /**
@@ -259,6 +333,7 @@ export type StubHudHandle = {
   setTerrainAltitudeNudgeM: (nudgeM: number) => void
   setTerrainTilesLocked: (locked: boolean) => void
   setTerrainWaterDiscardYM: (yM: number) => void
+  setSeaHeightYM: (yM: number) => void
   setTerrainStatus: (msg: string) => void
   /** Smoothed on-screen WebGL preview fps (1 s window). */
   setPreviewFps: (fps: number) => void
@@ -273,6 +348,7 @@ export type StubHudHandle = {
   getTerrainAltitudeNudgeM: () => number
   getTerrainTilesLocked: () => boolean
   getTerrainWaterDiscardYM: () => number
+  getSeaHeightYM: () => number
   /** Static course mark dots on the 2D map (ENU east/north). Legacy. */
   setCourseMarks: (
     marks: readonly { name: string; x: number; z: number }[],
@@ -281,9 +357,9 @@ export type StubHudHandle = {
   setLayoutFeatures: (features: readonly LayoutFeature[]) => void
   /** Ops 2D map handle (editor attaches click tools). */
   getMap: () => Map2dHandle
-  /** Stream / on-air PiP map (CSS overlay; default hidden). */
+  /** Stream / on-air 2D map (off-screen canvas; local 2D host). */
   getStreamMap: () => Map2dHandle
-  /** Sync stream-map checkbox without notifying. */
+  /** Show/hide the stream map root (no ops checkbox — PiP card removed). */
   setStreamMapVisible: (visible: boolean) => void
   /** Sync authoring mirror checkbox without notifying (or with notify=true). */
   setEditorOpen: (open: boolean, notify?: boolean) => void
@@ -297,7 +373,7 @@ export type StubHudHandle = {
   setProjectMeta: (id: string, name: string) => void
   /** Electron races root path hint (`saving to: …`). */
   setRacesRootHint: (path: string | null) => void
-  /** Save success / fail line (path or error). */
+  /** Last Save/Load action under the controls (`loading`/`loaded`, `saving`/`saved`, or error). */
   setSaveStatus: (msg: string) => void
   /** Sync world-anchor fields (boot / race switch / after Apply). */
   setOrigin: (origin: ConfigOrigin) => void
@@ -547,38 +623,14 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   editorCheck.type = 'checkbox'
   editorCheck.className = 'ops-hud__checkbox'
   editorCheck.title =
-    'Mirror of World Authoring workspace (primary control: World Map → Open authoring)'
+    'Mirror of World Authoring workspace (primary control: Race setup header World toggle)'
   editorCheck.checked = options.editorInitiallyOpen ?? false
   editorRow.appendChild(editorCheck)
 
   const editorHint = document.createElement('span')
   editorHint.className = 'ops-hud__mode-hint'
-  editorHint.textContent = 'World Map §'
+  editorHint.textContent = 'header'
   editorRow.appendChild(editorHint)
-
-  const streamMapRow = document.createElement('div')
-  streamMapRow.className = 'ops-hud__mode-row'
-  opsHud.appendChild(streamMapRow)
-
-  const streamMapLabel = document.createElement('label')
-  streamMapLabel.className = 'ops-hud__mode-label'
-  streamMapLabel.htmlFor = 'ops-stream-map'
-  streamMapLabel.textContent = 'stream map'
-  streamMapRow.appendChild(streamMapLabel)
-
-  const streamMapCheck = document.createElement('input')
-  streamMapCheck.id = 'ops-stream-map'
-  streamMapCheck.type = 'checkbox'
-  streamMapCheck.className = 'ops-hud__checkbox'
-  streamMapCheck.title =
-    'Viewer-facing broadcast race map PiP (~520px). Default off for air clutter. Does not change NDI camera.'
-  streamMapCheck.checked = false
-  streamMapRow.appendChild(streamMapCheck)
-
-  const streamMapHint = document.createElement('span')
-  streamMapHint.className = 'ops-hud__mode-hint'
-  streamMapHint.textContent = 'broadcast PiP · off'
-  streamMapRow.appendChild(streamMapHint)
 
   const envRow = document.createElement('div')
   envRow.className = 'ops-hud__mode-row'
@@ -719,19 +771,19 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   const waterYLabel = document.createElement('label')
   waterYLabel.className = 'ops-hud__mode-label'
   waterYLabel.htmlFor = 'ops-terrain-water-y'
-  waterYLabel.textContent = 'water m'
+  waterYLabel.textContent = 'Cesium hide m'
   terrainRow.appendChild(waterYLabel)
 
   const waterYInput = document.createElement('input')
   waterYInput.id = 'ops-terrain-water-y'
   waterYInput.className = 'ops-hud__input ops-hud__input--nudge'
   waterYInput.type = 'number'
-  waterYInput.min = '0'
-  waterYInput.max = '5'
+  waterYInput.min = String(TERRAIN_WATER_DISCARD_Y_MIN)
+  waterYInput.max = String(TERRAIN_WATER_DISCARD_Y_MAX)
   waterYInput.step = '0.1'
   waterYInput.setAttribute('data-ops', 'terrain-water-discard')
   waterYInput.title =
-    'Cesium water height-discard threshold (metres AMSL). Fallback when a tile has no water mask. Default 0.5.'
+    'Cesium tile water height-discard (metres AMSL). Does NOT move the Gerstner sea — use sea m for that. Fallback when a tile has no water mask. Default 0.5. Range −20…+5.'
   let terrainWaterDiscardYM = clampTerrainWaterDiscardYM(
     typeof options.terrainWaterDiscardYM === 'number'
       ? options.terrainWaterDiscardYM
@@ -739,6 +791,30 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   )
   waterYInput.value = String(terrainWaterDiscardYM)
   terrainRow.appendChild(waterYInput)
+
+  const seaYLabel = document.createElement('label')
+  seaYLabel.className = 'ops-hud__mode-label'
+  seaYLabel.htmlFor = 'ops-sea-height-y'
+  seaYLabel.textContent = 'sea m'
+  terrainRow.appendChild(seaYLabel)
+
+  const seaYInput = document.createElement('input')
+  seaYInput.id = 'ops-sea-height-y'
+  seaYInput.className = 'ops-hud__input ops-hud__input--nudge'
+  seaYInput.type = 'number'
+  seaYInput.min = String(SEA_HEIGHT_Y_MIN)
+  seaYInput.max = String(SEA_HEIGHT_Y_MAX)
+  seaYInput.step = '0.1'
+  seaYInput.setAttribute('data-ops', 'sea-height')
+  seaYInput.title =
+    'Visible ocean rest height (metres). Lowers/raises the Gerstner plane + water-plane wakes. Assets with Alt MSL stay put. Default 0. Range −20…+20.'
+  let seaHeightYM = clampSeaHeightYM(
+    typeof options.seaHeightYM === 'number'
+      ? options.seaHeightYM
+      : SEA_HEIGHT_Y_DEFAULT,
+  )
+  seaYInput.value = String(seaHeightYM)
+  terrainRow.appendChild(seaYInput)
 
   const terrainHint = document.createElement('span')
   terrainHint.className = 'ops-hud__mode-hint'
@@ -819,6 +895,12 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
     terrainWaterDiscardYM = n
     waterYInput.value = String(n)
     options.onTerrainWaterDiscardYChange?.(n)
+  })
+  seaYInput.addEventListener('change', () => {
+    const n = clampSeaHeightYM(Number(seaYInput.value))
+    seaHeightYM = n
+    seaYInput.value = String(n)
+    options.onSeaHeightYChange?.(n)
   })
 
   const windOps = mountWindOpsRow({ container: windHost })
@@ -978,17 +1060,15 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   if (hosts) {
     hosts.map.appendChild(map.root)
     hosts.streamMapHost.appendChild(streamMap.root)
+    mountStreamBoatSizeSlider(hosts.streamMapHost, streamMap)
   } else {
     legacyRoot!.appendChild(map.root)
     legacyRoot!.appendChild(streamMap.root)
+    mountStreamBoatSizeSlider(legacyRoot!, streamMap)
   }
 
   editorCheck.addEventListener('change', () => {
     options.onEditorToggle?.(editorCheck.checked)
-  })
-
-  streamMapCheck.addEventListener('change', () => {
-    streamMap.setVisible(streamMapCheck.checked)
   })
 
   venuePackDownloadBtn.addEventListener('click', () => {
@@ -1223,6 +1303,10 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
       terrainWaterDiscardYM = clampTerrainWaterDiscardYM(yM)
       waterYInput.value = String(terrainWaterDiscardYM)
     },
+    setSeaHeightYM(yM: number): void {
+      seaHeightYM = clampSeaHeightYM(yM)
+      seaYInput.value = String(seaHeightYM)
+    },
     setTerrainStatus(msg: string): void {
       terrainHint.textContent = msg
     },
@@ -1260,6 +1344,7 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
     getTerrainAltitudeNudgeM: () => terrainNudgeM,
     getTerrainTilesLocked: () => terrainTilesLocked,
     getTerrainWaterDiscardYM: () => terrainWaterDiscardYM,
+    getSeaHeightYM: () => seaHeightYM,
     setCourseMarks(marks): void {
       const mapped = marks.map((m) => ({
         name: m.name,
@@ -1275,7 +1360,6 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
     getMap: () => map,
     getStreamMap: () => streamMap,
     setStreamMapVisible(visible: boolean): void {
-      streamMapCheck.checked = visible
       streamMap.setVisible(visible)
     },
     setEditorOpen(open, notify = false): void {

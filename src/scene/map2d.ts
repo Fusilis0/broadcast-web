@@ -1,14 +1,24 @@
 import type { LayoutFeature } from './features/types.ts'
-import { filterFeaturesFor2d } from './features/featureVisibility.ts'
+import {
+  filterFeaturesFor2d,
+  filterFeaturesForStreamMap,
+} from './features/featureVisibility.ts'
 import type { EnuPosition, PoseEvent, PoseKind } from '../pose/types.ts'
 import { eastNorthFromScene, northFromSceneZ } from '../geodesy/index.ts'
+import { closestPointOnSegment2d } from './features/editor/polylineInsert.ts'
 import {
+  cachedParentOsmTiles,
   createTileCache,
   drawOsmBasemap,
   ensureOsmTiles,
+  isOsmTileImage,
+  nextOsmDrawHistory,
   OSM_ATTRIBUTION,
+  osmTilesDrawList,
+  tileCacheKey,
   tilesForEnuBounds,
   type BasemapGeoBridge,
+  type OsmTileRef,
 } from './map2dBasemap.ts'
 import {
   createDefaultMapView,
@@ -28,11 +38,19 @@ import {
   drawMapWindReadout,
   drawStreamCompass,
   drawStreamMapBackdrop,
+  drawStreamTitleStrip,
   loadMapSprite,
   mapChromeMetrics,
   MAP_BOAT_SPRITE_URL,
   MAP_SAIL_SPRITE_URL,
+  clampStreamBoatIconScale,
+  readStreamBoatIconScale,
+  scaleStreamBoatChrome,
+  STREAM_BOAT_ICON_SCALE_DEFAULT,
+  STREAM_ROUNDING_ANIM_HZ,
+  writeStreamBoatIconScale,
 } from './mapChrome.ts'
+import { resolveStreamFleetLabel } from './boatNames/categoryColor.ts'
 import { windBus } from '../telemetry/windBus.ts'
 import type { WindFrame } from '../telemetry/windTypes.ts'
 
@@ -47,6 +65,10 @@ export type MapPoint = {
   up: number
   /** Compass-style yaw degrees (0=N, CW+); boats use pose `brg`. */
   yawDeg: number
+}
+
+function poseStoreKey(kind: PoseKind, id: string): string {
+  return `${kind}:${id}`
 }
 
 /** Static course mark / gate end for 2D overlay (not a pose). Legacy simple dots. */
@@ -206,6 +228,14 @@ export type MapVertexHit = {
   north: number
 }
 
+/** Insert a vertex on a polyline (splice index). */
+export type MapPolylineInsertHit = {
+  featureId: string
+  insertIndex: number
+  east: number
+  north: number
+}
+
 export type MapDraftSegment = {
   a: MapEnuPoint
   b: MapEnuPoint
@@ -233,9 +263,9 @@ export type Map2dHandle = {
   setSelectedFeatureIds: (ids: readonly string[]) => void
   /** Enable pointer interaction for editor clicks. */
   setInteractive: (on: boolean) => void
-  /** Resize canvas (editor enlarges map). */
+  /** Resize canvas (editor enlarges map). Stream preserves current aspect. */
   setSizePx: (sizePx: number) => void
-  /** Show/hide panel (stream map defaults hidden for air clutter). */
+  /** Show/hide panel (stream map lives off-screen when not local 2D). */
   setVisible: (on: boolean) => void
   isVisible: () => boolean
   /** Update panel title (stream branding strip / race name). */
@@ -250,15 +280,31 @@ export type Map2dHandle = {
     maxDistPx?: number,
   ) => LayoutFeature | null
   /**
-   * Hit-test nearest layout vertex (for select-tool drag).
-   * Prefers vertices of `preferFeatureIds` when provided.
+   * Hit-test nearest fleet pose icon (boats/drones). Hidden ids are skipped.
+   * `kinds` limits the search (default: all pose kinds on this map).
    */
+  hitTestPose: (
+    east: number,
+    north: number,
+    maxDistPx?: number,
+    kinds?: readonly PoseKind[],
+  ) => MapPoint | null
   hitTestVertex: (
     east: number,
     north: number,
     maxDistPx?: number,
     preferFeatureIds?: ReadonlySet<string> | readonly string[],
   ) => MapVertexHit | null
+  /**
+   * Closest point on a billboard-chain (or other polyline) segment.
+   * `insertIndex` is the splice index for a new vertex (1…n-1).
+   */
+  hitTestPolylineInsert: (
+    east: number,
+    north: number,
+    maxDistPx?: number,
+    types?: readonly LayoutFeature['type'][],
+  ) => MapPolylineInsertHit | null
   /**
    * Nearest layout vertex in screen space (editor snap).
    * Returns ENU east/north or null when outside `maxDistPx`.
@@ -289,9 +335,21 @@ export type Map2dHandle = {
   onMapPointerDown: (
     cb: (east: number, north: number, ev: PointerEvent) => boolean,
   ) => () => void
+  /**
+   * Stream-only: scale boat hull + fleet pills + course chrome (0.25–2, default 0.5).
+   * Ops map is a no-op. Same canvas is what NDI samples.
+   */
+  setBoatIconScale: (scale: number) => void
+  /** Current stream boat-icon scale; ops always reports 1. */
+  getBoatIconScale: () => number
   /** Per-boat map dot CSS colors (category / catalogue). */
   setBoatDotColors: (colors: ReadonlyMap<string, string>) => void
-  /** Optional OSM basemap (ops map). Stream map ignores. */
+  /** Catalogue names for stream fleet pills (ops still draws ids). */
+  setBoatNames: (names: ReadonlyMap<string, string>) => void
+  /**
+   * Optional OSM basemap. Ops: checkbox, default off. Stream: default on
+   * when `geoBridge` is set (no checkbox; NDI samples the canvas).
+   */
   setBasemapEnabled: (on: boolean) => void
   isBasemapEnabled: () => boolean
   /** GEO bridge required for OSM tiles + click-to-anchor lat/lon. */
@@ -329,22 +387,30 @@ export type Map2dVariant = 'ops' | 'stream'
 export type Map2dOptions = {
   /** CSS size hint; canvas internal resolution follows client size. */
   sizePx?: number
+  /** Canvas width. Defaults to `sizePx` (square). Stream map uses 16:9. */
+  widthPx?: number
+  /** Canvas height. Defaults to `sizePx` (square). Stream map uses 16:9. */
+  heightPx?: number
   /**
    * `ops` — small correction/editor map (default).
-   * `stream` — larger PiP graphic (CSS overlay; default hidden).
+   * `stream` — on-air / local-2D graphic (off-screen host; 1920×1080).
    */
   variant?: Map2dVariant
   /** Panel title; defaults by variant. */
   title?: string
-  /** Initial visibility. Stream defaults `false` (air clutter). */
+  /**
+   * Initial visibility. Stream defaults `true` (off-screen host, not a PiP).
+   * Ops defaults `true`.
+   */
   visible?: boolean
 }
 
 /**
  * Top-down fleet map from poseBus ENU (x=E, z=N). Not Three.js.
  * Shared chrome (`mapChrome`) draws course overlays + sailboat icons for
- * both ops and stream variants. Stream adds broadcast backdrop/compass;
- * ops map supports pan/zoom + optional OSM and stays utilitarian.
+ * both ops and stream variants. Stream adds broadcast backdrop/compass/title;
+ * OSM draws on both when a geo bridge is set (stream default on, no checkbox).
+ * Ops map supports pan/zoom + optional OSM and stays utilitarian.
  * Both variants subscribe to `windBus` (no fetch) and draw a travel arrow
  * + from-deg/kt readout.
  */
@@ -352,8 +418,20 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
   const variant: Map2dVariant = options.variant ?? 'ops'
   const isStream = variant === 'stream'
   const chrome = mapChromeMetrics(variant)
-  let sizePx = options.sizePx ?? (isStream ? 520 : 240)
-  let visible = options.visible ?? !isStream
+  const defaultSize = isStream ? 1080 : 240
+  let canvasW = Math.max(
+    120,
+    Math.floor(
+      options.widthPx ??
+        options.sizePx ??
+        (isStream ? 1920 : defaultSize),
+    ),
+  )
+  let canvasH = Math.max(
+    120,
+    Math.floor(options.heightPx ?? options.sizePx ?? defaultSize),
+  )
+  let visible = options.visible ?? true
 
   const root = document.createElement('div')
   root.className = isStream ? 'ops-map stream-map' : 'ops-map'
@@ -365,13 +443,17 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
   )
   root.hidden = !visible
 
+  let titleText = options.title ?? (isStream ? 'Race map' : 'Map ENU · N↑')
   const title = document.createElement('div')
   title.className = isStream
     ? 'ops-map__title stream-map__title'
     : 'ops-map__title'
-  title.textContent =
-    options.title ?? (isStream ? 'Race map' : 'Map ENU · N↑')
-  root.appendChild(title)
+  title.textContent = titleText
+  // Stream title is burned on the canvas (NDI samples pixels). Skip the DOM
+  // strip so local 2D and air match — no double title.
+  if (!isStream) {
+    root.appendChild(title)
+  }
 
   const toolbar = document.createElement('div')
   toolbar.className = 'ops-map__toolbar'
@@ -406,16 +488,17 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
 
   const canvas = document.createElement('canvas')
   canvas.className = 'ops-map__canvas'
-  canvas.width = sizePx
-  canvas.height = sizePx
+  canvas.width = canvasW
+  canvas.height = canvasH
   root.appendChild(canvas)
   if (isStream) {
-    root.style.width = `${sizePx}px`
+    root.style.width = `${canvasW}px`
   }
 
   const ctx = canvas.getContext('2d')
   const points = new Map<string, MapPoint>()
   let boatDotColors = new Map<string, string>()
+  let boatNames = new Map<string, string>()
   let courseMarks: MapCourseMark[] = []
   let layoutFeatures: LayoutFeature[] = []
   let selectedIds = new Set<string>()
@@ -430,9 +513,13 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
   let sailSprite: HTMLImageElement | null = null
   let disposed = false
   let windFrame: WindFrame | null = windBus.getSnapshot()
-  let basemapEnabled = false
+  let boatIconScale = isStream
+    ? readStreamBoatIconScale()
+    : STREAM_BOAT_ICON_SCALE_DEFAULT
+  let basemapEnabled = isStream
   let geoBridge: BasemapGeoBridge | null = null
   const tileCache = createTileCache()
+  let prevOsmTiles: OsmTileRef[] = []
   const clickListeners = new Set<(east: number, north: number) => void>()
   const moveListeners = new Set<(east: number, north: number) => void>()
   const pointerDownClaimers = new Set<
@@ -512,18 +599,24 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
       ctx.fillRect(0, 0, w, h)
     }
 
-    // Optional OSM underlay (ops only) — silent fallback to grid when offline.
+    // OSM underlay (ops checkbox; stream default on). Keep last zoom in the
+    // canvas until the new integer z loads (no full blank). Missing tiles
+    // leave the wash/grid fallback.
     let basemapDrawn = false
-    if (!isStream && basemapEnabled && geoBridge) {
+    if (basemapEnabled && geoBridge) {
       const tiles = tilesForEnuBounds(bounds, geoBridge, h)
       ensureOsmTiles(tiles, tileCache, () => {
         if (!disposed) redraw()
       })
-      drawOsmBasemap(ctx, tiles, tileCache, geoBridge, project)
-      basemapDrawn = tiles.some((t) => {
-        const e = tileCache.get(`${t.z}/${t.x}/${t.y}`)
-        return e !== undefined && e !== 'loading' && e !== 'failed'
-      })
+      const drawTiles = osmTilesDrawList(tiles, [
+        ...prevOsmTiles,
+        ...cachedParentOsmTiles(tiles, tileCache),
+      ])
+      drawOsmBasemap(ctx, drawTiles, tileCache, geoBridge, project)
+      basemapDrawn = drawTiles.some((t) =>
+        isOsmTileImage(tileCache.get(tileCacheKey(t))),
+      )
+      prevOsmTiles = nextOsmDrawHistory(tiles, prevOsmTiles, tileCache)
       if (basemapDrawn) {
         // Soft darken so chrome stays readable.
         ctx.fillStyle = 'rgba(8, 14, 22, 0.35)'
@@ -547,17 +640,7 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
       ctx.fillRect(0, 0, w, h)
     }
 
-    if (isStream) {
-      ctx.strokeStyle = 'rgba(70, 100, 130, 0.35)'
-      ctx.lineWidth = 1
-      ctx.beginPath()
-      ctx.moveTo(w / 2, 0)
-      ctx.lineTo(w / 2, h)
-      ctx.moveTo(0, h / 2)
-      ctx.lineTo(w, h / 2)
-      ctx.stroke()
-      drawStreamCompass(ctx, w, h)
-    } else {
+    if (!isStream) {
       ctx.strokeStyle = basemapDrawn ? 'rgba(42, 51, 64, 0.55)' : '#2a3340'
       ctx.lineWidth = 1
       ctx.beginPath()
@@ -571,24 +654,40 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
       ctx.font = '10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
       ctx.fillText('N', w / 2 - 4, 12)
       ctx.fillText('E', w - 12, h / 2 + 3)
-      if (basemapDrawn) {
-        ctx.fillStyle = 'rgba(160, 170, 180, 0.7)'
-        ctx.font =
-          '8px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
+    }
+
+    if (basemapDrawn) {
+      ctx.fillStyle = isStream
+        ? 'rgba(200, 210, 220, 0.75)'
+        : 'rgba(160, 170, 180, 0.7)'
+      ctx.font = isStream
+        ? '12px ui-sans-serif, system-ui, Segoe UI, sans-serif'
+        : '8px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
+      if (isStream) {
+        ctx.textAlign = 'end'
+        ctx.fillText(OSM_ATTRIBUTION, w - 10, h - 10)
+        ctx.textAlign = 'start'
+      } else {
         ctx.fillText(OSM_ATTRIBUTION, 6, h - 6)
       }
     }
 
-    // Shared world features under fleet icons (respect soft visible2d).
-    const layoutForMap = filterFeaturesFor2d(layoutFeatures)
+    // Ops: visible2d. Stream: visible2d + on-air type allow-list (no chains/sponsors).
+    const layoutForMap = isStream
+      ? filterFeaturesForStreamMap(layoutFeatures)
+      : filterFeaturesFor2d(layoutFeatures)
+    const fleetChrome = isStream
+      ? scaleStreamBoatChrome(chrome, boatIconScale)
+      : chrome
     if (layoutForMap.length > 0) {
       drawMapLayoutFeatures(ctx, layoutForMap, {
         project,
-        metrics: chrome,
+        metrics: fleetChrome,
         selectedIds,
+        nowSec: isStream ? performance.now() * 0.001 : undefined,
       })
-    } else if (layoutFeatures.length === 0) {
-      // Legacy course-mark dots when layout not set.
+    } else if (!isStream && layoutFeatures.length === 0) {
+      // Legacy course-mark dots when layout not set (ops only).
       for (const m of courseMarks) {
         const { x, y } = project(m.east, m.north)
         ctx.fillStyle = '#ffb200'
@@ -598,8 +697,13 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
       }
     }
 
-    for (const p of [...points.values()]) {
+    for (const p of [...points.values()].sort((a, b) => {
+      const rank = (k: PoseKind) =>
+        k === 'boat' ? 2 : k === 'drone' ? 1 : 0
+      return rank(a.kind) - rank(b.kind)
+    })) {
       if (hiddenPoseIds.has(p.id)) continue
+      if (isStream && p.kind === 'drone') continue
       const { x, y } = project(p.east, p.north)
       const fill = resolveMapDotFill(p.id, p.kind, boatDotColors)
       if (p.kind === 'drone') {
@@ -616,15 +720,22 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
         drawMapBoatIcon(ctx, x, y, {
           fill,
           yawDeg: p.yawDeg,
-          len: chrome.boatLen,
-          beam: chrome.boatBeam,
+          len: fleetChrome.boatLen,
+          beam: fleetChrome.boatBeam,
           boatSprite,
           sailSprite,
         })
       }
-      const labelX = x + chrome.boatLen * 0.7 + 4
-      drawMapFleetLabel(ctx, `${p.id}`, labelX, y + 3, chrome)
-      // Stream PiP: id only (less clutter). Ops map keeps altitude hint.
+      const labelX = x + fleetChrome.boatLen * 0.7 + 4
+      const labelText =
+        isStream && p.kind === 'boat'
+          ? resolveStreamFleetLabel(p.id, boatNames)
+          : `${p.id}`
+      // Stream: boats keep name pills; drones are skipped above.
+      if (!isStream || p.kind !== 'drone') {
+        drawMapFleetLabel(ctx, labelText, labelX, y + 3, fleetChrome)
+      }
+      // Stream: id only (less clutter). Ops map keeps altitude hint.
       if (!isStream) {
         ctx.fillStyle = '#6a7888'
         ctx.font = chrome.labelFont
@@ -697,6 +808,11 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
     // HUD chrome: travel arrow + from/kt. Default/stale still draws.
     if (windFrame) {
       drawMapWindReadout(ctx, w, h, windFrame, chrome)
+    }
+
+    if (isStream) {
+      drawStreamTitleStrip(ctx, w, h, titleText)
+      drawStreamCompass(ctx, w, h)
     }
   }
 
@@ -813,38 +929,51 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
 
   redraw()
 
+  let roundingAnimTimer: ReturnType<typeof setInterval> | null = null
+  if (isStream) {
+    const periodMs = Math.round(1000 / STREAM_ROUNDING_ANIM_HZ)
+    roundingAnimTimer = setInterval(() => {
+      if (!disposed) redraw()
+    }, periodMs)
+  }
+
   return {
     root,
     getCanvas(): HTMLCanvasElement {
       return canvas
     },
     updatePose(pose: PoseEvent): void {
-      points.set(pose.id, toMapPoint(pose))
+      points.set(poseStoreKey(pose.kind, pose.id), toMapPoint(pose))
       redraw()
     },
     removePose(id: string): boolean {
       const key = id.trim()
-      if (key === '' || !points.has(key)) return false
-      points.delete(key)
-      redraw()
-      return true
+      if (key === '') return false
+      let removed = false
+      for (const [storeKey, p] of [...points.entries()]) {
+        if (p.id !== key) continue
+        points.delete(storeKey)
+        removed = true
+      }
+      if (removed) redraw()
+      return removed
     },
     retainPoseIds(ids: readonly string[]): number {
       const allow = new Set(
         [...ids].map((id) => id.trim()).filter((id) => id !== ''),
       )
       let removed = 0
-      for (const [id, p] of [...points.entries()]) {
+      for (const [storeKey, p] of [...points.entries()]) {
         if (p.kind === 'buoy') continue
-        if (allow.has(id)) continue
-        points.delete(id)
+        if (allow.has(p.id)) continue
+        points.delete(storeKey)
         removed++
       }
       if (removed > 0) redraw()
       return removed
     },
     getPoseIds(): string[] {
-      return [...points.keys()]
+      return [...new Set([...points.values()].map((p) => p.id))]
     },
     setCourseMarks(marks: readonly MapCourseMark[]): void {
       courseMarks = marks.map((m) => ({ ...m }))
@@ -867,10 +996,16 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
       root.classList.toggle('ops-map--interactive', on)
     },
     setSizePx(next: number): void {
-      sizePx = Math.max(120, Math.floor(next))
-      canvas.width = sizePx
-      canvas.height = sizePx
-      root.style.width = `${sizePx}px`
+      const h = Math.max(120, Math.floor(next))
+      const aspect = canvasW / Math.max(canvasH, 1)
+      canvasH = h
+      canvasW =
+        Math.abs(aspect - 1) < 1e-6
+          ? h
+          : Math.max(120, Math.round(h * aspect))
+      canvas.width = canvasW
+      canvas.height = canvasH
+      root.style.width = `${canvasW}px`
       redraw()
     },
     setVisible(on: boolean): void {
@@ -883,7 +1018,15 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
     },
     setTitle(next: string): void {
       const trimmed = next.trim()
-      title.textContent = trimmed || (isStream ? 'Race map' : 'Map ENU · N↑')
+      titleText = trimmed || (isStream ? 'Race map' : 'Map ENU · N↑')
+      title.textContent = titleText
+      if (isStream) {
+        root.setAttribute(
+          'aria-label',
+          `Stream race map: ${titleText}`,
+        )
+        redraw()
+      }
     },
     hitTestFeature(east, north, maxDistPx = 12): LayoutFeature | null {
       const w = canvas.width
@@ -904,26 +1047,35 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
           (f.type === 'sponsor' || f.type === 'billboardChain') &&
           f.points.length >= 2
         ) {
-          const a = enuToMapPx(
-            f.points[0]!.x,
-            northFromSceneZ(f.points[0]!.z),
-            lastBounds,
-            w,
-            h,
-          )
-          const b = enuToMapPx(
-            f.points[1]!.x,
-            northFromSceneZ(f.points[1]!.z),
-            lastBounds,
-            w,
-            h,
-          )
-          const mx = (a.x + b.x) / 2
-          const my = (a.y + b.y) / 2
-          const d = Math.hypot(mx - click.x, my - click.y)
-          if (d <= bestD) {
-            bestD = d
-            best = f
+          for (let i = 0; i < f.points.length - 1; i++) {
+            const pa = f.points[i]!
+            const pb = f.points[i + 1]!
+            const a = enuToMapPx(
+              pa.x,
+              northFromSceneZ(pa.z),
+              lastBounds,
+              w,
+              h,
+            )
+            const b = enuToMapPx(
+              pb.x,
+              northFromSceneZ(pb.z),
+              lastBounds,
+              w,
+              h,
+            )
+            const near = closestPointOnSegment2d(
+              click.x,
+              click.y,
+              a.x,
+              a.y,
+              b.x,
+              b.y,
+            )
+            if (near.dist <= bestD) {
+              bestD = near.dist
+              best = f
+            }
           }
         }
       }
@@ -975,6 +1127,72 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
         if (hit) return hit
       }
       return nearestIn(layoutFeatures)
+    },
+    hitTestPolylineInsert(
+      east,
+      north,
+      maxDistPx = 14,
+      types,
+    ): MapPolylineInsertHit | null {
+      const allow =
+        types && types.length > 0 ? new Set(types) : new Set(['billboardChain'])
+      const w = canvas.width
+      const h = canvas.height
+      const click = enuToMapPx(east, north, lastBounds, w, h)
+      let best: MapPolylineInsertHit | null = null
+      let bestD = maxDistPx
+      for (const f of layoutFeatures) {
+        if (!allow.has(f.type) || f.points.length < 2) continue
+        for (let i = 0; i < f.points.length - 1; i++) {
+          const pa = f.points[i]!
+          const pb = f.points[i + 1]!
+          const a = enuToMapPx(pa.x, northFromSceneZ(pa.z), lastBounds, w, h)
+          const b = enuToMapPx(pb.x, northFromSceneZ(pb.z), lastBounds, w, h)
+          const near = closestPointOnSegment2d(
+            click.x,
+            click.y,
+            a.x,
+            a.y,
+            b.x,
+            b.y,
+          )
+          if (near.dist > bestD) continue
+          const enu = mapPxToEnu(near.east, near.north, lastBounds, w, h)
+          bestD = near.dist
+          best = {
+            featureId: f.id,
+            insertIndex: i + 1,
+            east: enu.east,
+            north: enu.north,
+          }
+        }
+      }
+      return best
+    },
+    hitTestPose(
+      east,
+      north,
+      maxDistPx = 16,
+      kinds,
+    ): MapPoint | null {
+      const allow =
+        kinds && kinds.length > 0 ? new Set(kinds) : null
+      const w = canvas.width
+      const h = canvas.height
+      const click = enuToMapPx(east, north, lastBounds, w, h)
+      let best: MapPoint | null = null
+      let bestD = maxDistPx
+      for (const p of points.values()) {
+        if (hiddenPoseIds.has(p.id)) continue
+        if (allow && !allow.has(p.kind)) continue
+        const px = enuToMapPx(p.east, p.north, lastBounds, w, h)
+        const d = Math.hypot(px.x - click.x, px.y - click.y)
+        if (d <= bestD) {
+          bestD = d
+          best = { ...p }
+        }
+      }
+      return best
     },
     nearestVertex(east, north, maxDistPx = 14): MapEnuPoint | null {
       const w = canvas.width
@@ -1034,8 +1252,21 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
         pointerDownClaimers.delete(cb)
       }
     },
+    setBoatIconScale(scale: number): void {
+      if (!isStream) return
+      boatIconScale = clampStreamBoatIconScale(scale)
+      writeStreamBoatIconScale(boatIconScale)
+      redraw()
+    },
+    getBoatIconScale(): number {
+      return isStream ? boatIconScale : 1
+    },
     setBoatDotColors(colors: ReadonlyMap<string, string>): void {
       boatDotColors = new Map(colors)
+      redraw()
+    },
+    setBoatNames(names: ReadonlyMap<string, string>): void {
+      boatNames = new Map(names)
       redraw()
     },
     setBasemapEnabled(on: boolean): void {
@@ -1063,6 +1294,10 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
     redraw,
     dispose(): void {
       disposed = true
+      if (roundingAnimTimer != null) {
+        clearInterval(roundingAnimTimer)
+        roundingAnimTimer = null
+      }
       unsubWind()
       canvas.removeEventListener('click', onCanvasClick)
       canvas.removeEventListener('pointermove', onCanvasPointerMove)
@@ -1080,6 +1315,7 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
       sailSprite = null
       points.clear()
       boatDotColors.clear()
+      boatNames.clear()
       courseMarks = []
       layoutFeatures = []
       selectedIds.clear()

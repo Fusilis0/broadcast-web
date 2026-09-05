@@ -13,6 +13,8 @@ export type ServerConfig = {
   /**
    * Universal asset library root (`public/assets/library`).
    * POST /api/assets writes here; GET lists `index.json`.
+   * Default is the git-tracked repo folder (`npm run server` / `desktop:dev`).
+   * `--file` userData is not a library root — do not point this at a cache.
    */
   assetsLibraryDir: string
   /** Max uploaded library file size in bytes (default 20 MiB). */

@@ -25,10 +25,10 @@ Canonical lock: [`docs/architecture/performance-budgets.md`](../../architecture/
 ## Peers
 OUT (NDI pumps, readback), SCN (GPU scene), PLT (Electron GPU pin / later CI), BW (cap changes), SRT (decode stall ≠ fps)
 
-## Hard locks (defend these)
-1. Do **not** set `STUDIO_TICK_FPS = 60`.
-2. Ops preview ~60 (rAF when visible). NDI AR ~30. NDI 3D ~10. 2D NDI default off @10.
-3. 60 fps on NDI 3D with terrain+ocean+`readPixels` is a **new BW phase**, not a tweak.
+## Hard locks (defend `performance-budgets.md`, not stale bootstrap text)
+1. `STUDIO_TICK_FPS` is **60** (NDI capture clock). Do **not** change it as a “fix.” Do not tell a worker to set it to 60.
+2. Ops preview ~60 (rAF when visible). NDI AR/3D/2D **30/30/30** always-on. Send is not 60.
+3. Do **not** fake mouse / hover / rAF keep-alive to hold fps.
 4. Matched-pose / `syncTrimMs` must not change these clocks.
 
 ## How you ship work

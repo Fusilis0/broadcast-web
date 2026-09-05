@@ -66,14 +66,14 @@ Manifest (picker): `public/races/index.json` → `{ "ids": ["demo-istanbul", ...
 | `fleet.boatMapVisible` | no | Soft map id → boolean (SCN 11.7; `false` hides 2D icon; omit → show) |
 | `fleet.povMapVisible` | no | Soft map id → boolean (SCN 11.7; `false` hides 2D icon; omit → show) |
 | `povIds` | yes | Arch bands `1–4` ∪ `11–12` |
-| `features` | no* | Embedded `WorldFeature[]` (same shape as editor export) |
-| `featuresUrl` | no* | URL to `{ features: WorldFeature[] }` |
-| `courseUrl` / `sponsorsUrl` / `flagsUrl` | no* | Compat fixture pointers when features omitted |
+| `features` | no* | Embedded `WorldFeature[]`. **Present (any length, including `[]`) is a complete world** — Load remounts that list only |
+| `featuresUrl` | no* | URL to `{ features: WorldFeature[] }`. Used only when `features` is **omitted** |
+| `courseUrl` / `sponsorsUrl` / `flagsUrl` | no* | Compat fixture pointers when `features` is **omitted**. Ignored when `features` is present (Save may still write leftover URLs) |
 | `replayUrl` | no | TEL replay fixture |
 | `output` | no | Defaults: `outputMode`, `whepUrl`, `chromaKey`, timecode fields. Soft SRT: `srtUrlTemplate` (`{srtId}` placeholders), `srtByPovId` (telemetry povId → SRT camera id). **Never commit a filled relay token** — session holds it; Save redacts the last `streamid` segment |
 | `calibration` | no | Soft CAL map — see below. Omit when empty; old packs without it still parse |
 
-\* At least one of: non-empty `features`, `featuresUrl`, or course/sponsors/flags URL pointers (demo pack uses fixture URLs for visual parity).
+\* Present `features` (including `[]`) is complete — same rule as `fleet.boats`. Fixture URLs / `featuresUrl` apply only when `features` is omitted. An empty pack may keep leftover `courseUrl` / `sponsorsUrl` / `flagsUrl` on disk; Load must not merge them. Old packs without a `features` key still load from those URLs.
 
 ### `calibration` (CAL — soft)
 
@@ -128,11 +128,15 @@ Additive optional fields (old packs without them still parse):
 | `telemetryId` | `buoy` | Optional TEL buoy id for live bind; omit / `null` → static placed point |
 | `visible3d` | all | Soft 3D draw flag (SCN 11.7). Omit / `true` → show; `false` → omit from 3D remount |
 | `visible2d` | all | Soft 2D map draw flag (SCN 11.7). Omit / `true` → show; `false` → hide map chrome |
+| `visibleBuoyMesh` | `mark`, `buoy`, `gateLeft`, `gateRight` | Racing-mark float body (DSP-06). Omit / `true` → show; `false` → hide mesh only. Independent of tag / rounding / 2D. Ignored when `visible3d` is false |
+| `visibleTag` | `mark`, `buoy`, `gateLeft`, `gateRight` | Racing-mark name sprite (DSP-06). Omit / `true` → show; `false` → hide tag only. Independent of mesh / rounding / 2D. Ignored when `visible3d` is false |
 | `rounding` | `mark`, `buoy`, `gateLeft`, `gateRight` | `'cw'` \| `'ccw'` \| `'none'`. Omit = **CW** (universal default). Explicit `'none'` hides. Unknown strings parse as `none`. Per-feature spin sense for the 3D two-arrow ring (not wind-coupled). From above the water: `cw` = clock |
-| `panelColor` | `sponsor`, `billboardChain` | Board fill 0xRRGGBB or `#rrggbb`. Omit → default white `#f4f4f2`. Additive — old packs unchanged |
+| `panelColor` | `sponsor`, `billboardChain` | Board fill 0xRRGGBB or `#rrggbb`. Omit → default white `#f4f4f2` (sponsors) or bluish `#2A6FA6` (chains). Additive — old packs unchanged |
 | `frameColor` | `sponsor`, `billboardChain` | Frame stroke 0xRRGGBB or `#rrggbb`. Omit → default dark slate `#2c3338`. Additive |
+| `panelAlpha` | `sponsor`, `billboardChain` | Plate alpha 0–1. Omit → `1` (opaque). Additive |
+| `boardAspect` | `sponsor` | Along/across ratio (A–B metres / short-side metres). When set, stretching A–B scales the board uniformly. Omit → independent `heightM` (old packs) until the next height or span edit |
 
-`buoy` is a free-floating mark (distinct from course `mark` waypoints). `billboardChain` is a polyline of ≥2 GPS points with repeated sponsor-style panels at `spacingM`. Sponsor / chain panels are always **composed boards** (opaque background + frame + contain-fit logo or label); `textureUrl` is drawn onto the board, not used as the whole material.
+`buoy` is a free-floating mark (distinct from course `mark` waypoints). `billboardChain` is a polyline of ≥2 GPS points with a continuous ribbon at `spacingM` logo pitch. Sponsor / chain panels are **composed boards** (plate + contain-fit logo); a chosen `textureUrl` is drawn onto the board and the name/label is **not** burned on the mesh.
 
 Additional soft fleet map-visibility maps (independent of `boatVisibility` solid/ghost/hidden):
 

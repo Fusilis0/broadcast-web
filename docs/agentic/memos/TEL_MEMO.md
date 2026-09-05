@@ -1,7 +1,26 @@
 # TEL_MEMO
 
-**Last updated:** 2026-08-28  
-**Status:** Idle — TEL-04 accepted; wait video-mode smoke
+**Last updated:** 2026-09-01  
+**Status:** Idle — Phase 19 id contract locked; **zero workers**. Continue **SCN**.
+
+## Phase 19 — telemetry id (2026-09-01)
+
+**Wave:** anytime-small (architecture §7 / §9). **No protocol change. No `src/` DSP.**
+
+### Domain roadmap
+| Item | DSP | Notes |
+| --- | --- | --- |
+| 19.x authoring telem ids | **none** | SCN binds existing strings. Helper only if 19.7 blocked. |
+| Drone pose write path | **out** | Live/mock TEL remains source of lat/lon/alt/attitude. |
+| `isKnownBoatId` / buoy helper | **parked** | `normalizeBoatIds` / `normalizePovIds` / `normalizeBuoyIds` already exported. |
+
+### Locked contract (inspector stores packet `id`)
+- **Boat:** `fleet.boats[].id` ≡ `BoatTelemetry.id` (bus `boat`). Config mock band still `21–52`; RaceProject already allows any non-empty string.
+- **Buoy:** `WorldFeature.telemetryId` ≡ buoy channel id (`buoyIds` / `channel: 'buoy'`). Null = static. Disjoint from `boatIds`.
+- **Drone:** `povIds[]` ≡ `TelemetryData.id` (`channel: "drone"`). Name/label SCN. **Pose read-only.** LUT `dji-N` is ingest alias, not a second field.
+- **On-bus check:** Fleet `lastPacketAgeMs` / open — not a new API.
+
+Handoff: `docs/agentic/handoffs/HO-TEL-SCN-20260901-01.md`
 
 ## SRT NTP alias + frame fit accepted 2026-08-28 (BW)
 - `done/DSP-TEL-20260828-04` — producer `dji-N` / `djiN` aliases onto the digit LUT; raw key kept. Fleet SRT↔telem aliases unchanged. Lookup still SRT id then `povId`.

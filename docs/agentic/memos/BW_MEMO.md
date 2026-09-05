@@ -1,7 +1,55 @@
 # BW_MEMO — Broadcast-Web Master Orchestrator
 
-**Last updated:** 2026-08-29  
+**Last updated:** 2026-09-02  
 **Session role:** BW
+
+## 2026-09-02 — NDI vs preview (HO-OUT-BW-20260902-03) Fail
+
+Operator after P0 PBO (`DSP-OUT-20260902-01`): banner still on (even NDI unchecked). NDI **off** → preview **>60**. One NDI → preview 15–20 / Send ~10–11. Three → preview ~8 / Send **0**. 2D content OK. Fullscreen snaps back.
+
+**Dual clock ≠ two threads.** Preview rAF and NDI `studio:tick` are two schedules on the **same** Electron renderer JS thread. NDI capture/pack on that thread is why overlay dies.
+
+**Do not** park NDI forever. **v1 still wants all three streams** (NDI first). Uncheck Send = **authoring workaround only**. **Continue OUT:** `HO-BW-OUT-20260902-04` — hitch-fix DSP, then a later slice for 3× on-air. If PBO still fails live, **skip capture** instead of `fallToSync`. Banner must clear when NDI is off.
+
+PRF skipped this round (A/B is enough).
+
+## 2026-09-02 — overlay ~8 fps, empty 2D, Send — (`HO-BW-OUT-20260902-02`)
+
+## 2026-09-02 — overlay ~8 fps, empty 2D, Send — (`HO-BW-OUT-20260902-02`)
+
+Operator screenshot (Demo Istanbul, local **2D**): `SYNC READBACK`; `tickIntervalMs` ~111–124 ms; `captureTicks 2d` missed; NDI Status live, Send 0/—. Chrome on 2D (compass, wind) without course/fleet.
+
+**Cause (BW):** OUT-05 left **sync `readPixels`** as the live AR/3D path when public FBO bind fails. That plus OUT-06 CPU UYVY runs on the **preview rAF thread**. Preview *can* be 60 when that work is not blocking (mouse extra BeginFrames, or before pumps hitch). Product cap is still preview ~60 / NDI 30 — **8 is a hitch, not a setting.**
+
+**Do not** tell OUT to set preview 60. **Do not** fake mouse. **Next: OUT** `HO-BW-OUT-20260902-02` (restore PBO; 2D missed + Send HUD). Empty 2D *content* may still be SCN after PBO is back.
+
+## 2026-09-02 — idle ~8 vs mouse >40 (`HO-OUT-BW-20260902-01`)
+
+## 2026-09-02 — idle ~8 vs mouse >40 (`HO-OUT-BW-20260902-01`)
+
+Not a product. Click/hover is Chromium **input → extra rAF / compositor BeginFrames**. Desktop already `backgroundThrottling: false`; main `STUDIO_TICK_FPS = 60`. Preview = rAF; NDI = `studio:tick`. OUT-06 3D send is **full RGBA → CPU UYVY** (GPU pack striped). That CPU pack can starve the **same** renderer thread that runs rAF + tick, so idle looks ~8/crunchy while mousedown makes preview HUD jump.
+
+**Do not** ship mouse-to-boost, fake input, or “keep hovering.”
+
+**Route:** **PRF first** (measure preview HUD vs Send idle vs mousedown) — `HO-BW-PRF-20260902-01`. **OUT** worker for a *correct* GPU UYVY only after PRF names CPU pack as the hog (no size heuristic). **Human:** 3D OBS glance for OUT-06 picture in parallel; 19.1/19.4 still blocked on 3D Pass.
+
+**Human next:** PRF chat (paste below). Optional 30 s: look at `broadcast-web-3d` in OBS (stripes vs picture).
+
+## Phase 19 locked 2026-09-01 — Senexus QoL
+
+## Phase 19 locked 2026-09-01 — Senexus QoL
+
+Operator notes (`c:\Users\PC\Desktop\senexus.md`) + Q&A in this BW chat. **No `src/` in BW.**
+
+- Design: `docs/architecture/phase19-senexus-qol.md`
+- Roadmap: `docs/roadmap/phases-roadmap.md` Phase 19
+- Briefs: `docs/agentic/briefs/phase19/` (OUT, CAL, SCN, PLT, GEO, TEL)
+- **Not opened:** CON, PRF, SRT (no notes in this set except 19.3 must not thrash fps)
+- **Parked:** terrain **vendor** (Q5). Options in design §8. SCN 19.15 still does sea-over-assets.
+- Absorbed: `DSP-OUT-20260829-03` → 19.1, `DSP-SCN-20260829-03` → 19.2
+- Locks worth repeating: 1920×1080 16:9; hide barcode keep code; no PiP; roll ±200 too; NDI toggles not in project JSON; billboard `#2A6FA6` + AABAB weights; 3D-off keeps tags; 2D unaffected by ghost; library from existing PNGs + git uploads; no World Close (header toggle)
+
+**Human next:** paste OUT prompt, then CAL in a second chat. SCN after OUT has 19.3 in flight or done. Do not open GEO for a MapTiler worker.
 
 ## Accepted 2026-08-30 — `DSP-OUT-20260830-02` capture flip (suite 1014 + 23)
 

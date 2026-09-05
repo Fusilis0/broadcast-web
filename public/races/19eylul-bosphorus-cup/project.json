@@ -1,0 +1,396 @@
+{
+  "schemaVersion": 1,
+  "id": "19eylul-bosphorus-cup",
+  "name": "19 Eylul Bosphorus Cup",
+  "origin": {
+    "lat": 41.03799058098356,
+    "lon": 29.012703966432426,
+    "altMsl": 0
+  },
+  "fleet": {
+    "boatIds": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8"
+    ],
+    "boats": [
+      {
+        "id": "1",
+        "name": "TUR 19",
+        "category": "IRC",
+        "color": "#e53935",
+        "plannedLat": 41.03737985111874,
+        "plannedLon": 29.010778740154464
+      },
+      {
+        "id": "2",
+        "name": "Mira",
+        "category": "IRC",
+        "color": "#1e88e5",
+        "plannedLat": 41.03705313293943,
+        "plannedLon": 29.011759456592014
+      },
+      {
+        "id": "3",
+        "name": "Bora",
+        "category": "IRC",
+        "color": "#fdd835",
+        "plannedLat": 41.0367957127906,
+        "plannedLon": 29.0125832508737
+      },
+      {
+        "id": "4",
+        "name": "Aksu",
+        "category": "IRC",
+        "color": "#ffffff",
+        "plannedLat": 41.036944201771966,
+        "plannedLon": 29.010308014303146
+      },
+      {
+        "id": "5",
+        "name": "Lira",
+        "category": "IRC",
+        "color": "#8e24aa",
+        "plannedLat": 41.03609274708789,
+        "plannedLon": 29.012962453321556
+      },
+      {
+        "id": "6",
+        "name": "Poyraz",
+        "category": "IRC",
+        "color": "#43a047",
+        "plannedLat": 41.03659423066608,
+        "plannedLon": 29.013734584589965
+      },
+      {
+        "id": "7",
+        "name": "Yelken",
+        "category": "IRC",
+        "color": "#fb8c00",
+        "plannedLat": 41.03666698923867,
+        "plannedLon": 29.011066433272717
+      },
+      {
+        "id": "8",
+        "name": "Kuzey",
+        "category": "IRC",
+        "color": "#00acc1",
+        "plannedLat": 41.03634026878774,
+        "plannedLon": 29.012086365561082
+      }
+    ],
+    "boatNamesUrl": "/fixtures/boats/demo-istanbul-names.json"
+  },
+  "povIds": [
+    "1"
+  ],
+  "updatedAt": "2026-09-05T12:06:23.328Z",
+  "takeoffAltitudeMSL": 0,
+  "features": [
+    {
+      "id": "start:bosphorus-cup",
+      "name": "Start",
+      "type": "start",
+      "points": [
+        {
+          "lat": 41.03829344294374,
+          "lon": 29.011710150854547,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.03768771902338,
+          "lon": 29.013697782010304,
+          "altMsl": 3
+        }
+      ],
+      "color": 11337728,
+      "label": "START"
+    },
+    {
+      "id": "buoy:pin",
+      "name": "Pin",
+      "type": "buoy",
+      "points": [
+        {
+          "lat": 41.03829344294374,
+          "lon": 29.011710150854547,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 5,
+      "color": 16757248,
+      "label": "Pin",
+      "visible3d": true,
+      "visibleBuoyMesh": true,
+      "visibleTag": true
+    },
+    {
+      "id": "buoy:committee",
+      "name": "Committee",
+      "type": "buoy",
+      "points": [
+        {
+          "lat": 41.03768771902338,
+          "lon": 29.013697782010304,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 5,
+      "color": 16757248,
+      "label": "Committee",
+      "visible3d": true,
+      "visibleBuoyMesh": true,
+      "visibleTag": true
+    },
+    {
+      "id": "flags:p1",
+      "name": "P1",
+      "type": "flagP1",
+      "points": [
+        {
+          "lat": 41.038386995976296,
+          "lon": 29.01165750303048,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 10,
+      "label": "P1"
+    },
+    {
+      "id": "flags:p2",
+      "name": "P2",
+      "type": "flagP2",
+      "points": [
+        {
+          "lat": 41.037727429929674,
+          "lon": 29.013821812511193,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 10,
+      "label": "P2"
+    },
+    {
+      "id": "sponsor:miles-smiles",
+      "name": "Miles & Smiles",
+      "type": "sponsor",
+      "points": [
+        {
+          "lat": 41.03930064191632,
+          "lon": 29.01179865407562,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.038450550830866,
+          "lon": 29.014553065319856,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 138.82393519363302,
+      "color": 2781050,
+      "label": "Miles & Smiles",
+      "textureUrl": "/assets/library/image/miles-smiles-2de306df.png",
+      "panelAlpha": 0.3,
+      "boardAspect": 2
+    },
+    {
+      "id": "sponsor:audi",
+      "name": "Audi",
+      "type": "sponsor",
+      "points": [
+        {
+          "lat": 41.03828738336635,
+          "lon": 29.011475696400563,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.038657501471384,
+          "lon": 29.010167877675688,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 39.880128061822624,
+      "color": 2781050,
+      "label": "Audi",
+      "textureUrl": "/assets/library/image/audi-083d2189.png",
+      "panelAlpha": 0,
+      "boardAspect": 2
+    },
+    {
+      "id": "sponsor:bilyoner",
+      "name": "Bilyoner",
+      "type": "sponsor",
+      "points": [
+        {
+          "lat": 41.03756051466192,
+          "lon": 29.01386085378747,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.03726103426456,
+          "lon": 29.01495003016634,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 85.66734940493055,
+      "color": 2781050,
+      "label": "Bilyoner",
+      "textureUrl": "/assets/library/image/bilyoner-10ec65b2.png",
+      "panelColor": 16777215,
+      "panelAlpha": 0,
+      "boardAspect": 2
+    },
+    {
+      "id": "sponsor:gorbon",
+      "name": "Gorbon",
+      "type": "sponsor",
+      "points": [
+        {
+          "lat": 41.03789992216723,
+          "lon": 29.011660567041414,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.037427976527006,
+          "lon": 29.01323523783746,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 73.98360192839019,
+      "color": 2781050,
+      "label": "Gorbon",
+      "textureUrl": "/assets/library/image/gorbon-588e7466.png",
+      "panelAlpha": 0,
+      "boardAspect": 2
+    },
+    {
+      "id": "sponsor:turkmedya",
+      "name": "TürkMedya",
+      "type": "sponsor",
+      "points": [
+        {
+          "lat": 41.03740313533232,
+          "lon": 29.01187381046705,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.037154744021706,
+          "lon": 29.01271035002985,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 50.32614507471432,
+      "color": 2781050,
+      "label": "TürkMedya",
+      "textureUrl": "/assets/library/image/turkmedya-7b5b7329.png",
+      "panelAlpha": 0,
+      "boardAspect": 2
+    },
+    {
+      "id": "billboardChain:europe-shore",
+      "name": "Europe shore chain",
+      "type": "billboardChain",
+      "points": [
+        {
+          "lat": 41.039194689732,
+          "lon": 29.004375572439923,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.040835078460205,
+          "lon": 29.00792442831972,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.04104453450412,
+          "lon": 29.010136822879385,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.043751082222805,
+          "lon": 29.01818377182905,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.04431779119559,
+          "lon": 29.018725885589017,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.04575800841208,
+          "lon": 29.022319013879876,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.04674613997123,
+          "lon": 29.025256730070925,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.046553672629045,
+          "lon": 29.02757773409288,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.048200730444655,
+          "lon": 29.029717858351606,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 8,
+      "color": 2781050,
+      "label": "Sponsors",
+      "textureUrl": "/assets/library/image/miles-smiles-2de306df.png",
+      "logos": [
+        {
+          "url": "/assets/library/image/miles-smiles-2de306df.png",
+          "weight": 4
+        },
+        {
+          "url": "/assets/library/image/audi-083d2189.png",
+          "weight": 2
+        },
+        {
+          "url": "/assets/library/image/bilyoner-10ec65b2.png",
+          "weight": 2
+        },
+        {
+          "url": "/assets/library/image/gorbon-588e7466.png",
+          "weight": 2
+        },
+        {
+          "url": "/assets/library/image/turkmedya-7b5b7329.png",
+          "weight": 1
+        }
+      ],
+      "spacingM": 14
+    }
+  ],
+  "courseUrl": "/fixtures/course/demo-istanbul.json",
+  "sponsorsUrl": "/fixtures/sponsors/demo-istanbul.json",
+  "flagsUrl": "/fixtures/flags/demo-istanbul-countdown.json",
+  "replayUrl": "/fixtures/telemetry/spine-demo.json",
+  "output": {
+    "outputMode": "transparent",
+    "timecodeEnabled": false,
+    "timecodeCorner": "bottom-right",
+    "timecodeSizePx": 96
+  },
+  "calibration": {
+    "byPovId": {
+      "1": {
+        "yawDeg": 35.3,
+        "pitchDeg": 0,
+        "rollDeg": 0,
+        "fovHDeg": 66.8832,
+        "altMeters": 2,
+        "syncTrimMs": 0
+      }
+    }
+  }
+}

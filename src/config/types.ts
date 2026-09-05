@@ -61,7 +61,8 @@ export type AppConfig = {
    */
   chromaKey: string
   /**
-   * OUT visual timecode burn-in (Phase 3.2). Default `true` for ops sync debug.
+   * OUT visual timecode burn-in (Phase 3.2). Default `false` (Phase 19.1).
+   * Set `true` in config.json or a race pack to restore the 8×8 barcode.
    */
   timecodeEnabled: boolean
   /**

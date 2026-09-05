@@ -84,7 +84,7 @@ export function startLibraryPanel(
 
   if (uploadLive) {
     hint.textContent =
-      'Shared library — upload writes to public/assets/library/ via API.'
+      'Shared library — upload writes to public/assets/library/ via API. Commit index.json and the new file(s) so other studio PCs get them on pull.'
     uploadBtn.hidden = false
   } else {
     hint.textContent = apiBase

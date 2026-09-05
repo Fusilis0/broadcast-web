@@ -41,9 +41,13 @@ downloads JSON without a folder write. When API is also configured, Save does **
 | **editor** | Studio authoring PC | Open | Bearer = editor token | Enabled; sends bearer |
 | **air** | Air / overlay PC | Open (`?race=` OK) | Rejected | Disabled (UI + client guard) |
 
-Library uploads (`POST /api/assets`) use the same editor/air write gate. Without
-`projectsApiBase`, the Library sidebar is **browse-only** against
-`/assets/library/index.json`.
+Library uploads (`POST /api/assets`) use the same editor/air write gate. Default
+storage is repo `public/assets/library/` (override only with
+`PROJECTS_ASSETS_LIBRARY_DIR`). That tree is **git-tracked** — after upload,
+**commit** `index.json` and the new file(s) so other studio PCs get them on pull.
+`--file` / Electron `userData` is the air-machine races/config store, **not** the
+shared logo library. Without `projectsApiBase`, the Library sidebar is
+**browse-only** against `/assets/library/index.json`.
 
 ## Project manager (Phase 11.4)
 
@@ -88,7 +92,7 @@ Omit `labels` on PUT to leave existing labels unchanged. Revision / `If-Match` s
 | `PROJECTS_API_EDITOR_TOKEN` | Preferred editor bearer. When set, mutating methods require `Authorization: Bearer <token>`. |
 | `PROJECTS_API_TOKEN` | Legacy alias for the editor token (same behaviour). |
 | `PROJECTS_API_AIR_TOKEN` | Optional. Presenting this bearer on a write → **403** `{ "error": "forbidden", "role": "air" }`. Missing/wrong token → **401**. Reads never require a token. |
-| `PROJECTS_ASSETS_LIBRARY_DIR` | Optional override for `public/assets/library` absolute path. |
+| `PROJECTS_ASSETS_LIBRARY_DIR` | Optional override for `public/assets/library` absolute path. Leave unset in studio so uploads stay git-trackable. |
 | `PROJECTS_MAX_ASSET_BYTES` | Optional library upload size cap (default 20 MiB). |
 
 Unset editor + air tokens → open writes (local dev only). For LAN studio, set at least `PROJECTS_API_EDITOR_TOKEN`.

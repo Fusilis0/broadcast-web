@@ -2,6 +2,8 @@ export {
   parseCategoryColor,
   parseHexColorCss,
   boatColorsFromCatalogue,
+  boatNamesFromCatalogue,
+  resolveStreamFleetLabel,
   CATEGORY_COLOR_FALLBACK,
   CATEGORY_COLOR_PEMBE,
   CATEGORY_COLOR_SARI,

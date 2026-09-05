@@ -10,6 +10,8 @@ export {
 export {
   STATIC_HULL_GRID_SPACING_M,
   STATIC_HULL_LIVE_HOLD_MS,
+  canApplyStaticHull,
+  canAuthorStaticHull,
   staticHullGridPosition,
   type StaticHullSeed,
 } from './staticFleetHulls.ts'
@@ -74,9 +76,16 @@ export {
 export {
   createBoatEntity,
   DEFAULT_BOAT_ID,
+  normalizeBoatHullScale,
   type BoatEntityHandle,
   type BoatEntityOptions,
 } from './boatEntity.ts'
+export {
+  BOAT_WAKE_DEFAULTS,
+  boatWakeLengthM,
+  createBoatWake,
+  type BoatWakeHandle,
+} from './boatWake.ts'
 export {
   DEFAULT_BOAT_VISIBILITY_MODE,
   GHOST_HULL_OPACITY,
@@ -106,6 +115,8 @@ export {
   parseCategoryColor,
   parseHexColorCss,
   boatColorsFromCatalogue,
+  boatNamesFromCatalogue,
+  resolveStreamFleetLabel,
   BOAT_COLOR_PALETTE,
   isPaletteHex,
   upsertBoatNameEntry,
@@ -127,6 +138,12 @@ export {
   formatHitchLabel,
   startStubHud,
   clampTerrainWaterDiscardYM,
+  clampSeaHeightYM,
+  TERRAIN_WATER_DISCARD_Y_MIN,
+  TERRAIN_WATER_DISCARD_Y_MAX,
+  SEA_HEIGHT_Y_MIN,
+  SEA_HEIGHT_Y_MAX,
+  SEA_HEIGHT_Y_DEFAULT,
   type ConnectionStatusUi,
   type HudLiveChannelStatus,
   type StubHudHandle,
@@ -143,6 +160,7 @@ export {
   startAssetInspector,
   featureAssetKind,
   resolveAssetFocusEnu,
+  openLibraryLogoPicker,
   type CreateSidebarOptions,
   type SidebarHandle,
   type SidebarSection,
@@ -199,12 +217,19 @@ export {
 } from './map2d.ts'
 export {
   mapChromeMetrics,
+  streamCompassRadius,
   yawDegToCanvasRad,
   parseArrowBearingDeg,
   windTravelToMapCanvasDelta,
   formatMapWindLabel,
   MAP_BOAT_SPRITE_URL,
   MAP_SAIL_SPRITE_URL,
+  clampStreamBoatIconScale,
+  parseStreamBoatIconScale,
+  scaleStreamBoatChrome,
+  STREAM_BOAT_ICON_SCALE_DEFAULT,
+  STREAM_BOAT_ICON_SCALE_STORAGE_KEY,
+  STREAM_ROUNDING_ANIM_HZ,
   type MapChromeMetrics,
   type MapChromeVariant,
 } from './mapChrome.ts'
@@ -213,6 +238,8 @@ export {
   resolveStreamMapOptions,
   STREAM_MAP_DEFAULT_TITLE,
   STREAM_MAP_SIZE_PX,
+  STREAM_MAP_WIDTH_PX,
+  STREAM_MAP_HEIGHT_PX,
   type StreamMapResolvedOptions,
 } from './streamMap.ts'
 export {

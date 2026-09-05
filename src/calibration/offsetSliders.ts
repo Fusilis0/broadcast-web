@@ -42,9 +42,9 @@ export const SYNC_TRIM_MS_TITLE =
  * difference by eye.
  */
 export const OFFSET_SLIDER_SPECS: readonly OffsetSliderSpec[] = [
-  { field: 'yawDeg', label: 'yaw°', min: -45, max: 45, step: 0.1 },
-  { field: 'pitchDeg', label: 'pitch°', min: -45, max: 45, step: 0.1 },
-  { field: 'rollDeg', label: 'roll°', min: -45, max: 45, step: 0.1 },
+  { field: 'yawDeg', label: 'yaw°', min: -200, max: 200, step: 0.1 },
+  { field: 'pitchDeg', label: 'pitch°', min: -200, max: 200, step: 0.1 },
+  { field: 'rollDeg', label: 'roll°', min: -200, max: 200, step: 0.1 },
   { field: 'fovHDeg', label: 'fov°', min: 20, max: 120, step: 0.1 },
   { field: 'altMeters', label: 'alt m', min: -50, max: 50, step: 0.1 },
   {

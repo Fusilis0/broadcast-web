@@ -1,12 +1,12 @@
 # Dispatch DSP-SCN-20260829-03-remove-pip-minimap
 
 ## Meta
-- From orchestrator: BW (route to SCN)
+- From orchestrator: SCN (adopted from BW; Phase 19.2)
 - Worker role: WORKER(DSP-SCN-20260829-03-remove-pip-minimap)
-- Priority: P2
-- Phase: 18.9 (+ the surviving part of 18.10)
+- Priority: P1
+- Phase: **19.2** (was 18.9; absorbed 2026-09-01). 19.2b (on-air 2D UI polish) is a **follow-up DSP**, not this file.
 - Related handoffs: [`HO-BW-20260829-01-phase18`](../../handoffs/HO-BW-20260829-01-phase18.md)
-- Status: **active** — wave 4. **Do not start until wave 3 lands.** Live dump 2026-08-29: 2D Send is 3 fps because the worker `getImageData`s a 1920×1080 canvas after upscaling the 520 map. `DSP-OUT-20260830-01` is fixing that to a native-size read + blit. If you enlarge the stream-map backing store to 1920×1080 before that lands, you make `2dGrab` worse. After `-01` lands, a 16:9 source in the 520–960 band is fine; a full 1080p source canvas is still the wrong answer.
+- Status: **active** — Phase 19.2. Wave 3 2D grab (`DSP-OUT-20260830-01`) **has landed in code**. Keep the stream-map source **16:9 in the 520–960 band**, not a full 1080p backing store.
 
 ## Goal
 
@@ -87,3 +87,18 @@ Keep `letterboxRect` and its tests. It is the safety net for any future mismatch
 3. What the 16:9 source did to the map framing
 4. Files touched and tests run, including confirmation all three NDI channels still send
 5. Suggested memo bullets for SCN
+
+## Worker paste block
+
+```
+You are WORKER(DSP-SCN-20260829-03-remove-pip-minimap).
+
+Mandatory reads:
+1. docs/agentic/dispatches/active/DSP-SCN-20260829-03-remove-pip-minimap.md
+2. docs/architecture/phase19-senexus-qol.md §19.2
+3. src/scene/streamMap.ts, stubHud.ts (stream-map checkbox), style.css (.stream-map)
+4. src/main.ts local 2D host + streamMapNdiPump wiring
+
+Remove the PiP minimap card and its ops checkbox. Keep stream-map canvas alive off-screen for 2D NDI. Host full-screen local 2D without the PiP card. Make the stream-map source 16:9 (520–960 band, not a 1080p backing store). Do not restyle the map (19.2b is a later DSP). Do not delete streamMap.ts / map2d.ts / letterboxRect. Ops authoring map unchanged.
+Report back per dispatch.
+```

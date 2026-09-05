@@ -1,8 +1,8 @@
 # Phases Roadmap — broadcast-web
 
 **Owner:** BW  
-**Updated:** 2026-08-28  
-**Design:** [`../architecture/race-projects-and-world-authoring.md`](../architecture/race-projects-and-world-authoring.md) · air: [`../ops/air-runbook.md`](../ops/air-runbook.md)
+**Updated:** 2026-09-01  
+**Design:** [`../architecture/race-projects-and-world-authoring.md`](../architecture/race-projects-and-world-authoring.md) · air: [`../ops/air-runbook.md`](../ops/air-runbook.md) · **Phase 19:** [`../architecture/phase19-senexus-qol.md`](../architecture/phase19-senexus-qol.md)
 
 ---
 
@@ -20,8 +20,9 @@
 
 ### Current pointer
 
-**Active engineering:** **Phase 18** — waves 1–3 + capture flip accepted in code (suite **1014 + 23**). Remaining P2: timecode UI off, PiP card off. No fps worker until the after-dump.  
-**Active human:** restart Electron, all three NDI on. OBS: AR/3D should now be **right-side up**, 2D still upright, alpha still keys. Then **Copy 10 s dump**. If `*EnqueueIpc` is still >12 ms, that is 4:2:2, not another gate tweak.
+**Active engineering:** **Phase 19** — Senexus studio QoL. Design locked 2026-09-01. Orchestrator briefs: [`../agentic/briefs/phase19/`](../agentic/briefs/phase19/). Human opens **OUT + CAL** first, then **SCN**, then **PLT**. **GEO** terrain vendor is parked (Q5).  
+**Phase 18 leftover P2** (timecode hide, PiP) is **absorbed into 19.1 / 19.2** (existing DSPs adopted, not duplicated). NDI fps 30×3 remains a Phase 18 live-proof track, not Phase 19 except **19.3** (3D NDI stripes).  
+**Active human:** open OUT chat with `docs/agentic/briefs/phase19/OUT_PHASE19.md`.
 
 **Active:** **Phase 10.1** (Unity vs broadcast-web parallel air — human + BW) is the only remaining
 open gate.  
@@ -329,9 +330,9 @@ parallel. Engineering accepted 2026-08-17.
 | 18.5 | **Connection lifecycle** — Connect / Disconnect / Reconnect that really open and close telemetry and SRT | TEL + SRT | P1 — **both halves accepted 2026-08-29**; Electron smoke open |
 | 18.6 | **Flow panel shows only live assets** — reset/prune `flowTap` on fleet and project change | TEL + SCN | P1 — **accepted 2026-08-29** |
 | 18.7 | **Sponsor boards flat on the sea** — share the start/finish placement instead of the upright wall | SCN | P1 — **accepted 2026-08-29**; free-cam smoke open |
-| 18.8 | **Remove the timecode / qlock burn-in** — three.js sync replaced it | OUT | P2 |
-| 18.9 | **Remove the PiP minimap** — UI card only; the 2D NDI channel must keep sending, now filling 16:9 | SCN | P2 |
-| ~~18.10~~ | ~~2D map portrait 1080×1920~~ — **cancelled by the operator**; 2D stays 1920×1080 like AR and 3D. The 2D UI redesign is deferred to a next iteration where the operator will supply details. | — | — |
+| 18.8 | **Remove the timecode / qlock burn-in** | OUT | P2 — **moved to Phase 19.1** (`DSP-OUT-20260829-03`) |
+| 18.9 | **Remove the PiP minimap** — keep 2D NDI, fill 16:9 | SCN | P2 — **moved to Phase 19.2** (`DSP-SCN-20260829-03`) |
+| ~~18.10~~ | ~~2D map portrait 1080×1920~~ — **cancelled**; 2D stays 1920×1080. On-air 2D UI polish is **Phase 19.2b**. | — | — |
 
 **Operator locks 2026-08-29 (answers to BW's scoping questions):**
 
@@ -352,7 +353,7 @@ parallel. Engineering accepted 2026-08-17.
 | ~~**1**~~ | ~~`OUT-01` colour · `SCN-01` fleet · `SCN-02` sponsors · `TEL-01` telemetry disconnect~~ — **accepted 2026-08-29**, BW verified merged tree `npm test` **950 + 23** + build green | capture-target creation · `src/projects/*` · `src/scene/sponsors/*` · `fleetLivePanel.ts` + `liveSource.ts` |
 | ~~**2**~~ | ~~`PRF-01` instrumentation · `TEL-02` flow panel · `SRT-01` SRT disconnect~~ — **accepted 2026-08-29**, BW verified merged tree `npm test` **982 + 23** + build green | every pump + sender (call sites) · `flowTap.ts` + `flowPanel.ts` · `fleetLivePanel.ts` SRT half + `desktop/srtReader.cjs` — **plus three region-locked slices of `src/main.ts`** |
 | **3** | `OUT-04` clocks + defer IPC · `OUT-20260830-01` 2D native grab · `OUT-02` send path — **released 2026-08-30** after the dump recut | pumps / stagger · `ndi2dAsyncCapture` + worker · **`desktop/` only** |
-| **4** | `OUT-05` GPU swizzle *(only if needed)* · `OUT-03` timecode · `SCN-03` PiP | capture pass · config + boot gate · stream map |
+| **4** | `OUT-03` timecode · `SCN-03` PiP — **moved to Phase 19** (19.1 / 19.2). `OUT-05` cancelled. | — |
 
 **Wave 1 accepted 2026-08-29.** BW verified the merged tree rather than the worker reports: `npm test` **950 + 23**, `npm run build` green. Two of the three ★ items are closed in code — colour parity (18.1) and fleet fidelity (18.4) — plus sponsors (18.7) and the telemetry half of the connection lifecycle (18.5). The ★ fps track is untouched and is now the whole of waves 2 and 3. `src/config/loadConfig.ts` was deliberately **not** modified, so `normalizeBoatIds` keeps its behaviour for config and mock exactly as the operator locked it.
 
@@ -369,6 +370,46 @@ parallel. Engineering accepted 2026-08-17.
 **Why wave 3 still parallelises:** three file sets, no overlap. `OUT-02` is `desktop/` only. `OUT-04` is the FBO pumps + stagger + readback + `streamMapNdiPump` tick/gate. `OUT-20260830-01` is `ndi2dAsyncCapture.ts` + worker only. `OUT-02` still reports the `grandi.FourCC` probe early so `OUT-05` can be cancelled or started.
 
 **Dispatches issued 2026-08-29** into `docs/agentic/dispatches/active/`: `DSP-OUT-20260829-01` colour · `DSP-PRF-20260829-01` instrumentation · `DSP-OUT-20260829-02` NDI send path · `DSP-OUT-20260829-04` independent channel clocks · `DSP-OUT-20260829-05` GPU swizzle (conditional) · `DSP-SCN-20260829-01` fleet · `DSP-SCN-20260829-02` sponsors · `DSP-TEL-20260829-01` telemetry disconnect · `DSP-SRT-20260829-01` SRT disconnect · `DSP-TEL-20260829-02` Flow panel · `DSP-OUT-20260829-03` timecode · `DSP-SCN-20260829-03` PiP.
+
+---
+
+### Phase 19 — Senexus studio QoL *(design locked 2026-09-01; OUT Wave A dispatched)*
+
+**OUT:** 19.1 / 19.3 / 19.4 **Pass**. Hitch+send P0 `DSP-OUT-20260902-05` human **Pass** 2026-09-02 (operator parked 30×3). **OUT idle.** Next human: **CAL 19.5**, then SCN.  
+**Handoff / briefs:** [`../agentic/briefs/phase19/`](../agentic/briefs/phase19/) · design [`../architecture/phase19-senexus-qol.md`](../architecture/phase19-senexus-qol.md)
+
+**Requested:** 2026-09-01 (operator notes `senexus.md` + BW Q&A). Studio is on-air capable; this phase is **ops QoL + one P0 picture bug** (3D NDI stripes). Not a new render pipeline.
+
+**Design:** [`../architecture/phase19-senexus-qol.md`](../architecture/phase19-senexus-qol.md)  
+**Briefs (one file per orchestrator):** [`../agentic/briefs/phase19/`](../agentic/briefs/phase19/)
+
+**BW locks:** 2D **1920×1080 16:9** · hide barcode keep code · no PiP · yaw/pitch/**roll ±200** · NDI toggles **not** in project JSON · billboard default `#2A6FA6` + fair-interleave weights · boat 3D-off **keeps tags** · 2D map **unaffected** by ghost/hidden · Library seeded from in-repo sponsor PNGs and **git-tracked** · terrain **vendor parked (Q5)** · start/finish **uniform ×2**.
+
+| # | Work | Owner | Notes |
+| --- | --- | --- | --- |
+| 19.1 | Hide timecode barcode; keep modules | OUT | **Done** (`DSP-OUT-20260829-03`; smoke Pass) |
+| 19.2 | PiP off; 16:9 2D source; local 2D stays | SCN | Adopt `DSP-SCN-20260829-03` |
+| 19.2b | On-air 2D UI polish | SCN | After 19.2 |
+| 19.3 | 3D NDI green/purple stripes | OUT | **Done** OBS Pass 2026-09-02 (OUT-01…06) |
+| 19.4 | Hand on/off AR/3D/2D NDI | OUT | **Done** `DSP-OUT-20260901-02` (smoke optional with PBO) |
+| 19.5 | Calib yaw/pitch/roll ±200 | CAL | |
+| 19.6 | World Authoring header toggle; no Close | SCN | |
+| 19.7 | Authoring inspector + lat/lon Add/Edit; instant Assets | SCN | After PLT 19.16 for logos |
+| 19.8 | Tags stay when 3D off; ghost persist leak | SCN | |
+| 19.9 | Save/Load status under buttons | SCN | |
+| 19.10 | Start + finish band ×2 | SCN | |
+| 19.11 | Billboard plate, weights, height vertical, library picker | SCN | Needs 19.16 |
+| 19.12 | OSM zoom/coverage | SCN | |
+| 19.13 | Boat foam wakes | SCN | |
+| 19.14 | Billboard vanish (investigate) | SCN | No repro |
+| 19.15 | Sea over assets (not new globe) | SCN | |
+| 19.16 | Seed library + git-trackable uploads | PLT | Before 19.11 |
+| 19.17 | Instant project switch (UI+2D+list) | PLT+SCN | |
+| 19.18 | Terrain provider options | GEO | **Parked** until Q5 |
+
+**Human open order:** OUT + CAL → SCN → PLT → TEL only if blocked → GEO never until Q5.
+
+**Exit:** Notes inventory in the design doc §2 all done or explicitly parked (19.18).
 
 ---
 
@@ -414,3 +455,8 @@ Do not re-open unless a regression. Details live in `docs/agentic/dispatches/don
 | Public host / WSS TLS | **12** (deferred) |
 | Multi-channel output (2D/3D/AR), NDI delay, AR calib overlay | **13** *(done)* |
 | Cesium terrain, real ocean + waves, wind data & VFX | **14** *(engineering done; 14.3c not issued)* |
+| Studio 60, ocean polish, fleet authoring | **15** *(done)* |
+| Visual upgrade & two-rail ops | **16** *(done)* |
+| AR SRT underlay + NTP match | **17** *(engineering done)* |
+| Studio air-readiness (NDI colour/fps/fleet) | **18** *(waves 1–3 in code; live fps still open)* |
+| Senexus QoL (authoring, NDI stripes, library) | **19** *(design locked; orchestrators next)* |

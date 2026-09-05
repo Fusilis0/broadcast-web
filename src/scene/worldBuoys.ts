@@ -38,14 +38,17 @@ export function mountWorldBuoys(
   for (const f of layout) {
     const p = f.points[0]
     if (!p) continue
-    points.push({
+    const point: CourseEnuPoint = {
       name: f.telemetryId ? `${f.name}·${f.telemetryId}` : f.name,
       type: 'mark',
       x: p.x,
       y: p.y,
       z: p.z,
-      rounding: f.rounding,
-    })
+    }
+    if (f.rounding !== undefined) point.rounding = f.rounding
+    if (f.visibleBuoyMesh !== undefined) point.visibleBuoyMesh = f.visibleBuoyMesh
+    if (f.visibleTag !== undefined) point.visibleTag = f.visibleTag
+    points.push(point)
   }
 
   if (points.length === 0) return null

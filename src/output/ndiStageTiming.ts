@@ -264,7 +264,7 @@ function phaseLockReading(hist: Record<string, number>): string {
   const three = hist['3'] ?? 0
   const four = hist['4'] ?? 0
   const total = Object.values(hist).reduce((a, b) => a + b, 0)
-  if (total === 0) return 'no samples'
+  if (total === 0) return 'missed (no record)'
   if (two > 0 && three > 0 && two + three >= total * 0.7) {
     return '2-vs-3 split (phase-lock)'
   }
@@ -383,6 +383,16 @@ export function markNdiSyncReadback(): void {
 
 export function markNdiSync2dCapture(): void {
   sync2dCapture = true
+}
+
+/** Clear latched sync-readback flags (all NDI Send boxes off). */
+export function clearNdiSyncFallbacks(): void {
+  syncReadback = false
+  sync2dCapture = false
+}
+
+export function clearNdiSyncReadback(): void {
+  syncReadback = false
 }
 
 export function applyNdiMainPerfSummary(summary: NdiMainPerfSummary): void {

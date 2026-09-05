@@ -62,6 +62,7 @@ function cloneFeatures(
   return features.map((f) => ({
     ...f,
     points: f.points.map((p) => ({ ...p })),
+    logos: f.logos?.map((l) => ({ url: l.url, weight: l.weight })),
   }))
 }
 

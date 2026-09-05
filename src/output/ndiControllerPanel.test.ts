@@ -4,8 +4,10 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import type { NdiFramePumpHandle } from './ndiFramePump.ts'
 import {
+  formatNdiLiveStatus,
   resolveNdiAirIndicator,
   resolveNdiChannelIndicator,
+  shouldShowNdiSyncFallbackBanner,
   STREAM_MAP_NDI_BRIDGE_SUPPORTED,
 } from './ndiControllerPanel.ts'
 import type { StreamMapNdiPumpHandle } from './streamMapNdiPump.ts'
@@ -38,6 +40,8 @@ function fakePump(
       return delayMs
     },
     getSendFps: () => partial.sendFps ?? 0,
+    isEnabled: () => true,
+    setEnabled: () => {},
     stop: () => {},
   }
 }
@@ -92,6 +96,50 @@ describe('resolveNdiAirIndicator', () => {
         pump: fakePump({ error: 'NDI start failed' }),
       }),
     ).toBe('error')
+  })
+})
+
+describe('formatNdiLiveStatus', () => {
+  it('keeps non-live labels; live with no send is not healthy', () => {
+    expect(formatNdiLiveStatus('starting', 0)).toBe('starting')
+    expect(formatNdiLiveStatus('live', 0)).toBe('live · no send')
+    expect(formatNdiLiveStatus('live', null)).toBe('live · no send')
+    expect(formatNdiLiveStatus('live', 28)).toBe('live')
+  })
+})
+
+describe('shouldShowNdiSyncFallbackBanner', () => {
+  it('hides when all Send boxes are off even if the latch is set', () => {
+    expect(
+      shouldShowNdiSyncFallbackBanner({
+        syncReadback: true,
+        sync2dCapture: true,
+        arEnabled: false,
+        d3Enabled: false,
+        mapEnabled: false,
+      }),
+    ).toBe(false)
+  })
+
+  it('shows only when a live enabled channel is on emergency sync', () => {
+    expect(
+      shouldShowNdiSyncFallbackBanner({
+        syncReadback: true,
+        sync2dCapture: false,
+        arEnabled: true,
+        d3Enabled: false,
+        mapEnabled: false,
+      }),
+    ).toBe(true)
+    expect(
+      shouldShowNdiSyncFallbackBanner({
+        syncReadback: false,
+        sync2dCapture: false,
+        arEnabled: true,
+        d3Enabled: true,
+        mapEnabled: true,
+      }),
+    ).toBe(false)
   })
 })
 
@@ -314,7 +362,11 @@ describe('NDI controller / capture invariant (source)', () => {
     expect(src).toMatch(/high memory/)
     expect(src).toMatch(/ndi-send-fps-|Send/)
     expect(src).toMatch(/formatNdiSendFps|getSendFps/)
-    expect(src).toMatch(/mapToggle\.checked = true/)
+    expect(src).toMatch(/formatNdiLiveStatus/)
+    expect(src).toMatch(/shouldShowNdiSyncFallbackBanner/)
+    expect(src).toMatch(/ndi-channel-toggle-/)
+    expect(src).toMatch(/onNdiChannelWantedChange/)
+    expect(src).toMatch(/Send on NDI/)
     expect(src).not.toMatch(/readRenderTargetPixels/)
     expect(src).not.toMatch(/getContext\(/)
     expect(src).not.toMatch(/WebGLRenderer/)
@@ -356,5 +408,28 @@ describe('NDI controller / capture invariant (source)', () => {
     expect(pumpSrc).toMatch(/getStudioBridge/)
     expect(pumpSrc).toMatch(/channel/)
     expect(pumpSrc).toMatch(/getSendFps/)
+  })
+})
+
+describe('NDI channel hand toggles (Phase 19.4)', () => {
+  it('AR and 3D pumps expose setEnabled/isEnabled like 2D', () => {
+    const ar = readFileSync(join(here, 'ndiFramePump.ts'), 'utf8')
+    const d3 = readFileSync(join(here, 'ndi3dChannelPump.ts'), 'utf8')
+    const map = readFileSync(join(here, 'streamMapNdiPump.ts'), 'utf8')
+    for (const src of [ar, d3, map]) {
+      expect(src).toMatch(/isEnabled/)
+      expect(src).toMatch(/setEnabled/)
+      expect(src).toMatch(/enabled\?:\s*boolean/)
+    }
+  })
+
+  it('controller wires three independent channel toggles; session wanted helper exists', () => {
+    const panel = readFileSync(join(here, 'ndiControllerPanel.ts'), 'utf8')
+    const wanted = readFileSync(join(here, 'ndiChannelWanted.ts'), 'utf8')
+    expect(panel).toMatch(/ndi-channel-toggle-/)
+    expect(panel).toMatch(/onNdiChannelWantedChange/)
+    expect(panel).toMatch(/initialChannelWanted/)
+    expect(wanted).toMatch(/sessionStorage/)
+    expect(wanted).toMatch(/Never written to/)
   })
 })

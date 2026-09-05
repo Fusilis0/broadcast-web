@@ -47,7 +47,7 @@ export type LocalFocusPresentation = {
   focus: LocalChannelFocus
   /** Show WebGL canvas as the primary local picture. */
   showWebgl: boolean
-  /** Stream map as large primary local view (not PiP-only). */
+  /** Stream map as large primary local view (off-screen host when not 2D). */
   streamMapPrimary: boolean
   /**
    * Screen WebGL clear path:

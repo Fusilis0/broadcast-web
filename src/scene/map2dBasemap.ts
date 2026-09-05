@@ -1,7 +1,8 @@
 /**
- * Optional OSM raster basemap under the ops 2D map.
- * Best-effort only — fetch failures silently leave the plain grid.
- * Session in-memory tile cache; no persistent store.
+ * Optional OSM raster basemap under ops / World Authoring and the stream
+ * on-air 2D canvas. Visible tiles cover the canvas (1-tile pad; coarsen z
+ * instead of truncating). Best-effort only — fetch failures silently leave
+ * the wash/grid. Session in-memory tile cache; no persistent store.
  */
 
 export type LatLon = { lat: number; lon: number }
@@ -105,6 +106,15 @@ export function pickOsmZoom(
 
 export type OsmTileRef = { z: number; x: number; y: number }
 
+/** Extra ring around the viewport so edges/corners stay covered. */
+export const OSM_TILE_PAD = 1
+
+/**
+ * Cap visible requests. If the padded range would exceed this, drop zoom
+ * (coarser tiles) rather than returning a truncated NW slice with holes.
+ */
+export const MAX_OSM_VISIBLE_TILES = 48
+
 export function osmTileUrl(
   tile: OsmTileRef,
   template = OSM_TILE_URL,
@@ -115,7 +125,92 @@ export function osmTileUrl(
     .replace('{y}', String(tile.y))
 }
 
-/** Visible OSM tiles covering an ENU viewport (via geo bridge). */
+function enuBoundsSamples(
+  bounds: MapBoundsLike,
+  geo: BasemapGeoBridge,
+): LatLon[] {
+  const midE = (bounds.minE + bounds.maxE) / 2
+  const midN = (bounds.minN + bounds.maxN) / 2
+  return [
+    geo.enuToLatLon(bounds.minE, bounds.minN),
+    geo.enuToLatLon(bounds.maxE, bounds.minN),
+    geo.enuToLatLon(bounds.minE, bounds.maxN),
+    geo.enuToLatLon(bounds.maxE, bounds.maxN),
+    geo.enuToLatLon(midE, midN),
+    geo.enuToLatLon(bounds.minE, midN),
+    geo.enuToLatLon(bounds.maxE, midN),
+    geo.enuToLatLon(midE, bounds.minN),
+    geo.enuToLatLon(midE, bounds.maxN),
+  ]
+}
+
+/** Inclusive XYZ range covering ENU bounds at `z`, plus `pad` tiles. */
+export function osmTileRangeForBounds(
+  bounds: MapBoundsLike,
+  geo: BasemapGeoBridge,
+  z: number,
+  pad = OSM_TILE_PAD,
+): { minTx: number; maxTx: number; minTy: number; maxTy: number; z: number } {
+  const zoom = Math.max(0, Math.min(19, Math.floor(z)))
+  const n = 2 ** zoom
+  let minTx = Infinity
+  let maxTx = -Infinity
+  let minTy = Infinity
+  let maxTy = -Infinity
+  for (const c of enuBoundsSamples(bounds, geo)) {
+    if (!Number.isFinite(c.lat) || !Number.isFinite(c.lon)) continue
+    const t = latLonToTile(c.lat, c.lon, zoom)
+    minTx = Math.min(minTx, t.x)
+    maxTx = Math.max(maxTx, t.x)
+    minTy = Math.min(minTy, t.y)
+    maxTy = Math.max(maxTy, t.y)
+  }
+  if (!Number.isFinite(minTx)) {
+    return { minTx: 0, maxTx: 0, minTy: 0, maxTy: 0, z: zoom }
+  }
+  const p = Math.max(0, Math.floor(pad))
+  return {
+    minTx: Math.max(0, minTx - p),
+    maxTx: Math.min(n - 1, maxTx + p),
+    minTy: Math.max(0, minTy - p),
+    maxTy: Math.min(n - 1, maxTy + p),
+    z: zoom,
+  }
+}
+
+function tileCountInRange(range: {
+  minTx: number
+  maxTx: number
+  minTy: number
+  maxTy: number
+}): number {
+  return (
+    Math.max(0, range.maxTx - range.minTx + 1) *
+    Math.max(0, range.maxTy - range.minTy + 1)
+  )
+}
+
+function tilesFromRange(range: {
+  minTx: number
+  maxTx: number
+  minTy: number
+  maxTy: number
+  z: number
+}): OsmTileRef[] {
+  const tiles: OsmTileRef[] = []
+  for (let y = range.minTy; y <= range.maxTy; y++) {
+    for (let x = range.minTx; x <= range.maxTx; x++) {
+      tiles.push({ z: range.z, x, y })
+    }
+  }
+  return tiles
+}
+
+/**
+ * Visible OSM tiles covering an ENU viewport (via geo bridge).
+ * Always a complete rectangle (padded); never an empty set for finite bounds.
+ * Over-budget ranges drop zoom instead of punching holes in the SE.
+ */
 export function tilesForEnuBounds(
   bounds: MapBoundsLike,
   geo: BasemapGeoBridge,
@@ -123,38 +218,23 @@ export function tilesForEnuBounds(
 ): OsmTileRef[] {
   const sw = geo.enuToLatLon(bounds.minE, bounds.minN)
   const ne = geo.enuToLatLon(bounds.maxE, bounds.maxN)
-  const centerLat = (sw.lat + ne.lat) / 2
-  const halfN = (bounds.maxN - bounds.minN) / 2
-  const z = pickOsmZoom(centerLat, halfN, canvasHeightPx)
+  const centerLat =
+    Number.isFinite(sw.lat) && Number.isFinite(ne.lat)
+      ? (sw.lat + ne.lat) / 2
+      : 0
+  const halfN = Math.max(Math.abs(bounds.maxN - bounds.minN) / 2, 1)
+  let z = pickOsmZoom(centerLat, halfN, canvasHeightPx)
 
-  const corners = [
-    geo.enuToLatLon(bounds.minE, bounds.minN),
-    geo.enuToLatLon(bounds.maxE, bounds.minN),
-    geo.enuToLatLon(bounds.minE, bounds.maxN),
-    geo.enuToLatLon(bounds.maxE, bounds.maxN),
-  ]
-  let minTx = Infinity
-  let maxTx = -Infinity
-  let minTy = Infinity
-  let maxTy = -Infinity
-  for (const c of corners) {
-    const t = latLonToTile(c.lat, c.lon, z)
-    minTx = Math.min(minTx, t.x)
-    maxTx = Math.max(maxTx, t.x)
-    minTy = Math.min(minTy, t.y)
-    maxTy = Math.max(maxTy, t.y)
+  let range = osmTileRangeForBounds(bounds, geo, z, OSM_TILE_PAD)
+  while (tileCountInRange(range) > MAX_OSM_VISIBLE_TILES && z > 0) {
+    z -= 1
+    range = osmTileRangeForBounds(bounds, geo, z, OSM_TILE_PAD)
   }
 
-  // Cap tile count for a small ops map (avoid storms of requests).
-  const maxTiles = 24
-  const tiles: OsmTileRef[] = []
-  for (let y = minTy; y <= maxTy; y++) {
-    for (let x = minTx; x <= maxTx; x++) {
-      tiles.push({ z, x, y })
-      if (tiles.length >= maxTiles) return tiles
-    }
-  }
-  return tiles
+  const tiles = tilesFromRange(range)
+  if (tiles.length > 0) return tiles
+  const fallback = latLonToTile(centerLat, Number.isFinite(sw.lon) ? sw.lon : 0, z)
+  return [{ z: fallback.z, x: fallback.x, y: fallback.y }]
 }
 
 export type TileCacheEntry = HTMLImageElement | 'loading' | 'failed'
@@ -174,8 +254,90 @@ export function createTileCache(): TileCache {
   }
 }
 
-function tileKey(t: OsmTileRef): string {
+export function tileCacheKey(t: OsmTileRef): string {
   return `${t.z}/${t.x}/${t.y}`
+}
+
+export function isOsmTileImage(
+  entry: TileCacheEntry | undefined,
+): entry is HTMLImageElement {
+  return entry !== undefined && entry !== 'loading' && entry !== 'failed'
+}
+
+export function parentOsmTile(t: OsmTileRef): OsmTileRef | null {
+  if (t.z <= 0) return null
+  return { z: t.z - 1, x: t.x >> 1, y: t.y >> 1 }
+}
+
+/**
+ * Cached coarser parents for tiles that are not ready yet (zoom-in underlay).
+ * Does not fetch — cache hits only.
+ */
+export function cachedParentOsmTiles(
+  tiles: readonly OsmTileRef[],
+  cache: TileCache,
+): OsmTileRef[] {
+  const out: OsmTileRef[] = []
+  const seen = new Set<string>()
+  for (const t of tiles) {
+    if (isOsmTileImage(cache.get(tileCacheKey(t)))) continue
+    let x = t.x
+    let y = t.y
+    for (let z = t.z - 1; z >= 0; z--) {
+      x >>= 1
+      y >>= 1
+      const parent: OsmTileRef = { z, x, y }
+      const key = tileCacheKey(parent)
+      if (seen.has(key)) break
+      if (isOsmTileImage(cache.get(key))) {
+        seen.add(key)
+        out.push(parent)
+        break
+      }
+    }
+  }
+  return out
+}
+
+/** Previous zoom first, then current — unique by `z/x/y`. */
+export function osmTilesDrawList(
+  current: readonly OsmTileRef[],
+  previous: readonly OsmTileRef[],
+): OsmTileRef[] {
+  const seen = new Set<string>()
+  const out: OsmTileRef[] = []
+  for (const t of previous) {
+    const key = tileCacheKey(t)
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(t)
+  }
+  for (const t of current) {
+    const key = tileCacheKey(t)
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(t)
+  }
+  return out
+}
+
+/**
+ * Keep last ready coverage across a zoom step so the canvas does not go blank
+ * while the new integer z is still loading.
+ */
+export function nextOsmDrawHistory(
+  current: readonly OsmTileRef[],
+  previous: readonly OsmTileRef[],
+  cache: TileCache,
+): OsmTileRef[] {
+  const currentReady = current.filter((t) =>
+    isOsmTileImage(cache.get(tileCacheKey(t))),
+  )
+  if (current.length > 0 && currentReady.length === current.length) {
+    return [...current]
+  }
+  if (currentReady.length === 0) return [...previous]
+  return osmTilesDrawList(currentReady, previous)
 }
 
 /**
@@ -189,7 +351,7 @@ export function ensureOsmTiles(
   urlTemplate = OSM_TILE_URL,
 ): void {
   for (const t of tiles) {
-    const key = tileKey(t)
+    const key = tileCacheKey(t)
     if (cache.get(key) !== undefined) continue
     cache.set(key, 'loading')
     const img = new Image()
@@ -228,7 +390,7 @@ export function drawOsmBasemap(
   project: ProjectEnuToPx,
 ): void {
   for (const t of tiles) {
-    const entry = cache.get(tileKey(t))
+    const entry = cache.get(tileCacheKey(t))
     if (!entry || entry === 'failed' || entry === 'loading') continue
     const nw = tileNwLatLon(t.x, t.y, t.z)
     const se = tileNwLatLon(t.x + 1, t.y + 1, t.z)

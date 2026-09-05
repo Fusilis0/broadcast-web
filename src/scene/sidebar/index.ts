@@ -35,6 +35,10 @@ export {
   type AssetKind,
   type AssetRowId,
 } from './assetInspector.ts'
+export {
+  openLibraryLogoPicker,
+  type LibraryLogoPickerOptions,
+} from './libraryLogoPicker.ts'
 export type {
   CreateSidebarOptions,
   SidebarHandle,

@@ -114,8 +114,8 @@ export function createBuoyFeature(
 }
 
 /**
- * Polyline billboard chain (≥2 ENU points). Instances spaced at `spacingM`
- * along the path; texture from library (stub list OK until PLT-01).
+ * Polyline billboard chain (≥2 ENU points). Continuous ribbon; `spacingM` is
+ * logo pitch along the strip. Omit `panelColor` → bluish `#2A6FA6`. Empty `logos` → solid plate.
  */
 export function createBillboardChainFeature(
   enuPoints: readonly { east: number; north: number }[],
@@ -124,6 +124,7 @@ export function createBillboardChainFeature(
   opts?: {
     spacingM?: number
     textureUrl?: string | null
+    logos?: { url: string; weight: number }[]
     label?: string
     heightM?: number
     color?: number
@@ -137,7 +138,7 @@ export function createBillboardChainFeature(
     opts.spacingM > 0
       ? opts.spacingM
       : DEFAULT_BILLBOARD_CHAIN_SPACING_M
-  return {
+  const feature: WorldFeature = {
     id,
     name: `billboardChain-${counter.n}`,
     type: 'billboardChain',
@@ -148,6 +149,13 @@ export function createBillboardChainFeature(
     textureUrl: opts?.textureUrl ?? null,
     spacingM,
   }
+  if (opts?.logos !== undefined) {
+    feature.logos = opts.logos.map((l) => ({
+      url: l.url,
+      weight: l.weight,
+    }))
+  }
+  return feature
 }
 
 /**
@@ -212,7 +220,8 @@ export function createSponsorFeature(
   counter: FeatureIdCounter,
 ): WorldFeature {
   const id = nextId('sponsor', counter)
-  return {
+  const span = Math.hypot(eastB - eastA, northB - northA)
+  const feature: WorldFeature = {
     id,
     name: id,
     type: 'sponsor',
@@ -224,6 +233,8 @@ export function createSponsorFeature(
     color: 0x2a6f7a,
     label: `Sponsor ${counter.n}`,
   }
+  if (span > 0.01) feature.boardAspect = span / 8
+  return feature
 }
 
 /** Two-click gate pair (left then right), shared base name. */

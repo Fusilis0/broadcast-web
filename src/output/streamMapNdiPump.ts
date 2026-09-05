@@ -4,12 +4,13 @@
  * **Resolution choice (DSP-OUT-20260812-03):** letterbox/scale the map canvas
  * into the studio lock **1920×1080** (same as AR/3D drawing buffer). The bridge
  * accepts arbitrary sizes, but a fixed broadcast frame keeps vMix inputs
- * consistent. Native map pixels stay ~520² for the PiP; NDI does not change
- * AR/3D resolution.
+ * consistent. Native map pixels are 16:9 **1920×1080** (studio lock);
+ * `letterboxRect` is identity when source matches. NDI does not change
+ * AR/3D resolution. Pump architecture / skip-forever / tick fps unchanged.
  *
  * **Visibility:** samples map canvas pixels after `ensureDrawn` — independent
- * of PiP / sidebar visibility (canvas 2D redraw still fills the bitmap when
- * `root.hidden`).
+ * of local 2D host / sidebar visibility (canvas 2D redraw still fills the
+ * bitmap when the host is off-screen).
  *
  * **Tick (DSP-OUT-20260828-07 / DSP-OUT-20260829-04):** `onStudioTick` only
  * *schedules* capture. Gate and send are independent of AR/3D. `ensureDrawn` /
@@ -257,6 +258,8 @@ export function startStreamMapNdiPump(
       noteNdiSkip('2d', 'rateCap')
       return
     }
+    // captureTicks 2d "missed (no record)" means this never ran while Status
+    // was live — usually the JS thread was blocked on AR/3D sync readPixels.
     recordNdiCapture('2d', now)
     const alreadyPacked =
       data.byteLength === packedFrameBytes('uyvy', outW, outH)
@@ -314,7 +317,12 @@ export function startStreamMapNdiPump(
     }
 
     const src = options.getSourceCanvas()
-    if (!src || src.width < 1 || src.height < 1) return
+    if (!src || src.width < 1 || src.height < 1) {
+      if (sourceName) {
+        error = '2D source canvas unavailable'
+      }
+      return
+    }
 
     const box = letterboxRect(src.width, src.height, outW, outH)
     grabbing = true

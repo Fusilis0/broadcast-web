@@ -24,7 +24,17 @@ import {
   type SnapMode,
 } from './snap.ts'
 import { promptModal } from '../../../ui/promptModal.ts'
-import { promptStubTextureUrl } from './stubTexturePicker.ts'
+import { openLibraryLogoPicker } from '../../sidebar/libraryLogoPicker.ts'
+import { mountAuthoringInspector } from '../../authoringInspector.ts'
+import { applySponsorScaleOnEdit } from '../../sponsors/sponsorLayout.ts'
+import {
+  addFromCoordinates,
+  editFromCoordinates,
+  placeKindForTool,
+  toolForPlaceKind,
+  type CoordinatePlaceDraft,
+  type FleetPlaceInput,
+} from './coordinatePlace.ts'
 import {
   EDITOR_TOOL_GROUPS,
   EDITOR_TOOL_LABELS,
@@ -38,8 +48,17 @@ import {
   formatValidationSummary,
   validateWorldFeatures,
 } from './validateFeatures.ts'
-import type { GpsToEnuAmslFn, LayoutFeature, WorldFeature } from '../types.ts'
+import {
+  BILLBOARD_CHAIN_MAX_POINTS,
+  type GpsToEnuAmslFn,
+  type LayoutFeature,
+  type WorldFeature,
+} from '../types.ts'
 import type { Map2dHandle } from '../../map2d.ts'
+import { northFromSceneZ } from '../../../geodesy/index.ts'
+import {
+  extendPolylineEnd,
+} from './polylineInsert.ts'
 import {
   downloadWorldFeaturesGeojson,
   geojsonToWorldFeatures,
@@ -76,6 +95,8 @@ export type MapFeatureEditorOptions = {
    * Default true (editor).
    */
   projectWritesEnabled?: boolean
+  /** Library catalogue API base (picker). Empty → static `/assets/library/index.json`. */
+  projectsApiBase?: string
   /**
    * Place boat/drone on the map → register into fleet (session).
    * Caller seeds map pose + fleet panel.
@@ -86,6 +107,34 @@ export type MapFeatureEditorOptions = {
     north: number,
     id: string,
   ) => void
+  /**
+   * Coordinate Add/Edit for boats and drones (GPS, not map-click ENU).
+   * Drone pose must not be written into the TEL pipeline — planned map
+   * seed only.
+   */
+  onPlaceFleetGps?: (input: FleetPlaceInput) => void
+  onEditFleetGps?: (input: FleetPlaceInput) => void
+  /**
+   * Select-tool drag of a fleet pose on the world map (boats without live telem).
+   */
+  onMoveFleet?: (
+    kind: MapPlaceFleetKind,
+    east: number,
+    north: number,
+    id: string,
+  ) => void
+  /** False while live packets are fresh — map drag is ignored. */
+  canMoveFleetPose?: (id: string, kind: MapPlaceFleetKind) => boolean
+  onSelectFleetPose?: (id: string, kind: MapPlaceFleetKind) => void
+  /** Live drone GPS from TEL — inspector shows it read-only. */
+  getLivePovGps?: (
+    id: string,
+  ) => { lat: number; lon: number; alt: number } | null
+  /**
+   * Fired on the same tick as in-memory feature mutation (map + Assets).
+   * 3D remount still goes through `onApply` (may be deferred).
+   */
+  onStoreChange?: (features: readonly WorldFeature[]) => void
   /**
    * Click-to-set world anchor (lat/lon). Alternative to typing origin fields.
    * ENU east/north already converted by caller via enuToGps when needed —
@@ -136,6 +185,7 @@ export type MapFeatureEditorHandle = {
 const EDITOR_MAP_SIZE = 560
 const NORMAL_MAP_SIZE = 240
 const HIT_PX = 12
+const BOAT_HIT_PX = 16
 /** Screen-space vertex snap radius (px on editor map). */
 const VERTEX_SNAP_PX = 14
 
@@ -164,6 +214,11 @@ export function startMapFeatureEditor(
   let vertexDrag: {
     featureId: string
     pointIndex: number
+    pointerId: number
+  } | null = null
+  /** Active fleet-boat drag (no live telem). */
+  let boatDrag: {
+    id: string
     pointerId: number
   } | null = null
   const idCounter: FeatureIdCounter = { n: maxNumericSuffix(features) }
@@ -301,48 +356,33 @@ export function startMapFeatureEditor(
   props.className = 'ops-editor__props'
   panel.appendChild(props)
 
-  const nameLabel = document.createElement('label')
-  nameLabel.className = 'ops-editor__field'
-  nameLabel.textContent = 'name'
-  const nameInput = document.createElement('input')
-  nameInput.className = 'ops-editor__input'
-  nameInput.type = 'text'
-  nameLabel.appendChild(nameInput)
-  props.appendChild(nameLabel)
-
-  const labelLabel = document.createElement('label')
-  labelLabel.className = 'ops-editor__field'
-  labelLabel.textContent = 'label'
-  const labelInput = document.createElement('input')
-  labelInput.className = 'ops-editor__input'
-  labelInput.type = 'text'
-  labelLabel.appendChild(labelInput)
-  props.appendChild(labelLabel)
-
-  const heightLabel = document.createElement('label')
-  heightLabel.className = 'ops-editor__field'
-  const heightCaption = document.createElement('span')
-  heightCaption.textContent = 'heightM'
-  const heightInput = document.createElement('input')
-  heightInput.className = 'ops-editor__input'
-  heightInput.type = 'number'
-  heightInput.step = '0.5'
-  heightInput.min = '0.5'
-  heightLabel.append(heightCaption, heightInput)
-  props.appendChild(heightLabel)
-
-  const colorLabel = document.createElement('label')
-  colorLabel.className = 'ops-editor__field'
-  colorLabel.textContent = 'color #'
-  const colorInput = document.createElement('input')
-  colorInput.className = 'ops-editor__input'
-  colorInput.type = 'text'
-  colorInput.placeholder = 'rrggbb'
-  colorLabel.appendChild(colorInput)
-  props.appendChild(colorLabel)
+  const inspector = mountAuthoringInspector({
+    container: props,
+    projectsApiBase: options.projectsApiBase,
+    getLivePovGps: options.getLivePovGps,
+    onPlaceKindChange(kind) {
+      const nextTool = toolForPlaceKind(kind)
+      if (nextTool !== 'select') setTool(nextTool)
+    },
+    onAdd(draft) {
+      commitCoordinateDraft(draft, 'add')
+    },
+    onEdit(draft) {
+      commitCoordinateDraft(draft, 'edit')
+    },
+    onAddChainPoint() {
+      if (!selectedId) return
+      const ok = appendBillboardChainPoint(selectedId)
+      hint.textContent = ok
+        ? 'Added chain point — drag it on the map'
+        : 'Cannot add a chain point (need a chain with room for more vertices)'
+    },
+  })
 
   const projectMeta = document.createElement('div')
   projectMeta.className = 'ops-editor__props'
+  projectMeta.hidden = true
+  projectMeta.setAttribute('data-ops', 'authoring-project-meta')
   panel.appendChild(projectMeta)
 
   const projectIdLabel = document.createElement('label')
@@ -522,14 +562,14 @@ export function startMapFeatureEditor(
     hint.classList.remove('ops-editor__hint--error')
     if (tool === 'select') {
       hint.textContent =
-        'Click a feature point to select/drag; Delete to remove'
+        'Select: drag boats, drag vertices, or click a chain segment to add a point'
     } else if (POLYLINE_TOOLS.has(tool)) {
       hint.textContent =
         'Click points for the chain path; Finish chain / Enter (≥2)'
     } else if (TWO_CLICK_TOOLS.has(tool)) {
       hint.textContent =
         tool === 'sponsor'
-          ? 'Click A, then B — board lies flat on the sea; heightM is depth across the water'
+          ? 'Click A, then B — board lies flat; stretching A–B scales uniformly'
           : 'Click A, then B (or Enter at cursor)'
     } else {
       hint.textContent = 'Placement cancelled'
@@ -542,18 +582,18 @@ export function startMapFeatureEditor(
    */
   function commitTwoClickB(east: number, north: number): void {
     if (!pendingA || !TWO_CLICK_TOOLS.has(tool)) return
+    let createdId: string | null = null
     if (tool === 'sponsor') {
-      features = [
-        ...features,
-        createSponsorFeature(
-          pendingA.east,
-          pendingA.north,
-          east,
-          north,
-          options.enuToGpsAmsl,
-          idCounter,
-        ),
-      ]
+      const created = createSponsorFeature(
+        pendingA.east,
+        pendingA.north,
+        east,
+        north,
+        options.enuToGpsAmsl,
+        idCounter,
+      )
+      features = [...features, created]
+      createdId = created.id
     } else if (tool === 'gatePair') {
       const [left, right] = createGatePairFeatures(
         pendingA.east,
@@ -564,34 +604,34 @@ export function startMapFeatureEditor(
         idCounter,
       )
       features = [...features, left, right]
+      createdId = left.id
     } else if (tool === 'arrow') {
-      features = [
-        ...features,
-        createArrowFeature(
-          pendingA.east,
-          pendingA.north,
-          east,
-          north,
-          options.enuToGpsAmsl,
-          idCounter,
-        ),
-      ]
+      const created = createArrowFeature(
+        pendingA.east,
+        pendingA.north,
+        east,
+        north,
+        options.enuToGpsAmsl,
+        idCounter,
+      )
+      features = [...features, created]
+      createdId = created.id
     } else if (tool === 'start' || tool === 'finish') {
-      features = [
-        ...features,
-        createLineSignFeature(
-          tool,
-          pendingA.east,
-          pendingA.north,
-          east,
-          north,
-          options.enuToGpsAmsl,
-          idCounter,
-        ),
-      ]
+      const created = createLineSignFeature(
+        tool,
+        pendingA.east,
+        pendingA.north,
+        east,
+        north,
+        options.enuToGpsAmsl,
+        idCounter,
+      )
+      features = [...features, created]
+      createdId = created.id
     }
     pendingA = null
     clearDraftGuides()
+    if (createdId) selectFeature(createdId)
     pushLayout()
     scheduleApply()
     setTool(tool)
@@ -614,9 +654,61 @@ export function startMapFeatureEditor(
       lon: g.lon,
       altMsl: prev.altMsl,
     }
+    if (f.type === 'sponsor') {
+      const scaled = applySponsorScaleOnEdit(
+        features[idx]!,
+        f,
+        options.gpsToEnuAmsl,
+      )
+      f.heightM = scaled.heightM
+      f.boardAspect = scaled.boardAspect
+    }
     features = features.map((x, i) => (i === idx ? f : x))
     pushLayout()
     scheduleApply()
+  }
+
+  function layoutPointToEnu(p: { x: number; z: number }): {
+    east: number
+    north: number
+  } {
+    return { east: p.x, north: northFromSceneZ(p.z) }
+  }
+
+  function insertBillboardChainPoint(
+    featureId: string,
+    insertIndex: number,
+    east: number,
+    north: number,
+  ): number | null {
+    const idx = features.findIndex((f) => f.id === featureId)
+    if (idx < 0) return null
+    const f = cloneFeature(features[idx]!)
+    if (f.type !== 'billboardChain') return null
+    if (f.points.length >= BILLBOARD_CHAIN_MAX_POINTS) return null
+    const spliceAt = Math.max(1, Math.min(f.points.length, insertIndex))
+    const g = options.enuToGpsAmsl(east, 0, north)
+    const neighbor = f.points[Math.max(0, spliceAt - 1)]!
+    f.points.splice(spliceAt, 0, {
+      lat: g.lat,
+      lon: g.lon,
+      altMsl: neighbor.altMsl,
+    })
+    features = features.map((x, i) => (i === idx ? f : x))
+    selectFeature(f.id)
+    pushLayout()
+    scheduleApply()
+    return spliceAt
+  }
+
+  function appendBillboardChainPoint(featureId: string): boolean {
+    const f = features.find((x) => x.id === featureId)
+    if (!f || f.type !== 'billboardChain' || f.points.length < 2) return false
+    if (f.points.length >= BILLBOARD_CHAIN_MAX_POINTS) return false
+    const layout = layoutFeatures([f], options.gpsToEnuAmsl)
+    const pts = (layout[0]?.points ?? []).map(layoutPointToEnu)
+    const extra = extendPolylineEnd(pts)
+    return insertBillboardChainPoint(featureId, f.points.length, extra.east, extra.north) !== null
   }
 
   function clearDraftGuides(): void {
@@ -639,7 +731,11 @@ export function startMapFeatureEditor(
       hint.textContent = 'Need ≥2 points for a billboard chain'
       return
     }
-    const textureRaw = await promptStubTextureUrl()
+    const textureRaw = await openLibraryLogoPicker({
+      projectsApiBase: options.projectsApiBase,
+      title: 'Chain logos (optional)',
+      allowEmpty: true,
+    })
     if (textureRaw === null) {
       hint.textContent = 'Chain cancelled'
       return
@@ -663,6 +759,10 @@ export function startMapFeatureEditor(
             ? spacingM
             : DEFAULT_BILLBOARD_CHAIN_SPACING_M,
         textureUrl: textureRaw === '' ? null : textureRaw,
+        logos:
+          textureRaw === ''
+            ? []
+            : [{ url: textureRaw, weight: 1 }],
       },
     )
     pendingPoly = []
@@ -743,7 +843,7 @@ export function startMapFeatureEditor(
     hint.classList.remove('ops-editor__hint--error')
     if (tool === 'select') {
       hint.textContent =
-        'Click a feature point to select/drag; Delete to remove'
+        'Select: drag boats, drag vertices, or click a chain segment to add a point'
     } else if (POLYLINE_TOOLS.has(tool)) {
       hint.textContent =
         'Click points for the chain path; Finish chain / Enter (≥2)'
@@ -754,7 +854,7 @@ export function startMapFeatureEditor(
           : tool === 'start' || tool === 'finish'
             ? 'Click line end A, then B (or Enter at cursor)'
             : tool === 'sponsor'
-              ? 'Click A, then B — board lies flat on the sea; heightM is depth across the water'
+              ? 'Click A, then B — board lies flat; stretching A–B scales uniformly'
               : 'Click A, then B (or Enter at cursor)'
     } else if (tool === 'placeBoat') {
 
@@ -770,6 +870,7 @@ export function startMapFeatureEditor(
     } else {
       hint.textContent = 'Click map to place'
     }
+    refreshProps()
   }
 
   function cloneFeature(f: WorldFeature): WorldFeature {
@@ -777,6 +878,7 @@ export function startMapFeatureEditor(
       ...f,
       points: f.points.map((p) => ({ ...p })),
       textureUrl: f.textureUrl,
+      logos: f.logos?.map((l) => ({ url: l.url, weight: l.weight })),
       spacingM: f.spacingM,
       telemetryId: f.telemetryId,
     }
@@ -787,6 +889,7 @@ export function startMapFeatureEditor(
     setLayoutFeatures(layout)
     options.map.setLayoutFeatures(layout)
     options.map.setSelectedFeatureIds(selectedId ? [selectedId] : [])
+    options.onStoreChange?.(features)
     return layout
   }
 
@@ -800,30 +903,11 @@ export function startMapFeatureEditor(
 
   function refreshProps(): void {
     const f = features.find((x) => x.id === selectedId) ?? null
-    const enabled = !!f
-    nameInput.disabled = !enabled
-    labelInput.disabled = !enabled
-    heightInput.disabled = !enabled
-    colorInput.disabled = !enabled
-    deleteBtn.disabled = !enabled
-    if (!f) {
-      nameInput.value = ''
-      labelInput.value = ''
-      heightInput.value = ''
-      colorInput.value = ''
-      return
-    }
-    nameInput.value = f.name
-    labelInput.value = f.label ?? ''
-    heightCaption.textContent =
-      f.type === 'sponsor'
-        ? 'heightM (across-water depth)'
-        : 'heightM'
-    heightInput.value = f.heightM !== undefined ? String(f.heightM) : ''
-    colorInput.value =
-      f.color !== undefined
-        ? f.color.toString(16).padStart(6, '0')
-        : ''
+    deleteBtn.disabled = !f
+    inspector.refresh({
+      selected: f,
+      toolKind: placeKindForTool(tool),
+    })
   }
 
   function selectFeature(id: string | null): void {
@@ -832,27 +916,61 @@ export function startMapFeatureEditor(
     refreshProps()
   }
 
-  function applyPropEdits(): void {
-    if (!selectedId) return
-    const idx = features.findIndex((f) => f.id === selectedId)
-    if (idx < 0) return
-    const f = cloneFeature(features[idx]!)
-    f.name = nameInput.value.trim() || f.name
-    const lab = labelInput.value.trim()
-    f.label = lab === '' ? undefined : lab
-    const h = Number.parseFloat(heightInput.value)
-    if (Number.isFinite(h) && h >= 0.5) f.heightM = h
-    const hex = colorInput.value.trim().replace(/^#/, '')
-    if (/^[0-9a-fA-F]{6}$/.test(hex)) {
-      f.color = Number.parseInt(hex, 16)
+  function commitCoordinateDraft(
+    draft: CoordinatePlaceDraft,
+    mode: 'add' | 'edit',
+  ): void {
+    const geo = {
+      gpsToEnuAmsl: options.gpsToEnuAmsl,
+      enuToGpsAmsl: options.enuToGpsAmsl,
     }
-    features = features.map((x, i) => (i === idx ? f : x))
+    if (draft.kind === 'boat' || draft.kind === 'drone') {
+      const id = (draft.telemetryId?.trim() || draft.name.trim())
+      if (id === '') {
+        hint.textContent = 'Telemetry id required'
+        return
+      }
+      const input: FleetPlaceInput = {
+        kind: draft.kind,
+        id,
+        lat: draft.lat,
+        lon: draft.lon,
+        altMsl: Number.isFinite(draft.altMsl) ? draft.altMsl : 0,
+        name: draft.name.trim() || undefined,
+        label: draft.label.trim() || undefined,
+        heightM: draft.heightM,
+        visibility: draft.visibility,
+      }
+      if (mode === 'edit') options.onEditFleetGps?.(input)
+      else options.onPlaceFleetGps?.(input)
+      hint.textContent =
+        mode === 'edit'
+          ? `Edited ${draft.kind} ${id}`
+          : `Placed ${draft.kind} ${id}`
+      refreshProps()
+      return
+    }
+
+    const result =
+      mode === 'edit' && selectedId
+        ? editFromCoordinates(features, selectedId, draft, geo)
+        : addFromCoordinates(features, draft, geo, idCounter)
+    if (!result.ok) {
+      hint.textContent = result.error
+      hint.classList.add('ops-editor__hint--error')
+      return
+    }
+    hint.classList.remove('ops-editor__hint--error')
+    if (result.mode !== 'features') return
+    features = result.features
+    const createdId = result.createdIds[0] ?? null
+    selectFeature(createdId)
     pushLayout()
     scheduleApply()
-  }
-
-  for (const input of [nameInput, labelInput, heightInput, colorInput]) {
-    input.addEventListener('change', applyPropEdits)
+    hint.textContent =
+      mode === 'edit'
+        ? `Edited ${result.createdIds.join(', ')}`
+        : `Placed ${result.createdIds.join(', ')}`
   }
 
   async function onMapClick(
@@ -867,7 +985,7 @@ export function startMapFeatureEditor(
       selectFeature(hit?.id ?? null)
       clearDraftGuides()
       hint.textContent =
-        'Click a feature point to select/drag; Delete to remove'
+        'Select: drag boats, drag vertices, or click a chain segment to add a point'
       return
     }
 
@@ -995,6 +1113,19 @@ export function startMapFeatureEditor(
       return
     }
 
+    if (boatDrag) {
+      const snapped = snapPoint(rawEast, rawNorth)
+      lastCursor = { east: snapped.east, north: snapped.north }
+      options.onMoveFleet?.(
+        'boat',
+        snapped.east,
+        snapped.north,
+        boatDrag.id,
+      )
+      options.map.setSnapGuide({ east: snapped.east, north: snapped.north })
+      return
+    }
+
 
     if (tool === 'select') {
       return
@@ -1045,20 +1176,71 @@ export function startMapFeatureEditor(
     rawNorth: number,
     ev: PointerEvent,
   ): boolean {
-    if (!open || tool !== 'select' || vertexDrag) return false
+    if (!open || tool !== 'select' || vertexDrag || boatDrag) return false
+
+    const boatHit = options.map.hitTestPose(
+      rawEast,
+      rawNorth,
+      BOAT_HIT_PX,
+      ['boat'],
+    )
+    if (boatHit) {
+      const movable =
+        options.canMoveFleetPose?.(boatHit.id, 'boat') ?? true
+      if (!movable) {
+        hint.textContent = `Boat ${boatHit.id} is live — cannot move`
+        return false
+      }
+      options.onSelectFleetPose?.(boatHit.id, 'boat')
+      boatDrag = { id: boatHit.id, pointerId: ev.pointerId }
+      hint.textContent = `Dragging boat ${boatHit.id}…`
+      window.addEventListener('pointerup', onBoatDragUp)
+      window.addEventListener('pointercancel', onBoatDragUp)
+      return true
+    }
+
     const prefer = selectedId ? [selectedId] : undefined
     const hit = options.map.hitTestVertex(rawEast, rawNorth, HIT_PX, prefer)
-    if (!hit) return false
-    selectFeature(hit.featureId)
-    vertexDrag = {
-      featureId: hit.featureId,
-      pointIndex: hit.pointIndex,
-      pointerId: ev.pointerId,
+    if (hit) {
+      selectFeature(hit.featureId)
+      vertexDrag = {
+        featureId: hit.featureId,
+        pointIndex: hit.pointIndex,
+        pointerId: ev.pointerId,
+      }
+      hint.textContent = 'Dragging point…'
+      window.addEventListener('pointerup', onVertexDragUp)
+      window.addEventListener('pointercancel', onVertexDragUp)
+      return true
     }
-    hint.textContent = 'Dragging point…'
-    window.addEventListener('pointerup', onVertexDragUp)
-    window.addEventListener('pointercancel', onVertexDragUp)
-    return true
+
+    const insertHit = options.map.hitTestPolylineInsert(
+      rawEast,
+      rawNorth,
+      HIT_PX + 6,
+      ['billboardChain'],
+    )
+    if (insertHit) {
+      const newIndex = insertBillboardChainPoint(
+        insertHit.featureId,
+        insertHit.insertIndex,
+        insertHit.east,
+        insertHit.north,
+      )
+      if (newIndex !== null) {
+        vertexDrag = {
+          featureId: insertHit.featureId,
+          pointIndex: newIndex,
+          pointerId: ev.pointerId,
+        }
+        hint.textContent = 'Added chain point — drag to place'
+        window.addEventListener('pointerup', onVertexDragUp)
+        window.addEventListener('pointercancel', onVertexDragUp)
+        return true
+      }
+    }
+
+    return false
   }
 
   function onVertexDragUp(ev: PointerEvent): void {
@@ -1076,8 +1258,18 @@ export function startMapFeatureEditor(
     void options.onApply(features)
     options.map.setSnapGuide(null)
     hint.textContent =
-      'Click a feature point to select/drag; Delete to remove'
+      'Select: drag boats, drag vertices, or click a chain segment to add a point'
     void drag
+  }
+
+  function onBoatDragUp(ev: PointerEvent): void {
+    if (!boatDrag || ev.pointerId !== boatDrag.pointerId) return
+    boatDrag = null
+    window.removeEventListener('pointerup', onBoatDragUp)
+    window.removeEventListener('pointercancel', onBoatDragUp)
+    options.map.setSnapGuide(null)
+    hint.textContent =
+      'Select: drag boats, drag vertices, or click a chain segment to add a point'
   }
 
   function onEditorKeyDown(ev: KeyboardEvent): void {
@@ -1173,13 +1365,17 @@ export function startMapFeatureEditor(
     dispose(): void {
       if (applyTimer !== null) window.clearTimeout(applyTimer)
       vertexDrag = null
+      boatDrag = null
       window.removeEventListener('keydown', onEditorKeyDown)
       window.removeEventListener('pointerup', onVertexDragUp)
       window.removeEventListener('pointercancel', onVertexDragUp)
+      window.removeEventListener('pointerup', onBoatDragUp)
+      window.removeEventListener('pointercancel', onBoatDragUp)
       unsubClick()
       unsubMove()
       unsubPointerDown()
       clearDraftGuides()
+      inspector.dispose()
       panel.remove()
       options.map.setInteractive(false)
       options.map.setSizePx(mapSizeClosed)

@@ -43,6 +43,7 @@ type RailChrome = {
   rail: HTMLElement
   sectionsEl: HTMLElement
   expandTab: HTMLButtonElement
+  headerActions: HTMLElement
   collapsed: boolean
   widthPx: number
 }
@@ -127,7 +128,7 @@ export function createSidebar(options: CreateSidebarOptions): SidebarHandle {
   root.className = 'ops-sidebar-root'
   root.setAttribute('data-ops', 'sidebar-root')
 
-  /** Full-viewport layer for PiP / non-rail overlays (stream map). */
+  /** Full-viewport layer for non-rail overlays (local 2D map host, World Authoring). */
   const overlayHost = document.createElement('div')
   overlayHost.className = 'ops-overlay ops-sidebar-overlay-host'
   overlayHost.setAttribute('data-ops', 'sidebar-overlay-host')
@@ -234,10 +235,24 @@ export function createSidebar(options: CreateSidebarOptions): SidebarHandle {
     chrome.className = 'ops-sidebar__chrome'
     rail.appendChild(chrome)
 
+    const titleRow = document.createElement('div')
+    titleRow.className = 'ops-sidebar__title-row'
+    chrome.appendChild(titleRow)
+
     const title = document.createElement('div')
     title.className = 'ops-sidebar__title'
     title.textContent = spec.title
-    chrome.appendChild(title)
+    titleRow.appendChild(title)
+
+    const headerActions = document.createElement('div')
+    headerActions.className = 'ops-sidebar__header-actions'
+    headerActions.setAttribute(
+      'data-ops',
+      spec.id === 'right'
+        ? 'sidebar-right-header-actions'
+        : 'sidebar-header-actions',
+    )
+    titleRow.appendChild(headerActions)
 
     const collapseBtn = document.createElement('button')
     collapseBtn.type = 'button'
@@ -267,6 +282,7 @@ export function createSidebar(options: CreateSidebarOptions): SidebarHandle {
       rail,
       sectionsEl,
       expandTab,
+      headerActions,
       collapsed: spec.initiallyCollapsed,
       widthPx: readStoredWidth(spec.widthKey),
     }
@@ -450,6 +466,7 @@ export function createSidebar(options: CreateSidebarOptions): SidebarHandle {
     setRailCollapsed,
     isRailCollapsed: (rail) => rails[rail].collapsed,
     getOverlayHost: () => overlayHost,
+    getHeaderActionsHost: (rail) => rails[rail].headerActions,
     dispose(): void {
       window.removeEventListener('keydown', onKeyDown)
       for (const stop of windowCleanups) stop()

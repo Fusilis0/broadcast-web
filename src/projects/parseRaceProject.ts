@@ -2,7 +2,9 @@ import { parseRaceProjectCalibration } from '../calibration/projectCalibration.t
 import { parseRounding } from '../scene/features/rounding.ts'
 import { parseHexColorCss } from '../scene/boatNames/categoryColor.ts'
 import type { WorldFeature, WorldFeatureType } from '../scene/features/types.ts'
-import { parseOptionalHexColor } from '../scene/sponsors/boardCompose.ts'
+import { parseOptionalAlpha, parseOptionalHexColor } from '../scene/sponsors/boardCompose.ts'
+import { parseOptionalBoardAspect } from '../scene/sponsors/sponsorLayout.ts'
+import { parseBillboardLogos } from '../scene/billboardLogos.ts'
 import { normalizePovIds } from '../config/loadConfig.ts'
 import { parseProjectFleetIds } from './fleetBoats.ts'
 import { parseSrtByPovId } from '../output/srtCallerUrl.ts'
@@ -172,10 +174,16 @@ function parseWorldFeature(raw: unknown): WorldFeature | null {
   } else if (o.textureUrl === null) {
     feature.textureUrl = null
   }
+  const logos = parseBillboardLogos(o.logos)
+  if (logos !== undefined) feature.logos = logos
   const panelColor = parseOptionalHexColor(o.panelColor)
   if (panelColor !== undefined) feature.panelColor = panelColor
   const frameColor = parseOptionalHexColor(o.frameColor)
   if (frameColor !== undefined) feature.frameColor = frameColor
+  const panelAlpha = parseOptionalAlpha(o.panelAlpha)
+  if (panelAlpha !== undefined) feature.panelAlpha = panelAlpha
+  const boardAspect = parseOptionalBoardAspect(o.boardAspect)
+  if (boardAspect !== undefined) feature.boardAspect = boardAspect
   if (isFiniteNumber(o.spacingM) && o.spacingM > 0) {
     feature.spacingM = o.spacingM
   }
@@ -185,9 +193,13 @@ function parseWorldFeature(raw: unknown): WorldFeature | null {
   } else if (o.telemetryId === null) {
     feature.telemetryId = null
   }
-  // Soft visibility (SCN 11.7) — omit → visible; only persist false typically.
+  // Soft visibility (SCN 11.7 / DSP-06) — omit → visible; only persist false typically.
   if (typeof o.visible3d === 'boolean') feature.visible3d = o.visible3d
   if (typeof o.visible2d === 'boolean') feature.visible2d = o.visible2d
+  if (typeof o.visibleBuoyMesh === 'boolean') {
+    feature.visibleBuoyMesh = o.visibleBuoyMesh
+  }
+  if (typeof o.visibleTag === 'boolean') feature.visibleTag = o.visibleTag
   const rounding = parseRounding(o.rounding)
   if (rounding !== undefined) feature.rounding = rounding
   return feature

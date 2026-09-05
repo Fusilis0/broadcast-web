@@ -40,7 +40,9 @@ npm run seed
 ### Asset library (`/api/assets`)
 
 Writes go to `public/assets/library/<kind>/<slug>-<shortHash>.<ext>` and append
-`index.json`. Extensions: `png|jpg|jpeg|webp|glb|gltf`. Default size cap **20 MiB**
+`index.json` (git-tracked studio path; not `userData` / `server/data/`). After
+upload, **commit** the manifest and new file(s) so other PCs get them on pull.
+Extensions: `png|jpg|jpeg|webp|glb|gltf`. Default size cap **20 MiB**
 (`PROJECTS_MAX_ASSET_BYTES`). Multipart parsing is in-process (no extra npm dep).
 Delete/replace is out of scope (append-only). Static-only SPA deployments browse
 `/assets/library/index.json` without this endpoint.

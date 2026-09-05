@@ -84,6 +84,11 @@ export type NdiFramePumpOptions = {
    * Live changes via `setDelayMs` (clamped 0..30000).
    */
   delayMs?: number
+  /**
+   * Start sending immediately. Default **true**.
+   * NDI tab hand toggle may pause this channel without tearing down the pump.
+   */
+  enabled?: boolean
 }
 
 export type NdiFramePumpHandle = {
@@ -94,6 +99,9 @@ export type NdiFramePumpHandle = {
   setDelayMs: (ms: number) => number
   /** Successful sends in the last 1 s (not staggered-away claims). */
   getSendFps: () => number
+  isEnabled: () => boolean
+  /** Pause/resume capture+send; does not dispose the pump. */
+  setEnabled: (on: boolean) => void
   stop: () => void
 }
 
@@ -104,7 +112,8 @@ const DEFAULT_NAME = 'broadcast-web'
 /**
  * Electron-only: on each `studio:tick` (60 Hz), render the active POV into an
  * FBO, GPU Y-flip (WebGL2 blit, inverted dest Y), pack RGBA via WebGL2 PBO
- * (sync `readRenderTargetPixels` fallback), and push to the main-process NDI
+ * (skip this capture if PBO cannot pack — never `readRenderTargetPixels` on
+ * the live path), and push to the main-process NDI
  * sender. Packed bytes are top-down (`NDI_CAPTURE_FLIPPED_BOTTOM_UP`). One
  * frame of capture latency on the PBO path is expected.
  *
@@ -130,7 +139,8 @@ export function startNdiFramePump(
 ): NdiFramePumpHandle | null {
   const studio = getStudioBridge()
   if (!studio) return null
-  const ndi = studio.ndi
+  const bridge = studio
+  const ndi = bridge.ndi
 
   const {
     renderer,
@@ -156,6 +166,9 @@ export function startNdiFramePump(
   const tickRender = renderer.render.bind(renderer)
 
   let stopped = false
+  let enabled = options.enabled !== false
+  let starting = false
+  let unsubTick: (() => void) | null = null
   let sourceName: string | null = null
   let sdkVersion: string | null = null
   let error: string | null = null
@@ -311,6 +324,10 @@ export function startNdiFramePump(
     bottomUp: boolean,
     nowMs: number,
   ): void {
+    if (stopped || !enabled) {
+      readback.release(takeNdiArrayBuffer(buf))
+      return
+    }
     const __flipT0 = performance.now()
     const rgba = flipOwnedRgbaFrame(takeNdiArrayBuffer(buf), w, h)
     const __flipMs = performance.now() - __flipT0
@@ -318,7 +335,7 @@ export function startNdiFramePump(
       void uyvyWorker
         .pack(rgba, w, h, 'uyva')
         .then((owned) => {
-          if (stopped) {
+          if (stopped || !enabled) {
             packPool.release(owned)
             return
           }
@@ -359,7 +376,7 @@ export function startNdiFramePump(
   }
 
   function drainReadback(nowMs: number): void {
-    if (stopped) return
+    if (stopped || !enabled) return
     const t0 = performance.now()
     const pixels = readback.poll(nowMs)
     recordNdiStage('arReadbackDrain', performance.now() - t0)
@@ -380,13 +397,14 @@ export function startNdiFramePump(
     nowMs: number,
     syncClaim: boolean,
   ): boolean {
-    if (stopped) return false
+    if (stopped || !enabled) return false
     renderer.setRenderTarget(target)
     const t0 = performance.now()
     const ok = readback.begin(target, w, h, nowMs)
     recordNdiStage('arReadbackBegin', performance.now() - t0)
     if (!ok) {
       if (syncClaim) releaseNdiHeavyCapture('ar', nowMs)
+      noteNdiSkip('ar', 'busy')
       return false
     }
     recordNdiCapture('ar', nowMs)
@@ -395,11 +413,11 @@ export function startNdiFramePump(
   }
 
   function captureFrame(): void {
-    if (stopped) return
+    if (stopped || !enabled) return
     const now = performance.now()
     flushDelay(now)
     drainReadback(now)
-    if (stopped) return
+    if (stopped || !enabled) return
     if (!captureGate.isDue(now)) {
       noteNdiSkip('ar', 'rateCap')
       return
@@ -449,33 +467,83 @@ export function startNdiFramePump(
     }
   }
 
-  const unsubTick = studio.onStudioTick(() => {
-    if (stopped) return
-    captureFrame()
-  })
+  function clearStatus(): void {
+    sourceName = null
+    sdkVersion = null
+  }
 
-  void ndi
-    .start({ channel, name: sourceNameOpt })
-    .then((res) => {
-      if (stopped) return
-      if (res.ok) {
-        sourceName = res.sourceName ?? sourceNameOpt
-        sdkVersion = res.sdkVersion ?? null
-        error = null
-        console.info(
-          `[output] NDI[${channel}] send active: ${sourceName}` +
-            (sdkVersion ? ` (${sdkVersion})` : '') +
-            ' (air=active POV, studio-tick)',
-        )
-      } else {
-        error = res.error ?? 'NDI start failed'
-        console.warn(`[output] NDI[${channel}] start failed: ${error}`)
-      }
+  function startSender(): void {
+    if (stopped || !enabled || starting) return
+    if (sourceName) return
+    starting = true
+    void ndi
+      .start({ channel, name: sourceNameOpt })
+      .then((res) => {
+        starting = false
+        if (stopped || !enabled) {
+          if (res.ok) void ndi.stop({ channel }).catch(() => {})
+          return
+        }
+        if (res.ok) {
+          sourceName = res.sourceName ?? sourceNameOpt
+          sdkVersion = res.sdkVersion ?? null
+          error = null
+          console.info(
+            `[output] NDI[${channel}] send active: ${sourceName}` +
+              (sdkVersion ? ` (${sdkVersion})` : '') +
+              ' (air=active POV, studio-tick)',
+          )
+        } else {
+          error = res.error ?? 'NDI start failed'
+          console.warn(`[output] NDI[${channel}] start failed: ${error}`)
+        }
+      })
+      .catch((err: unknown) => {
+        starting = false
+        error = err instanceof Error ? err.message : String(err)
+        console.warn(`[output] NDI[${channel}] start error: ${error}`)
+      })
+  }
+
+  function stopSender(): void {
+    starting = false
+    clearStatus()
+    void ndi.stop({ channel }).catch(() => {
+      /* ignore */
     })
-    .catch((err: unknown) => {
-      error = err instanceof Error ? err.message : String(err)
-      console.warn(`[output] NDI[${channel}] start error: ${error}`)
+  }
+
+  function ensureTick(): void {
+    if (stopped || !enabled || unsubTick) return
+    unsubTick = bridge.onStudioTick(() => {
+      if (stopped || !enabled) return
+      captureFrame()
     })
+  }
+
+  function clearTick(): void {
+    unsubTick?.()
+    unsubTick = null
+  }
+
+  function setEnabled(on: boolean): void {
+    if (stopped) return
+    if (enabled === on) return
+    enabled = on
+    if (on) {
+      startSender()
+      ensureTick()
+    } else {
+      clearTick()
+      delayBuffer.clear()
+      stopSender()
+    }
+  }
+
+  if (enabled) {
+    startSender()
+    ensureTick()
+  }
 
   return {
     getSourceName: () => sourceName,
@@ -483,20 +551,21 @@ export function startNdiFramePump(
     getError: () => error,
     getDelayMs: () => delayBuffer.getDelayMs(),
     setDelayMs: (ms: number) => delayBuffer.setDelayMs(ms),
-    getSendFps: () => sendFps.getFps(performance.now()),
+    getSendFps: () => (enabled ? sendFps.getFps(performance.now()) : 0),
+    isEnabled: () => enabled,
+    setEnabled,
     stop(): void {
       if (stopped) return
       stopped = true
-      unsubTick()
+      enabled = false
+      clearTick()
       ipc.dispose()
       delayBuffer.clear()
       uyvyWorker?.dispose()
       readback.dispose()
       airTarget?.dispose()
       airTarget = null
-      void ndi.stop({ channel }).catch(() => {
-        /* ignore */
-      })
+      stopSender()
     },
   }
 }

@@ -1,6 +1,8 @@
 /**
  * @vitest-environment happy-dom
  */
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { knotsToMs } from '../telemetry/windDirection.ts'
 import { resetWindBusForTests, windBus } from '../telemetry/windBus.ts'
@@ -27,10 +29,15 @@ import {
   osmTileUrl,
   pickOsmZoom,
   tilesForEnuBounds,
+  MAX_OSM_VISIBLE_TILES,
 } from './map2dBasemap.ts'
 import { samplePolylineAtSpacing } from './billboardChain.ts'
 import * as GeoOrigin from '../geodesy/geoOrigin.ts'
 import { gpsToEnu, northFromSceneZ } from '../geodesy/index.ts'
+
+afterEach(() => {
+  sessionStorage.removeItem('bw.streamMap.boatScale')
+})
 
 describe('map2d projection', () => {
   it('maps East→right and North→top (north-up)', () => {
@@ -142,6 +149,22 @@ describe('map2d view transform (pan/zoom)', () => {
     expect(wide.maxN - wide.minN).toBeCloseTo(square.maxN - square.minN, 5)
   })
 
+  it('1920×1080 stream source widens East vs a 1080² square (same north span)', () => {
+    const view = {
+      centerE: 0,
+      centerN: 0,
+      halfExtentN: 100,
+      autoFit: true,
+    }
+    const square = viewToMapBounds(view, 1080, 1080)
+    const wide = viewToMapBounds(view, 1920, 1080)
+    expect(wide.maxN - wide.minN).toBeCloseTo(square.maxN - square.minN, 5)
+    expect(wide.maxE - wide.minE).toBeCloseTo(
+      (square.maxE - square.minE) * (16 / 9),
+      5,
+    )
+  })
+
   it('panMapView shifts center and disables autoFit', () => {
     const view = fitMapViewToBounds({
       minE: 0,
@@ -217,7 +240,7 @@ describe('map2dBasemap tile math', () => {
       240,
     )
     expect(tiles.length).toBeGreaterThan(0)
-    expect(tiles.length).toBeLessThanOrEqual(24)
+    expect(tiles.length).toBeLessThanOrEqual(MAX_OSM_VISIBLE_TILES)
   })
 })
 
@@ -270,6 +293,7 @@ describe('map2d windBus readout', () => {
       })
       expect(ops.getCanvas().width).toBe(120)
       expect(stream.getCanvas().width).toBe(120)
+    expect(stream.getCanvas().height).toBe(120)
     } finally {
       ops.dispose()
       stream.dispose()
@@ -309,6 +333,62 @@ describe('map2d pose prune', () => {
     }
   })
 
+  it('hitTestPose finds a boat icon and ignores hidden ids', () => {
+    const map = createMap2d({ sizePx: 120, visible: false })
+    try {
+      map.updatePose(pose('21', 'boat', 10, 20))
+      map.updatePose(pose('1', 'drone', 80, 80))
+      map.redraw()
+      expect(map.hitTestPose(10, 20, 40, ['boat'])?.id).toBe('21')
+      expect(map.hitTestPose(10, 20, 40, ['drone'])).toBeNull()
+      map.setHiddenPoseIds(['21'])
+      expect(map.hitTestPose(10, 20, 40, ['boat'])).toBeNull()
+    } finally {
+      map.dispose()
+    }
+  })
+
+  it('keeps a boat and a drone that share the same id', () => {
+    const map = createMap2d({ sizePx: 120, visible: false })
+    try {
+      map.updatePose(pose('1', 'boat', 10, 20))
+      map.updatePose(pose('1', 'drone', 80, 80))
+      map.redraw()
+      expect(map.getPoseIds()).toEqual(['1'])
+      expect(map.hitTestPose(10, 20, 40, ['boat'])?.kind).toBe('boat')
+      expect(map.hitTestPose(80, 80, 40, ['drone'])?.kind).toBe('drone')
+      expect(map.removePose('1')).toBe(true)
+      expect(map.getPoseIds()).toEqual([])
+    } finally {
+      map.dispose()
+    }
+  })
+
+  it('hitTestPolylineInsert finds the mid-segment splice on a chain', () => {
+    const map = createMap2d({ sizePx: 200, visible: false })
+    try {
+      map.setLayoutFeatures([
+        {
+          id: 'chain:1',
+          name: 'chain',
+          type: 'billboardChain',
+          points: [
+            { x: 0, y: 0, z: 0 },
+            { x: 80, y: 0, z: 0 },
+          ],
+          rawPoints: [],
+        },
+      ])
+      map.redraw()
+      const hit = map.hitTestPolylineInsert(40, 0, 40, ['billboardChain'])
+      expect(hit?.featureId).toBe('chain:1')
+      expect(hit?.insertIndex).toBe(1)
+      expect(hit?.east).toBeCloseTo(40, 0)
+    } finally {
+      map.dispose()
+    }
+  })
+
   it('retainPoseIds drops deleted fleet icons but keeps buoys', () => {
     const map = createMap2d({ sizePx: 120, visible: false })
     try {
@@ -339,5 +419,189 @@ describe('map2d pose prune', () => {
     } finally {
       map.dispose()
     }
+  })
+})
+
+describe('map2d canvas size', () => {
+  it('keeps ops map square via setSizePx (authoring unchanged)', () => {
+    const map = createMap2d({ sizePx: 240, visible: false })
+    try {
+      expect(map.getCanvas().width).toBe(240)
+      expect(map.getCanvas().height).toBe(240)
+      map.setSizePx(180)
+      expect(map.getCanvas().width).toBe(180)
+      expect(map.getCanvas().height).toBe(180)
+    } finally {
+      map.dispose()
+    }
+  })
+
+  it('honors 16:9 widthPx/heightPx on stream variant', () => {
+    const map = createMap2d({
+      variant: 'stream',
+      widthPx: 960,
+      heightPx: 540,
+      visible: false,
+    })
+    try {
+      expect(map.getCanvas().width).toBe(960)
+      expect(map.getCanvas().height).toBe(540)
+      map.setSizePx(540)
+      expect(map.getCanvas().width).toBe(960)
+      expect(map.getCanvas().height).toBe(540)
+    } finally {
+      map.dispose()
+    }
+  })
+
+  it('stream has no OSM checkbox; tiles draw when geoBridge is set', () => {
+    const ops = createMap2d({ sizePx: 120, visible: false })
+    const stream = createMap2d({
+      variant: 'stream',
+      widthPx: 160,
+      heightPx: 90,
+      visible: false,
+    })
+    try {
+      expect(ops.root.querySelector('.ops-map__check')).not.toBeNull()
+      expect(stream.root.querySelector('.ops-map__check')).toBeNull()
+      expect(stream.root.querySelector('.stream-map__title')).toBeNull()
+      expect(ops.isBasemapEnabled()).toBe(false)
+      expect(stream.isBasemapEnabled()).toBe(true)
+
+      const src = readFileSync(join(process.cwd(), 'src/scene/map2d.ts'), 'utf8')
+      expect(src).toContain('if (basemapEnabled && geoBridge)')
+      expect(src).not.toContain('if (!isStream && basemapEnabled && geoBridge)')
+    } finally {
+      ops.dispose()
+      stream.dispose()
+    }
+  })
+
+  it('local 2D CSS scales stream-map to the host; off-screen stays inline 1920', () => {
+    const css = readFileSync(join(process.cwd(), 'src/style.css'), 'utf8')
+    expect(css).toContain('html.local-focus-2d .local-2d-map-host .stream-map')
+    expect(css).toContain('width: 100% !important')
+    expect(css).toContain('left: -10000px')
+    expect(css).toContain('width: 1920px')
+    expect(css).toContain('stream-map-boat-scale')
+    expect(css).toContain('html.local-focus-2d .local-2d-map-host .stream-map-boat-scale')
+    const map = createMap2d({
+      variant: 'stream',
+      widthPx: 1920,
+      heightPx: 1080,
+      visible: false,
+    })
+    try {
+      expect(map.root.style.width).toBe('1920px')
+      expect(map.getCanvas().width).toBe(1920)
+      expect(map.getCanvas().height).toBe(1080)
+    } finally {
+      map.dispose()
+    }
+  })
+
+  it('stream redraw uses filterFeaturesForStreamMap; ops keeps filterFeaturesFor2d', () => {
+    const src = readFileSync(join(process.cwd(), 'src/scene/map2d.ts'), 'utf8')
+    expect(src).toContain('filterFeaturesForStreamMap(layoutFeatures)')
+    expect(src).toContain('filterFeaturesFor2d(layoutFeatures)')
+    expect(src).toContain('scaleStreamBoatChrome(chrome, boatIconScale)')
+    expect(src).toContain('metrics: fleetChrome')
+    expect(src).toContain('len: fleetChrome.boatLen')
+    expect(src).toContain('if (isStream && p.kind === \'drone\') continue')
+    expect(src).toContain('setBoatNames')
+    expect(src).toContain('STREAM_ROUNDING_ANIM_HZ')
+    expect(src).not.toContain('metrics: chrome,')
+    expect(src).toContain('isStream')
+  })
+
+  it('burns setTitle on the stream canvas and keeps DOM title off', () => {
+    const stream = createMap2d({
+      variant: 'stream',
+      widthPx: 160,
+      heightPx: 90,
+      title: 'Boot title',
+      visible: false,
+    })
+    const texts: string[] = []
+    const ctx = stream.getCanvas().getContext('2d')
+    const orig = ctx?.fillText.bind(ctx)
+    if (ctx && orig) {
+      ctx.fillText = ((text: string, ...rest: unknown[]) => {
+        texts.push(String(text))
+        return orig(text, ...(rest as [number, number]))
+      }) as typeof ctx.fillText
+    }
+    try {
+      expect(stream.root.querySelector('.ops-map__title')).toBeNull()
+      stream.setTitle('Demo Istanbul')
+      expect(stream.root.getAttribute('aria-label')).toContain('Demo Istanbul')
+      if (ctx && orig) {
+        expect(texts.some((t) => t.includes('DEMO ISTANBUL'))).toBe(true)
+      }
+    } finally {
+      if (ctx && orig) ctx.fillText = orig
+      stream.dispose()
+    }
+  })
+})
+
+describe('map2d stream boat icon scale', () => {
+  afterEach(() => {
+    sessionStorage.removeItem('bw.streamMap.boatScale')
+  })
+
+  it('defaults to 0.5; clamps; ops setBoatIconScale is a no-op', () => {
+    const stream = createMap2d({
+      variant: 'stream',
+      widthPx: 160,
+      heightPx: 90,
+      visible: false,
+    })
+    const ops = createMap2d({ sizePx: 120, visible: false })
+    try {
+      expect(stream.getBoatIconScale()).toBe(0.5)
+      stream.setBoatIconScale(0.1)
+      expect(stream.getBoatIconScale()).toBe(0.25)
+      stream.setBoatIconScale(9)
+      expect(stream.getBoatIconScale()).toBe(2)
+      stream.setBoatIconScale(Number.NaN)
+      expect(stream.getBoatIconScale()).toBe(0.5)
+      expect(sessionStorage.getItem('bw.streamMap.boatScale')).toBe('0.5')
+
+      expect(ops.getBoatIconScale()).toBe(1)
+      ops.setBoatIconScale(2)
+      expect(ops.getBoatIconScale()).toBe(1)
+      expect(sessionStorage.getItem('bw.streamMap.boatScale')).toBe('0.5')
+    } finally {
+      stream.dispose()
+      ops.dispose()
+    }
+  })
+
+  it('reads a stored scale on stream create', () => {
+    sessionStorage.setItem('bw.streamMap.boatScale', '0.75')
+    const stream = createMap2d({
+      variant: 'stream',
+      widthPx: 160,
+      heightPx: 90,
+      visible: false,
+    })
+    try {
+      expect(stream.getBoatIconScale()).toBe(0.75)
+    } finally {
+      stream.dispose()
+    }
+  })
+})
+
+describe('map2d stream names vs ops ids', () => {
+  it('wires catalogue names on stream boats; ops keeps id; stream skips drones', () => {
+    const src = readFileSync(join(process.cwd(), 'src/scene/map2d.ts'), 'utf8')
+    expect(src).toContain('resolveStreamFleetLabel(p.id, boatNames)')
+    expect(src).toContain('isStream && p.kind === \'boat\'')
+    expect(src).toContain('if (isStream && p.kind === \'drone\') continue')
+    expect(src).toContain('setBoatNames')
+    expect(src).not.toContain("drawMapFleetLabel(ctx, `${p.id}`, labelX, y + 3, fleetChrome)")
   })
 })

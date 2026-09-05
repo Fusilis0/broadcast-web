@@ -50,10 +50,7 @@ async function hydrateFeaturesUrl(
   project: RaceProject,
   fetchImpl: typeof fetch,
 ): Promise<RaceProject> {
-  if (
-    (project.features === undefined || project.features.length === 0) &&
-    project.featuresUrl
-  ) {
+  if (project.features === undefined && project.featuresUrl) {
     const raw = await fetchJson(project.featuresUrl, fetchImpl)
     const list = extractFeaturesList(raw)
     const merged = parseRaceProject({ ...project, features: list })
@@ -91,8 +88,22 @@ async function loadFromVenuePackCache(
  * 4. Cached venue pack (IndexedDB) when prior paths miss
  *
  * When `featuresUrl` is set and `features` omitted, loads that JSON
- * (`{ features: WorldFeature[] }` or a bare array).
+ * (`{ features: WorldFeature[] }` or a bare array). Present `features`
+ * (including `[]`) is complete — `featuresUrl` is not fetched.
  */
+/** Gated Load-switch timings: append `?debug1917=1` (Phase 19.17). */
+function logProjectSwitchTiming(
+  extra: Record<string, unknown>,
+): void {
+  try {
+    if (typeof location === 'undefined') return
+    if (!new URLSearchParams(location.search).has('debug1917')) return
+  } catch {
+    return
+  }
+  console.info('[19.17]', extra)
+}
+
 export async function loadRaceProject(
   id: string,
   options: LoadRaceProjectOptions = {},
@@ -102,6 +113,7 @@ export async function loadRaceProject(
     throw new Error(`Invalid race id: ${JSON.stringify(id)}`)
   }
 
+  const t0 = performance.now()
   const fetchImpl = options.fetchImpl ?? fetch
   const apiBase = options.projectsApiBase?.trim()
   const cache = resolveVenuePackCache(options.venuePackCache)
@@ -115,7 +127,14 @@ export async function loadRaceProject(
       const res = await fetchImpl(raceProjectApiUrl(apiBase, trimmed))
       if (res.ok) {
         const project = parseRaceProject(await res.json())
-        return hydrateFeaturesUrl(project, fetchImpl)
+        const hydrated = await hydrateFeaturesUrl(project, fetchImpl)
+        logProjectSwitchTiming({
+          stage: 'loadRaceProject',
+          path: 'api',
+          id: trimmed,
+          ms: Math.round(performance.now() - t0),
+        })
+        return hydrated
       }
     } catch {
       // Network / parse failure → Electron / static fallback.
@@ -124,10 +143,20 @@ export async function loadRaceProject(
 
   if (bridge) {
     try {
+      const tRead = performance.now()
       const result = await bridge.read(trimmed)
+      const racesReadMs = Math.round(performance.now() - tRead)
       if (result.ok) {
         const project = parseRaceProject(result.project)
-        return hydrateFeaturesUrl(project, fetchImpl)
+        const hydrated = await hydrateFeaturesUrl(project, fetchImpl)
+        logProjectSwitchTiming({
+          stage: 'loadRaceProject',
+          path: 'races.read',
+          id: trimmed,
+          racesReadMs,
+          ms: Math.round(performance.now() - t0),
+        })
+        return hydrated
       }
     } catch {
       // Bridge miss → static.
@@ -138,11 +167,25 @@ export async function loadRaceProject(
     const project = parseRaceProject(
       await fetchJson(raceProjectUrl(trimmed), fetchImpl),
     )
-    return hydrateFeaturesUrl(project, fetchImpl)
+    const hydrated = await hydrateFeaturesUrl(project, fetchImpl)
+    logProjectSwitchTiming({
+      stage: 'loadRaceProject',
+      path: 'static',
+      id: trimmed,
+      ms: Math.round(performance.now() - t0),
+    })
+    return hydrated
   } catch (staticErr) {
     if (cache) {
       try {
-        return await loadFromVenuePackCache(trimmed, cache)
+        const packed = await loadFromVenuePackCache(trimmed, cache)
+        logProjectSwitchTiming({
+          stage: 'loadRaceProject',
+          path: 'venuePack',
+          id: trimmed,
+          ms: Math.round(performance.now() - t0),
+        })
+        return packed
       } catch {
         // Re-throw original static miss.
       }

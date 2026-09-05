@@ -1,7 +1,9 @@
 import * as THREE from 'three'
 import { poseBus, type EnuPosition, type PoseEvent } from '../pose/index.ts'
+import { gpsToEnuAmsl } from '../geodesy/index.ts'
 import {
   createBoatEntity,
+  normalizeBoatHullScale,
   type BoatEntityHandle,
 } from './boatEntity.ts'
 import {
@@ -9,6 +11,7 @@ import {
   normalizeBoatVisibilityMode,
   type BoatVisibilityMode,
 } from './boatVisibility.ts'
+import { disposeWorldGeometryHandles } from './disposeWorldGeometry.ts'
 import { filterFeaturesFor3d } from './features/featureVisibility.ts'
 import {
   loadBoatNames,
@@ -46,6 +49,7 @@ import {
 import { createDroneCamera, TEMP_HFOV_DEG } from './droneCamera.ts'
 import {
   canApplyStaticHull,
+  canAuthorStaticHull,
   resolveStaticHullPosition,
   staticBoatPose,
   type StaticHullSeed,
@@ -85,6 +89,7 @@ import { mountWorldBuoys, type WorldBuoysHandle } from './worldBuoys.ts'
 import {
   DEFAULT_ENVIRONMENT_MODE,
   DEFAULT_SEA_QUALITY,
+  collectOceanSuppressFootprints,
   createRealisticEnvironment,
   normalizeEnvironmentMode,
   normalizeSeaQuality,
@@ -107,6 +112,11 @@ import {
   shouldHideTerrainWater,
   type TerrainHandle,
 } from './terrain/index.ts'
+import {
+  SEA_HEIGHT_Y_DEFAULT,
+  clampSeaHeightYM,
+  setWaterPlaneY,
+} from './waterPlanePlacement.ts'
 
 export { DEFAULT_DRONE_ID }
 
@@ -247,6 +257,16 @@ export type SceneHandle = {
    */
   upsertStaticBoat: (id: string, position?: EnuPosition) => void
   /**
+   * True when the operator may drag this hull (no current live packet).
+   */
+  canAuthorBoatPose: (id: string) => boolean
+  /**
+   * Apply a map-authored ENU pose. No-op while live telem is fresh.
+   * Unlike `upsertStaticBoat` / `syncFleetHulls`, this may move a hull that
+   * once had live telem after the hold window.
+   */
+  applyAuthoredBoatPose: (id: string, position?: EnuPosition) => boolean
+  /**
    * Spawn/move hulls for every seed whose id is allow-listed and has never
    * received live telem. Missing `position` uses an origin grid by index.
    */
@@ -267,12 +287,16 @@ export type SceneHandle = {
     url?: string,
   ) => Promise<FlagsHandle | null>
   /**
-   * Remount course / sponsors / flags / start–finish signs from WorldFeature[].
-   * Position markers remount from last loaded markers fixture (not WorldFeature yet).
+   * Remount course / sponsors / flags / start–finish / buoys / chains from
+   * WorldFeature[]. Empty list disposes leftover 3D (including billboard
+   * chains and flags) before mounting nothing.
+   * Position markers remount from last loaded markers fixture unless
+   * `retainPositionMarkers` is false (pack load).
    * `arrow` / `rotation` stay map-only until a later asset DSP.
    */
   remountWorldFromFeatures: (
     features: readonly WorldFeature[],
+    options?: { retainPositionMarkers?: boolean },
   ) => Promise<void>
   /** Distances-style water labels (Unity Distances prefab spirit). */
   loadPositionMarkersFromUrl: (
@@ -306,6 +330,11 @@ export type SceneHandle = {
   setBoatVisibilityModes: (
     modes: ReadonlyMap<string, BoatVisibilityMode> | Record<string, BoatVisibilityMode>,
   ) => void
+  /**
+   * Uniform hull scale from boat `heightM` (omit / non-finite / ≤0 → 1).
+   * Independent of Alt MSL (pose ENU y). Applies even after live telem.
+   */
+  setBoatHeightM: (id: string, heightM?: number) => void
   /** Start / pause / reset / restart the loaded countdown (no-op if none). */
   controlCountdown: (
     action: 'start' | 'pause' | 'reset' | 'restart',
@@ -350,6 +379,12 @@ export type SceneHandle = {
    */
   setTerrainWaterDiscardYM: (yM: number) => void
   getTerrainWaterDiscardYM: () => number
+  /**
+   * Environment **sea m** (−20…+20, default 0). Moves Gerstner rest Y + shared
+   * water-plane Y (wakes). Does not change Cesium tile discard.
+   */
+  setSeaHeightYM: (yM: number) => void
+  getSeaHeightYM: () => number
   /** Freeze tile LOD updates once the shot is framed. */
   setTerrainTilesLocked: (locked: boolean) => void
   getTerrainTilesLocked: () => boolean
@@ -427,6 +462,8 @@ export function startScene(options: SceneOptions): SceneHandle {
   const lastLiveBoatAt = new Map<string, number>()
   /** Per-id draw mode; defaults to solid when missing. */
   const boatVisibility = new Map<string, BoatVisibilityMode>()
+  /** Per-id uniform hull scale from `heightM`; missing → 1. */
+  const boatHeightM = new Map<string, number>()
   let boatNames: BoatNamesCatalogue = new Map()
   let course: CourseHandle | null = null
   let sponsors: SponsorsHandle | null = null
@@ -450,11 +487,14 @@ export function startScene(options: SceneOptions): SceneHandle {
   let environmentOpaqueClearSafe = false
   let realisticEnv: RealisticEnvironmentHandle | null = null
   let realisticEnvMounted = false
+  /** Last sponsor + start/finish features for 19.15 Gerstner holes. */
+  let lastOceanSuppressFeatures: WorldFeature[] = []
   /** DSP-SCN-20260817-01 — terrain hooks only; ocean stays in environment/. */
   let terrain: TerrainHandle | null = null
   let terrainEnabled = DEFAULT_TERRAIN_ENABLED
   let terrainNudgeM = 0
   let terrainWaterDiscardYM = DEFAULT_TERRAIN_WATER_DISCARD_Y
+  let seaHeightYM = SEA_HEIGHT_Y_DEFAULT
   let terrainTilesLocked = false
   let terrainToken = (options.cesiumIonToken ?? '').trim()
   const terrainAssetId =
@@ -477,6 +517,38 @@ export function startScene(options: SceneOptions): SceneHandle {
     course?.setWaterCueVisible(!hidePad)
   }
 
+  const sceneGpsToEnu = (lat: number, lon: number, alt: number) => {
+    const v = gpsToEnuAmsl(lat, lon, alt)
+    return { x: v.x, y: v.y, z: v.z }
+  }
+
+  function applyOceanSuppress(): void {
+    realisticEnv?.setSuppressFootprints(
+      collectOceanSuppressFootprints(lastOceanSuppressFeatures, sceneGpsToEnu),
+    )
+  }
+
+  function setOceanSuppressFeatures(features: readonly WorldFeature[]): void {
+    lastOceanSuppressFeatures = features.filter(
+      (f) => f.type === 'sponsor' || f.type === 'start' || f.type === 'finish',
+    )
+    applyOceanSuppress()
+  }
+
+  function mergeOceanSuppressSponsors(features: readonly WorldFeature[]): void {
+    const signs = lastOceanSuppressFeatures.filter(
+      (f) => f.type === 'start' || f.type === 'finish',
+    )
+    const sponsors = features.filter((f) => f.type === 'sponsor')
+    lastOceanSuppressFeatures = [...sponsors, ...signs]
+    applyOceanSuppress()
+  }
+
+  function applySeaHeight(): void {
+    setWaterPlaneY(seaHeightYM)
+    realisticEnv?.setSeaHeightYM(seaHeightYM)
+  }
+
   function syncRealisticEnvironment(): void {
     if (stopped) return
     const want = shouldShowRealisticEnvironment(
@@ -486,12 +558,14 @@ export function startScene(options: SceneOptions): SceneHandle {
     if (want) {
       if (!realisticEnv) {
         realisticEnv = createRealisticEnvironment({ seaQuality })
+        applyOceanSuppress()
       }
       if (!realisticEnvMounted) {
         scene.add(realisticEnv.root)
         scene.fog = realisticEnv.fog
         realisticEnvMounted = true
       }
+      applySeaHeight()
       applyWaterCueForEnvironment()
       syncShoreFoam()
       syncTerrainWaterHide()
@@ -595,6 +669,33 @@ export function startScene(options: SceneOptions): SceneHandle {
   options.container.appendChild(renderer.domElement)
   freeCam = createFreeCam(renderer.domElement, 1, TEMP_HFOV_DEG)
 
+  // Log + gate preview while GL is dead. preventDefault is required for restore;
+  // three.js also listens — ours only tracks state so tick does not set stopped.
+  let webglContextLost = false
+  const onWebglContextLost = (ev: Event): void => {
+    ev.preventDefault()
+    webglContextLost = true
+    console.error('[scene] webglcontextlost', {
+      remountGen,
+      canvasInHost: options.container.contains(renderer.domElement),
+    })
+  }
+  const onWebglContextRestored = (): void => {
+    webglContextLost = false
+    console.warn('[scene] webglcontextrestored', { remountGen })
+    try {
+      resize()
+    } catch (err) {
+      console.error('[scene] resize after context restore failed', err)
+    }
+  }
+  renderer.domElement.addEventListener('webglcontextlost', onWebglContextLost, false)
+  renderer.domElement.addEventListener(
+    'webglcontextrestored',
+    onWebglContextRestored,
+    false,
+  )
+
   function disposeTerrainInstance(): void {
     if (!terrain) return
     scene.remove(terrain.root)
@@ -693,6 +794,10 @@ export function startScene(options: SceneOptions): SceneHandle {
     return boatVisibility.get(id) ?? DEFAULT_BOAT_VISIBILITY_MODE
   }
 
+  function hullScaleFor(id: string): number {
+    return normalizeBoatHullScale(boatHeightM.get(id))
+  }
+
   function ensureBoat(id: string): BoatEntityHandle {
     let boat = boats.get(id)
     if (boat) return boat
@@ -702,6 +807,7 @@ export function startScene(options: SceneOptions): SceneHandle {
       displayName: entry?.name,
       color: entry?.color,
       visibilityMode: visibilityFor(id),
+      heightM: hullScaleFor(id),
     })
     boats.set(id, boat)
     scene.add(boat.root)
@@ -734,6 +840,25 @@ export function startScene(options: SceneOptions): SceneHandle {
     }
     const pos = resolveStaticHullPosition({ id: trimmed, position }, 0)
     ensureBoat(trimmed).applyPose(staticBoatPose(trimmed, pos))
+  }
+
+  function canAuthorBoatPose(id: string): boolean {
+    const trimmed = id.trim()
+    if (trimmed === '' || !isAllowedBoatId(trimmed, allow)) return false
+    return canAuthorStaticHull(lastLiveBoatAt.get(trimmed))
+  }
+
+  function applyAuthoredBoatPose(
+    id: string,
+    position?: EnuPosition,
+  ): boolean {
+    if (stopped) return false
+    const trimmed = id.trim()
+    if (trimmed === '' || !isAllowedBoatId(trimmed, allow)) return false
+    if (!canAuthorStaticHull(lastLiveBoatAt.get(trimmed))) return false
+    const pos = resolveStaticHullPosition({ id: trimmed, position }, 0)
+    ensureBoat(trimmed).applyPose(staticBoatPose(trimmed, pos))
+    return true
   }
 
   function syncFleetHulls(seeds: readonly StaticHullSeed[]): void {
@@ -798,12 +923,17 @@ export function startScene(options: SceneOptions): SceneHandle {
   }
 
   function tick(): void {
-    if (stopped) return
+    if (stopped || webglContextLost) return
     try {
       const dt = Math.min(clock.getDelta(), 0.1)
       const cam = previewCamera()
       if (opsViewMode === 'free') freeCam?.update()
       countdownFlags?.tickClock(dt)
+      // Foam wakes share this tick (preview rAF / studio when hidden). Do not
+      // raise STUDIO_TICK_FPS or add a second clock.
+      for (const boat of boats.values()) {
+        boat.tickWake(dt)
+      }
       // Ocean time is a shared clock (onBeforeRender); tick is not required for 3D NDI.
       if (realisticEnvMounted) realisticEnv?.tick(dt)
       if (terrain && terrainEnabled) {
@@ -815,7 +945,16 @@ export function startScene(options: SceneOptions): SceneHandle {
       // Screen preview may be free cam; active POV camera keeps tracking for OUT/NDI.
       renderer.render(scene, cam)
     } catch (err) {
-      console.error('[scene] frame error', err)
+      const gl = renderer.getContext()
+      const lost =
+        webglContextLost ||
+        (typeof gl?.isContextLost === 'function' && gl.isContextLost())
+      console.error('[scene] frame error', err, { contextLost: lost, remountGen })
+      // Context loss is recoverable via webglcontextrestored — do not freeze forever.
+      if (lost) {
+        webglContextLost = true
+        return
+      }
       stopped = true
     }
   }
@@ -888,6 +1027,8 @@ export function startScene(options: SceneOptions): SceneHandle {
     setActivePovId,
     setFleetAllowLists,
     upsertStaticBoat,
+    canAuthorBoatPose,
+    applyAuthoredBoatPose,
     syncFleetHulls,
     orientOpsBillboards,
     async loadCourseFromUrl(url?: string): Promise<CourseHandle | null> {
@@ -914,6 +1055,7 @@ export function startScene(options: SceneOptions): SceneHandle {
         return null
       }
       sponsors = handle
+      mergeOceanSuppressSponsors(handle?.worldFeatures ?? [])
       return handle
     },
     async loadCountdownFlagsFromUrl(
@@ -933,32 +1075,82 @@ export function startScene(options: SceneOptions): SceneHandle {
     },
     async remountWorldFromFeatures(
       features: readonly WorldFeature[],
+      remountOpts?: { retainPositionMarkers?: boolean },
     ): Promise<void> {
       if (stopped) return
       const gen = ++remountGen
       // Soft visible3d=false → omit from 3D remount (map may still show).
       const for3d = filterFeaturesFor3d(features)
+      const retainPositionMarkers = remountOpts?.retainPositionMarkers !== false
+      const clear = new THREE.Color()
+      renderer.getClearColor(clear)
+      console.info('[scene] remount start', {
+        gen,
+        features: features.length,
+        for3d: for3d.length,
+        retainPositionMarkers,
+        contextLost: webglContextLost,
+        canvasInHost: options.container.contains(renderer.domElement),
+        clearHex: clear.getHex(),
+        clearAlpha: renderer.getClearAlpha(),
+      })
+
+      // Empty for3d must still dispose leftover 3D (chains, flags, …).
+      disposeWorldGeometryHandles({
+        course,
+        sponsors,
+        countdownFlags,
+        lineSigns,
+        worldBuoys,
+        billboardChains,
+        positionMarkers,
+      })
+      course = null
+      sponsors = null
+      countdownFlags = null
+      lineSigns = null
+      worldBuoys = null
+      billboardChains = null
+      positionMarkers = null
+      if (!retainPositionMarkers) {
+        positionMarkersData = null
+      }
+      if (stopped || gen !== remountGen) {
+        console.info('[scene] remount stale abort', {
+          gen,
+          remountGen,
+          phase: 'after-dispose',
+        })
+        return
+      }
+      setOceanSuppressFeatures([])
 
       const courseData = featuresToCourseData(for3d, courseAppearance)
-      course?.dispose()
-      course = null
       if (courseData.waypoints.length > 0) {
         course = mountCourse(scene, courseData)
       }
       if (stopped || gen !== remountGen) {
         course?.dispose()
         course = null
+        console.info('[scene] remount stale abort', {
+          gen,
+          remountGen,
+          phase: 'after-course',
+        })
         return
       }
       applyWaterCueForEnvironment()
 
       const sponsorsData = featuresToSponsorsData(for3d)
-      sponsors?.dispose()
-      sponsors = null
       if (sponsorsData.sponsors.length > 0) {
         const handle = await mountSponsors(scene, sponsorsData)
         if (stopped || gen !== remountGen) {
           handle.dispose()
+          console.info('[scene] remount stale abort', {
+            gen,
+            remountGen,
+            phase: 'after-sponsors',
+          })
           return
         }
         sponsors = handle
@@ -967,44 +1159,88 @@ export function startScene(options: SceneOptions): SceneHandle {
       const flagsData = featuresToFlagsData(for3d, flagsMeta)
       if (flagsData) {
         captureFlagsMeta(flagsData)
-        countdownFlags?.dispose()
-        countdownFlags = null
-        if (stopped || gen !== remountGen) return
+        if (stopped || gen !== remountGen) {
+          console.info('[scene] remount stale abort', {
+            gen,
+            remountGen,
+            phase: 'after-flags-meta',
+          })
+          return
+        }
         countdownFlags = mountCountdownFlags(scene, {
           ...flagsData,
           autoStart: false,
         })
       }
 
-      lineSigns?.dispose()
-      lineSigns = null
-      if (stopped || gen !== remountGen) return
+      if (stopped || gen !== remountGen) {
+        console.info('[scene] remount stale abort', {
+          gen,
+          remountGen,
+          phase: 'before-line-signs',
+        })
+        return
+      }
       lineSigns = mountLineSignsFromFeatures(scene, for3d)
 
-      worldBuoys?.dispose()
-      worldBuoys = null
-      if (stopped || gen !== remountGen) return
+      if (stopped || gen !== remountGen) {
+        console.info('[scene] remount stale abort', {
+          gen,
+          remountGen,
+          phase: 'before-buoys',
+        })
+        return
+      }
       worldBuoys = mountWorldBuoys(scene, for3d, undefined, courseAppearance)
 
-      billboardChains?.dispose()
-      billboardChains = null
-      if (stopped || gen !== remountGen) return
+      if (stopped || gen !== remountGen) {
+        console.info('[scene] remount stale abort', {
+          gen,
+          remountGen,
+          phase: 'before-chains',
+        })
+        return
+      }
       {
         const chainHandle = await mountBillboardChains(scene, for3d)
         if (stopped || gen !== remountGen) {
           chainHandle?.dispose()
+          console.info('[scene] remount stale abort', {
+            gen,
+            remountGen,
+            phase: 'after-chains',
+          })
           return
         }
         billboardChains = chainHandle
       }
 
-      positionMarkers?.dispose()
-      positionMarkers = null
-      if (positionMarkersData && positionMarkersData.markers.length > 0) {
-        if (stopped || gen !== remountGen) return
+      if (
+        retainPositionMarkers &&
+        positionMarkersData &&
+        positionMarkersData.markers.length > 0
+      ) {
+        if (stopped || gen !== remountGen) {
+          console.info('[scene] remount stale abort', {
+            gen,
+            remountGen,
+            phase: 'before-markers',
+          })
+          return
+        }
         positionMarkers = mountPositionMarkers(scene, positionMarkersData)
       }
       calibrationOverlay.rebuild()
+      setOceanSuppressFeatures(for3d)
+      console.info('[scene] remount complete', {
+        gen,
+        contextLost: webglContextLost,
+        hasChains: billboardChains !== null,
+        chainSegments: billboardChains?.stats.instanceCount ?? 0,
+        chainTextures: billboardChains?.stats.uniqueBoardKeyCount ?? 0,
+        chainLegacyInstances: billboardChains?.stats.legacyInstanceEstimate ?? 0,
+        canvasInHost: options.container.contains(renderer.domElement),
+      })
     },
     async loadPositionMarkersFromUrl(
       url?: string,
@@ -1026,6 +1262,7 @@ export function startScene(options: SceneOptions): SceneHandle {
       if (stopped) return
       lineSigns?.dispose()
       lineSigns = mountLineSignsFromFeatures(scene, features)
+      setOceanSuppressFeatures(features)
     },
     async loadBoatNamesFromUrl(url?: string): Promise<BoatNamesCatalogue> {
       if (stopped) return new Map()
@@ -1071,6 +1308,18 @@ export function startScene(options: SceneOptions): SceneHandle {
         boatVisibility.set(id, next)
         boats.get(id)?.setVisibilityMode(next)
       }
+    },
+    setBoatHeightM(id, heightM): void {
+      if (stopped) return
+      const trimmed = id.trim()
+      if (trimmed === '') return
+      const scale = normalizeBoatHullScale(heightM)
+      if (typeof heightM === 'number' && Number.isFinite(heightM) && heightM > 0) {
+        boatHeightM.set(trimmed, scale)
+      } else {
+        boatHeightM.delete(trimmed)
+      }
+      boats.get(trimmed)?.setHullScale(scale)
     },
     controlCountdown(action): void {
       if (!countdownFlags) return
@@ -1135,6 +1384,12 @@ export function startScene(options: SceneOptions): SceneHandle {
     },
     getTerrainWaterDiscardYM: () =>
       terrain?.getWaterDiscardYM() ?? terrainWaterDiscardYM,
+    setSeaHeightYM(yM): void {
+      if (stopped) return
+      seaHeightYM = clampSeaHeightYM(yM)
+      applySeaHeight()
+    },
+    getSeaHeightYM: () => seaHeightYM,
     setTerrainTilesLocked(locked): void {
       if (stopped) return
       terrainTilesLocked = locked === true
@@ -1184,6 +1439,16 @@ export function startScene(options: SceneOptions): SceneHandle {
         unsubFrameClock = null
       }
       window.removeEventListener('resize', resize)
+      renderer.domElement.removeEventListener(
+        'webglcontextlost',
+        onWebglContextLost,
+        false,
+      )
+      renderer.domElement.removeEventListener(
+        'webglcontextrestored',
+        onWebglContextRestored,
+        false,
+      )
       unsubPose()
       freeCam?.dispose()
       freeCam = null
@@ -1196,6 +1461,7 @@ export function startScene(options: SceneOptions): SceneHandle {
       scene.fog = null
       realisticEnv?.dispose()
       realisticEnv = null
+      lastOceanSuppressFeatures = []
       environmentMode = DEFAULT_ENVIRONMENT_MODE
       seaQuality = DEFAULT_SEA_QUALITY
       environmentOpaqueClearSafe = false

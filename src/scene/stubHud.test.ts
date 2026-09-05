@@ -123,12 +123,15 @@ describe('formatOpsViewStatus', () => {
 })
 
 describe('clampTerrainWaterDiscardYM', () => {
-  it('clamps 0–5 m and defaults non-finite to 0.5', () => {
+  it('clamps −20…+5 m and defaults non-finite to 0.5', () => {
     expect(DEFAULT_TERRAIN_WATER_DISCARD_Y).toBe(0.5)
     expect(clampTerrainWaterDiscardYM(0.5)).toBe(0.5)
     expect(clampTerrainWaterDiscardYM(0)).toBe(0)
     expect(clampTerrainWaterDiscardYM(5)).toBe(5)
-    expect(clampTerrainWaterDiscardYM(-1)).toBe(0)
+    expect(clampTerrainWaterDiscardYM(-1)).toBe(-1)
+    expect(clampTerrainWaterDiscardYM(-2)).toBe(-2)
+    expect(clampTerrainWaterDiscardYM(-20)).toBe(-20)
+    expect(clampTerrainWaterDiscardYM(-21)).toBe(-20)
     expect(clampTerrainWaterDiscardYM(9)).toBe(5)
     expect(clampTerrainWaterDiscardYM(Number.NaN)).toBe(0.5)
   })

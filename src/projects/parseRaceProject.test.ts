@@ -209,6 +209,32 @@ describe('parseRaceProject', () => {
     expect(p.features?.[0]?.visible2d).toBe(true)
   })
 
+  it('soft-parses feature visibleBuoyMesh / visibleTag (omit stays unset)', () => {
+    const p = parseRaceProject({
+      ...minimal,
+      features: [
+        {
+          id: 'buoy:1',
+          name: 'B1',
+          type: 'buoy',
+          points: [{ lat: 41, lon: 29, altMsl: 0 }],
+          visibleBuoyMesh: false,
+          visibleTag: true,
+        },
+        {
+          id: 'course:Mark-NW',
+          name: 'Mark-NW',
+          type: 'mark',
+          points: [{ lat: 41, lon: 29, altMsl: 0 }],
+        },
+      ],
+    })
+    expect(p.features?.[0]?.visibleBuoyMesh).toBe(false)
+    expect(p.features?.[0]?.visibleTag).toBe(true)
+    expect(p.features?.[1]?.visibleBuoyMesh).toBeUndefined()
+    expect(p.features?.[1]?.visibleTag).toBeUndefined()
+  })
+
   it('soft-parses feature rounding (unknown → none; omit stays unset)', () => {
     const p = parseRaceProject({
       ...minimal,
@@ -283,6 +309,86 @@ describe('parseRaceProject', () => {
     expect(p.features?.[2]?.panelColor).toBeUndefined()
   })
 
+  it('soft-parses additive panelAlpha / boardAspect (omit stays unset)', () => {
+    const p = parseRaceProject({
+      ...minimal,
+      features: [
+        {
+          id: 'sponsor:sp1',
+          name: 'sp1',
+          type: 'sponsor',
+          points: [
+            { lat: 41, lon: 29, altMsl: 0 },
+            { lat: 41.01, lon: 29, altMsl: 0 },
+          ],
+          panelAlpha: 0.35,
+          boardAspect: 2.5,
+        },
+        {
+          id: 'sponsor:sp2',
+          name: 'sp2',
+          type: 'sponsor',
+          points: [
+            { lat: 41, lon: 29, altMsl: 0 },
+            { lat: 41.01, lon: 29, altMsl: 0 },
+          ],
+        },
+        {
+          id: 'chain:1',
+          name: 'chain-1',
+          type: 'billboardChain',
+          points: [
+            { lat: 41, lon: 29, altMsl: 0 },
+            { lat: 41.01, lon: 29.01, altMsl: 0 },
+          ],
+          panelAlpha: '0.2',
+        },
+      ],
+    })
+    expect(p.features?.[0]?.panelAlpha).toBe(0.35)
+    expect(p.features?.[0]?.boardAspect).toBe(2.5)
+    expect(p.features?.[1]?.panelAlpha).toBeUndefined()
+    expect(p.features?.[1]?.boardAspect).toBeUndefined()
+    expect(p.features?.[2]?.panelAlpha).toBe(0.2)
+  })
+
+  it('round-trips billboardChain logos weights; empty array stays empty', () => {
+    const built = parseRaceProject({
+      ...minimal,
+      features: [
+        {
+          id: 'chain:1',
+          name: 'chain-1',
+          type: 'billboardChain',
+          points: [
+            { lat: 41, lon: 29, altMsl: 0 },
+            { lat: 41.01, lon: 29.01, altMsl: 0 },
+          ],
+          logos: [
+            { url: '/assets/library/image/rolex-f724a5ba.png', weight: 3 },
+            { url: '/assets/library/image/senexus-57797468.png', weight: 2 },
+          ],
+        },
+        {
+          id: 'chain:2',
+          name: 'chain-2',
+          type: 'billboardChain',
+          points: [
+            { lat: 41, lon: 29, altMsl: 0 },
+            { lat: 41.01, lon: 29.01, altMsl: 0 },
+          ],
+          logos: [],
+        },
+      ],
+    })
+    expect(built.features?.[0]?.logos).toEqual([
+      { url: '/assets/library/image/rolex-f724a5ba.png', weight: 3 },
+      { url: '/assets/library/image/senexus-57797468.png', weight: 2 },
+    ])
+    expect(built.features?.[1]?.logos).toEqual([])
+    expect(built.features?.[1]?.textureUrl).toBeUndefined()
+  })
+
   it('accepts embedded WorldFeature list', () => {
     const p = parseRaceProject({
       ...minimal,
@@ -353,6 +459,27 @@ describe('parseRaceProject', () => {
     ).toThrow(/fleet/)
   })
 
+  it('keeps features: [] as a complete world even when fixture URLs are present', () => {
+    const p = parseRaceProject({
+      ...minimal,
+      features: [],
+      courseUrl: '/fixtures/course/demo-istanbul.json',
+      sponsorsUrl: '/fixtures/sponsors/demo-istanbul.json',
+      flagsUrl: '/fixtures/flags/demo-istanbul-countdown.json',
+    })
+    expect(p.features).toEqual([])
+    expect(p.courseUrl).toBe('/fixtures/course/demo-istanbul.json')
+  })
+
+  it('omits features when the key is absent (legacy URL packs)', () => {
+    const p = parseRaceProject({
+      ...minimal,
+      courseUrl: '/fixtures/course/demo-istanbul.json',
+    })
+    expect(p.features).toBeUndefined()
+    expect(p.courseUrl).toBe('/fixtures/course/demo-istanbul.json')
+  })
+
   it('rejects invalid features entries', () => {
     expect(() =>
       parseRaceProject({
@@ -421,6 +548,26 @@ describe('applyRaceProjectToConfig', () => {
       parseRaceProject({ ...minimal, fleet: { boatIds: ['1', '2'] } }),
     )
     expect(oob.boatIds).toEqual(['1', '2'])
+  })
+
+  it('pack output.timecodeEnabled true overrides a false config default', () => {
+    const config = baseConfig()
+    config.timecodeEnabled = false
+    applyRaceProjectToConfig(
+      config,
+      parseRaceProject({
+        ...minimal,
+        output: { timecodeEnabled: true },
+      }),
+    )
+    expect(config.timecodeEnabled).toBe(true)
+  })
+
+  it('omitted pack timecodeEnabled leaves the config default', () => {
+    const config = baseConfig()
+    config.timecodeEnabled = false
+    applyRaceProjectToConfig(config, parseRaceProject(minimal))
+    expect(config.timecodeEnabled).toBe(false)
   })
 
   it('hydrates offsetsStore from calibration; old packs leave store alone', () => {

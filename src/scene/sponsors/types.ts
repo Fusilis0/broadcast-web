@@ -17,7 +17,10 @@ export type SponsorEntry = {
   label: string
   a: SponsorGpsPoint
   b: SponsorGpsPoint
-  /** Across-water depth (meters); default 8. Not wall height. */
+  /**
+   * Authored inspector height. Glyph scale inside the A–B canvas (clamped).
+   * Does **not** set across-track metres — that is `widthM / board aspect`.
+   */
   heightM: number
   /** Optional image under `public/`; null → procedural label on the board. */
   textureUrl: string | null
@@ -27,6 +30,10 @@ export type SponsorEntry = {
   panelColor?: number
   /** Additive frame stroke 0xRRGGBB; omit → default dark slate. */
   frameColor?: number
+  /** Additive plate alpha 0–1; omit → 1 (opaque). */
+  panelAlpha?: number
+  /** Additive along/across canvas ratio. Omit → `DEFAULT_SPONSOR_BOARD_ASPECT`. */
+  boardAspect?: number
 }
 
 export type SponsorsData = {
@@ -34,23 +41,34 @@ export type SponsorsData = {
   sponsors: SponsorEntry[]
 }
 
-/** ENU meters after GEO + water-Y force (x=East, y=Up, z=−North). */
+/** ENU meters after GEO (x=East, y=Up, z=−North). */
 export type SponsorEnuEndpoints = {
   id: string
   label: string
-  /** Across-water depth for flat sponsors; vertical height for upright chain instances. */
+  /** Across-water canvas depth for flat sponsors; vertical height for upright chain instances. */
   heightM: number
   textureUrl: string | null
   color: number
   panelColor?: number
   frameColor?: number
+  panelAlpha?: number
+  boardAspect?: number
+  /**
+   * 0–1 glyph scale inside the A–B canvas (flat water-plane). Omit → 1.
+   * Authored `heightM` 100/120 clamps here; it does not grow the mesh OBB.
+   */
+  glyphScale?: number
   ax: number
   az: number
   bx: number
   bz: number
-  /** Midpoint at water plane (y = 0). */
+  /** Midpoint XZ; Y from GEO Alt MSL (average of A/B). */
   midX: number
+  midY: number
   midZ: number
   /** Horizontal width A↔B (meters). */
   widthM: number
+  /** Optional compose canvas (chain matches plane aspect so heightM does not stretch logos). */
+  canvasW?: number
+  canvasH?: number
 }

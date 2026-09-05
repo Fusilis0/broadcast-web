@@ -148,10 +148,37 @@ body.output-transparent,
   flex-shrink: 0;
 }
 
+.ops-sidebar__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
 .ops-sidebar__title {
   font-weight: 600;
   color: #e8eef4;
   letter-spacing: 0.02em;
+}
+
+.ops-sidebar__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ops-sidebar__world-toggle {
+  font-size: 11px;
+  padding: 1px 7px;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+.ops-sidebar__world-toggle[aria-pressed='true'] {
+  background: #2a3a4c;
+  border-color: #6a8aaa;
+  color: #e8eef4;
 }
 
 .ops-sidebar__collapse-btn,
@@ -670,11 +697,75 @@ body.output-transparent,
   font-size: 12px;
 }
 
+.plate-alpha {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.plate-alpha input[type='range'] {
+  flex: 1;
+  min-width: 80px;
+}
+
+.plate-alpha__value {
+  font-variant-numeric: tabular-nums;
+  min-width: 2.4em;
+}
+
 .asset-insp__note {
   margin: 0;
   color: #8a949e;
   font-size: 11px;
   line-height: 1.35;
+}
+
+.asset-insp__logos-head {
+  margin: 8px 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #c5cdd6;
+}
+
+.asset-insp__logos {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.asset-insp__logo-row {
+  display: grid;
+  grid-template-columns: 32px 1fr auto auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.asset-insp__logo-thumb {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  background: #121820;
+  border-radius: 3px;
+}
+
+.asset-insp__logo-url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  color: #8b96a3;
+}
+
+.asset-insp__weight {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #8b96a3;
+}
+
+.asset-insp__weight .asset-insp__input {
+  width: 52px;
 }
 
 .asset-insp__calib {
@@ -1487,19 +1578,21 @@ body.output-transparent,
 
 /*
  * Stream / on-air 2D race map (Phase 8.1 + Phase 11 broadcast graphic).
- * CSS overlay PiP — not Three HUD. Default hidden via `hidden` (HUD toggle).
- * Distinct framed card look vs utilitarian .ops-map; ops styles above are
- * untouched. When the ops sidebar rail is open, shift right so the PiP is
- * not under the rail.
+ * Card chrome kept; PiP corner overlay removed (Phase 19.2). The canvas lives
+ * in `.local-2d-map-host` — off-screen for `broadcast-web-2d` NDI, on-screen
+ * for local 2D focus. To restore a PiP later: re-add `#ops-stream-map`, mount
+ * `.stream-map` on the overlay host, and restore absolute top/left card rules
+ * (this framed look can stay).
  */
 .stream-map {
-  top: 10px;
+  position: relative;
+  top: auto;
   right: auto;
-  left: 10px;
+  left: auto;
   bottom: auto;
-  width: 520px;
+  width: 100%;
   padding: 0;
-  z-index: 3;
+  z-index: auto;
   overflow: hidden;
   border: 1px solid rgba(120, 165, 195, 0.42);
   border-radius: 10px;
@@ -1514,36 +1607,104 @@ body.output-transparent,
     0 0 36px rgba(30, 70, 100, 0.18);
 }
 
-.ops-sidebar-root .stream-map {
-  left: calc(var(--ops-sidebar-inset-left, 0px) + 10px);
+/*
+ * Off-screen host so the 16:9 stream-map canvas stays laid out and drawable
+ * for 2D NDI. Local focus 2D CSS-fits the 1920×1080 store into the sidebar gap.
+ */
+.local-2d-map-host {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 1920px;
+  pointer-events: none;
+  z-index: 0;
 }
 
-/*
- * Local channel focus 2D — stream map is the primary local view (not PiP-only).
- * WebGL canvas hides; AR/3D NDI pumps keep running.
- */
-html.local-focus-2d .stream-map,
-body.local-focus-2d .stream-map {
-  top: 56px;
+html.local-focus-2d .local-2d-map-host,
+body.local-focus-2d .local-2d-map-host {
   left: 50%;
-  right: auto;
-  bottom: auto;
-  width: auto;
-  max-width: calc(100vw - 24px);
+  top: 56px;
+  width: min(
+    calc(100vw - 24px),
+    calc((100vh - 72px - 40px) * 16 / 9)
+  );
+  aspect-ratio: 16 / 9;
   transform: translateX(-50%);
+  pointer-events: auto;
   z-index: 4;
 }
 
-html.local-focus-2d .ops-sidebar-root .stream-map,
-body.local-focus-2d .ops-sidebar-root .stream-map {
+html.local-focus-2d .ops-sidebar-root .local-2d-map-host,
+body.local-focus-2d .ops-sidebar-root .local-2d-map-host {
   left: calc(
     50% + (var(--ops-sidebar-inset-left, 0px) - var(--ops-sidebar-inset-right, 0px)) /
       2
   );
-  max-width: calc(
-    100vw - var(--ops-sidebar-inset-left, 0px) - var(--ops-sidebar-inset-right, 0px) -
-      24px
+  width: min(
+    calc(
+      100vw - var(--ops-sidebar-inset-left, 0px) - var(--ops-sidebar-inset-right, 0px) -
+        24px
+    ),
+    calc((100vh - 72px - 40px) * 16 / 9)
   );
+}
+
+/*
+ * Local 2D: fill the 16:9 host (override stream-map inline 1920px).
+ * Off-screen host stays 1920px so NDI getCanvas() bitmap is 1920×1080.
+ */
+html.local-focus-2d .local-2d-map-host .stream-map,
+body.local-focus-2d .local-2d-map-host .stream-map {
+  width: 100% !important;
+  height: 100%;
+}
+
+html.local-focus-2d .local-2d-map-host .stream-map .ops-map__canvas,
+body.local-focus-2d .local-2d-map-host .stream-map .ops-map__canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.stream-map-boat-scale {
+  display: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(10, 14, 20, 0.82);
+  border: 1px solid rgba(140, 180, 210, 0.28);
+  color: #d0d8e0;
+  font: 12px ui-sans-serif, system-ui, Segoe UI, sans-serif;
+  pointer-events: auto;
+  z-index: 5;
+}
+
+html.local-focus-2d .local-2d-map-host .stream-map-boat-scale,
+body.local-focus-2d .local-2d-map-host .stream-map-boat-scale {
+  display: flex;
+}
+
+.stream-map-boat-scale__label {
+  flex: none;
+  white-space: nowrap;
+  color: #c5d0da;
+}
+
+.stream-map-boat-scale__range {
+  flex: 1;
+  min-width: 80px;
+  accent-color: #8ab4d0;
+}
+
+.stream-map-boat-scale__value {
+  flex: none;
+  min-width: 2.4em;
+  font-variant-numeric: tabular-nums;
+  color: #e8f2fa;
 }
 
 #app > canvas.local-channel-webgl--hidden {
@@ -1635,18 +1796,7 @@ body.local-focus-2d .ops-sidebar-root .stream-map {
 
 .stream-map .ops-map__title,
 .stream-map__title {
-  margin: 0;
-  padding: 9px 14px 8px;
-  color: #e4eef6;
-  font: 600 12px/1.25 ui-sans-serif, system-ui, Segoe UI, sans-serif;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  background: linear-gradient(
-    90deg,
-    rgba(36, 58, 78, 0.95) 0%,
-    rgba(14, 22, 32, 0.55) 100%
-  );
-  border-bottom: 1px solid rgba(110, 150, 180, 0.35);
+  display: none;
 }
 
 .stream-map .ops-map__canvas {
@@ -1751,6 +1901,44 @@ body.local-focus-2d .ops-sidebar-root .stream-map {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.ops-editor__inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ops-editor__extras {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 0;
+}
+
+.ops-editor__logos-head {
+  color: #8a949e;
+  margin-top: 4px;
+}
+
+.ops-editor__logo-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.ops-editor__logo-row span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ops-editor__commit {
+  margin-top: 4px;
+  align-self: flex-start;
 }
 
 .ops-editor__tools-host {
@@ -1874,7 +2062,7 @@ body.local-focus-2d .ops-sidebar-root .stream-map {
 }
 
 .world-authoring__tools {
-  width: min(260px, 34%);
+  width: min(300px, 36%);
   flex-shrink: 0;
   overflow: auto;
   min-height: 0;
@@ -1915,40 +2103,6 @@ body.local-focus-2d .ops-sidebar-root .stream-map {
   background: transparent;
   border: none;
   z-index: auto;
-}
-
-.world-map-launcher {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 4px;
-  font-size: 12px;
-  color: #c5cdd6;
-}
-
-.world-map-launcher__hint {
-  margin: 0;
-  color: #9aa5b2;
-  line-height: 1.4;
-}
-
-.world-map-launcher__row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.world-map-launcher__status {
-  color: #8a949e;
-  font-size: 11px;
-}
-
-.world-map-launcher__note {
-  margin: 0;
-  color: #6a7888;
-  font-size: 11px;
-  line-height: 1.35;
 }
 
 @media (max-width: 900px) {
@@ -2218,6 +2372,60 @@ body.local-focus-2d .ops-sidebar-root .stream-map {
 
 .prompt-modal__btn--ok:hover {
   border-color: #e0c060;
+}
+
+.library-picker__card {
+  width: min(480px, calc(100vw - 32px));
+}
+
+.library-picker__status {
+  margin: 0 0 8px;
+  color: #8b96a3;
+  font-size: 11px;
+}
+
+.library-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+  max-height: min(50vh, 360px);
+  overflow: auto;
+  margin-bottom: 10px;
+}
+
+.library-picker__item {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  padding: 6px;
+  border: 1px solid #3a4450;
+  border-radius: 4px;
+  background: #1a222c;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.library-picker__item:hover,
+.library-picker__item:focus {
+  border-color: #5a7a9a;
+  outline: none;
+}
+
+.library-picker__thumb {
+  width: 72px;
+  height: 48px;
+  object-fit: contain;
+  background: #121820;
+  border-radius: 3px;
+}
+
+.library-picker__label {
+  font-size: 11px;
+  color: #e8eef4;
+  text-align: center;
 }
 
 /*

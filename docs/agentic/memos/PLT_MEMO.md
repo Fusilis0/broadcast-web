@@ -1,80 +1,38 @@
 # PLT_MEMO
 
-**Last updated:** 2026-08-18 (pm)  
-**Status:** Idle — FYI: SCN-06 (Phase 16) adds additive `color?: string` to `fleet.boats[]` rows (no PLT worker)
+**Last updated:** 2026-09-05  
+**Status:** Phase 19.17 investigation **accepted** — stall is SCN remount; PLT plumbing not needed
 
-## Phase 15.4 accepted 2026-08-18 (SCN-led, PLT files)
+## Phase 19 domain roadmap (PLT)
 
-- `done/DSP-SCN-20260818-03` — additive `fleet.boats` on RaceProject (`id`, `name`, `category`, optional visibility / mapVisible / planned lat/lon). Parse/build round-trip. Old packs without the array still load via `boatIds` + names URL. Follow-up (pre-existing): `boatIds` still filters to band 21–52.
+Design: `docs/architecture/phase19-senexus-qol.md` §6 · brief: `docs/agentic/briefs/phase19/PLT_PHASE19.md`
 
-## Ion token persist 2026-08-17
-- BW policy: `cesiumIonToken` **may** be committed (private studio repo).
-- Electron `config:setCesiumIonToken` → `desktop/configFs.cjs` patches
-  `public/config.json` in `desktop:dev` (`--file` → userData, not git).
-- Resolve order: config.json, then sessionStorage, then `VITE_CESIUM_ION_TOKEN`.
+| Wave | Item | DSP | Notes |
+| --- | --- | --- | --- |
+| **C** | 19.16 Seed library + git-trackable uploads | `DSP-PLT-20260901-01-library-seed` | **DONE** — 2026-09-02 |
+| **D** | 19.17 Instant project switch | `DSP-PLT-20260905-01-project-switch-investigate` | **DONE** — owner **SCN**. No PLT plumbing DSP. |
 
-## Phase 14.1 accepted 2026-08-17 (SCN-led, PLT files)
-- `AppConfig.cesiumIonToken`, `cesiumIonAssetId` default 1,
-  `cesiumIonImageryAssetId` default 2; `.env.example` `VITE_CESIUM_ION_TOKEN=`
-  (fallback only).
-- New dep `3d-tiles-renderer@0.5.1`. Optional follow-up: persist `terrainAltitudeNudgeM`
-  on `RaceProject`.
+Does not own: World Authoring picker, remount/scene graph (SCN), NDI, Cesium vendor, calib ranges.
 
-## Phase 13 follow-up — PLT-02 accepted 2026-08-12
-- `done/DSP-PLT-20260812-02-electron-project-save-ux` — Electron Save primary = `races.save`;
-  Export = download; Load dropdown on change; name + root hint; works without API.
-  Suite 476+23. Human checklist: Save → `public/races/<id>/` in `desktop:dev`.
+## 19.17 investigation (accepted)
+- **Named await:** `scene.remountWorldFromFeatures` (`createScene.ts`) via `loadWorldForProject` → `applyLoadedRaceProject`.
+- Electron `races.read` / `racesFs.readRaceProject`: **1–5 ms**. Static `loadRaceProject`: **5–84 ms**. Remount: **~0.6–0.8 s**.
+- Secondary: `restartIngest` **281–1713 ms** after `setBoatIds` but before `fleetPanel.setState`.
+- Lists + 2D (`applyWorldFeatures`) already sequenced **after** remount — SCN must split paint order.
+- Load-button lock unchanged. Library not re-seeded. Gated timings: `?debug1917=1`.
 
-## Phase 13 — PLT-01 accepted 2026-08-12
-- `done/DSP-PLT-20260812-01-electron-local-races-save` — `races.save|list|read|getRoot`;
-  dev→`public/races/`, `--file`→`userData/races/`; Save = download + local (+ API if set).
-  Suite green. Human checklist: Save as → folder + dropdown → Load; Save overwrite; optional
-  `desktop:file` userData path.
-- PLT idle until BW opens further platform work.
+## Handoffs
+- **HO-PLT-SCN-20260902-01** — library seeded
+- **HO-SCN-PLT-20260905-01** — start 19.17 investigation
+- **HO-PLT-SCN-20260905-01** — remount is the stall; SCN splits lists+2D first  
+  `docs/agentic/handoffs/HO-PLT-SCN-20260905-01.md`
 
-## Phase 13 — wave 1 issued 2026-08-12 — superseded by accept above
-User asked for a "project saves" folder (Save overrides on same name, creates new file on new
-name) + a dropdown listing what's in it. **That folder already exists**: `public/races/` —
-`listLocalRaceIds` (`src/projects/listLocalRaces.ts`) already drives the Project sidebar dropdown
-from `public/races/index.json`, and `loadRaceProject` already reads `public/races/<id>/project.json`.
-The only gap: nothing writes back into it today (Save only `downloadRaceProject()`s to the browser
-Downloads folder). Added `docs/architecture/project-api-and-database.md` §10 — new **`races:*`**
-Electron IPC (same shape as the existing `ndi:*` channels in `desktop/preload.cjs`/`main.cjs`) so
-Save/Save as write straight into `public/races/` when running inside the studio shell, additive to
-the existing download. **No new prompt/UI logic needed** — `promptSaveAsMeta`/`promptIdName`
-already implement "same id → overwrite, new id → new file" exactly as asked; this is purely a new
-write destination. Open question flagged in the doc: dev (`:5173`, writes straight into the repo)
-vs. built `--file` mode (own `dist/races/` copy) need a decision on where writes land. Roadmap:
-**13.8**. Do not start until BW dispatches.
+## Next
+- **Open SCN** with `HO-PLT-SCN-20260905-01`. PLT idle on 19.17 until SCN reports or BW gates.
+- Human speed test only after an SCN split worker lands.
 
-## Phase 11 follow-up #3 — accepted 2026-08-12
-- `done/DSP-PLT-20260811-03-electron-prompt-fixes` — **Save as** (`promptSaveAsMeta` in
-  `src/main.ts`) and **Rename**/**Duplicate** (`promptIdName` in
-  `src/projects/projectManagerPanel.ts`) now `await promptModal(...)` from
-  `src/ui/promptModal.ts` (built by sibling `DSP-SCN-20260811-07`). Both helpers are `async`;
-  callers updated. `window.alert` / `window.confirm` left alone (those work in Electron).
-- `npm test` + `npm run build` green.
-- BW accepted after driving the real Electron shell (not a browser tab) via
-  `webContents.executeJavaScript`: clicked **Save as**, hit the id `promptModal`, **Cancel** →
-  clean abort, no leftover modal; re-ran, submitted the id modal, hit the name `promptModal`,
-  **Escape** → clean abort, no crash either time. Rename/Duplicate share the same `promptIdName` →
-  `promptModal` primitive proven above; not separately re-driven live (needs a configured
-  `projectsApiBase`) — accepted on code review + green suite. Full write-up:
-  `docs/architecture/world-authoring-workspace.md` § "Follow-up #3".
+## 19.16 shipped
+- Rolex / Senexus / Vodafone under `public/assets/library/image/`; git-trackable.
 
-## Phase 9 (done)
-- **9.1** auth roles LAN — `done/DSP-PLT-20260804-01`
-- **9.2** offline venue pack — `done/DSP-PLT-20260804-02`
-
-## Phase 11 (accepted)
-Design: `docs/architecture/unified-ops-sidebar.md`
-
-| # | DSP | Result |
-| --- | --- | --- |
-| 11.3 | `done/DSP-PLT-20260811-01` | `/api/assets` + `public/assets/library/` + Library sidebar |
-| 11.4 | `done/DSP-PLT-20260811-02` | Rename=dup+delete; archive=`labels:archived`; Save warns on catalogue orphans |
-
-### Notes
-- Default `GET /api/races` excludes archived; `?includeArchived=1` / `?label=archived`
-- PUT accepts `{ project, labels }` wrapper
-- Static-only: manager controls disabled; download Save/Save as unchanged
+## Prior
+- Phase 9.1 / 9.2, Phase 13 Electron races save, Phase 15.4 `fleet.boats`

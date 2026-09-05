@@ -24,6 +24,141 @@ Orchestrators save concrete `DSP-*.md` files into:
 
 Templates: see `../DISPATCH_PROTOCOL.md`.
 
+### Active 2026-09-02 (PRF — idle vs mouse)
+
+| DSP | Owner | Status |
+| --- | --- | --- |
+| [`active/DSP-PRF-20260902-01-idle-vs-mouse-dump.md`](./active/DSP-PRF-20260902-01-idle-vs-mouse-dump.md) | PRF | **Open** — dump stamps session + preview/hitch/Send; no fake input; caps 30/30/30 tick 60 |
+
+Playbook: `docs/architecture/performance-budgets.md` (idle vs mousedown A/B/C). Handoff in: `HO-BW-PRF-20260902-01`. Do not HO-PRF-OUT until dumps name a hog.
+
+**OUT P0 bind-spy** [`done/DSP-OUT-20260902-05-ndi-pbo-bind-spy.md`](./done/DSP-OUT-20260902-05-ndi-pbo-bind-spy.md) — **human Pass 2026-09-02**. AR/3D Send live (3D 20–25 / AR 17–20 one-on; three-on 14/14/5). Preview all-off 60, one-on ~30, three-on ~11–12 (operator parked). No SYNC READBACK. Do **not** restore skip-forever or `fallToSync`.
+
+**OUT P0 send-when-checked** [`done/DSP-OUT-20260902-04-ndi-send-when-checked.md`](./done/DSP-OUT-20260902-04-ndi-send-when-checked.md) — stub Pass; live **Fail** (AR/3D `live · no send`, OBS black, no banner). `__webglTexture` not on live Three objects. Do **not** restore skip-forever.
+
+**OUT P0 hitch** [`done/DSP-OUT-20260902-03-ndi-hitch-skip-not-sync.md`](./done/DSP-OUT-20260902-03-ndi-hitch-skip-not-sync.md) — hitch/banner **Pass** (all-off >60, no SYNC READBACK; one-on preview ~37 / 2D >60). AR/3D send **Fail** (`live · no send`, OBS black). 2D Send ~10–11. Do **not** restore skip-forever.
+
+**OUT P0 PBO** [`done/DSP-OUT-20260902-01-restore-ndi-pbo.md`](./done/DSP-OUT-20260902-01-restore-ndi-pbo.md) — code done 2026-09-02 (suite **1058 + 23**). Live **Fail** (banner latched; 1 NDI → preview 15–20). Do **not** clone.
+
+### Active 2026-09-01 — Phase 19 SCN Wave B (chrome)
+
+Design: [`../../architecture/phase19-senexus-qol.md`](../../architecture/phase19-senexus-qol.md). SCN memo: [`../memos/SCN_MEMO.md`](../memos/SCN_MEMO.md). Library **seeded** (`HO-PLT-SCN-20260902-01`).
+
+**Wave B1 complete 2026-09-02.** Look-dev **04-08 Human Pass**. **19.2b Human Pass** (05-02). **19.17** `DSP-SCN-20260905-03` **code done** — await smoke.
+
+### Done 2026-09-05 (SCN — 19.17 lists first)
+
+| DSP | Owner | Status |
+| --- | --- | --- |
+| [`done/DSP-SCN-20260905-03-project-switch-lists-first.md`](./done/DSP-SCN-20260905-03-project-switch-lists-first.md) | SCN | **code done 2026-09-05** — 2D + lists before remount; ingest after `setState`. Await smoke |
+
+Handoff in: [`../handoffs/HO-PLT-SCN-20260905-01.md`](../handoffs/HO-PLT-SCN-20260905-01.md).
+
+### Done 2026-09-05 (SCN — 19.2b names / rounding)
+
+| DSP | Owner | Status |
+| --- | --- | --- |
+| [`done/DSP-SCN-20260905-02-onair-2d-names-rounding.md`](./done/DSP-SCN-20260905-02-onair-2d-names-rounding.md) | SCN | **Human Pass 2026-09-05** — names; no marks/drones; S/F centered; buoy rounding; course scale |
+
+Handoff: [`../handoffs/HO-SCN-PLT-20260905-01.md`](../handoffs/HO-SCN-PLT-20260905-01.md) — PLT **19.17** investigation first.
+
+### Done 2026-09-05 (SCN — 19.2b 1080p + boat slider)
+
+| DSP | Owner | Status |
+| --- | --- | --- |
+| [`done/DSP-SCN-20260905-01-onair-2d-1080-boat-scale.md`](./done/DSP-SCN-20260905-01-onair-2d-1080-boat-scale.md) | SCN | **Human Pass (local) 2026-09-05** — 1920×1080; Boat size 0.5. Follow-up 05-02 |
+
+### Done 2026-09-04 (SCN — 19.2b declutter)
+
+| DSP | Owner | Status |
+| --- | --- | --- |
+| [`done/DSP-SCN-20260904-10-onair-2d-declutter.md`](./done/DSP-SCN-20260904-10-onair-2d-declutter.md) | SCN | **Fail 2026-09-05** — boats still collide; 960×540 soft. Follow-up 05-01 |
+
+### Done 2026-09-04 (SCN — 19.2b on-air 2D)
+
+| DSP | Owner | Status |
+| --- | --- | --- |
+| [`done/DSP-SCN-20260904-09-onair-2d-chrome.md`](./done/DSP-SCN-20260904-09-onair-2d-chrome.md) | SCN | **Fail 2026-09-04** — 960 px card; colliding chain/boat pills. Follow-up 04-10 |
+
+### Done 2026-09-04 (SCN — glyph crop + sea zoom)
+
+| DSP | Owner | Status |
+| --- | --- | --- |
+| [`done/DSP-SCN-20260904-08-glyph-crop-sea-zoom.md`](./done/DSP-SCN-20260904-08-glyph-crop-sea-zoom.md) | SCN | **Human Pass 2026-09-04** — glyph crop; A–B canvas; sea 1/9; no fragment flatten |
+
+### Done 2026-09-04 (SCN — fog off + deep water)
+
+| DSP | Owner | Status |
+| --- | --- | --- |
+| [`done/DSP-SCN-20260904-07-fog-off-deep-water.md`](./done/DSP-SCN-20260904-07-fog-off-deep-water.md) | SCN | **Fail 2026-09-04** — rectangles remain; heightM grows north of GPS canvas. Follow-up 04-08 |
+
+### Done 2026-09-04 (SCN — logo alpha + sea reads)
+
+| DSP | Owner | Status |
+| --- | --- | --- |
+| [`done/DSP-SCN-20260904-06-logo-alpha-sea-reads.md`](./done/DSP-SCN-20260904-06-logo-alpha-sea-reads.md) | SCN | **Fail 2026-09-04** — fog on transparent boards; sea too bright. Follow-up 04-07 |
+
+### Done 2026-09-04 (SCN — logo knockout + teal sea)
+
+| DSP | Owner | Status |
+| --- | --- | --- |
+| [`done/DSP-SCN-20260904-05-logo-knockout-sea-teal.md`](./done/DSP-SCN-20260904-05-logo-knockout-sea-teal.md) | SCN | **Fail 2026-09-04** — luma key missed white-RGB a=0; sea hex too small under grey fog. Follow-up 04-06 |
+
+### Done 2026-09-04 (SCN — sea plates + soft light)
+
+| DSP | Owner | Status |
+| --- | --- | --- |
+| [`done/DSP-SCN-20260904-04-sea-plates-soft-light.md`](./done/DSP-SCN-20260904-04-sea-plates-soft-light.md) | SCN | **Fail 2026-09-04** — fill skipped; PNG black backs remain. Follow-up 04-05 |
+
+### Done 2026-09-04 (SCN — sea look unify)
+
+| DSP | Owner | Status |
+| --- | --- | --- |
+| [`done/DSP-SCN-20260904-03-sea-look-unify.md`](./done/DSP-SCN-20260904-03-sea-look-unify.md) | SCN | **Human Pass 2026-09-04** — notes → 04-04 (crests, plates, light cutoff) |
+
+### Done 2026-09-04 (SCN — flat sea 2D motion)
+
+| DSP | Owner | Status |
+| --- | --- | --- |
+| [`done/DSP-SCN-20260904-02-flat-sea-2d-motion.md`](./done/DSP-SCN-20260904-02-flat-sea-2d-motion.md) | SCN | **Partial Pass 2026-09-04** — fragment motion OK; sun vs matte + gust curtains → 04-03 |
+
+### Done 2026-09-04 (SCN — 19.15 Fail follow-up)
+
+| DSP | Owner | Status |
+| --- | --- | --- |
+| [`done/DSP-SCN-20260904-01-flat-sea-alt-level.md`](./done/DSP-SCN-20260904-01-flat-sea-alt-level.md) | SCN | **Human Pass 2026-09-04** — assets / sea m / Alt. Look-dev → 04-02 |
+
+Handoff: [`../handoffs/HO-PLT-SCN-20260902-01-library-seeded.md`](../handoffs/HO-PLT-SCN-20260902-01-library-seeded.md).
+
+**Wave B1 done:**
+
+| DSP | Owner | Goal |
+| --- | --- | --- |
+| [`done/DSP-SCN-20260829-03-remove-pip-minimap.md`](./done/DSP-SCN-20260829-03-remove-pip-minimap.md) | SCN | ★ **19.2** PiP gone; `.local-2d-map-host`; 960×540 16:9 |
+| [`done/DSP-SCN-20260901-03-start-finish-scale.md`](./done/DSP-SCN-20260901-03-start-finish-scale.md) | SCN | ★ **19.10** Start+finish band 24 m / default span 100 m |
+| [`done/DSP-SCN-20260901-01-world-authoring-toggle.md`](./done/DSP-SCN-20260901-01-world-authoring-toggle.md) | SCN | ★ **19.6** Header World chip; no overlay Close |
+| [`done/DSP-SCN-20260901-02-save-load-status.md`](./done/DSP-SCN-20260901-02-save-load-status.md) | SCN | ★ **19.9** loading/loaded · saving/saved under Project |
+| [`done/DSP-SCN-20260902-01-explicit-race-load.md`](./done/DSP-SCN-20260902-01-explicit-race-load.md) | SCN | ★ Pick copies id only; **Load** / Enter = full `switchRace` |
+| [`done/DSP-SCN-20260902-02-pack-features-replace-world.md`](./done/DSP-SCN-20260902-02-pack-features-replace-world.md) | SCN | ★ **P0** `features: []` complete world; dispose leftover 3D chains |
+| [`done/DSP-SCN-20260902-03-billboard-library-picker.md`](./done/DSP-SCN-20260902-03-billboard-library-picker.md) | SCN | ★ **19.11** library picker; chain `#2A6FA6`; AABAB weights; vertical height |
+| [`done/DSP-SCN-20260902-04-authoring-inspector-place.md`](./done/DSP-SCN-20260902-04-authoring-inspector-place.md) | SCN | ★ **19.7** inspector + coord Add + instant Assets |
+| [`done/DSP-SCN-20260902-05-hidden-boat-keeps-tag.md`](./done/DSP-SCN-20260902-05-hidden-boat-keeps-tag.md) | SCN | ★ **19.8** hidden = hull off, tag on; clone hull materials per boat |
+| [`done/DSP-SCN-20260902-06-osm-zoom-coverage.md`](./done/DSP-SCN-20260902-06-osm-zoom-coverage.md) | SCN | ★ **19.12** OSM pad + coarsen z + previous-z underlay; stream still no OSM |
+| [`done/DSP-SCN-20260903-01-ar-3d-white-after-load.md`](./done/DSP-SCN-20260903-01-ar-3d-white-after-load.md) | SCN | ★ **P0** Load white = VRAM OOM from ~1550 chain canvases; ribbon remount + contextlost gate |
+| [`done/DSP-SCN-20260903-02-billboard-chain-ribbon.md`](./done/DSP-SCN-20260903-02-billboard-chain-ribbon.md) | SCN | ★ **19.11b** continuous abutting ribbon; `spacingM` = logo pitch; frameless plate |
+| [`done/DSP-SCN-20260903-03-boat-foam-wakes.md`](./done/DSP-SCN-20260903-03-boat-foam-wakes.md) | SCN | ★ **19.13** per-hull foam strip 8–12 m @ y≈0.05; hidden skips; not Gerstner |
+| [`done/DSP-SCN-20260903-04-boat-alt-and-water-discard.md`](./done/DSP-SCN-20260903-04-boat-alt-and-water-discard.md) | SCN | ★ **P0** hull ENU y from Alt MSL; water m **−20…+5**; heightM uniform scale |
+| [`done/DSP-SCN-20260903-05-sponsor-logo-plate-alpha.md`](./done/DSP-SCN-20260903-05-sponsor-logo-plate-alpha.md) | SCN | ★ **P1** sponsor Library logo (not name); `panelAlpha`; A–B uniform `boardAspect` |
+| [`done/DSP-SCN-20260903-06-buoy-mesh-tag-visibility.md`](./done/DSP-SCN-20260903-06-buoy-mesh-tag-visibility.md) | SCN | ★ **P1** buoy `visibleBuoyMesh` / `visibleTag`; full hide stays `visible3d` |
+| [`done/DSP-SCN-20260903-07-sea-over-assets.md`](./done/DSP-SCN-20260903-07-sea-over-assets.md) | SCN | ★ **19.15** flatten+discard holes — **human Fail 2026-09-04**. Follow-up `done/DSP-SCN-20260904-01` |
+| [`done/DSP-SCN-20260904-01-flat-sea-alt-level.md`](./done/DSP-SCN-20260904-01-flat-sea-alt-level.md) | SCN | ★ **P0** flat sea + sea m + GEO alt Y — **human Pass 2026-09-04** (assets). Look-dev follow-up `DSP-SCN-20260904-02` |
+| [`done/DSP-SCN-20260904-02-flat-sea-2d-motion.md`](./done/DSP-SCN-20260904-02-flat-sea-2d-motion.md) | SCN | ★ **P0** fragment Gerstner N/foam — **partial Pass 2026-09-04**. Look unify `DSP-SCN-20260904-03` |
+| [`done/DSP-SCN-20260904-03-sea-look-unify.md`](./done/DSP-SCN-20260904-03-sea-look-unify.md) | SCN | ★ **P1** look unify — **human Pass 2026-09-04** with notes. Follow-up `DSP-SCN-20260904-04` |
+| [`done/DSP-SCN-20260904-04-sea-plates-soft-light.md`](./done/DSP-SCN-20260904-04-sea-plates-soft-light.md) | SCN | ★ **P1** darker crests; skip fill — **human Fail 2026-09-04** (PNG black backs). Follow-up `DSP-SCN-20260904-05` |
+| [`done/DSP-SCN-20260904-05-logo-knockout-sea-teal.md`](./done/DSP-SCN-20260904-05-logo-knockout-sea-teal.md) | SCN | ★ **P0** luma-key PNG black — **human Fail 2026-09-04** (white-RGB a=0 + mips). Follow-up `DSP-SCN-20260904-06` |
+| [`done/DSP-SCN-20260904-06-logo-alpha-sea-reads.md`](./done/DSP-SCN-20260904-06-logo-alpha-sea-reads.md) | SCN | ★ **P0** zero RGB on a=0; no mips — **human Fail 2026-09-04** (fog plates + bright cyan). Follow-up `DSP-SCN-20260904-07` |
+| [`done/DSP-SCN-20260904-07-fog-off-deep-water.md`](./done/DSP-SCN-20260904-07-fog-off-deep-water.md) | SCN | ★ **P0** `fog: false` on water boards; dark deep `0x0c2f3a` / `0x164a55` — **code done 2026-09-04**, pending operator smoke |
+
 ### Done 2026-08-27 (PRF measurement)
 
 | DSP | Owner | Result |
@@ -81,8 +216,8 @@ BW verified merged tree: `npm test` **1007 + 23**, `npm run build` green. Mid-wa
 | --- | --- | --- |
 | [`done/DSP-OUT-20260829-05-gpu-swizzle.md`](./done/DSP-OUT-20260829-05-gpu-swizzle.md) | OUT | ★ **Cancelled** — `grandi` has RGBA |
 | [`done/DSP-OUT-20260830-02-ndi-capture-flip.md`](./done/DSP-OUT-20260830-02-ndi-capture-flip.md) | OUT | ★ GPU Y-flip via `blitFramebuffer` inverted dest Y **before** PBO; `bottomUp: false`. 2D untouched. Suite **1014 + 23**. OBS smoke open. |
-| [`active/DSP-OUT-20260829-03-remove-timecode-ui.md`](./active/DSP-OUT-20260829-03-remove-timecode-ui.md) | OUT | Timecode/qlock out of the picture; code kept |
-| [`active/DSP-SCN-20260829-03-remove-pip-minimap.md`](./active/DSP-SCN-20260829-03-remove-pip-minimap.md) | SCN | PiP card out of the UI; 2D NDI keeps sending and now fills 16:9 |
+| [`active/DSP-OUT-20260829-03-remove-timecode-ui.md`](./active/DSP-OUT-20260829-03-remove-timecode-ui.md) | OUT | Timecode/qlock out of the picture; code kept (Phase **19.1**) |
+| [`done/DSP-SCN-20260829-03-remove-pip-minimap.md`](./done/DSP-SCN-20260829-03-remove-pip-minimap.md) | SCN | ★ **19.2** — see Wave B table above |
 
 **Cancelled:** portrait 1080×1920 for the 2D map — operator correction, 2D stays 1920×1080. The 2D UI redesign waits for the operator's next-iteration details.
 

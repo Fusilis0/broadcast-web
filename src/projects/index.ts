@@ -1,5 +1,10 @@
 export { parseRaceProject, isSafeRaceId } from './parseRaceProject.ts'
 export {
+  resolveWorldLoadSource,
+  yieldPaintFrames,
+  type WorldLoadSource,
+} from './worldLoadSource.ts'
+export {
   parseProjectFleetIds,
   resolveBootPanelBoats,
   resolveLoadedFleetBoats,
@@ -76,9 +81,11 @@ export {
 export {
   formatProjectMetaText,
   formatRacesRootHint,
+  formatSaveLoadStatus,
   mountLocalProjectControls,
   type LocalProjectControlsHandle,
   type LocalProjectControlsOptions,
+  type SaveLoadStatusKind,
 } from './localProjectControls.ts'
 export {
   formatPersistStatus,

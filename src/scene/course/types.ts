@@ -15,6 +15,10 @@ export type CourseWaypoint = {
    * `'none'` hides. Copied through WorldFeature on adapt / remount.
    */
   rounding?: RoundingSense
+  /** Racing-mark float body (DSP-06). Omit / true → show. */
+  visibleBuoyMesh?: boolean
+  /** Racing-mark name sprite (DSP-06). Omit / true → show. */
+  visibleTag?: boolean
 }
 
 export type CourseAppearance = {
@@ -38,6 +42,8 @@ export type CourseEnuPoint = {
   y: number
   z: number
   rounding?: RoundingSense
+  visibleBuoyMesh?: boolean
+  visibleTag?: boolean
 }
 
 export type GatePair = {

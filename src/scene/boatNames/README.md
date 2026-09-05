@@ -33,9 +33,9 @@ Persisted additively as `fleet.boats[].color` (`#rrggbb`). Old packs without the
 
 | Surface | How |
 | --- | --- |
-| Tag plate + leader | `createBoatTag` / `setTagIdentity` (line colour = boat colour) |
+| Tag plate (rectangle) | `createBoatTag` / `setTagIdentity` (plate border uses boat colour) |
 | 3D hull + sails | `applyBoatHullTint` via `createBoatEntity.setTagIdentity` |
-| 2D map icons | `boatColorsFromCatalogue` → `map.setBoatDotColors` (wired in `main`); sailboat chrome in `mapChrome` |
+| 2D map icons | `boatColorsFromCatalogue` → `map.setBoatDotColors` (wired in `main`); stream pills `boatNamesFromCatalogue` → `setBoatNames`; sailboat chrome in `mapChrome` |
 
 Fleet / Live panel upserts call `scene.upsertBoatName` → tag + hull/sail; `main` syncs map dots.
 
@@ -50,4 +50,5 @@ Visibility modes (`solid` / `ghost` / `hidden`) are **not** catalogue fields —
 | `parseCategoryColor` / `parseHexColorCss` | Colour parse |
 | `BOAT_COLOR_PALETTE` / `isPaletteHex` | Preset swatches |
 | `boatColorsFromCatalogue` | id → `#rrggbb` for map/hull sync |
+| `boatNamesFromCatalogue` / `resolveStreamFleetLabel` | id → name for stream fleet pills (else id) |
 | `upsertBoatNameEntry` / `removeBoatNameEntry` | Live Fleet edits |

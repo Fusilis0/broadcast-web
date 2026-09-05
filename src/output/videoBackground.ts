@@ -194,8 +194,8 @@ function applySampledColorSpace(tex: THREE.Texture): void {
  * Fullscreen background quad drawn **before** the scene via a `renderer.render`
  * wrap (mirror of `visualTimecodeOverlay`, which draws after).
  *
- * Install **before** `startVisualTimecode`. NDI pumps bind `renderer.render`
- * last and capture both.
+ * Install **before** optional `startVisualTimecode`. NDI pumps bind
+ * `renderer.render` last (the video-background wrap when the barcode is off).
  */
 export function startVideoBackground(
   options: VideoBackgroundOptions,

@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { COURSE_WATER_Y } from '../course/courseLayout.ts'
+import { clampSeaHeightYM } from '../waterPlanePlacement.ts'
 import {
   SHORE_FOAM_DEFAULTS,
   createShoreDepthTarget,
@@ -8,6 +9,11 @@ import {
   renderTerrainDepthPrepass,
   shoreDepthSize,
 } from './shoreFoam.ts'
+import {
+  OCEAN_SUPPRESS_CAP,
+  oceanSuppressShaderChunk,
+  type OceanSuppressFootprint,
+} from './oceanSuppress.ts'
 
 /**
  * WebGL2 Gerstner ocean (Phase 14.2a).
@@ -38,16 +44,45 @@ import {
  * NDI drawing sizes keep **two** cached depth targets so the RT is not resized
  * every dual-render.
  *
- * **Wind streaks (14.3e, cranked 15.2 / 16.1):** anisotropic gust mask scrolled
- * along `uDirectionRad` (same XZ travel as swell). Procedural value-noise is
- * replaced by a 256² tileable **mipmapped** noise texture so camera motion
- * does not boil; `fwidth()` widens foam/streak/glitter edges, and a distance +
- * grazing fade kills high-frequency shading before the outer rings. Masks
- * sample **world XZ** (`vWorldPos`), never clipmap-local coords. Intensity and
- * scroll scale from `setWindSpeed`; calm wind fades the mask to 0. No particles,
- * no extra FBO, no `readPixels`. A cheap 3D vane (14.3f lite) lives in
- * `windVane.ts`.
+ * **Flat sea (19.15 / DSP-04-01 … 04-08):** `displacementScale` defaults
+ * to **0** — vertex Gerstner stays off so boards are not buried. Fragment
+ * evaluates the **same** Gerstner train with **shading amps** (authored × wind,
+ * **not** × disp) for animated N / jacobian / crest foam + glitter. 04-03 adds
+ * Gerstner trough albedo + wide sky sheen; 04-04 quiets foam crests, softens
+ * sheen/glitter/fade falloff; 04-07 locks **dark deep water** (not 04-06 bright
+ * cyan) with gentler troughs (no charcoal bands). 04-08 scales fragment
+ * spatial frequency **`OCEAN_LOOK_XZ_SCALE` (1/9 wavelengths / ×9 noise)** so
+ * ripples read finer — clipmap extent is unchanged. 04-08 first shipped ×3
+ * (too coarse / “zoomed in”). Operator: use 1/9. That kills
+ * the camera-locked half-screen Blinn terminator on a constant up normal.
+ * Environment **sea m** moves `mesh.position.y`. Platform suppress flatten
+ * remains optional; fragment **discard** holes are gone. No extra FBO /
+ * `readPixels`. Terrain land-only + Cesium hide-m discard unchanged.
+ *
+ * **Wind streaks (14.3e, cranked 15.2 / 16.1, muted 04-03):** anisotropic gust
+ * mask scrolled along `uDirectionRad` (same XZ travel as swell). **Albedo
+ * darkening retired** — the old `gust * contrast` multiply drew N–S curtains
+ * that fought E–W Gerstner foam. Gust may chop glitter only. Trough darkening
+ * is fragment `waveHeight` from `uShadingWaves` (same train as foam). Procedural
+ * value-noise is a 256² tileable **mipmapped** texture; `fwidth()` + distance
+ * fade band-limit foam/streak/glitter. Masks sample **world XZ**. Intensity and
+ * scroll from `setWindSpeed`; calm → 0. No particles, extra FBO, or `readPixels`.
+ * A cheap 3D vane (14.3f lite) lives in `windVane.ts`.
  */
+
+/**
+ * Fragment look scale (DSP-04-08 Fail). Wavelengths × this; streak/noise UV
+ * frequencies ÷ this. **1/9** (not 3) — operator wanted finer ripples, not
+ * stretched blobs. Clipmap extent is unchanged (coverage, not look).
+ */
+export const OCEAN_LOOK_XZ_SCALE = 1 / 9
+
+/** Authored Gerstner wavelengths before look-scale (meters). */
+export const OCEAN_LOOK_BASE_WAVELENGTHS_M = [48, 31, 19, 11, 7] as const
+
+export const OCEAN_LOOK_STREAK_ALONG = 0.016 / OCEAN_LOOK_XZ_SCALE
+export const OCEAN_LOOK_STREAK_ACROSS = 0.22 / OCEAN_LOOK_XZ_SCALE
+export const OCEAN_LOOK_STREAK_NOISE = 0.07 / OCEAN_LOOK_XZ_SCALE
 
 export const GERSTNER_WAVE_COUNT = 5 as const
 
@@ -70,29 +105,59 @@ export const GERSTNER_OCEAN_DEFAULTS = {
    */
   liftY: 0.08,
   /**
+   * Multiply rest-pose Gerstner amplitudes after wind scale.
+   * **0** = flat shaded plane (product lock); fragment look stays.
+   */
+  displacementScale: 0,
+  /**
    * Wave travel in scene XZ (radians). `waveDirectionXZ(θ) = (cos θ, sin θ)`.
    * Default −π/2 = toward −Z = geographic north.
    */
   directionRad: -Math.PI / 2,
   /** Foam scale only this slice (m/s); 14.2b may drive it from the wind bus. */
   windSpeed: 6,
-  deepColor: 0x1e3a4c,
-  shallowColor: 0x3d6a78,
+  /** Near-field dark deep water (04-07). Not 04-06 bright cyan 0x15606c. */
+  deepColor: 0x0c2f3a,
+  /** Shallow bands — dark slate-teal, not tropical 0x2e8a86. */
+  shallowColor: 0x164a55,
   skyColor: 0xb7cce0,
-  horizonColor: 0x8a9aaa,
-  foamColor: 0xe8eef2,
+  /** Dark horizon — shared with realistic fog. Not 04-06 mid-teal 0x5a8a8c. */
+  horizonColor: 0x2a4a52,
+  /** Quieter crest (was 0xe8eef2 — near-white bands). */
+  foamColor: 0x9ab0bc,
   sunColor: 0xe8eef5,
   /** Mild sun sparkle (was 220 / 0.55 + a second glint — blew out a quadrant). */
   glitterSharpness: 78,
-  glitterIntensity: 0.16,
+  /** Weaker blob (04-04); keep mild sun hit, smoother falloff. */
+  glitterIntensity: 0.1,
   /** Shore-foam depth RT scale vs drawing buffer. High 0.5; low 0.25. */
   shoreDepthScale: 0.5,
 } as const
 
 /**
- * 14.3e gust-mask knobs (15.2: higher contrast + tighter cross-wind scale so
- * travel reads on grey water at ~5–12 m/s). Spatial stretch lives in the
- * fragment shader (~0.016 /m along-wind, ~0.22 /m across).
+ * Wide wet sheen (04-03 / softer 04-04). Soft Blinn + sky tint so matte water
+ * still reads wet. Wider + weaker than 04-03 so the lobe ramps (no terminator).
+ * Must stay far below `glitterSharpness` — do not crank (old quadrant blowout).
+ */
+export const OCEAN_SHEEN_DEFAULTS = {
+  sharpness: 3.5,
+  intensity: 0.1,
+} as const
+
+/**
+ * Trough albedo (04-05). Old `deep * 0.58` × mix 0.82 read charcoal on
+ * `0x1e3a4c`. Scale closer to 1 and a lighter mix keep bands teal.
+ */
+export const OCEAN_TROUGH_DEFAULTS = {
+  deepScale: 0.82,
+  mix: 0.48,
+} as const
+
+/**
+ * 14.3e gust-mask knobs. Spatial stretch lives in the fragment
+ * (`OCEAN_LOOK_STREAK_ALONG` / `_ACROSS` after 04-08 look-scale). **04-03:**
+ * albedo darkening retired (`contrast` 0); gust only chops glitter. Troughs
+ * come from Gerstner `waveHeight`.
  */
 export const WIND_STREAK_DEFAULTS = {
   /** At or below this speed (m/s), streak intensity is 0. */
@@ -101,8 +166,8 @@ export const WIND_STREAK_DEFAULTS = {
   fadeMsHi: 5,
   /** World-space scroll (m/s) per 1 m/s of wind. */
   scrollPerWind: 1.8,
-  /** How hard the mask darkens albedo / kills glitter (0–1). */
-  contrast: 0.88,
+  /** Albedo multiply retired (was 0.88 — N–S curtains). Keep 0. */
+  contrast: 0,
 } as const
 
 /** Edge length of the tileable foam/streak/glitter noise texture. */
@@ -110,12 +175,12 @@ export const OCEAN_NOISE_SIZE = 256 as const
 
 /**
  * High-frequency foam / streaks / glitter fade to 0 well before the outer
- * clipmap rings (rim 6144 m). Shore foam is not faded — it must still read
- * from a drone height.
+ * clipmap rings (rim 6144 m). Wider band (04-04) so detail does not ring-cut.
+ * Shore foam is not faded — it must still read from a drone height.
  */
 export const OCEAN_DETAIL_FADE = {
-  nearM: 80,
-  farM: 900,
+  nearM: 40,
+  farM: 1600,
 } as const
 
 export type GerstnerOceanOptions = {
@@ -124,6 +189,11 @@ export type GerstnerOceanOptions = {
   ringCount: number
   ringSegments: number
   liftY: number
+  /**
+   * Rest-pose amplitude multiplier (0 = flat plane). Applied on top of
+   * `setAmplitudeScale` (wind). Default 0.
+   */
+  displacementScale: number
   directionRad: number
   windSpeed: number
   deepColor: number
@@ -150,14 +220,25 @@ export type GerstnerOceanHandle = {
   setWindSpeed: (ms: number) => void
   /**
    * Multiply rest-pose Gerstner amplitudes (1 = authored train).
-   * 14.2b uses a mild clamp from wind speed — not a shader rewrite.
+   * Vertex amp = authored × `displacementScale` × scale.
+   * Fragment shading amp = authored × scale (**not** × disp) so flat sea still
+   * animates N/foam. Scale **0** zeros both.
    */
   setAmplitudeScale: (scale: number) => void
+  /** Rest Y offset (Environment **sea m**). Mesh y = COURSE_WATER_Y + liftY + seaYM. */
+  setSeaHeightYM: (yM: number) => void
+  getSeaHeightYM: () => number
   /**
    * Terrain group to depth-prepass for shore foam. `null` disables the extra
    * FBO (terrain off, simple env, or transparent/chroma).
    */
   setShoreContact: (terrainRoot: THREE.Object3D | null) => void
+  /**
+   * World-XZ footprints to flatten (19.15). Cap `OCEAN_SUPPRESS_CAP`.
+   * Empty → no local flatten. Same mesh; no extra FBO. No fragment discard.
+   */
+  setSuppressFootprints: (footprints: readonly OceanSuppressFootprint[]) => void
+  getSuppressCount: () => number
   getShoreFoamEnabled: () => boolean
   /** Depth RT while foam is armed; `null` when the extra pass is off. */
   getShoreDepthTarget: () => THREE.WebGLRenderTarget | null
@@ -273,14 +354,25 @@ type WaveDef = {
   phase: number
 }
 
-/** Calm swell train; offsets are radians from `directionRad`. */
+/** Calm swell train; offsets are radians from `directionRad`. Look-scale 1/9. */
 const WAVES: readonly WaveDef[] = [
-  { wavelength: 48, amplitude: 0.32, steepness: 0.35, dirOffset: 0, phase: 0.15 },
-  { wavelength: 31, amplitude: 0.18, steepness: 0.32, dirOffset: 0.22, phase: 1.7 },
-  { wavelength: 19, amplitude: 0.09, steepness: 0.28, dirOffset: -0.18, phase: 0.4 },
-  { wavelength: 11, amplitude: 0.045, steepness: 0.22, dirOffset: 0.51, phase: 2.2 },
-  { wavelength: 7, amplitude: 0.025, steepness: 0.18, dirOffset: -0.62, phase: 3.1 },
+  { wavelength: 48 * OCEAN_LOOK_XZ_SCALE, amplitude: 0.32, steepness: 0.35, dirOffset: 0, phase: 0.15 },
+  { wavelength: 31 * OCEAN_LOOK_XZ_SCALE, amplitude: 0.18, steepness: 0.32, dirOffset: 0.22, phase: 1.7 },
+  { wavelength: 19 * OCEAN_LOOK_XZ_SCALE, amplitude: 0.09, steepness: 0.28, dirOffset: -0.18, phase: 0.4 },
+  { wavelength: 11 * OCEAN_LOOK_XZ_SCALE, amplitude: 0.045, steepness: 0.22, dirOffset: 0.51, phase: 2.2 },
+  { wavelength: 7 * OCEAN_LOOK_XZ_SCALE, amplitude: 0.025, steepness: 0.18, dirOffset: -0.62, phase: 3.1 },
 ]
+
+export function gerstnerWaveWavelengthsM(): number[] {
+  return WAVES.map((w) => w.wavelength)
+}
+
+/** Rest-pose peak |Y| if all crests aligned — exceeds board lift (~0.08 m). */
+export function gerstnerPeakAmplitudeM(): number {
+  let sum = 0
+  for (const w of WAVES) sum += w.amplitude
+  return sum
+}
 
 function addGrid(
   positions: number[],
@@ -485,23 +577,12 @@ export function quantizeClipmapCenter(
   }
 }
 
-const VERTEX_SHADER = /* glsl */ `
-  #define WAVE_COUNT ${GERSTNER_WAVE_COUNT}
-
-  uniform float uTime;
-  uniform float uDirectionRad;
-  uniform vec2 uClipmapCenter;
-  uniform vec4 uWaves[WAVE_COUNT];
-  uniform float uWavePhase[WAVE_COUNT];
-
-  varying vec3 vWorldPos;
-  varying vec3 vNormal;
-  varying float vJacobian;
-  varying float vWaveHeight;
-
-  #include <common>
-  #include <fog_pars_vertex>
-
+/**
+ * Shared Gerstner train. `waveUniform` is `uWaves` (vertex disp) or
+ * `uShadingWaves` (fragment N/foam — not × displacementScale).
+ */
+function gerstnerFunctionChunk(waveUniform: 'uWaves' | 'uShadingWaves'): string {
+  return /* glsl */ `
   void gerstner(
     vec2 xz,
     float t,
@@ -519,7 +600,7 @@ const VERTEX_SHADER = /* glsl */ `
     float ddz_z = 0.0;
 
     for (int i = 0; i < WAVE_COUNT; i++) {
-      vec4 w = uWaves[i];
+      vec4 w = ${waveUniform}[i];
       float lambda = w.x;
       float amp = w.y;
       float steep = w.z;
@@ -549,6 +630,25 @@ const VERTEX_SHADER = /* glsl */ `
     bitangent = vec3(ddz_x, ddz_y, 1.0 + ddz_z);
     jacobian = (1.0 + ddx_x) * (1.0 + ddz_z) - ddx_z * ddz_x;
   }
+`
+}
+
+const VERTEX_SHADER = /* glsl */ `
+  #define WAVE_COUNT ${GERSTNER_WAVE_COUNT}
+  ${oceanSuppressShaderChunk()}
+
+  uniform float uTime;
+  uniform float uDirectionRad;
+  uniform vec2 uClipmapCenter;
+  uniform vec4 uWaves[WAVE_COUNT];
+  uniform float uWavePhase[WAVE_COUNT];
+
+  varying vec3 vWorldPos;
+
+  #include <common>
+  #include <fog_pars_vertex>
+
+  ${gerstnerFunctionChunk('uWaves')}
 
   void main() {
     vec3 disp;
@@ -563,11 +663,11 @@ const VERTEX_SHADER = /* glsl */ `
     );
     gerstner(worldRest.xz, uTime, disp, tangent, bitangent, jacobian);
 
+    vec2 suppress = oceanSuppressAmounts(worldRest.xz);
+    disp *= 1.0 - suppress.x;
+
     vec3 worldPos = worldRest + disp;
     vWorldPos = worldPos;
-    vNormal = normalize(cross(bitangent, tangent));
-    vJacobian = jacobian;
-    vWaveHeight = disp.y;
 
     vec4 mvPosition = viewMatrix * vec4(worldPos, 1.0);
     gl_Position = projectionMatrix * mvPosition;
@@ -576,8 +676,12 @@ const VERTEX_SHADER = /* glsl */ `
 `
 
 const FRAGMENT_SHADER = /* glsl */ `
+  #define WAVE_COUNT ${GERSTNER_WAVE_COUNT}
+
   uniform float uTime;
   uniform float uDirectionRad;
+  uniform vec4 uShadingWaves[WAVE_COUNT];
+  uniform float uWavePhase[WAVE_COUNT];
   uniform vec3 uSunDir;
   uniform vec3 uDeepColor;
   uniform vec3 uShallowColor;
@@ -590,7 +694,6 @@ const FRAGMENT_SHADER = /* glsl */ `
   uniform float uGlitterIntensity;
   uniform float uStreakIntensity;
   uniform float uStreakScroll;
-  uniform float uStreakContrast;
   uniform float uShoreFoamEnabled;
   uniform sampler2D uTerrainDepth;
   uniform mat4 uInvProjection;
@@ -608,15 +711,14 @@ const FRAGMENT_SHADER = /* glsl */ `
   uniform float uDetailFadeFar;
 
   varying vec3 vWorldPos;
-  varying vec3 vNormal;
-  varying float vJacobian;
-  varying float vWaveHeight;
 
   #include <common>
   #include <fog_pars_fragment>
 
+  ${gerstnerFunctionChunk('uShadingWaves')}
+
   float streakNoise(vec2 p) {
-    return texture2D(uNoise, p * 0.07).r;
+    return texture2D(uNoise, p * float(${OCEAN_LOOK_STREAK_NOISE})).r;
   }
 
   float windStreak(vec2 xz) {
@@ -624,7 +726,7 @@ const FRAGMENT_SHADER = /* glsl */ `
     vec2 across = vec2(-travel.y, travel.x);
     float along = dot(xz, travel) - uTime * uStreakScroll;
     float cross = dot(xz, across);
-    vec2 uv = vec2(along * 0.016, cross * 0.22);
+    vec2 uv = vec2(along * float(${OCEAN_LOOK_STREAK_ALONG}), cross * float(${OCEAN_LOOK_STREAK_ACROSS}));
     float n = streakNoise(uv);
     n = n * 0.65 + streakNoise(uv * vec2(2.1, 1.4) + vec2(11.2, -4.7)) * 0.35;
     float w = max(fwidth(n), 1e-4);
@@ -635,8 +737,14 @@ const FRAGMENT_SHADER = /* glsl */ `
   float highFreqFade(float ndv) {
     float dist = length(cameraPosition.xz - vWorldPos.xz);
     float distFade = 1.0 - smoothstep(uDetailFadeNear, uDetailFadeFar, dist);
-    float graze = pow(max(ndv, 0.0), 0.45);
+    // Softer graze (was 0.45) so lighting does not hard-cut at the horizon.
+    float graze = pow(max(ndv, 0.0), 0.28);
     return distFade * graze;
+  }
+
+  float shadingAmpFade() {
+    float dist = length(cameraPosition.xz - vWorldPos.xz);
+    return 1.0 - smoothstep(uDetailFadeNear, uDetailFadeFar, dist);
   }
 
   vec3 worldFromDepth(vec2 uv, float depth) {
@@ -656,42 +764,89 @@ const FRAGMENT_SHADER = /* glsl */ `
   }
 
   void main() {
-    vec3 N = normalize(vNormal);
+    // Fragment Gerstner for lighting only (mesh Y stays rest when disp=0).
+    vec3 shadeDisp;
+    vec3 shadeTangent;
+    vec3 shadeBitangent;
+    float shadeJacobian;
+    gerstner(
+      vWorldPos.xz,
+      uTime,
+      shadeDisp,
+      shadeTangent,
+      shadeBitangent,
+      shadeJacobian
+    );
+    float shadeAmp = shadingAmpFade();
+    // Do not flatten fragment shading under board footprints (disp=0 product
+    // lock). suppress.x painted rectangular “plates” of matte water behind
+    // logos / START / FINISH. Distance fade only.
+    float flatten = 1.0 - shadeAmp;
+    shadeTangent = mix(shadeTangent, vec3(1.0, 0.0, 0.0), flatten);
+    shadeBitangent = mix(shadeBitangent, vec3(0.0, 0.0, 1.0), flatten);
+    shadeJacobian = mix(shadeJacobian, 1.0, flatten);
+    float waveHeight = shadeDisp.y * (1.0 - flatten);
+
+    vec3 N = normalize(cross(shadeBitangent, shadeTangent));
     vec3 V = normalize(cameraPosition - vWorldPos);
     vec3 L = normalize(uSunDir);
     vec3 R = reflect(-V, N);
 
     float ndv = max(dot(N, V), 0.0);
-    float fresnel = mix(0.04, 1.0, pow(1.0 - ndv, 5.0));
+    // Nadir floor 0 — 0.10 washed near-field teal into grey sky/fog when looking down.
+    float fresnel = mix(0.0, 1.0, pow(1.0 - ndv, 4.0));
 
     float skyT = clamp(R.y * 0.65 + 0.35, 0.0, 1.0);
     vec3 skyCol = mix(uHorizonColor, uSkyColor, skyT);
+
+    // Trough/crest albedo from the same Gerstner height as foam — not gust.
+    float hW = max(fwidth(waveHeight), 1e-4);
+    float trough = 1.0 - smoothstep(-0.20 - hW, 0.06 + hW, waveHeight);
+    float crestLift = smoothstep(-0.04 - hW, 0.20 + hW, waveHeight);
     vec3 waterCol = mix(uDeepColor, uShallowColor, ndv);
+    waterCol = mix(waterCol, uDeepColor * float(${OCEAN_TROUGH_DEFAULTS.deepScale}), trough * float(${OCEAN_TROUGH_DEFAULTS.mix}));
+    waterCol = mix(waterCol, uShallowColor * 1.10, crestLift * 0.18);
+    // Soft ndl (was 0.82…1.05) — no hard lit/shade terminator on the plane.
+    float ndl = max(dot(N, L), 0.0);
+    float ndlSoft = smoothstep(0.0, 0.55, ndl);
+    waterCol *= mix(0.90, 1.02, ndlSoft);
+
     vec3 color = mix(waterCol, skyCol, fresnel);
 
     float fade = highFreqFade(ndv);
 
     vec3 H = normalize(L + V);
+    // Slope faces catch sky even when the sun blob is out of frame.
+    float slopeWet = pow(1.0 - clamp(N.y, 0.0, 1.0), 0.65) * 0.38;
+    color = mix(color, skyCol, slopeWet * fade);
+    // Wide wet sheen — sky-tinted, soft. Not uSunColor (avoids quadrant blowout).
+    float wetSheen = pow(max(dot(N, H), 0.0), float(${OCEAN_SHEEN_DEFAULTS.sharpness}));
+    float sheenW = max(fwidth(wetSheen), 1e-4);
+    wetSheen = smoothstep(0.0, sheenW * 4.0, wetSheen);
+    color += skyCol * wetSheen * float(${OCEAN_SHEEN_DEFAULTS.intensity}) * fade;
+
+    // Spec on perturbed N — no camera-locked half-plane on constant up.
     float spec = pow(max(dot(N, H), 0.0), uGlitterSharpness);
     float specW = max(fwidth(spec), 1e-4);
-    spec = smoothstep(0.0, specW * 2.0, spec);
+    spec = smoothstep(0.0, specW * 3.0, spec);
     float sparkle = texture2D(uNoise, vWorldPos.xz * 0.045 + vec2(0.17, -0.09)).r;
     float sparkleW = max(fwidth(sparkle), 1e-4);
     sparkle = smoothstep(0.42 - sparkleW, 0.72 + sparkleW, sparkle);
 
     float gust = windStreak(vWorldPos.xz) * fade;
     float glitterAmt = spec * sparkle * uGlitterIntensity * fade;
-    glitterAmt *= 1.0 - gust * 0.85;
-    color *= 1.0 - gust * uStreakContrast * 0.70;
-    color += uShallowColor * gust * 0.14;
+    glitterAmt *= 1.0 - gust * 0.35;
     color += uSunColor * glitterAmt;
 
     float windF = clamp(uWindSpeed / 12.0, 0.15, 1.0);
-    float jacW = max(fwidth(vJacobian), 1e-4);
-    float fold = 1.0 - smoothstep(0.52 - jacW, 0.94 + jacW, vJacobian);
-    float crestW = max(fwidth(vWaveHeight), 1e-4);
-    float crest = smoothstep(0.10 - crestW, 0.36 + crestW, vWaveHeight);
-    float foam = max(fold, crest * 0.4) * windF * fade;
+    float jacW = max(fwidth(shadeJacobian), 1e-4);
+    float fold = 1.0 - smoothstep(0.52 - jacW, 0.94 + jacW, shadeJacobian);
+    float crestW = max(fwidth(waveHeight), 1e-4);
+    float crest = smoothstep(-0.02 - crestW, 0.18 + crestW, waveHeight);
+    float foamGrain = texture2D(uNoise, vWorldPos.xz * 0.09).r;
+    // Quieter crest/fold (04-04) — still travels, less near-white.
+    float foam = max(fold * 0.55, crest * 0.38) * windF * fade;
+    foam *= mix(0.72, 1.12, foamGrain);
 
     if (uShoreFoamEnabled > 0.5) {
       vec2 screenUv = gl_FragCoord.xy / max(uViewport, vec2(1.0));
@@ -720,7 +875,7 @@ const FRAGMENT_SHADER = /* glsl */ `
       foam = max(foam, landHere * 0.35);
     }
 
-    color = mix(color, uFoamColor, clamp(foam, 0.0, 0.85));
+    color = mix(color, uFoamColor, clamp(foam, 0.0, 0.55));
 
     gl_FragColor = vec4(color, 1.0);
     #include <tonemapping_fragment>
@@ -732,6 +887,20 @@ const FRAGMENT_SHADER = /* glsl */ `
 function waveUniformVec4s(): THREE.Vector4[] {
   return WAVES.map(
     (w) => new THREE.Vector4(w.wavelength, w.amplitude, w.steepness, w.dirOffset),
+  )
+}
+
+function suppressRectUniforms(): THREE.Vector4[] {
+  return Array.from(
+    { length: OCEAN_SUPPRESS_CAP },
+    () => new THREE.Vector4(0, 0, 0, 0),
+  )
+}
+
+function suppressDirUniforms(): THREE.Vector2[] {
+  return Array.from(
+    { length: OCEAN_SUPPRESS_CAP },
+    () => new THREE.Vector2(1, 0),
   )
 }
 
@@ -767,6 +936,7 @@ export function createGerstnerOcean(
       uDirectionRad: { value: opts.directionRad },
       uClipmapCenter: { value: new THREE.Vector2(0, 0) },
       uWaves: { value: waveUniformVec4s() },
+      uShadingWaves: { value: waveUniformVec4s() },
       uWavePhase: { value: WAVES.map((w) => w.phase) },
       uSunDir: { value: opts.sunDirection.clone().normalize() },
       uDeepColor: { value: new THREE.Color(opts.deepColor) },
@@ -780,7 +950,6 @@ export function createGerstnerOcean(
       uGlitterIntensity: { value: opts.glitterIntensity },
       uStreakIntensity: { value: streakIntensityFromSpeedMs(opts.windSpeed) },
       uStreakScroll: { value: streakScrollSpeedMs(opts.windSpeed) },
-      uStreakContrast: { value: WIND_STREAK_DEFAULTS.contrast },
       uShoreFoamEnabled: { value: 0 },
       uTerrainDepth: { value: null as THREE.Texture | null },
       uInvProjection: { value: new THREE.Matrix4() },
@@ -796,6 +965,9 @@ export function createGerstnerOcean(
       uNoise: { value: noiseTex },
       uDetailFadeNear: { value: OCEAN_DETAIL_FADE.nearM },
       uDetailFadeFar: { value: OCEAN_DETAIL_FADE.farM },
+      uSuppressRect: { value: suppressRectUniforms() },
+      uSuppressDir: { value: suppressDirUniforms() },
+      uSuppressCount: { value: 0 },
     },
   ])
   uniforms['uTerrainDepth']!.value = dummyDepth
@@ -820,7 +992,8 @@ export function createGerstnerOcean(
   mesh.name = 'gerstnerOcean'
   mesh.frustumCulled = false
   mesh.renderOrder = -20
-  mesh.position.set(0, COURSE_WATER_Y + opts.liftY, 0)
+  let seaHeightYM = 0
+  mesh.position.set(0, COURSE_WATER_Y + opts.liftY + seaHeightYM, 0)
 
   const now = opts.now
   const cellM = clipmapCellSizeM(opts.innerHalfExtentM, opts.innerSegments)
@@ -836,6 +1009,25 @@ export function createGerstnerOcean(
   let lastShoreTarget: THREE.WebGLRenderTarget | null = null
   const shoreCache: { key: string; target: THREE.WebGLRenderTarget }[] = []
   let prepassing = false
+  let amplitudeScale = 1
+
+  function applyWaveAmplitudes(): void {
+    const disp =
+      Number.isFinite(opts.displacementScale) && opts.displacementScale >= 0
+        ? opts.displacementScale
+        : 0
+    const vertexScale = amplitudeScale * disp
+    // Shading amps: authored × wind only — keep fragment motion when disp=0.
+    const shadingScale = amplitudeScale
+    const waves = uniforms['uWaves']!.value as THREE.Vector4[]
+    const shading = uniforms['uShadingWaves']!.value as THREE.Vector4[]
+    for (let i = 0; i < WAVES.length; i++) {
+      const authored = WAVES[i]!.amplitude
+      waves[i]!.y = authored * vertexScale
+      shading[i]!.y = authored * shadingScale
+    }
+  }
+  applyWaveAmplitudes()
 
   function sampleClock(): void {
     if (disposed) return
@@ -926,12 +1118,14 @@ export function createGerstnerOcean(
       uniforms['uStreakScroll']!.value = streakScrollSpeedMs(ms)
     },
     setAmplitudeScale(scale: number): void {
-      const s = Number.isFinite(scale) && scale > 0 ? scale : 1
-      const waves = uniforms['uWaves']!.value as THREE.Vector4[]
-      for (let i = 0; i < WAVES.length; i++) {
-        waves[i]!.y = WAVES[i]!.amplitude * s
-      }
+      amplitudeScale = Number.isFinite(scale) ? Math.max(0, scale) : 1
+      applyWaveAmplitudes()
     },
+    setSeaHeightYM(yM: number): void {
+      seaHeightYM = clampSeaHeightYM(yM)
+      mesh.position.y = COURSE_WATER_Y + opts.liftY + seaHeightYM
+    },
+    getSeaHeightYM: () => seaHeightYM,
     setShoreContact(terrainRoot: THREE.Object3D | null): void {
       if (disposed) return
       shoreContact = terrainRoot
@@ -946,6 +1140,24 @@ export function createGerstnerOcean(
         uniforms['uTerrainDepth']!.value = placeholder.depthTexture
       }
     },
+    setSuppressFootprints(footprints: readonly OceanSuppressFootprint[]): void {
+      if (disposed) return
+      const rects = uniforms['uSuppressRect']!.value as THREE.Vector4[]
+      const dirs = uniforms['uSuppressDir']!.value as THREE.Vector2[]
+      const n = Math.min(OCEAN_SUPPRESS_CAP, footprints.length)
+      uniforms['uSuppressCount']!.value = n
+      for (let i = 0; i < OCEAN_SUPPRESS_CAP; i++) {
+        const fp = i < n ? footprints[i] : undefined
+        if (fp) {
+          rects[i]!.set(fp.cx, fp.cz, fp.halfAlong, fp.halfAcross)
+          dirs[i]!.set(fp.dirX, fp.dirZ)
+        } else {
+          rects[i]!.set(0, 0, 0, 0)
+          dirs[i]!.set(1, 0)
+        }
+      }
+    },
+    getSuppressCount: () => uniforms['uSuppressCount']!.value as number,
     getShoreFoamEnabled: () => shoreContact !== null,
     getShoreDepthTarget: () => lastShoreTarget,
     tick(_dtSeconds: number): void {

@@ -1,15 +1,16 @@
 import * as THREE from 'three'
 
 /**
- * Per-boat air/ops draw mode (Phase 8.6).
+ * Per-boat air/ops draw mode (Phase 8.6 / 19.8).
  *
  * | Mode | 3D hull | Tag | Map dot |
  * | --- | --- | --- | --- |
- * | `solid` | opaque | yes | yes (tracks) |
- * | `ghost` | translucent + water ring | yes | yes (tracks) |
- * | `hidden` | off | off | yes (tracks) |
+ * | `solid` | opaque | yes | unchanged (tracks unless `mapVisible` is false) |
+ * | `ghost` | translucent + water ring | yes | unchanged |
+ * | `hidden` (3D off) | off | **yes** | unchanged |
  *
- * Hidden keeps pose updates + ops map tracking without drawing a hull on air.
+ * Hidden keeps pose updates + tag + ops map tracking without drawing a hull.
+ * Ghost/hidden never toggle 2D dots — that is a separate `mapVisible` flag.
  */
 export type BoatVisibilityMode = 'solid' | 'ghost' | 'hidden'
 
@@ -58,6 +59,36 @@ function isOpacityCapable(mat: THREE.Material): mat is OpacityCapable {
     'transparent' in mat &&
     typeof (mat as OpacityCapable).opacity === 'number'
   )
+}
+
+/**
+ * Isolate materials on a cloned visual so ghost opacity / tint cannot leak
+ * across boat instances. `Object3D.clone(true)` **shares** materials.
+ * Meshes on the same boat that already shared a material stay shared
+ * (one clone per unique instance).
+ */
+export function cloneSharedMaterials(root: THREE.Object3D): void {
+  const copies = new Map<THREE.Material, THREE.Material>()
+  root.traverse((obj) => {
+    if (
+      !(obj instanceof THREE.Mesh) &&
+      !(obj instanceof THREE.Line) &&
+      !(obj instanceof THREE.Points) &&
+      !(obj instanceof THREE.Sprite)
+    ) {
+      return
+    }
+    const list = Array.isArray(obj.material) ? obj.material : [obj.material]
+    const next = list.map((mat) => {
+      const existing = copies.get(mat)
+      if (existing) return existing
+      const copy = mat.clone()
+      copies.set(mat, copy)
+      return copy
+    })
+    const first = next[0]
+    obj.material = Array.isArray(obj.material) || first === undefined ? next : first
+  })
 }
 
 /**
@@ -145,6 +176,6 @@ export function applyBoatVisibilityMode(
     targets.visual.visible = false
     applyHullMaterialOpacity(targets.visual, 1, false)
     targets.ghostRing.visible = false
-    targets.tagRoot.visible = false
+    targets.tagRoot.visible = true
   }
 }

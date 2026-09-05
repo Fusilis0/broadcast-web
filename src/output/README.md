@@ -21,15 +21,15 @@ NDI / air camera lock is unchanged — this control is DOM-only.
 
 ### In-WebGL AR background (Phase 17.1)
 
-The AR NDI pump reads an offscreen FBO (WebGL2 PBO via `createNdiAsyncReadback`, sync `readRenderTargetPixels` fallback). A DOM `<video>` (WHEP)
+The AR NDI pump reads an offscreen FBO (WebGL2 PBO via `createNdiAsyncReadback`; Send checked ⇒ pack that RT. Skip is one busy tick — not skip-forever. Sync `readRenderTargetPixels` is debug/`forceSync` only). A DOM `<video>` (WHEP)
 never appears in that frame. `startVideoBackground` draws a fullscreen ortho quad **inside**
 the render wrap, before the scene, with `autoClear = false` around the scene call.
 
 Install order (load-bearing):
 
 1. `startVideoBackground` (innermost — draws **before** the scene)
-2. `startVisualTimecode` (outer — draws **after** the scene)
-3. NDI pumps bind `renderer.render` last and capture both
+2. `startVisualTimecode` (optional post-pass — **skipped** when `timecodeEnabled` is false)
+3. NDI pumps bind `renderer.render` last (video-background wrap when the barcode is off; both wraps when it is on)
 
 `shouldDrawVideoBackground` gates the quad: `arBackground === 'video'`, texture present,
 not a 3D NDI opaque pass (`isOpaque3dPassActive`), and on the **screen** pass only when
@@ -90,6 +90,8 @@ Mount: overlay strip (`.local-channel-switcher-strip`) above the canvas — DOM-
 
 Unity-compatible **8×8 LSB** black/white barcode burned into the **same WebGL canvas** (orthographic overlay after the main scene). Canvas-only capture and NDI readback include it; no sibling DOM canvas.
 
+**Phase 19.1:** default **off**. The overlay is not installed unless `timecodeEnabled` is true. Code and tests remain so a pack or `config.json` can turn it back on.
+
 | Symbol | Role |
 | --- | --- |
 | `encodeVisualTimecodeBits(ms)` | Pure 64-bit pattern, LSB at index 0 |
@@ -110,7 +112,7 @@ Unity-compatible **8×8 LSB** black/white barcode burned into the **same WebGL c
 
 ### Config
 
-- `timecodeEnabled`: default **`true`** (ops on). Set `false` to disable.
+- `timecodeEnabled`: default **`false`** (Phase 19.1 — barcode hidden on preview and NDI). Modules, tests, and the boot wrap stay. Restore with `"timecodeEnabled": true` in `public/config.json` **or** a race pack `output.timecodeEnabled: true` (pack `true` still installs the wrap and burns the barcode into NDI readback).
 - `timecodeCorner`: `"bottom-right"` (default) \| `"bottom-left"`
 - `timecodeSizePx`: on-screen size (default `96`, clamped 32–256)
 
@@ -136,23 +138,24 @@ Browser **MediaMTX WHEP** video under the Three canvas in **preview** only. Soft
 | `getStudioBridge()` | `window.broadcastStudio` when preload injected |
 | `NDI_CHANNEL_IDS` / `DEFAULT_NDI_CHANNEL` | `'ar' \| '3d' \| '2d'`; default air = `'ar'` |
 | `startDualFrameClock({ subscribeStudioTick })` | Dual clock: **preview** = rAF when visible, `studio:tick` when hidden; **NDI** subscribers always `studio:tick` (60 Hz). Preview is not 60 from `STUDIO_TICK_FPS`. |
-| `startNdiFramePump({ renderer, scene, getAirCamera?, prepareCameraPass?, getAirPlateClear?, fps?, … })` | After **video background then** timecode: studio-tick air FBO → GPU Y-flip → PBO pack (sync `readRenderTargetPixels` fallback) → deferred IPC → main `grandi` RGBA send on channel (default `'ar'`); packed bytes top-down; default **30 fps**; does **not** patch `renderer.render` (preview rAF stays clean); start **before** 3D |
-| `startNdi3dChannelPump({ renderer, scene, getAirCamera, setEnvironmentOpaqueClearSafe, fps?, … })` | Channel `'3d'` (`broadcast-web-3d`): opaque clear + `opaqueClearSafe(true)` → active-POV FBO → GPU Y-flip → restore; studio tick; default **30 fps**; independent of AR on the PBO path; start **after** AR pump |
+| `startNdiFramePump({ renderer, scene, getAirCamera?, prepareCameraPass?, getAirPlateClear?, fps?, … })` | After **video background** then optional timecode: studio-tick air FBO → GPU Y-flip → PBO pack (Send checked ⇒ send; skip one busy tick if PBO cannot pack; not sync `readRenderTargetPixels`) → deferred IPC → main `grandi` **UYVA** send on channel (default `'ar'`); packed bytes top-down; default **30 fps**; does **not** patch `renderer.render` (preview rAF stays clean); start **before** 3D |
+| `startNdi3dChannelPump({ renderer, scene, getAirCamera, setEnvironmentOpaqueClearSafe, fps?, … })` | Channel `'3d'` (`broadcast-web-3d`): opaque clear + `opaqueClearSafe(true)` → active-POV FBO → full-size RGBA PBO (Send checked ⇒ send; skip one busy tick if pack fails) → UYVY on the existing worker (CPU pool if missing); studio tick; default **30 fps**; independent of AR on the PBO path; start **after** AR pump |
 | `createNdiCaptureFlip` / `ndiCaptureFlipBlitRect` | AR/3D only: WebGL2 `blitFramebuffer` with inverted dest Y into a second colour FBO (sRGB-pinned, RGBA, no depth). Apply on create **and** resize. Call after the scene pass, **before** `readback.begin`. Not used on 2D. |
-| `createNdiAsyncReadback` / `probeNdiPboReadback` | WebGL2 `PIXEL_PACK_BUFFER` + fence; complete **1 frame** later; fail closed to sync + ops note if PBO missing. Packs the **bound** FBO (AR/3D bind the flipped target first). Caps AR/3D/2D **30**. Check `canBegin` before the 1080p render. |
+| `createNdiAsyncReadback` / `probeNdiPboReadback` | **Send checked ⇒ that channel sends.** Live path is WebGL2 PBO. Spy `gl.bindFramebuffer` during `setRenderTarget` (and once on the same `gl`) and PBO-read the last non-null DRAW/`FRAMEBUFFER` handle Three bound — r178 does not publish `__webglFramebuffer` / `__webglTexture`, and ANGLE `getParameter(DRAW)` is null. If the spy sees only null, attach `rt.texture` to an OUT-owned READ FBO when that handle exists, else skip **this tick**. Do not skip-forever, do not `readRenderTargetPixels`. Never PBO a half-width dest; never pack the default canvas FB as UYVY. Skip is **one** busy tick (no slot / fence / spy+texture missing) — skip ≠ policy. Yellow **SYNC READBACK** banner = a **live enabled** channel actually used emergency sync (hidden when all Send boxes are off). Caps AR/3D/2D **30**; v1 still three outputs; this slice is not 30×3. Check `canBegin` before the 1080p render. |
 | `createNdi2dAsyncCapture` / `probeNdi2dWorkerCapture` | 2D worker: native-size `createImageBitmap` + typed-array letterbox blit into a pooled **1920×1080** RGBA buffer (never `getImageData` of the destination). Fail closed to the same blit on-thread + `NDI_2D_SYNC_CAPTURE_NOTE`. Buffer is transferred (no extra `slice`). |
 | `tryClaimNdiHeavyCapture` / `NDI_HEAVY_STAGGER_MS` | **Sync `readPixels` fallback only.** PBO path does not arbitrate. 2D is not an FBO. |
 | `createNdiCaptureGate` | Phase-accumulate rate gate (~32 fps nominal, half-tick tolerance, no catch-up burst). |
 | `snapshotClearPass` / `applyOpaque3dPassState` / `restoreClearPass` / `isOpaque3dPassActive` | Pure clear + SCN opaque-gate helpers around the 3D pass; `isOpaque3dPassActive` gates the AR video background off the 3D FBO |
-| `startStreamMapNdiPump({ getSourceCanvas, ensureDrawn?, enabled?, fps?, delayMs? })` | Channel `'2d'` (`broadcast-web-2d`): letterbox map canvas → **1920×1080**; `studio:tick` **schedules** only; grab is deferred/async CPU (worker + transferable native blit; sync native blit fallback). Default **on** @ **30 fps**; not an FBO slot; independent of PiP visibility |
+| `startStreamMapNdiPump({ getSourceCanvas, ensureDrawn?, enabled?, fps?, delayMs? })` | Channel `'2d'` (`broadcast-web-2d`): letterbox map canvas → **1920×1080**; `studio:tick` **schedules** only; grab is deferred/async CPU. Default **on** @ **30 fps**. `recordNdiCapture('2d')` only after a successful grab; HUD `captureTicks 2d missed (no record)` means no grab while Status was live (usually AR/3D sync readback starving the thread). Empty source canvas while live → pump error (not silent live). Empty **course/boats** on the local 2D view is **SCN**. |
 | `letterboxRect` / `STREAM_MAP_NDI_CHANNEL` | Pure fit math; channel id `'2d'` |
 | `NdiDelayBuffer` / `clampNdiDelayMs` / `normalizeOutputDelayMs` | Per-channel RAM delay ring (0–30000 ms); **bypass + no allocation at 0** |
 | `estimateNdiDelayBufferBytes` | `width×height×4×ceil(delayMs/1000×fps)` — 1920×1080 @ 30 fps × 30 s ≈ **~7.5 GB/channel** |
 | `startLocalChannelSwitcher` / `resolveLocalFocusPresentation` | Local 2D/3D/AR window focus (Phase 13.5) — never stops NDI |
-| `startNdiControllerPanel({ …, getDelayMs?, onDelayMsChange? })` | Ops sidebar **NDI** tab — per-channel status + delay inputs + live **Send** fps (1 s successful-send counter); 2D toggle starts/stops only `'2d'` (default **on**) |
+| `startNdiControllerPanel({ …, getDelayMs?, onDelayMsChange? })` | Ops sidebar **NDI** tab — per-channel status + delay inputs + live **Send** fps (1 s successful-send counter; **0 fps** when live but silent, not em-dash); hand toggles pause/resume AR/3D/2D independently (session-only; default all **on**) |
+| `loadNdiChannelWanted` / `saveNdiChannelWanted` | Session-only AR/3D/2D wanted flags (`sessionStorage`); never race/`project.json` |
 | `resolveNdiAirIndicator` | Pure `unavailable` \| `stopped` \| `starting` \| `live` \| `error` (AR / 3D pumps) |
 | `resolveNdiChannelIndicator` | Per-channel indicator including `idle` (2d uses stream-map pump when provided) |
-| `STREAM_MAP_NDI_BRIDGE_SUPPORTED` | `true` (Phase 13.4) — studio enables 2D toggle (default **on**) |
+| `STREAM_MAP_NDI_BRIDGE_SUPPORTED` | `true` (Phase 13.4) — studio enables AR/3D/2D hand toggles (Phase 19.4; default all **on**) |
 | `isAirCameraLocked` / `shouldForceFollowActivePov` | Studio bridge **or** `transparent` → air framing locked |
 | `planNdiCapture` | Same camera → FB readback; preview ≠ air → dual-render FBO (helper; AR pump always FBO-captures on studio tick) |
 | `STUDIO_OUTPUT_WIDTH/HEIGHT` | Electron lock **1920×1080** (AR/3D drawing buffer **and** 2D NDI letterbox target) |
@@ -229,11 +232,11 @@ mandatory on every skipped frame — missing it exhausts the decoder pool.
 
 **No in-browser NDI** without the Electron bridge. Preferred studio air = Electron alpha NDI; Chrome chroma = fallback ([`docs/ops/air-runbook.md`](../../docs/ops/air-runbook.md)). Path B deferred.
 
-**Lifecycle:** `startVideoBackground` **then** `startVideoStreamManager` **then** `startVisualTimecode` **then** `startNdiFramePump` (AR) **then** `startNdi3dChannelPump` (3D) **then** `startStreamMapNdiPump` (2D) in Electron; stop on `beforeunload` (stream manager, then timecode, then video-background so wraps unstack). AR/3D have no manual start/stop in v1 (session-tied). The **2D** toggle in the NDI tab enables/disables only channel `'2d'` (default **on** — uncheck to stop only that sender).
+**Lifecycle:** `startVideoBackground` **then** `startVideoStreamManager` **then** optional `startVisualTimecode` (only when `timecodeEnabled`) **then** `startNdiFramePump` (AR) **then** `startNdi3dChannelPump` (3D) **then** `startStreamMapNdiPump` (2D) in Electron. With the barcode off, NDI binds the video-background wrap directly — underlay still draws before the scene. Stop on `beforeunload` (stream manager, then timecode if started, then video-background so wraps unstack). Phase **19.4**: independent hand toggles for **AR / 3D / 2D** in the NDI tab pause/resume each sender (session/`sessionStorage` only — never `project.json`). Default all **on**.
 
 ### Capture rate / UI FPS (Phase 13 perf / preview 60 / Studio 30 Send / `DSP-OUT-20260828-04`)
 
-AR/3D GPU readback is **pipelined** (WebGL2 PBO + fence; one frame of capture latency). Sync `readPixels` remains the fallback when WebGL2/PBO is missing (ops console note; NDI still sends). On the PBO path AR and 3D may both `directRender` on the same tick; sync fallback still one blocking FBO per window. `sendFrame` is deferred off the tick. 2D is CPU: deferred off that FBO tick (`setTimeout(0)`), native-size read + typed-array blit into 1920×1080 (worker + transferable; sync blit fallback). Still **on** @ 30. Defaults:
+AR/3D GPU readback is **pipelined** (WebGL2 PBO + fence; one frame of capture latency). **Send checked ⇒ send.** If PBO cannot pack this tick (busy / no slot), **skip that one tick** — not skip-forever, not hitch rAF with sync `readPixels`. Sync `readPixels` is debug/`forceSync` only. On the PBO path AR and 3D may both `directRender` on the same tick; UYVY/UYVA pack runs on the existing worker after `poll()`. `sendFrame` is deferred off the tick. 2D is CPU: deferred off that FBO tick (`setTimeout(0)`), native-size read + typed-array blit into 1920×1080 (worker + transferable; sync blit fallback). Still **on** @ 30. v1 still needs **AR + 3D + 2D** on air; unchecking Send is an ops workaround, not the plan. Three channels at 30 is the next OUT/PRF problem — this slice is not 30×3. Defaults:
 
 | Channel | Enable default | FPS default | Notes |
 | --- | --- | --- | --- |
@@ -245,6 +248,16 @@ AR/3D GPU readback is **pipelined** (WebGL2 PBO + fence; one frame of capture la
 Live **Send** fps on the Output rail is a 1 s counter of successful `sendFrame` calls (`getSendFps()`). It is **not** the cap: defaults stay AR **30** / 3D **30** / 2D on@30. The capture gate targets ~32 fps nominal so the 1 s readout never shows 29. `STUDIO_TICK_FPS` is **60**.
 
 Do not raise NDI **Send** to 60.
+
+### NDI FourCC per channel (Phase 19.3)
+
+| Channel | Packed bytes | FourCC on the wire | Notes |
+| --- | --- | --- | --- |
+| **AR** `broadcast-web` | `width×height×3` | **UYVA** | UYVY + alpha plane. Keys in the switcher. Worker/CPU pack. |
+| **3D** `broadcast-web-3d` | `width×height×2` | **UYVY** | Packed UYVY from full-size scene RGBA unless READ-verified GPU dest. Live path: `readback.begin(fbo)` + `createNdiPackPool('uyvy')`. Do not skip CPU pack because `w*2===srcW`. |
+| **2D** `broadcast-web-2d` | `1920×1080×2` | **UYVY** | Worker/CPU pack; letterbox. |
+
+Green/purple vertical stripes = packed 4:2:2 shown as RGB (FourCC ≠ bytes). Do not “fix” that in OBS. Electron log line: `NDI[3d] FourCC UYVY 1920x1080 stride=3840 bytes=4147200`.
 
 If hitch/s explodes with all three sending, escalate to OUT/PRF — do **not** silently drop a channel or fall back to 10 fps 3D. Low GPU % with hitch means JS blocked, not a weak card.
 
@@ -263,7 +276,7 @@ Per-channel adjustable delay so studio can time-align NDI against a delayed came
 
 **Config (optional):** `outputDelayMs: { "ar": 0, "3d": 0, "2d": 0 }` in `config.json`. Live changes via NDI tab do not require restart and are not persisted.
 
-**Sidebar invariant:** the NDI tab is DOM-only. AR/3D capture still uses WebGL FBO readback only (PBO or sync) — collapsing the ops sidebar must not change air pixels (`docs/architecture/unified-ops-sidebar.md` §2). 2D NDI samples the stream-map **canvas bitmap** (not sidebar chrome). Regression: `ndiControllerPanel.test.ts` + `ndiOpaquePass.test.ts` + `streamMapNdiPump.test.ts` + `ndiDelayBuffer.test.ts` + `sidebar/sidebar.test.ts`.
+**Sidebar invariant:** the NDI tab is DOM-only. AR/3D capture still uses WebGL FBO readback only (PBO; skip one busy tick — not skip-forever) — collapsing the ops sidebar must not change air pixels (`docs/architecture/unified-ops-sidebar.md` §2). 2D NDI samples the stream-map **canvas bitmap** (not sidebar chrome). Regression: `ndiControllerPanel.test.ts` + `ndiOpaquePass.test.ts` + `streamMapNdiPump.test.ts` + `ndiDelayBuffer.test.ts` + `sidebar/sidebar.test.ts`.
 
 ### Air camera lock (NDI = active POV)
 
@@ -279,18 +292,18 @@ Wire AR: `startNdiFramePump({ scene, getAirCamera: () => scene.getActivePovCamer
 
 ## Stream 2D map (SCN) vs plate capture
 
-SCN Phase **8.1** ships a toggleable **CSS overlay** stream/PiP map (`createStreamMap2d`). It does not steal the air camera.
+SCN Phase **8.1** ships a CSS overlay stream map (`createStreamMap2d`). Phase **19.2** removed the PiP card and ops checkbox. It does not steal the air camera.
 
 | Clear / path | Map in capture? |
 | --- | --- |
-| Preview | Yes when HUD **stream map** on |
-| Chroma (window capture) | Yes when on — opaque DOM over green; ops may crop/key carefully |
+| Preview | Local **2D** focus only (no PiP over 3D/AR) |
+| Chroma (window capture) | Same — map is off-screen unless local 2D |
 | Transparent + Electron **AR** NDI (`broadcast-web`) | **No** — AR pump uses WebGL `readPixels` only (no map burn-in) |
-| Electron **2D** NDI (`broadcast-web-2d`) | **Yes** — separate sender; letterboxes map canvas into 1920×1080; works while PiP hidden |
+| Electron **2D** NDI (`broadcast-web-2d`) | **Yes** — separate sender; 16:9 source is **1920×1080** (`letterboxRect` identity); works while the local host is off-screen |
 
-**Decision (Phase 11 / `DSP-OUT-20260811-01`, bridge Phase 13.1, pump Phase 13.4 / `DSP-OUT-20260812-03`, perf `DSP-OUT-20260812-06`):** stream map stays off the primary air NDI plate. Channel `'2d'` is opt-in (`STREAM_MAP_NDI_BRIDGE_SUPPORTED === true`; studio default **off** for UI FPS). Toggle affects **only** the 2D sender.
+**Decision (Phase 11 / `DSP-OUT-20260811-01`, bridge Phase 13.1, pump Phase 13.4 / `DSP-OUT-20260812-03`, perf `DSP-OUT-20260812-06`, PiP removal `DSP-SCN-20260829-03`):** stream map stays off the primary air NDI plate. Channel `'2d'` is independently toggled (`STREAM_MAP_NDI_BRIDGE_SUPPORTED === true`; studio default **on**). Toggle affects **only** the 2D sender.
 
-**Resolution choice:** 2D frames are **letterboxed into 1920×1080** (studio lock). Native PiP stays ~520²; AR/3D buffer size unchanged.
+**Resolution choice:** 2D frames match the studio lock **1920×1080** (same as AR/3D). Native source is **16:9 1920×1080**; `letterboxRect` stays as a safety net for other sizes. Pump architecture unchanged.
 
 ## Out of scope (later)
 

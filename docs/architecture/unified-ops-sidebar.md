@@ -37,11 +37,11 @@ stable (`data-ops-section`). Accordion open/closed + each rail's width/collapse 
 
 | Zone | Sections (id) |
 | --- | --- |
-| **Left — Race setup** | Project (`project`) · Fleet & Live (`live`) · Assets (`assets`) · World authoring launcher (`world-map`) · Library (`library`, pragmatic) · leftover Race ops (`ops`, pragmatic) |
+| **Left — Race setup** | Project (`project`) · Fleet & Live (`live`) · Assets (`assets`) · Library (`library`, pragmatic) · leftover Race ops (`ops`, pragmatic). World Authoring is a **header toggle** beside “Race setup”, not an accordion. |
 | **Right — Broadcast** | Output (`ndi` — mode/NDI/delay) · Calibration (`calib`) · Environment (`environment`, incl. terrain water-discard m) · Wind (`wind`) |
 | **Top strip** | Local view switcher · preview fps / boot status stay as existing overlay hosts |
 
-`library` and leftover `ops` (telemetry / POV / view / countdown / stream-map / status) are not
+`library` and leftover `ops` (telemetry / POV / view / countdown / status) are not
 named in the BW table; they stay on the left so those mounts keep working. Origin Apply remains
 in Project. Backtick collapses **both** rails (air/show); each rail also has its own chrome.
 

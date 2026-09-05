@@ -117,7 +117,8 @@ export function fillUyvyFromCssHex(dest: Uint8Array, hex: string): void {
 
 /**
  * Nearest-neighbour blit of packed UYVY into a letterbox rect. Source and
- * dest widths are 4:2:2-even. Used so 2D NDI packs native map pixels (~520²)
+ * dest widths are 4:2:2-even. Used so 2D NDI packs native map pixels (16:9
+ * 1920×1080 source; `letterboxRect` identity into the studio lock).
  * instead of converting a full 1920×1080 RGBA intermediate.
  */
 export function blitUyvyNearest(

@@ -1,1 +1,66 @@
-[]
+[
+  {
+    "id": "image/rolex-f724a5ba.png",
+    "kind": "image",
+    "filename": "image/rolex-f724a5ba.png",
+    "label": "Rolex",
+    "addedAt": "2026-09-01T12:00:00.000Z",
+    "sizeBytes": 53902
+  },
+  {
+    "id": "image/senexus-57797468.png",
+    "kind": "image",
+    "filename": "image/senexus-57797468.png",
+    "label": "Senexus",
+    "addedAt": "2026-09-01T12:00:00.000Z",
+    "sizeBytes": 73168
+  },
+  {
+    "id": "image/vodafone-9e90847a.png",
+    "kind": "image",
+    "filename": "image/vodafone-9e90847a.png",
+    "label": "Vodafone",
+    "addedAt": "2026-09-01T12:00:00.000Z",
+    "sizeBytes": 282847
+  },
+  {
+    "id": "image/miles-smiles-2de306df.png",
+    "kind": "image",
+    "filename": "image/miles-smiles-2de306df.png",
+    "label": "Miles & Smiles",
+    "addedAt": "2026-09-05T12:00:00.000Z",
+    "sizeBytes": 27477
+  },
+  {
+    "id": "image/audi-083d2189.png",
+    "kind": "image",
+    "filename": "image/audi-083d2189.png",
+    "label": "Audi",
+    "addedAt": "2026-09-05T12:00:00.000Z",
+    "sizeBytes": 29861
+  },
+  {
+    "id": "image/bilyoner-10ec65b2.png",
+    "kind": "image",
+    "filename": "image/bilyoner-10ec65b2.png",
+    "label": "Bilyoner",
+    "addedAt": "2026-09-05T12:00:00.000Z",
+    "sizeBytes": 191904
+  },
+  {
+    "id": "image/gorbon-588e7466.png",
+    "kind": "image",
+    "filename": "image/gorbon-588e7466.png",
+    "label": "Gorbon",
+    "addedAt": "2026-09-05T12:00:00.000Z",
+    "sizeBytes": 103552
+  },
+  {
+    "id": "image/turkmedya-7b5b7329.png",
+    "kind": "image",
+    "filename": "image/turkmedya-7b5b7329.png",
+    "label": "TürkMedya",
+    "addedAt": "2026-09-05T12:00:00.000Z",
+    "sizeBytes": 18820
+  }
+]

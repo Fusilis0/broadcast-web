@@ -17,11 +17,13 @@ import {
 } from './boatTag.ts'
 import {
   applyBoatVisibilityMode,
+  cloneSharedMaterials,
   createGhostBoatRing,
   normalizeBoatVisibilityMode,
   tintGhostBoatRing,
   type BoatVisibilityMode,
 } from './boatVisibility.ts'
+import { createBoatWake } from './boatWake.ts'
 
 /** Mock boat id from TEL (`src/telemetry/mockSource.ts`). */
 export const DEFAULT_BOAT_ID = '21'
@@ -49,6 +51,11 @@ export type BoatEntityOptions = {
   tryGltf?: boolean
   /** Initial draw mode — default `solid`. */
   visibilityMode?: BoatVisibilityMode
+  /**
+   * Uniform hull scale (ratio locked). Omit / non-finite / ≤0 → 1.
+   * Alt MSL is ENU y on the pose root — do not mix with this.
+   */
+  heightM?: number
 }
 
 export type BoatEntityHandle = {
@@ -62,7 +69,30 @@ export type BoatEntityHandle = {
   /** Ghost / hidden / solid draw mode (pose still applies). */
   setVisibilityMode: (mode: BoatVisibilityMode) => void
   getVisibilityMode: () => BoatVisibilityMode
+  /**
+   * Uniform scale on the hull visual (and ghost ring). Tag + wake stay 1.
+   * `heightM` omitted / non-finite / ≤0 → 1.
+   */
+  setHullScale: (heightM?: number) => void
+  getHullScale: () => number
+  /**
+   * Advance the water-plane foam ribbon from hull XZ motion.
+   * Call from the existing scene tick — do not add a second clock.
+   */
+  tickWake: (dtSeconds: number) => void
+  getWakeLengthM: () => number
   dispose: () => void
+}
+
+/**
+ * Boat `heightM` → uniform scale. Default 1 when omitted.
+ * Alt MSL is pose ENU y, not this scale.
+ */
+export function normalizeBoatHullScale(heightM?: number): number {
+  if (typeof heightM !== 'number' || !Number.isFinite(heightM) || heightM <= 0) {
+    return 1
+  }
+  return heightM
 }
 
 function disposeObject3D(root: THREE.Object3D): void {
@@ -77,9 +107,11 @@ function disposeObject3D(root: THREE.Object3D): void {
 }
 
 /**
- * Boat entity: pose root + visual child (glTF or procedural) + billboard tag.
+ * Boat entity: pose root + visual child (glTF or procedural) + billboard tag
+ * + water-plane foam wake (19.13).
  * Fleet registry (`createScene`) owns `Map<id, BoatEntityHandle>` and clones
- * the shared glTF/procedural template per id.
+ * the shared glTF/procedural template per id. glTF clones also
+ * `cloneSharedMaterials` so ghost opacity cannot leak across boats.
  */
 export function createBoatEntity(
   options: BoatEntityOptions = {},
@@ -89,17 +121,27 @@ export function createBoatEntity(
   const tryGltf = options.tryGltf !== false
   let hullColor = options.color
   let visibilityMode = normalizeBoatVisibilityMode(options.visibilityMode)
+  let hullScale = normalizeBoatHullScale(options.heightM)
 
   const root = new THREE.Group()
   root.name = `boat-${id}`
 
   let visual: THREE.Object3D = createProceduralBoatVisual()
-  applyBoatVisualOffset(visual)
+  const ghostRing = createGhostBoatRing(hullColor)
+
+  function applyVisualTransform(): void {
+    applyBoatVisualOffset(visual)
+    visual.scale.multiplyScalar(hullScale)
+    ghostRing.scale.setScalar(hullScale)
+  }
+
+  applyVisualTransform()
   applyBoatHullTint(visual, hullColor)
   root.add(visual)
-
-  const ghostRing = createGhostBoatRing(hullColor)
   root.add(ghostRing)
+
+  const wake = createBoatWake()
+  root.add(wake.root)
 
   const tag: BoatTagHandle = createBoatTag({
     id,
@@ -122,18 +164,25 @@ export function createBoatEntity(
 
   applyVisibility()
 
+  let prevX = Number.NaN
+  let prevZ = Number.NaN
   let cancelled = false
   if (tryGltf) {
     void loadBoatModelTemplate().then((template) => {
       if (cancelled) return
       const next = template.clone(true)
+      // clone(true) shares materials with the cached template — isolate so
+      // ghost/solid opacity cannot leak across boats after save/reload.
+      cloneSharedMaterials(next)
       root.remove(visual)
       disposeObject3D(visual)
       visual = next
+      applyVisualTransform()
       applyBoatHullTint(visual, hullColor)
       root.add(visual)
-      // Keep ring + tag as later children for stable draw order
+      // Keep ring + wake + tag as later children for stable draw order
       root.add(ghostRing)
+      root.add(wake.root)
       root.add(tag.root)
       applyVisibility()
     })
@@ -156,7 +205,6 @@ export function createBoatEntity(
       root.visible = true
     },
     updateTag(camera: THREE.Camera, viewportHeightPx: number): void {
-      if (visibilityMode === 'hidden') return
       resolveBoatMastTopWorld(visual, _mastWorld)
       tag.update(camera, viewportHeightPx, _mastWorld)
     },
@@ -170,13 +218,38 @@ export function createBoatEntity(
     setVisibilityMode(mode: BoatVisibilityMode): void {
       visibilityMode = normalizeBoatVisibilityMode(mode)
       applyVisibility()
+      wake.sync({ speedMs: 0, mode: visibilityMode, dtSeconds: 0 })
     },
     getVisibilityMode(): BoatVisibilityMode {
       return visibilityMode
     },
+    setHullScale(heightM?: number): void {
+      hullScale = normalizeBoatHullScale(heightM)
+      applyVisualTransform()
+    },
+    getHullScale(): number {
+      return hullScale
+    },
+    tickWake(dtSeconds: number): void {
+      if (cancelled || !root.visible) return
+      const x = root.position.x
+      const z = root.position.z
+      const dt = Number.isFinite(dtSeconds) && dtSeconds > 0 ? dtSeconds : 0
+      let speedMs = 0
+      if (Number.isFinite(prevX) && dt > 1e-4) {
+        speedMs = Math.hypot(x - prevX, z - prevZ) / dt
+      }
+      prevX = x
+      prevZ = z
+      wake.sync({ speedMs, mode: visibilityMode, dtSeconds: dt })
+    },
+    getWakeLengthM(): number {
+      return wake.getLengthM()
+    },
     dispose(): void {
       cancelled = true
       tag.dispose()
+      wake.dispose()
       disposeObject3D(root)
       root.clear()
     },

@@ -11,6 +11,12 @@
 const grandi = require('grandi')
 const fs = require('node:fs')
 const path = require('node:path')
+const {
+  resolvePixelFormat,
+  pixelBytes,
+  lineStrideBytes,
+  resolveFourccLabel,
+} = require('./ndiPixelFormat.cjs')
 
 /** @typedef {'ar' | '3d' | '2d'} NdiChannelId */
 
@@ -46,19 +52,16 @@ let sdkVersion = null
 let sdkInitialized = false
 let fourCCProbed = false
 let nativeRgbaPreferred =
-  typeof grandi.FourCC === 'object' &&
-  grandi.FourCC != null &&
-  typeof grandi.FourCC.RGBA === 'number'
+  typeof grandi.FourCC?.RGBA === 'number' ||
+  typeof grandi.FOURCC_RGBA === 'number'
 let nativeRgbaDisabled = false
 let bgraFallbackNoted = false
 let nativeUyvyPreferred =
-  typeof grandi.FourCC === 'object' &&
-  grandi.FourCC != null &&
-  typeof grandi.FourCC.UYVY === 'number'
+  typeof grandi.FourCC?.UYVY === 'number' ||
+  typeof grandi.FOURCC_UYVY === 'number'
 let nativeUyvaPreferred =
-  typeof grandi.FourCC === 'object' &&
-  grandi.FourCC != null &&
-  typeof grandi.FourCC.UYVA === 'number'
+  typeof grandi.FourCC?.UYVA === 'number' ||
+  typeof grandi.FOURCC_UYVA === 'number'
 
 /**
  * @typedef {{
@@ -72,6 +75,7 @@ let nativeUyvaPreferred =
  *   pendingIndex: number,
  *   pending: PreparedFrame | null,
  *   sendGen: number,
+ *   fourccNoted: boolean,
  * }} ChannelState
  */
 
@@ -131,52 +135,34 @@ function nativeRgbaActive() {
 }
 
 /**
- * @param {unknown} raw
- * @param {number} byteLength
- * @param {number} width
- * @param {number} height
- * @returns {'rgba' | 'uyvy' | 'uyva'}
- */
-function resolvePixelFormat(raw, byteLength, width, height) {
-  const id = typeof raw === 'string' ? raw.trim().toLowerCase() : ''
-  if (id === 'uyvy' || id === 'uyva' || id === 'rgba') return id
-  const rgba = width * height * 4
-  const uyva = width * height * 3
-  const uyvy = width * height * 2
-  if (byteLength >= rgba) return 'rgba'
-  if (byteLength >= uyva) return 'uyva'
-  if (byteLength >= uyvy) return 'uyvy'
-  return 'rgba'
-}
-
-/**
+ * Packed UYVY/UYVA must not fall back to RGBA/BGRA — that is the OBS stripe
+ * picture (4:2:2 bytes shown as RGB). Drop the frame instead.
  * @param {'rgba' | 'uyvy' | 'uyva'} format
- * @param {number} width
- * @param {number} height
- */
-function pixelBytes(format, width, height) {
-  if (format === 'uyvy') return width * height * 2
-  if (format === 'uyva') return width * height * 3
-  return width * height * 4
-}
-
-/**
- * @param {'rgba' | 'uyvy' | 'uyva'} format
+ * @returns {number | null}
  */
 function fourCCFor(format) {
-  if (format === 'uyvy' && nativeUyvyPreferred) return grandi.FourCC.UYVY
-  if (format === 'uyva' && nativeUyvaPreferred) return grandi.FourCC.UYVA
-  if (nativeRgbaActive()) return grandi.FourCC.RGBA
-  return grandi.FourCC.BGRA
+  if (format === 'uyvy') {
+    if (!nativeUyvyPreferred) return null
+    return grandi.FourCC?.UYVY ?? grandi.FOURCC_UYVY
+  }
+  if (format === 'uyva') {
+    return nativeUyvaPreferred
+      ? (grandi.FourCC?.UYVA ?? grandi.FOURCC_UYVA)
+      : null
+  }
+  if (nativeRgbaActive()) return grandi.FourCC?.RGBA ?? grandi.FOURCC_RGBA
+  return grandi.FourCC?.BGRA ?? grandi.FOURCC_BGRA
 }
 
 /**
  * @param {'rgba' | 'uyvy' | 'uyva'} format
  */
 function formatLabel(format) {
-  if (format === 'uyvy' && nativeUyvyPreferred) return 'UYVY'
-  if (format === 'uyva' && nativeUyvaPreferred) return 'UYVA'
-  return nativeRgbaActive() ? 'RGBA' : 'BGRA'
+  return resolveFourccLabel(format, {
+    uyvy: nativeUyvyPreferred,
+    uyva: nativeUyvaPreferred,
+    rgba: nativeRgbaActive(),
+  })
 }
 
 /**
@@ -195,17 +181,21 @@ function probeFourCCOnce() {
   try {
     const keys = Object.keys(grandi.FourCC || {})
     console.log('[output] NDI grandi.FourCC keys:', keys.join(', '))
-    if (typeof grandi.FourCC?.RGBA !== 'number') {
+    if (typeof grandi.FourCC?.RGBA !== 'number' && typeof grandi.FOURCC_RGBA !== 'number') {
       nativeRgbaPreferred = false
       noteBgraFallback('FourCC.RGBA missing')
     }
-    if (typeof grandi.FourCC?.UYVY !== 'number') {
+    if (typeof grandi.FourCC?.UYVY !== 'number' && typeof grandi.FOURCC_UYVY !== 'number') {
       nativeUyvyPreferred = false
-      console.warn('[output] NDI send: FourCC.UYVY missing — 3D/2D stay RGBA')
+      console.warn(
+        '[output] NDI send: FourCC.UYVY missing — 3D/2D UYVY frames dropped (no RGBA fallback)',
+      )
     }
-    if (typeof grandi.FourCC?.UYVA !== 'number') {
+    if (typeof grandi.FourCC?.UYVA !== 'number' && typeof grandi.FOURCC_UYVA !== 'number') {
       nativeUyvaPreferred = false
-      console.warn('[output] NDI send: FourCC.UYVA missing — AR stays RGBA')
+      console.warn(
+        '[output] NDI send: FourCC.UYVA missing — AR UYVA frames dropped (no RGBA fallback)',
+      )
     }
   } catch (err) {
     nativeRgbaPreferred = false
@@ -231,6 +221,7 @@ function emptySendState() {
     poolBytes: 0,
     inFlightIndex: -1,
     pendingIndex: -1,
+    fourccNoted: false,
     pending: /** @type {PreparedFrame | null} */ (null),
   }
 }
@@ -263,6 +254,7 @@ function resetQueue(state) {
   state.pendingIndex = -1
   state.pending = null
   state.sendGen += 1
+  state.fourccNoted = false
 }
 
 function ensureInitialized() {
@@ -355,6 +347,10 @@ function takeSlot(state, bytes) {
  */
 function fillSlot(state, id, rgba, width, height, bottomUp, pixelFormat) {
   const format = resolvePixelFormat(pixelFormat, rgba.length, width, height)
+  const fourCC = fourCCFor(format)
+  if (fourCC == null) {
+    throw new Error(`NDI FourCC missing for ${format} — refusing RGBA fallback`)
+  }
   const bytes = pixelBytes(format, width, height)
   const poolIndex = takeSlot(state, bytes)
   const out = state.pool[poolIndex]
@@ -398,8 +394,8 @@ function fillSlot(state, id, rgba, width, height, bottomUp, pixelFormat) {
     bytes,
     useRgba,
     pixelFormat: format,
-    lineStride: format === 'rgba' ? width * 4 : width * 2,
-    fourCC: fourCCFor(format),
+    lineStride: lineStrideBytes(format, width),
+    fourCC,
   }
 }
 
@@ -459,7 +455,9 @@ async function start(channelId, name) {
       channel: id,
       sourceName: full,
       sdkVersion,
-      fourCC: 'UYVY/UYVA',
+      fourCC: formatLabel('uyvy') && formatLabel('uyva')
+        ? 'UYVY/UYVA'
+        : formatLabel('rgba') || 'BGRA',
     }
   } catch (err) {
     state.lastError = err instanceof Error ? err.message : String(err)
@@ -532,6 +530,19 @@ function pumpSend(state, id, prepared) {
   state.pending = null
   const data = state.pool[prepared.poolIndex].subarray(0, prepared.bytes)
   const fourCC = prepared.fourCC ?? fourCCFor(prepared.pixelFormat || 'rgba')
+  if (fourCC == null) {
+    state.busy = false
+    state.inFlightIndex = -1
+    state.lastError = `NDI FourCC missing for ${prepared.pixelFormat}`
+    return
+  }
+  if (!state.fourccNoted) {
+    state.fourccNoted = true
+    const label = formatLabel(prepared.pixelFormat) || String(fourCC)
+    console.info(
+      `[output] NDI[${id}] FourCC ${label} ${prepared.width}x${prepared.height} stride=${prepared.lineStride} bytes=${prepared.bytes}`,
+    )
+  }
   const tVideo = performance.now()
   void sender
     .video({
@@ -714,7 +725,10 @@ function getStatus(channelId) {
     sourceName: state?.sender ? state.sender.sourcename() : null,
     sdkVersion,
     error: state?.lastError ?? null,
-    fourCC: 'UYVY/UYVA',
+    fourCC:
+      formatLabel('uyvy') && formatLabel('uyva')
+        ? 'UYVY/UYVA'
+        : formatLabel('rgba') || 'BGRA',
     bgraFallback: bgraFallbackNoted,
   }
 }
@@ -804,6 +818,10 @@ module.exports = {
   FRAME_RATE_N,
   FRAME_RATE_D,
   normalizeChannel,
+  resolvePixelFormat,
+  pixelBytes,
+  lineStrideBytes,
+  resolveFourccLabel,
   start,
   stop,
   sendFrame,

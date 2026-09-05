@@ -16,7 +16,6 @@ describe('OPS_RAIL_SECTIONS grouping (BW-locked)', () => {
       'project',
       'live',
       'assets',
-      'world-map',
       'library',
       'ops',
     ])
@@ -33,12 +32,13 @@ describe('OPS_RAIL_SECTIONS grouping (BW-locked)', () => {
     expect(railForSection('project')).toBe('left')
     expect(railForSection('live')).toBe('left')
     expect(railForSection('assets')).toBe('left')
-    expect(railForSection('world-map')).toBe('left')
+    expect(railForSection('library')).toBe('left')
     expect(railForSection('ndi')).toBe('right')
     expect(railForSection('flow')).toBe('right')
     expect(railForSection('calib')).toBe('right')
     expect(railForSection('environment')).toBe('right')
     expect(railForSection('wind')).toBe('right')
+    expect(OPS_RAIL_SECTIONS.map((s) => s.id)).not.toContain('world-map')
   })
 
   it('defaults Project + Fleet open on the left and Output open on the right', () => {

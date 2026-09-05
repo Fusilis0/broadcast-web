@@ -35,7 +35,8 @@ export type FleetBoatRow = {
   color?: string
   /**
    * Air/ops draw mode — session-persisted; default `solid`.
-   * `ghost` = translucent hull + ring; `hidden` = no 3D hull/tag (map still tracks).
+   * `ghost` = translucent hull + ring; `hidden` (3D off) = hull off, tag stays.
+   * Ghost/hidden do not change 2D map dots (`mapVisible` is separate).
    */
   visibility?: BoatVisibilityMode
   /**
@@ -48,12 +49,17 @@ export type FleetBoatRow = {
    */
   plannedLat?: number
   plannedLon?: number
+  plannedAlt?: number
+  /** Uniform hull scale hint (session; inspector 19.7). */
+  heightM?: number
 }
 
 export type FleetPlannedPov = {
   id: string
   plannedLat: number
   plannedLon: number
+  name?: string
+  label?: string
 }
 
 export type FleetLivePanelState = {
@@ -71,6 +77,8 @@ export type FleetLivePanelState = {
   activePovId: string
   /** Map-placed drone/POV GPS hints (session). */
   plannedPovs?: FleetPlannedPov[]
+  /** Drone display name/label by telemetry id (session). */
+  povLabels?: Record<string, string>
   /**
    * Shared SRT caller template (`{srtId}` / `{id}`). Session may hold the
    * relay token; race-pack save redacts it.
@@ -183,13 +191,21 @@ export type FleetLivePanelHandle = {
     category?: string
     plannedLat?: number
     plannedLon?: number
+    plannedAlt?: number
+    heightM?: number
+    visibility?: BoatVisibilityMode
   }) => { ok: boolean; created: boolean }
-  /** Update planned GPS (inspector lat/lon). Persists session + emits fleet change. */
+  /** Update planned GPS (inspector lat/lon/alt). Persists session + emits fleet change. */
   setBoatPlannedGps: (
     id: string,
     plannedLat: number,
     plannedLon: number,
+    plannedAlt?: number,
   ) => boolean
+  setBoatHeightM: (id: string, heightM: number) => boolean
+  renamePov: (oldId: string, newId: string) => boolean
+  setPovLabel: (id: string, label: string) => void
+  getPovLabel: (id: string) => string
   /**
    * Programmatic add from World Map place-drone tool.
    */
@@ -197,6 +213,8 @@ export type FleetLivePanelHandle = {
     id: string
     plannedLat?: number
     plannedLon?: number
+    name?: string
+    label?: string
   }) => { ok: boolean; created: boolean }
   /** Live SRT caller / decode lines (Race ops + Fleet). Never include raw tokens. */
   setSrtSituation: (text: string) => void
@@ -242,6 +260,7 @@ export function saveFleetLiveToSession(state: FleetLivePanelState): void {
         boats: state.boats,
         activePovId: state.activePovId,
         plannedPovs: state.plannedPovs,
+        povLabels: { ...(state.povLabels ?? {}) },
         srtUrlTemplate: state.srtUrlTemplate ?? '',
         srtByPovId: { ...(state.srtByPovId ?? {}) },
         enabledSrtPovIds: state.enabledSrtPovIds ?? [],
@@ -294,6 +313,12 @@ function normalizeFleetBoatRow(row: FleetBoatRow): FleetBoatRow {
   ) {
     out.plannedLat = row.plannedLat
     out.plannedLon = row.plannedLon
+  }
+  if (typeof row.plannedAlt === 'number' && Number.isFinite(row.plannedAlt)) {
+    out.plannedAlt = row.plannedAlt
+  }
+  if (typeof row.heightM === 'number' && Number.isFinite(row.heightM) && row.heightM > 0) {
+    out.heightM = row.heightM
   }
   return out
 }
@@ -352,6 +377,7 @@ export function startFleetLivePanel(
     boats: options.initial.boats.map((b) => normalizeFleetBoatRow(b)),
     activePovId: options.initial.activePovId,
     plannedPovs: (options.initial.plannedPovs ?? []).map((p) => ({ ...p })),
+    povLabels: { ...(options.initial.povLabels ?? {}) },
     srtUrlTemplate: options.initial.srtUrlTemplate ?? '',
     srtByPovId: { ...(options.initial.srtByPovId ?? {}) },
     enabledSrtPovIds: clampEnabled(
@@ -927,7 +953,7 @@ export function startFleetLivePanel(
       const visSel = document.createElement('select')
       visSel.className = 'fleet-live__input fleet-live__vis'
       visSel.title =
-        'solid = full hull · ghost = translucent + ring · hidden = no 3D (map still tracks)'
+        'solid = full hull · ghost = translucent + ring · hidden / 3D off = hull off, tag on (map unchanged)'
       for (const mode of ['solid', 'ghost', 'hidden'] as const) {
         const opt = document.createElement('option')
         opt.value = mode
@@ -1104,6 +1130,14 @@ export function startFleetLivePanel(
           state.plannedPovs = state.plannedPovs.map((p) =>
             p.id === id ? { ...p, id: newId } : p,
           )
+        }
+        if (state.povLabels && id !== newId) {
+          const labels = { ...state.povLabels }
+          if (labels[id] !== undefined) {
+            labels[newId] = labels[id]!
+            delete labels[id]
+            state.povLabels = labels
+          }
         }
         if (state.activePovId === id) {
           state.activePovId = newId
@@ -1342,6 +1376,9 @@ export function startFleetLivePanel(
       if (partial.plannedPovs !== undefined) {
         state.plannedPovs = partial.plannedPovs.map((p) => ({ ...p }))
       }
+      if (partial.povLabels !== undefined) {
+        state.povLabels = { ...partial.povLabels }
+      }
       if (partial.srtUrlTemplate !== undefined) {
         state.srtUrlTemplate = partial.srtUrlTemplate
       }
@@ -1374,6 +1411,7 @@ export function startFleetLivePanel(
       boats: state.boats.map((b) => ({ ...b })),
       activePovId: state.activePovId,
       plannedPovs: (state.plannedPovs ?? []).map((p) => ({ ...p })),
+      povLabels: { ...(state.povLabels ?? {}) },
       srtUrlTemplate: state.srtUrlTemplate ?? '',
       srtByPovId: { ...(state.srtByPovId ?? {}) },
       enabledSrtPovIds: [...(state.enabledSrtPovIds ?? [])],
@@ -1413,9 +1451,11 @@ export function startFleetLivePanel(
         category:
           input.category?.trim() || state.boats[existing]?.category || '',
         color: state.boats[existing]?.color,
-        visibility: state.boats[existing]?.visibility,
+        visibility: input.visibility ?? state.boats[existing]?.visibility,
         plannedLat: input.plannedLat ?? state.boats[existing]?.plannedLat,
         plannedLon: input.plannedLon ?? state.boats[existing]?.plannedLon,
+        plannedAlt: input.plannedAlt ?? state.boats[existing]?.plannedAlt,
+        heightM: input.heightM ?? state.boats[existing]?.heightM,
       })
       if (existing >= 0) state.boats[existing] = row
       else state.boats.push(row)
@@ -1429,7 +1469,7 @@ export function startFleetLivePanel(
         : `Boat ${id} already in fleet — planned position updated`
       return { ok: true, created }
     },
-    setBoatPlannedGps(id, plannedLat, plannedLon): boolean {
+    setBoatPlannedGps(id, plannedLat, plannedLon, plannedAlt): boolean {
       const trimmed = id.trim()
       if (trimmed === '') return false
       if (!Number.isFinite(plannedLat) || !Number.isFinite(plannedLon)) {
@@ -1439,11 +1479,76 @@ export function startFleetLivePanel(
       const row = ensureBoatRow(trimmed)
       row.plannedLat = plannedLat
       row.plannedLon = plannedLon
+      if (plannedAlt !== undefined && Number.isFinite(plannedAlt)) {
+        row.plannedAlt = plannedAlt
+      }
       renderBoats()
       emitFleet()
       persist()
       statusEl.textContent = `Boat ${trimmed} planned GPS updated`
       return true
+    },
+    setBoatHeightM(id, heightM): boolean {
+      const trimmed = id.trim()
+      if (trimmed === '' || !Number.isFinite(heightM) || heightM < 0.5) {
+        return false
+      }
+      if (!state.boatIds.includes(trimmed)) state.boatIds.push(trimmed)
+      const row = ensureBoatRow(trimmed)
+      row.heightM = heightM
+      renderBoats()
+      emitFleet()
+      persist()
+      return true
+    },
+    renamePov(oldId, newId): boolean {
+      const from = oldId.trim()
+      const to = newId.trim()
+      if (from === '' || to === '') return false
+      if (from === to) return true
+      if (!state.povIds.includes(from)) return false
+      if (state.povIds.includes(to)) return false
+      state.povIds = state.povIds.map((x) => (x === from ? to : x))
+      state.enabledPovIds = state.enabledPovIds.map((x) =>
+        x === from ? to : x,
+      )
+      state.enabledSrtPovIds = (state.enabledSrtPovIds ?? []).map((x) =>
+        x === from ? to : x,
+      )
+      state.srtByPovId = remapPovKey(state.srtByPovId, from, to)
+      if (state.plannedPovs?.length) {
+        state.plannedPovs = state.plannedPovs.map((p) =>
+          p.id === from ? { ...p, id: to } : p,
+        )
+      }
+      if (state.povLabels?.[from] !== undefined) {
+        const labels = { ...state.povLabels }
+        labels[to] = labels[from]!
+        delete labels[from]
+        state.povLabels = labels
+      }
+      if (state.activePovId === from) {
+        state.activePovId = to
+        options.onPovChange(to)
+      }
+      renderPovs()
+      emitFleet()
+      persist()
+      notifyLiveEnabled()
+      notifySrtEnabled()
+      return true
+    },
+    setPovLabel(id, label): void {
+      const trimmed = id.trim()
+      if (trimmed === '') return
+      const next = { ...(state.povLabels ?? {}) }
+      if (label.trim() === '') delete next[trimmed]
+      else next[trimmed] = label.trim()
+      state.povLabels = next
+      persist()
+    },
+    getPovLabel(id): string {
+      return state.povLabels?.[id.trim()] ?? ''
     },
     addDrone(input): { ok: boolean; created: boolean } {
       const id = input.id.trim()
@@ -1468,6 +1573,10 @@ export function startFleetLivePanel(
         if (idx >= 0) list[idx] = entry
         else list.push(entry)
         state.plannedPovs = list
+      }
+      const label = (input.label ?? input.name)?.trim()
+      if (label) {
+        state.povLabels = { ...(state.povLabels ?? {}), [id]: label }
       }
       renderPovs()
       emitFleet()

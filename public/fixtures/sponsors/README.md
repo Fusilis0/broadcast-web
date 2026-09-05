@@ -25,13 +25,15 @@ Static race sponsor boards for SCN (Phase 2.5 / 18.7). Between-two-points panels
 | --- | --- |
 | `id` | Stable string id (required) |
 | `label` | Panel text when no texture / overlay fallback (required) |
-| `a` / `b` | WGS84 edge anchors; board **width** = horizontal ENU distance A↔B (text/logo reads along A→B) |
+| `a` / `b` | WGS84 edge anchors; board **width** = horizontal ENU distance A↔B. Stretching A–B scales the board uniformly when `boardAspect` is stored |
 | `altMsl` | Optional per-endpoint AMSL (default `0`); graphics still force **water Y = 0** for the board |
-| `heightM` | Depth of the board **across the water**, perpendicular to A→B (default `8`, clamped ≥ `1`). Not wall height. Same role as the start/finish band depth |
-| `textureUrl` | Optional URL under `public/` (e.g. `/textures/sponsors/rolex.png`). `null` / missing → procedural canvas with `label` on the board |
+| `heightM` | Short-side depth **across the water** (default `8`, clamped ≥ `1`). Edits the stored ratio; not wall height |
+| `textureUrl` | Optional URL under `public/` (e.g. `/textures/sponsors/rolex.png`). When set, the logo is contain-fit and the **name is not drawn** on the mesh. `null` / missing → procedural label only if no logo was chosen |
 | `color` | Optional hex brand/map colour (default teal). Not the board fill |
 | `panelColor` | Optional board fill hex (default `#f4f4f2`). Omit → default |
 | `frameColor` | Optional frame stroke hex (default dark slate `#2c3338`). Omit → default |
+| `panelAlpha` | Optional plate alpha 0–1 (default `1` = opaque) |
+| `boardAspect` | Optional along/across ratio (A–B / short side). Omit → independent `heightM` until the next span or height edit |
 
 ## Placement conventions
 

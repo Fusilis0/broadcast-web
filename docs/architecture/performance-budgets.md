@@ -78,7 +78,29 @@ Measurement only. Does **not** change caps, stagger, copies, or `STUDIO_TICK_FPS
 
 **First live dump (operator 2026-08-29).** Send AR 15 / 3D 15 / 2D 3. Clock not 60: 495 ticks / ~10 s, mean 20.2 ms, max 109.5, `>20ms=225`. `captureTicks` mixed 1…6+ (not a clean 2-vs-3). Named walls: `*EnqueueIpc` 17–23 ms (renderer slice + sync IPC, *inside* the tick); `2dGrab` 120–193 ms (worker `getImageData` of 1920×1080 after a 520 upscale — worker path was on); `rgbaToBgra` ~7 ms with `dropBusy=0` (main keeping up). FBO render ~1 ms. `present()` ~0.03 ms. PBO and 2D-worker fallbacks were off. Instrument overhead 0.005 ms/sample. This recut wave 3: defer IPC + drop slice (`OUT-04`), native 2D blit (`OUT-20260830-01`), keep the BGRA deletion for the 30×3 ceiling (`OUT-02`).
 
+**Live 2026-09-02 (`DSP-OUT-20260902-05`, operator Pass, 30×3 parked).** No SYNC READBACK banner. All Send off → preview **60**. One-on: 3D Send **20–25** / preview ~30; AR **17–20** / ~30; 2D **10** / preview 60. Three on: preview **11–12**, Send AR **14** / 3D **14** / 2D **5**, all Status **live**. Cap is still 30/30/30. Operator accepted this for now — do not drop a channel; do not treat uncheck as the plan.
+
 Instrument overhead is in the dump (`instrument overhead`). Send fps with this on should stay within ~1 fps of Send fps with it off.
+
+### Idle vs mousedown (`HO-BW-PRF-20260902-01`) — two dumps, then A/B/C
+
+Do **not** productize click-to-go-faster. Do **not** fake mouse. `backgroundThrottling` is already false. `STUDIO_TICK_FPS` is already 60.
+
+**Where to look (Electron studio only).** Left **Race ops** (expand): `preview` fps + `hitch`. Right **Output** (open): **Send** on AR / 3D / 2D, then **Stage timing** → **Copy 10 s dump** (after DSP-PRF-20260902-01: **Copy idle 10 s** / **Copy mouse 10 s**). Chrome Send is `—`.
+
+**Run (operator, ~25 s).** 2D NDI stays on. Hands off the mouse except as written.
+
+1. **Idle 10 s.** Do not touch mouse or keys. Watch Race ops `preview` / `hitch` and Output **Send**. Copy dump (label `idle`). Paste the dump **and** the four HUD numbers if the dump header lacks them.
+2. **Mousedown + hover 10 s.** Hold left button on the WebGL canvas and move slowly. Copy dump (label `mousedown`). Paste dump + HUD numbers.
+3. Hands off. Confirm idle returns to the low/crunchy feel.
+
+| Verdict | What the two pastes show | Next |
+| --- | --- | --- |
+| **A** | Preview jumps with mouse; **Send stays ~8–15** (or flat). `tickIntervalMs` stays tight on **16**. | Dual-clock / compositor: click wakes **rAF**, not NDI. NDI is still the wall. No fake input. OUT only if a Send stage is also sick at idle. |
+| **B** | **Preview and Send both** jump with mouse (e.g. ~8 → >40). | JS/renderer thread starved until input. Name the idle **stage max**: `3dCpuPack` / `3dReadbackDrain` / `3dEnqueueIpc` vs `2dGrab` vs `*EnqueueIpc`. If 3D CPU UYVY pack dominates → **HO-PRF-OUT** (correct GPU UYVY may return only with READ-proven dest, no `w*2===srcW` skip). |
+| **C** | `tickIntervalMs` **fat idle** (mean ≫ 16, fat `≥20` tail); **tight on 16** while mouse is down. | Same class as B: the 60 Hz tick is not arriving. Still not a mouse feature. Name the hog from idle `totalTick` / pack stages, then OUT. |
+
+HUD screenshot is not enough. Two text dumps + the four HUD numbers (preview, hitch, Send×3).
 
 ## Operator request — Studio 30 Send (BW 2026-08-28; clock 60 for stagger)
 
@@ -99,3 +121,4 @@ Pose smoothness (10 Hz WebSocket) is TEL (`DSP-TEL-20260828-01`), not a frame-bu
 - “Drop 3D or 2D back to 10 / off because hitch or low GPU %” → report numbers; do not silent-fallback.
 - “Fix SRT colour bars / HEVC” → SRT / OUT.
 - “Make the sea look better” → SCN (PRF only if the ask is *cheaper*).
+- “Fake mouse / hover loop / rAF keep-alive so idle stays 40” → refuse.

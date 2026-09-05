@@ -7,13 +7,21 @@ import {
   GERSTNER_OCEAN_DEFAULTS,
   GERSTNER_WAVE_COUNT,
   OCEAN_DETAIL_FADE,
+  OCEAN_LOOK_BASE_WAVELENGTHS_M,
+  OCEAN_LOOK_STREAK_ALONG,
+  OCEAN_LOOK_STREAK_ACROSS,
+  OCEAN_LOOK_STREAK_NOISE,
+  OCEAN_LOOK_XZ_SCALE,
   OCEAN_NOISE_SIZE,
+  OCEAN_SHEEN_DEFAULTS,
+  OCEAN_TROUGH_DEFAULTS,
   createClipmapGeometry,
   createGerstnerOcean,
   createOceanNoiseTexture,
   clipmapCellSizeM,
   clipmapPatchSpecs,
   clipmapRingOverlapM,
+  gerstnerWaveWavelengthsM,
   quantizeClipmapCenter,
   streakIntensityFromSpeedMs,
   streakScrollSpeedMs,
@@ -116,17 +124,43 @@ describe('createGerstnerOcean', () => {
     expect(ocean.mesh.position.y).toBeCloseTo(GERSTNER_OCEAN_DEFAULTS.liftY)
     expect(GERSTNER_OCEAN_DEFAULTS.liftY).toBeGreaterThan(0)
     expect(GERSTNER_OCEAN_DEFAULTS.liftY).toBeLessThanOrEqual(0.12)
+    expect(GERSTNER_OCEAN_DEFAULTS.displacementScale).toBe(0)
+    const waves = mat.uniforms['uWaves']!.value as THREE.Vector4[]
+    expect(waves.every((w) => w.y === 0)).toBe(true)
+    const shading = mat.uniforms['uShadingWaves']!.value as THREE.Vector4[]
+    expect(shading.length).toBe(GERSTNER_WAVE_COUNT)
+    expect(shading.every((w) => w.y > 0)).toBe(true)
+    expect(mat.fragmentShader).toContain('uShadingWaves')
+    expect(mat.fragmentShader).toContain('gerstner(')
+    expect(mat.fragmentShader).toContain('shadingAmpFade')
+    expect(mat.fragmentShader).not.toContain('normalize(vNormal)')
     expect(ocean.mesh.position.x).toBe(0)
     expect(ocean.mesh.position.z).toBe(0)
     expect(mat.uniforms['uClipmapCenter']).toBeTruthy()
+    expect(ocean.getSuppressCount()).toBe(0)
+    expect(mat.uniforms['uSuppressCount']!.value).toBe(0)
+    expect(mat.vertexShader).toContain('oceanSuppressAmounts')
+    expect(mat.fragmentShader).not.toMatch(/\bdiscard\b/)
+    ocean.setSeaHeightYM(-2)
+    expect(ocean.getSeaHeightYM()).toBe(-2)
+    expect(ocean.mesh.position.y).toBeCloseTo(GERSTNER_OCEAN_DEFAULTS.liftY - 2)
+    ocean.setSeaHeightYM(0)
     expect(GERSTNER_OCEAN_DEFAULTS.innerSegments).toBe(32)
     expect(GERSTNER_OCEAN_DEFAULTS.ringCount).toBe(7)
-    expect(GERSTNER_OCEAN_DEFAULTS.glitterIntensity).toBeGreaterThanOrEqual(0.12)
-    expect(GERSTNER_OCEAN_DEFAULTS.glitterIntensity).toBeLessThanOrEqual(0.2)
+    expect(GERSTNER_OCEAN_DEFAULTS.glitterIntensity).toBeGreaterThanOrEqual(0.08)
+    expect(GERSTNER_OCEAN_DEFAULTS.glitterIntensity).toBeLessThanOrEqual(0.14)
     expect(GERSTNER_OCEAN_DEFAULTS.glitterSharpness).toBeGreaterThanOrEqual(60)
     expect(GERSTNER_OCEAN_DEFAULTS.glitterSharpness).toBeLessThanOrEqual(90)
     expect(mat.fragmentShader).not.toContain('glint * 0.45')
-    expect(WIND_STREAK_DEFAULTS.contrast).toBeGreaterThan(0.75)
+    expect(WIND_STREAK_DEFAULTS.contrast).toBe(0)
+
+    ocean.setAmplitudeScale(0.5)
+    const shadedHalf = mat.uniforms['uShadingWaves']!.value as THREE.Vector4[]
+    expect(shadedHalf[0]!.y).toBeCloseTo(0.32 * 0.5)
+    expect((mat.uniforms['uWaves']!.value as THREE.Vector4[]).every((w) => w.y === 0)).toBe(
+      true,
+    )
+    ocean.setAmplitudeScale(1)
 
     ocean.dispose()
     expect(mat.uniforms['uTime']).toBeTruthy()
@@ -303,8 +337,8 @@ describe('wind streaks (14.3e)', () => {
     expect(mat.fragmentShader).toContain('streakNoise')
     expect(mat.fragmentShader).toContain('windStreak')
     expect(mat.fragmentShader).toContain('windStreak(vWorldPos.xz)')
-    expect(mat.fragmentShader).toContain('cross * 0.22')
-    expect(mat.fragmentShader).toContain('uStreakContrast')
+    expect(mat.fragmentShader).toContain(`cross * float(${OCEAN_LOOK_STREAK_ACROSS})`)
+    expect(mat.fragmentShader).not.toContain('uStreakContrast')
     expect(mat.fragmentShader).toContain('uTerrainDepth')
     expect(mat.fragmentShader).toContain('uShoreFoamEnabled')
     expect(mat.vertexShader).toContain('uClipmapCenter')
@@ -337,7 +371,8 @@ describe('ocean shimmer AA (16.1)', () => {
     expect(noise.wrapS).toBe(THREE.RepeatWrapping)
     expect(mat.uniforms['uDetailFadeNear']!.value).toBe(OCEAN_DETAIL_FADE.nearM)
     expect(mat.uniforms['uDetailFadeFar']!.value).toBe(OCEAN_DETAIL_FADE.farM)
-    expect(OCEAN_DETAIL_FADE.farM).toBeLessThan(1536)
+    expect(OCEAN_DETAIL_FADE.nearM).toBeLessThan(OCEAN_DETAIL_FADE.farM)
+    expect(OCEAN_DETAIL_FADE.farM).toBeLessThan(6144)
     ocean.dispose()
   })
 
@@ -359,11 +394,164 @@ describe('ocean shimmer AA (16.1)', () => {
   })
 })
 
+describe('sea look unify (04-03)', () => {
+  it('keeps vertex disp 0 and does not restore gust albedo curtains', () => {
+    expect(GERSTNER_OCEAN_DEFAULTS.displacementScale).toBe(0)
+    expect(WIND_STREAK_DEFAULTS.contrast).toBe(0)
+    const ocean = createGerstnerOcean({
+      innerSegments: 2,
+      ringCount: 1,
+      ringSegments: 4,
+    })
+    const mat = ocean.mesh.material as THREE.ShaderMaterial
+    const waves = mat.uniforms['uWaves']!.value as THREE.Vector4[]
+    expect(waves.every((w) => w.y === 0)).toBe(true)
+    const src = readFileSync(resolve(__dirname, 'gerstnerOcean.ts'), 'utf8')
+    expect(src).not.toMatch(/color\s*\*=\s*1\.0\s*-\s*gust\s*\*\s*uStreakContrast/)
+    expect(mat.fragmentShader).not.toContain('uStreakContrast')
+    expect(mat.uniforms['uStreakContrast']).toBeUndefined()
+    ocean.dispose()
+  })
+
+  it('troughs share Gerstner height with foam; sheen stays below glitter', () => {
+    expect(OCEAN_SHEEN_DEFAULTS.sharpness).toBeLessThan(
+      GERSTNER_OCEAN_DEFAULTS.glitterSharpness / 4,
+    )
+    expect(OCEAN_SHEEN_DEFAULTS.intensity).toBeLessThanOrEqual(0.14)
+    expect(GERSTNER_OCEAN_DEFAULTS.foamColor).toBeLessThan(0xd0d8e0)
+    const ocean = createGerstnerOcean({
+      innerSegments: 2,
+      ringCount: 1,
+      ringSegments: 4,
+    })
+    const mat = ocean.mesh.material as THREE.ShaderMaterial
+    expect(mat.fragmentShader).toContain('float trough')
+    expect(mat.fragmentShader).toContain('waveHeight')
+    expect(mat.fragmentShader).toContain('uShadingWaves')
+    expect(mat.fragmentShader).toContain('wetSheen')
+    expect(mat.fragmentShader).toContain('slopeWet')
+    expect(mat.fragmentShader).toContain('color += uSunColor * glitterAmt')
+    expect(mat.fragmentShader).toContain('smoothstep(-0.02')
+    expect(mat.fragmentShader).not.toContain('smoothstep(0.10 - crestW, 0.36 + crestW')
+    expect(mat.fragmentShader).toContain('crest * 0.38')
+    expect(mat.fragmentShader).toContain('clamp(foam, 0.0, 0.55)')
+    expect(mat.fragmentShader).toContain('ndlSoft')
+    ocean.dispose()
+  })
+})
+
+describe('sea dark deep water (04-07)', () => {
+  it('uses dark navy-teal deep/shallow, dark fog/horizon, nadir fresnel 0; vertex disp stays 0', () => {
+    expect(GERSTNER_OCEAN_DEFAULTS.displacementScale).toBe(0)
+    expect(GERSTNER_OCEAN_DEFAULTS.deepColor).toBe(0x0c2f3a)
+    expect(GERSTNER_OCEAN_DEFAULTS.shallowColor).toBe(0x164a55)
+    expect(GERSTNER_OCEAN_DEFAULTS.horizonColor).toBe(0x2a4a52)
+    expect(GERSTNER_OCEAN_DEFAULTS.deepColor).not.toBe(0x15606c)
+    expect(GERSTNER_OCEAN_DEFAULTS.shallowColor).not.toBe(0x2e8a86)
+    expect(GERSTNER_OCEAN_DEFAULTS.horizonColor).not.toBe(0x5a8a8c)
+    expect(GERSTNER_OCEAN_DEFAULTS.horizonColor).not.toBe(0x8a9aaa)
+    expect((GERSTNER_OCEAN_DEFAULTS.deepColor >> 8) & 0xff).toBeLessThan(0x60)
+    expect((GERSTNER_OCEAN_DEFAULTS.shallowColor >> 8) & 0xff).toBeLessThan(0x8a)
+    expect(OCEAN_TROUGH_DEFAULTS.deepScale).toBeGreaterThan(0.7)
+    expect(OCEAN_TROUGH_DEFAULTS.deepScale).toBeLessThan(1)
+    expect(OCEAN_TROUGH_DEFAULTS.mix).toBeLessThan(0.7)
+    expect(OCEAN_TROUGH_DEFAULTS.mix).toBeGreaterThan(0.3)
+    const ocean = createGerstnerOcean({
+      innerSegments: 2,
+      ringCount: 1,
+      ringSegments: 4,
+    })
+    const mat = ocean.mesh.material as THREE.ShaderMaterial
+    const deep = mat.uniforms['uDeepColor']!.value as THREE.Color
+    const shallow = mat.uniforms['uShallowColor']!.value as THREE.Color
+    const horizon = mat.uniforms['uHorizonColor']!.value as THREE.Color
+    expect(deep.getHex()).toBe(0x0c2f3a)
+    expect(shallow.getHex()).toBe(0x164a55)
+    expect(horizon.getHex()).toBe(0x2a4a52)
+    expect(mat.fragmentShader).toContain(`uDeepColor * float(${OCEAN_TROUGH_DEFAULTS.deepScale})`)
+    expect(mat.fragmentShader).toContain(`trough * float(${OCEAN_TROUGH_DEFAULTS.mix})`)
+    expect(mat.fragmentShader).not.toContain('uDeepColor * 0.58')
+    expect(mat.fragmentShader).toContain('float fresnel = mix(0.0, 1.0, pow(1.0 - ndv, 4.0));')
+    expect(mat.fragmentShader).not.toContain('mix(0.10, 1.0, pow(1.0 - ndv, 4.0))')
+    const waves = mat.uniforms['uWaves']!.value as THREE.Vector4[]
+    expect(waves.every((w) => w.y === 0)).toBe(true)
+    ocean.dispose()
+  })
+})
+
+describe('sea look (04-08 Fail — 1/9 not 3×)', () => {
+  it('scales wavelengths ×1/9 and multiplies streak/noise UV; clipmap and dark hexes unchanged', () => {
+    expect(OCEAN_LOOK_XZ_SCALE).toBeCloseTo(1 / 9)
+    expect(GERSTNER_OCEAN_DEFAULTS.displacementScale).toBe(0)
+    expect(GERSTNER_OCEAN_DEFAULTS.innerHalfExtentM).toBe(48)
+    expect(GERSTNER_OCEAN_DEFAULTS.deepColor).toBe(0x0c2f3a)
+    expect(GERSTNER_OCEAN_DEFAULTS.shallowColor).toBe(0x164a55)
+    expect(GERSTNER_OCEAN_DEFAULTS.horizonColor).toBe(0x2a4a52)
+    const waves = gerstnerWaveWavelengthsM()
+    expect(waves).toHaveLength(GERSTNER_WAVE_COUNT)
+    expect(waves[0]).toBeCloseTo(
+      OCEAN_LOOK_BASE_WAVELENGTHS_M[0]! * OCEAN_LOOK_XZ_SCALE,
+    )
+    expect(waves[4]).toBeCloseTo(
+      OCEAN_LOOK_BASE_WAVELENGTHS_M[4]! * OCEAN_LOOK_XZ_SCALE,
+    )
+    expect(OCEAN_LOOK_STREAK_ALONG).toBeCloseTo(0.016 * 9)
+    expect(OCEAN_LOOK_STREAK_ACROSS).toBeCloseTo(0.22 * 9)
+    expect(OCEAN_LOOK_STREAK_NOISE).toBeCloseTo(0.07 * 9)
+    const ocean = createGerstnerOcean({
+      innerSegments: 2,
+      ringCount: 1,
+      ringSegments: 4,
+    })
+    const mat = ocean.mesh.material as THREE.ShaderMaterial
+    const shading = mat.uniforms['uShadingWaves']!.value as THREE.Vector4[]
+    expect(shading[0]!.x).toBeCloseTo(48 / 9)
+    expect(mat.fragmentShader).toContain(String(OCEAN_LOOK_STREAK_ALONG))
+    expect(mat.fragmentShader).not.toContain('along * 0.016')
+    expect(mat.fragmentShader).not.toContain('p * 0.07')
+    expect(mat.fragmentShader).not.toContain('max(suppress.x')
+    expect(mat.fragmentShader).not.toContain('oceanSuppressAmounts')
+    ocean.dispose()
+  })
+})
+
 describe('no GPU readback', () => {
   it('gerstnerOcean.ts does not call readPixels / getImageData', () => {
     const src = readFileSync(resolve(__dirname, 'gerstnerOcean.ts'), 'utf8')
     expect(src).not.toMatch(/\breadPixels\s*\(/)
     expect(src).not.toMatch(/\bgetImageData\s*\(/)
     expect(src).not.toMatch(/\breadRenderTargetPixels\s*\(/)
+  })
+})
+
+describe('19.15 platform suppress', () => {
+  it('packs footprint uniforms without an extra FBO', () => {
+    const ocean = createGerstnerOcean({
+      innerSegments: 2,
+      ringCount: 1,
+      ringSegments: 4,
+    })
+    ocean.setSuppressFootprints([
+      {
+        cx: 10,
+        cz: -4,
+        halfAlong: 8,
+        halfAcross: 3,
+        dirX: 1,
+        dirZ: 0,
+      },
+    ])
+    expect(ocean.getSuppressCount()).toBe(1)
+    const mat = ocean.mesh.material as THREE.ShaderMaterial
+    const rects = mat.uniforms['uSuppressRect']!.value as THREE.Vector4[]
+    expect(rects[0]!.x).toBeCloseTo(10)
+    expect(rects[0]!.y).toBeCloseTo(-4)
+    expect(rects[0]!.z).toBeCloseTo(8)
+    expect(rects[0]!.w).toBeCloseTo(3)
+    expect(ocean.getShoreDepthTarget()).toBeNull()
+
+    ocean.setSuppressFootprints([])
+    expect(ocean.getSuppressCount()).toBe(0)
+    ocean.dispose()
   })
 })

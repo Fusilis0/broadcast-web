@@ -1,6 +1,7 @@
 /**
  * Project section Load / Save controls (Phase 13.8 UX).
- * Electron (`folderMode`): Save writes via races bridge; Load = dropdown.
+ * Electron (`folderMode`): Save writes via races bridge; Load = button
+ * (dropdown pick syncs the id field only).
  * Chrome: Save = download; no pretend folder write.
  */
 
@@ -8,7 +9,7 @@ export type LocalProjectControlsOptions = {
   container: HTMLElement
   /**
    * True when Electron `broadcastStudio.races` is present.
-   * Save primary = folder write; Export = download; Load on select change.
+   * Save primary = folder write; Export = download; Load on button (not select).
    */
   folderMode: boolean
   /** Initial pack ids for the Load dropdown. */
@@ -31,7 +32,7 @@ export type LocalProjectControlsHandle = {
   setProjectMeta: (id: string, name: string) => void
   /** Small hint under the row, e.g. `saving to: …/public/races`. */
   setRootHint: (path: string | null) => void
-  /** Success / fail line (path or error). */
+  /** Last-action line under Save/Load (`loading`/`loaded`, `saving`/`saved`, or error). */
   setSaveStatus: (msg: string) => void
   setProjectWritesEnabled: (enabled: boolean) => void
   dispose: () => void
@@ -48,6 +49,30 @@ export function formatRacesRootHint(path: string | null | undefined): string {
   const p = path?.trim()
   if (!p) return ''
   return `saving to: ${p}`
+}
+
+/** Lifecycle words for the Save/Load status node (Phase 19.9). */
+export type SaveLoadStatusKind =
+  | 'loading'
+  | 'loaded'
+  | 'saving'
+  | 'saved'
+  | 'downloaded'
+  | 'error'
+
+/**
+ * Compact last-action text. Folder hint stays on `setRootHint`; this line is
+ * `loading`/`loaded`, `saving`/`saved` (optional persist suffix), `downloaded`,
+ * or a short error (id welcome).
+ */
+export function formatSaveLoadStatus(
+  kind: SaveLoadStatusKind,
+  detail?: string | null,
+): string {
+  const extra = detail?.trim() ?? ''
+  if (kind === 'error') return extra || 'failed'
+  if (kind === 'saved' && extra) return `saved · ${extra}`
+  return kind
 }
 
 /**
@@ -89,8 +114,8 @@ export function mountLocalProjectControls(
   raceSelect.id = 'ops-race-id'
   raceSelect.className = 'ops-hud__mode-select'
   raceSelect.title = options.folderMode
-    ? 'Projects in the local races folder'
-    : 'Local RaceProject packs under /races/'
+    ? 'Projects in the local races folder (pick only — click Load to apply)'
+    : 'Local RaceProject packs under /races/ (pick only — click Load to apply)'
   raceSelect.setAttribute('data-ops', 'race-select')
   raceRow.appendChild(raceSelect)
 
@@ -109,12 +134,9 @@ export function mountLocalProjectControls(
   raceLoadBtn.type = 'button'
   raceLoadBtn.className = 'ops-hud__btn'
   raceLoadBtn.textContent = 'Load'
-  raceLoadBtn.title = 'Load RaceProject pack'
+  raceLoadBtn.title =
+    'Load the selected or typed pack (dropdown does not load on change)'
   raceLoadBtn.setAttribute('data-ops', 'race-load')
-  // In folder mode, select change loads; button still useful for typed ids.
-  if (options.folderMode) {
-    raceLoadBtn.title = 'Load typed id (dropdown loads on change)'
-  }
   raceRow.appendChild(raceLoadBtn)
 
   const raceSaveBtn = document.createElement('button')
@@ -160,6 +182,7 @@ export function mountLocalProjectControls(
   saveStatus.className = 'ops-hud__mode-hint ops-local-project__save-status'
   saveStatus.setAttribute('aria-live', 'polite')
   saveStatus.setAttribute('data-ops', 'save-status')
+  saveStatus.title = 'Last Load/Save action'
   statusRow.appendChild(saveStatus)
 
   options.container.appendChild(root)
@@ -191,13 +214,14 @@ export function mountLocalProjectControls(
         'Overwrite current project id into the local races folder (+ API when configured)'
       raceSaveAsBtn.title =
         'New id + name → write into the local races folder (+ API when configured)'
-      raceHint.textContent = 'Save=folder · Export=download'
+      raceHint.textContent =
+        'Save=folder · Export=download · pick does not load'
     } else {
       raceSaveBtn.title =
         'Overwrite current project id: download project.json (+ API PUT when projectsApiBase is set).'
       raceSaveAsBtn.title =
         'New id + name from prompts: download project.json (+ API POST when projectsApiBase is set).'
-      raceHint.textContent = 'Save=download · API optional'
+      raceHint.textContent = 'Save=download · API optional · pick does not load'
     }
   }
 
@@ -223,8 +247,8 @@ export function mountLocalProjectControls(
     return raceSelect.value.trim()
   }
 
-  function requestRaceLoad(fromSelect = false): void {
-    const id = fromSelect ? raceSelect.value.trim() : resolveRacePick()
+  function requestRaceLoad(): void {
+    const id = resolveRacePick()
     if (!id) return
     activeRaceId = id
     raceCustom.value = id
@@ -239,17 +263,14 @@ export function mountLocalProjectControls(
   raceSelect.addEventListener('change', () => {
     activeRaceId = raceSelect.value
     raceCustom.value = activeRaceId
-    if (options.folderMode) {
-      requestRaceLoad(true)
-    }
   })
   raceLoadBtn.addEventListener('click', () => {
-    requestRaceLoad(false)
+    requestRaceLoad()
   })
   raceCustom.addEventListener('keydown', (ev) => {
     if (ev.key === 'Enter') {
       ev.preventDefault()
-      requestRaceLoad(false)
+      requestRaceLoad()
     }
   })
   raceSaveBtn.addEventListener('click', () => {

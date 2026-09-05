@@ -299,11 +299,16 @@ describe('normalizeConfig cesium ion', () => {
 })
 
 describe('normalizeConfig timecode', () => {
-  it('defaults timecodeEnabled true, bottom-right, 96px', () => {
+  it('defaults timecodeEnabled false, bottom-right, 96px', () => {
     const cfg = normalizeConfig({})
-    expect(cfg.timecodeEnabled).toBe(true)
+    expect(cfg.timecodeEnabled).toBe(false)
     expect(cfg.timecodeCorner).toBe('bottom-right')
     expect(cfg.timecodeSizePx).toBe(96)
+  })
+
+  it('honors timecodeEnabled true (re-enable)', () => {
+    const cfg = normalizeConfig({ timecodeEnabled: true })
+    expect(cfg.timecodeEnabled).toBe(true)
   })
 
   it('honors timecodeEnabled false and corner / size', () => {

@@ -23,6 +23,15 @@ export {
   type FeatureIdCounter,
 } from './featureFactory.ts'
 export {
+  addFromCoordinates,
+  editFromCoordinates,
+  heightFieldCaption,
+  spacingFieldCaption,
+  type CoordinatePlaceDraft,
+  type FleetPlaceInput,
+  type PlaceKind,
+} from './coordinatePlace.ts'
+export {
   downloadWorldFeaturesJson,
   serializeWorldFeaturesExport,
   type WorldFeaturesExport,

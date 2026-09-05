@@ -11,14 +11,14 @@ export const LINE_SIGN_WATER_Y = WATER_PLANE_Y
 /** Slight lift so the band does not z-fight the water clear colour. */
 export const LINE_SIGN_Y_OFFSET = WATER_PLANE_Y_OFFSET
 
-/** Depth of the text band on the water (meters). Unity canvas height ~30; keep readable. */
-export const LINE_SIGN_BAND_DEPTH_M = 12
+/** Depth of the text band on the water (meters). Phase 19.10: ×2 vs the original 12 m Unity-port band. */
+export const LINE_SIGN_BAND_DEPTH_M = 24
 
 /**
  * Default span when the feature has a single GPS point (editor one-click legacy).
- * Oriented east–west through the point.
+ * Oriented east–west through the point. Authored two-point A–B GPS span is unchanged.
  */
-export const DEFAULT_LINE_SIGN_WIDTH_M = 50
+export const DEFAULT_LINE_SIGN_WIDTH_M = 100
 
 export const DEFAULT_START_COLOR = 0xad0000
 export const DEFAULT_FINISH_COLOR = 0xad0000
@@ -44,20 +44,24 @@ export function buildLineSignLayout(
     const a = gpsToEnuAmsl(p0.lat, p0.lon, p0.altMsl)
     let ax = a.x
     let az = a.z
+    let ay = a.y
     let bx: number
     let bz: number
+    let by: number
 
     const p1 = f.points[1]
     if (p1) {
       const b = gpsToEnuAmsl(p1.lat, p1.lon, p1.altMsl)
       bx = b.x
       bz = b.z
+      by = b.y
     } else {
       const half = DEFAULT_LINE_SIGN_WIDTH_M / 2
       ax = a.x - half
       az = a.z
       bx = a.x + half
       bz = a.z
+      by = a.y
     }
 
     const widthM = Math.hypot(bx - ax, bz - az)
@@ -79,6 +83,7 @@ export function buildLineSignLayout(
       bx,
       bz,
       midX: (ax + bx) / 2,
+      midY: (ay + by) / 2,
       midZ: (az + bz) / 2,
       widthM,
     })

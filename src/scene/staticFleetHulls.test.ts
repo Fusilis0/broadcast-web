@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { createBoatEntity } from './boatEntity.ts'
 import {
   canApplyStaticHull,
+  canAuthorStaticHull,
   resolveStaticHullPosition,
   STATIC_HULL_GRID_SPACING_M,
   STATIC_HULL_LIVE_HOLD_MS,
@@ -38,6 +39,12 @@ describe('canApplyStaticHull', () => {
     expect(canApplyStaticHull(liveAt)).toBe(false)
     expect(STATIC_HULL_LIVE_HOLD_MS).toBe(2000)
   })
+
+  it('allows map-authoring after live packets go stale (not during live)', () => {
+    expect(canAuthorStaticHull(undefined, 5_000)).toBe(true)
+    expect(canAuthorStaticHull(4_000, 5_000)).toBe(false)
+    expect(canAuthorStaticHull(2_000, 5_000)).toBe(true)
+  })
 })
 
 describe('static fleet hull spawn (no poseBus)', () => {
@@ -51,6 +58,22 @@ describe('static fleet hull spawn (no poseBus)', () => {
     expect(boat.root.visible).toBe(true)
     expect(boat.root.position.x).toBe(12)
     expect(boat.root.position.z).toBe(-40)
+    boat.dispose()
+  })
+
+  it('planned ENU y moves the hull; live packet still blocks snap-back', () => {
+    const boat = createBoatEntity({ id: '25', tryGltf: false })
+    const seed = { id: '25', position: { x: 12, y: 4.5, z: -40 } }
+    expect(canApplyStaticHull(undefined)).toBe(true)
+    expect(resolveStaticHullPosition(seed, 0).y).toBe(4.5)
+    boat.applyPose(staticBoatPose('25', resolveStaticHullPosition(seed, 0)))
+    expect(boat.root.position.y).toBe(4.5)
+
+    boat.applyPose(staticBoatPose('25', { x: 1, y: 9, z: -1 }, 1))
+    const lastLive = new Map<string, number>([['25', Date.now()]])
+    expect(canApplyStaticHull(lastLive.get('25'))).toBe(false)
+    expect(boat.root.position.y).toBe(9)
+    expect(resolveStaticHullPosition(seed, 0).y).toBe(4.5)
     boat.dispose()
   })
 

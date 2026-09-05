@@ -44,5 +44,7 @@ export type SidebarHandle = {
   isRailCollapsed: (rail: OpsRailId) => boolean
   /** Host for stream/PiP map (outside the rails; still under the overlay root). */
   getOverlayHost: () => HTMLElement
+  /** Left/right chrome slot beside the rail title (e.g. World Authoring toggle). */
+  getHeaderActionsHost: (rail: OpsRailId) => HTMLElement
   dispose: () => void
 }

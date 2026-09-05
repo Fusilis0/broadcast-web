@@ -2,7 +2,10 @@ import * as THREE from 'three'
 import { describe, expect, it } from 'vitest'
 import {
   applyFlatOnWaterPlacement,
+  clampSeaHeightYM,
   flatOnWaterBasis,
+  getWaterPlaneY,
+  setWaterPlaneY,
   WATER_PLANE_Y,
   WATER_PLANE_Y_OFFSET,
 } from './waterPlanePlacement.ts'
@@ -25,6 +28,7 @@ describe('flatOnWaterBasis', () => {
 
 describe('applyFlatOnWaterPlacement', () => {
   it('sets sky-facing quaternion and the shared water lift', () => {
+    setWaterPlaneY(0)
     const obj = new THREE.Object3D()
     const ok = applyFlatOnWaterPlacement(obj, {
       ax: 0,
@@ -45,5 +49,28 @@ describe('applyFlatOnWaterPlacement', () => {
     const along = new THREE.Vector3(1, 0, 0).applyQuaternion(obj.quaternion)
     expect(along.x).toBeCloseTo(1)
     expect(along.y).toBeCloseTo(0)
+  })
+
+  it('uses GEO midY so sea m can leave assets above the ocean', () => {
+    setWaterPlaneY(-2)
+    expect(getWaterPlaneY()).toBe(-2)
+    const obj = new THREE.Object3D()
+    applyFlatOnWaterPlacement(obj, {
+      ax: 0,
+      az: 0,
+      bx: 10,
+      bz: 0,
+      midX: 5,
+      midY: 0,
+      midZ: 0,
+    })
+    expect(obj.position.y).toBeCloseTo(WATER_PLANE_Y_OFFSET)
+    setWaterPlaneY(0)
+  })
+
+  it('clamps sea height −20…+20', () => {
+    expect(clampSeaHeightYM(-21)).toBe(-20)
+    expect(clampSeaHeightYM(21)).toBe(20)
+    expect(clampSeaHeightYM(Number.NaN)).toBe(0)
   })
 })

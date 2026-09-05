@@ -416,6 +416,30 @@ describe('startVideoBackground wrap', () => {
     tex.dispose()
   })
 
+  it('without a post overlay wrap, draws background then scene; stop restores render', () => {
+    const { renderer, calls } = stubRenderer()
+    const tex = colorBarTexture()
+    const bg = startVideoBackground({
+      renderer,
+      shouldDraw: () => true,
+    })
+    bg.setTexture(tex)
+    const scene = new THREE.Scene()
+    const cam = new THREE.PerspectiveCamera()
+    renderer.render(scene, cam)
+    expect(calls).toHaveLength(2)
+    expect(calls[0]?.camera).toBeInstanceOf(THREE.OrthographicCamera)
+    expect(calls[1]?.scene).toBe(scene)
+    expect(calls[1]?.camera).toBe(cam)
+    bg.stop()
+    calls.length = 0
+    renderer.render(scene, cam)
+    expect(calls).toHaveLength(1)
+    expect(calls[0]?.scene).toBe(scene)
+    expect(calls[0]?.camera).toBe(cam)
+    tex.dispose()
+  })
+
   it('stop restores the original renderer.render; cycles do not stack', () => {
     const { renderer, calls } = stubRenderer()
     const tex = colorBarTexture()

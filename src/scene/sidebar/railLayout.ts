@@ -3,7 +3,7 @@
  * Re-home existing section ids; do not invent new panel modules here.
  *
  * Deviation (documented): `library` (PLT) and leftover `ops` (telemetry / POV /
- * view / countdown / stream-map / status) sit on the left rail — not named in
+ * view / countdown / status) sit on the left rail — not named in
  * the BW table, but they are race-setup adjacent and must keep a mount.
  */
 
@@ -23,7 +23,6 @@ export const OPS_RAIL_SECTIONS: readonly OpsRailSectionSpec[] = [
   { id: 'project', rail: 'left', label: 'Project', order: 10, defaultExpanded: true },
   { id: 'live', rail: 'left', label: 'Fleet & Live', order: 20, defaultExpanded: true },
   { id: 'assets', rail: 'left', label: 'Assets', order: 30, defaultExpanded: false },
-  { id: 'world-map', rail: 'left', label: 'World', order: 40, defaultExpanded: false },
   { id: 'library', rail: 'left', label: 'Library', order: 50, defaultExpanded: false },
   { id: 'ops', rail: 'left', label: 'Race ops', order: 60, defaultExpanded: false },
   { id: 'ndi', rail: 'right', label: 'Output', order: 10, defaultExpanded: true },

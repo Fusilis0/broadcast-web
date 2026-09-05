@@ -93,11 +93,11 @@ export type RaceProject = {
   takeoffAltitudeMSL?: number
   fleet: RaceProjectFleet
   povIds: string[]
-  /** Embedded GPS features (same as editor export). */
+  /** Embedded GPS features. Present (including `[]`) is the complete world. */
   features?: WorldFeature[]
   /** Optional pointer to `{ features: WorldFeature[] }` JSON. */
   featuresUrl?: string
-  /** Compat fixture URLs when `features` / `featuresUrl` omitted. */
+  /** Compat fixture URLs when `features` is omitted (legacy packs). */
   courseUrl?: string
   sponsorsUrl?: string
   flagsUrl?: string

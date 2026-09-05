@@ -42,7 +42,7 @@
     "1",
     "2"
   ],
-  "updatedAt": "2026-08-26T18:24:48.296Z",
+  "updatedAt": "2026-09-04T23:46:14.162Z",
   "takeoffAltitudeMSL": 0,
   "features": [
     {
@@ -272,7 +272,127 @@
       ],
       "heightM": 5,
       "color": 16757248,
-      "label": "buoy"
+      "label": "buoy",
+      "visible3d": true,
+      "visibleBuoyMesh": true,
+      "visibleTag": true
+    },
+    {
+      "id": "sponsor:4",
+      "name": "1",
+      "type": "sponsor",
+      "points": [
+        {
+          "lat": 41.00892512351179,
+          "lon": 28.98195550509527,
+          "altMsl": 1
+        },
+        {
+          "lat": 41.00888663895914,
+          "lon": 28.980938704564785,
+          "altMsl": 1
+        }
+      ],
+      "heightM": 36,
+      "color": 2781050,
+      "label": "1",
+      "textureUrl": "/assets/library/image/senexus-57797468.png",
+      "panelAlpha": 0,
+      "boardAspect": 2.3790112501162692,
+      "rounding": "cw"
+    },
+    {
+      "id": "billboardChain:4",
+      "name": "billboardChain-4",
+      "type": "billboardChain",
+      "points": [
+        {
+          "lat": 41.0099569155038,
+          "lon": 28.977047128239768,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.01016319822496,
+          "lon": 28.981182017689605,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 8,
+      "color": 2781050,
+      "label": "Chain 4",
+      "textureUrl": "/assets/library/image/rolex-f724a5ba.png",
+      "logos": [
+        {
+          "url": "/assets/library/image/rolex-f724a5ba.png",
+          "weight": 1
+        }
+      ],
+      "spacingM": 12
+    },
+    {
+      "id": "sponsor:5",
+      "name": "sponsor:5",
+      "type": "sponsor",
+      "points": [
+        {
+          "lat": 41.00828857129663,
+          "lon": 28.978016697961124,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.00828857193371,
+          "lon": 28.97840683715048,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 100.00000000000001,
+      "color": 2781050,
+      "label": "Sponsor 5",
+      "textureUrl": "/assets/library/image/rolex-f724a5ba.png",
+      "panelAlpha": 0,
+      "boardAspect": 0.32820512820043907
+    },
+    {
+      "id": "sponsor:6",
+      "name": "sponsor:6",
+      "type": "sponsor",
+      "points": [
+        {
+          "lat": 41.006797088947565,
+          "lon": 28.97888646109485,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.006741477160155,
+          "lon": 28.979692765987718,
+          "altMsl": 0
+        }
+      ],
+      "heightM": 120,
+      "color": 2781050,
+      "label": "Sponsor 6",
+      "textureUrl": "/assets/library/image/vodafone-9e90847a.png",
+      "panelAlpha": 0,
+      "boardAspect": 0.5676053359218538
+    },
+    {
+      "id": "start:7",
+      "name": "start-7",
+      "type": "start",
+      "points": [
+        {
+          "lat": 41.02760357083465,
+          "lon": 28.99058289554253,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.026171396598066,
+          "lon": 28.992788620273643,
+          "altMsl": 0
+        }
+      ],
+      "color": 11337728,
+      "label": "START"
     }
   ],
   "courseUrl": "/fixtures/course/demo-istanbul.json",
@@ -281,7 +401,7 @@
   "replayUrl": "/fixtures/telemetry/spine-demo.json",
   "output": {
     "outputMode": "transparent",
-    "timecodeEnabled": true,
+    "timecodeEnabled": false,
     "timecodeCorner": "bottom-right",
     "timecodeSizePx": 96
   },

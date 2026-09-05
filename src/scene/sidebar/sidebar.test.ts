@@ -86,12 +86,12 @@ describe('compareSidebarSectionOrder', () => {
       { id: 'project', order: 10 },
       { id: 'ndi', order: 55 },
       { id: 'live', order: 50 },
-      { id: 'world-map', order: 20 },
+      { id: 'library', order: 20 },
     ]
     rows.sort(compareSidebarSectionOrder)
     expect(rows.map((r) => r.id)).toEqual([
       'project',
-      'world-map',
+      'library',
       'live',
       'ndi',
       'ops',
@@ -133,7 +133,6 @@ describe('createSidebar two-rail shell', () => {
       'project',
       'live',
       'assets',
-      'world-map',
       'library',
       'ops',
       'ndi',
@@ -151,7 +150,7 @@ describe('createSidebar two-rail shell', () => {
     expect(left?.querySelector('[data-ops-section="project"]')).toBeTruthy()
     expect(left?.querySelector('[data-ops-section="live"]')).toBeTruthy()
     expect(left?.querySelector('[data-ops-section="assets"]')).toBeTruthy()
-    expect(left?.querySelector('[data-ops-section="world-map"]')).toBeTruthy()
+    expect(left?.querySelector('[data-ops-section="world-map"]')).toBeNull()
     expect(right?.querySelector('[data-ops-section="ndi"]')).toBeTruthy()
     expect(right?.querySelector('[data-ops-section="flow"]')).toBeTruthy()
     expect(right?.querySelector('[data-ops-section="calib"]')).toBeTruthy()
@@ -159,6 +158,24 @@ describe('createSidebar two-rail shell', () => {
     expect(right?.querySelector('[data-ops-section="wind"]')).toBeTruthy()
     expect(left?.querySelector('[data-ops-section="ndi"]')).toBeNull()
     expect(right?.querySelector('[data-ops-section="project"]')).toBeNull()
+    sidebar.dispose()
+  })
+
+  it('places header actions beside Race setup title with no World accordion', () => {
+    const host = document.createElement('div')
+    const sidebar = createSidebar({ container: host })
+    sidebar.registerSection(mountEmpty('project'))
+    sidebar.registerSection(mountEmpty('assets'))
+    sidebar.registerSection(mountEmpty('library'))
+    expect(host.querySelector('[data-ops-section="world-map"]')).toBeNull()
+    const left = host.querySelector('[data-ops="sidebar"]')
+    const titleRow = left?.querySelector('.ops-sidebar__title-row')
+    expect(titleRow?.querySelector('.ops-sidebar__title')?.textContent).toBe(
+      'Race setup',
+    )
+    const actions = sidebar.getHeaderActionsHost('left')
+    expect(titleRow?.contains(actions)).toBe(true)
+    expect(actions.getAttribute('data-ops')).toBe('sidebar-header-actions')
     sidebar.dispose()
   })
 

@@ -4,6 +4,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { createApp } from '../src/app.ts'
+import { storeLibraryAsset } from '../src/assets.ts'
+import { repoRoot } from '../src/config.ts'
 import { openDatabase } from '../src/db.ts'
 
 type Started = {
@@ -272,5 +274,52 @@ describe('assets API', () => {
     const asset = (await res.json()) as { kind: string; filename: string }
     expect(asset.kind).toBe('model')
     expect(asset.filename).toMatch(/^model\/hull-[a-f0-9]{8}\.glb$/)
+  })
+
+  it('re-upload of seeded sponsor bytes keeps the same library id', async () => {
+    const libraryDir = await mkdtemp(join(tmpdir(), 'bw-seed-collide-'))
+    try {
+      const seed = JSON.parse(
+        await readFile(
+          join(repoRoot, 'public', 'assets', 'library', 'index.json'),
+          'utf8',
+        ),
+      ) as Array<{ label: string; id: string }>
+      const sources = [
+        { label: 'Rolex', file: 'rolex.png' },
+        { label: 'Senexus', file: 'senexus.png' },
+        { label: 'Vodafone', file: 'vodafone.png' },
+      ] as const
+      for (const src of sources) {
+        const data = await readFile(
+          join(repoRoot, 'public', 'textures', 'sponsors', src.file),
+        )
+        const result = await storeLibraryAsset({
+          libraryDir,
+          originalFilename: src.file,
+          data,
+          label: src.label,
+          addedAt: '2026-09-01T12:00:00.000Z',
+        })
+        expect(result.ok).toBe(true)
+        if (!result.ok) continue
+        const seeded = seed.find((e) => e.label === src.label)
+        expect(seeded?.id).toBe(result.asset.id)
+
+        const again = await storeLibraryAsset({
+          libraryDir,
+          originalFilename: src.file,
+          data,
+          label: src.label,
+          addedAt: '2026-09-02T00:00:00.000Z',
+        })
+        expect(again.ok).toBe(true)
+        if (!again.ok) continue
+        expect(again.asset.id).toBe(result.asset.id)
+        expect(again.asset.addedAt).toBe('2026-09-01T12:00:00.000Z')
+      }
+    } finally {
+      await rm(libraryDir, { recursive: true, force: true })
+    }
   })
 })

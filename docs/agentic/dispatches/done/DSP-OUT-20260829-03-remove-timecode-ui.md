@@ -1,13 +1,13 @@
 # Dispatch DSP-OUT-20260829-03-remove-timecode-ui
 
 ## Meta
-- From orchestrator: BW (route to OUT)
+- From orchestrator: OUT (adopted from BW draft; Phase **19.1**)
 - Worker role: WORKER(DSP-OUT-20260829-03-remove-timecode-ui)
 - Priority: P2
-- Phase: 18.8
+- Phase: **19.1** Hide visual timecode (keep modules)
+- Related: Phase 19 design §19.1 · `OUT_PHASE19.md` · was Phase 18.8
+- Status: **DONE (code)** 2026-09-02 — suite **1047 + 23**. **Human smoke still open.**
 - Related handoffs: [`HO-BW-20260829-01-phase18`](../../handoffs/HO-BW-20260829-01-phase18.md)
-- Status: **active**
-
 ## Goal
 
 Take the timecode / qlock burn-in out of the picture. It sits in the bottom-right corner of every rendered frame and is no longer needed now that synchronisation happens in the app via the PTS→NTP match.
@@ -87,3 +87,20 @@ videoBackground.wrap   (pre-pass — draws the SRT underlay before the scene)
 3. Confirmation that the underlay and NDI capture still work without the middle wrap
 4. Confirmation that re-enabling restores the feature
 5. Suggested memo bullets for OUT
+
+## Worker paste block
+
+```
+You are WORKER(DSP-OUT-20260829-03-remove-timecode-ui).
+
+Mandatory reads:
+1. docs/agentic/dispatches/active/DSP-OUT-20260829-03-remove-timecode-ui.md
+2. docs/agentic/DISPATCH_PROTOCOL.md
+3. docs/architecture/phase19-senexus-qol.md §19.1
+4. src/main.ts (timecode boot gate + wrap order vs videoBackground / NDI)
+5. src/output/visualTimecodeOverlay.ts, visualTimecodeEncode.ts
+
+Phase 19.1: default timecodeEnabled false; keep modules + tests; pack true still works.
+Fix wrap stack with the middle layer absent. No NDI FourCC/fps. Report back per dispatch.
+```
+

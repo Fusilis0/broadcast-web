@@ -8,7 +8,6 @@ import {
   adaptSponsorsToFeatures,
 } from './adapters.ts'
 import {
-  FEATURE_WATER_Y,
   layoutFeatures,
   pairLayoutGates,
 } from './layoutFeatures.ts'
@@ -108,7 +107,7 @@ describe('feature adapters', () => {
 })
 
 describe('layoutFeatures', () => {
-  it('converts once via GEO, forces water Y, pairs gates, keeps projection sane', () => {
+  it('converts once via GEO, keeps GEO y, pairs gates, keeps projection sane', () => {
     const course = normalizeCourse(courseSlice)
     const sponsors = normalizeSponsors(sponsorsSlice)
     const flags = normalizeCountdownFlags(flagsSlice)!
@@ -121,9 +120,20 @@ describe('layoutFeatures', () => {
     const layout = layoutFeatures(world, mockEnu)
     expect(layout).toHaveLength(7)
     expect(layout.find((f) => f.name === 'Mark-NW')?.rounding).toBe('cw')
-    expect(layout.every((f) => f.points.every((p) => p.y === FEATURE_WATER_Y))).toBe(
-      true,
+    // mockEnu y = alt + 35; altMsl 0 → y 35 (do not force FEATURE_WATER_Y)
+    expect(layout.every((f) => f.points.every((p) => p.y === 35))).toBe(true)
+    const lifted = layoutFeatures(
+      [
+        {
+          id: 'mark:lift',
+          name: 'Lift',
+          type: 'mark',
+          points: [{ lat: 41, lon: 29, altMsl: 2 }],
+        },
+      ],
+      mockEnu,
     )
+    expect(lifted[0]!.points[0]!.y).toBe(37)
 
     const gates = pairLayoutGates(layout)
     expect(gates).toHaveLength(1)

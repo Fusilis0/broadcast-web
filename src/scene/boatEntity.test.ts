@@ -2,6 +2,8 @@
  * @vitest-environment happy-dom
  */
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import * as THREE from 'three'
 import {
   BOAT_VISUAL_LOCAL_OFFSET,
@@ -9,7 +11,7 @@ import {
 } from '../assets/boatVisualOffset.ts'
 import { createProceduralBoatVisual } from '../assets/createProceduralBoatVisual.ts'
 import { boatTagWorldHeight } from './boatTag.ts'
-import { createBoatEntity } from './boatEntity.ts'
+import { createBoatEntity, normalizeBoatHullScale } from './boatEntity.ts'
 
 describe('boat visual', () => {
   it('procedural sailboat has hull/sail/mastTop and +Z length bias', () => {
@@ -71,33 +73,25 @@ describe('boat visual', () => {
   })
 })
 
-describe('boat tag leader line', () => {
-  it('connects mastTop to the tag and follows tag visibility', () => {
+describe('boat tag plate', () => {
+  it('is a sprite rectangle with no leader line', () => {
     const boat = createBoatEntity({
       id: '21',
       tryGltf: false,
       color: '#e53935',
     })
     const tag = boat.root.getObjectByName('boatTag')
-    const line = boat.root.getObjectByName('boatTagLeader') as THREE.Line
+    const sprite = boat.root.getObjectByName('boatTagSprite')
     expect(tag).toBeTruthy()
-    expect(line).toBeTruthy()
+    expect(sprite).toBeTruthy()
+    expect(boat.root.getObjectByName('boatTagLeader')).toBeFalsy()
     expect(tag!.visible).toBe(true)
 
-    const cam = new THREE.PerspectiveCamera(50, 1, 0.1, 2000)
-    cam.position.set(0, 40, 60)
-    boat.updateTag(cam, 1080)
-    const pos = line.geometry.getAttribute('position')
-    expect(pos.getY(0)).toBeGreaterThan(15)
-    expect(pos.getY(1)).toBeGreaterThan(pos.getY(0))
-
-    const mat = line.material as THREE.LineBasicMaterial
-    expect(mat.transparent).toBe(true)
-    expect(mat.depthWrite).toBe(false)
-    expect(mat.color.getHexString()).toBe('e53935')
-
     boat.setVisibilityMode('hidden')
-    expect(tag!.visible).toBe(false)
+    expect(tag!.visible).toBe(true)
+    const hull = boat.root.getObjectByName('hull') as THREE.Mesh
+    expect(hull.visible).toBe(true)
+    expect(hull.parent?.visible).toBe(false)
 
     boat.setVisibilityMode('ghost')
     expect(tag!.visible).toBe(true)
@@ -117,5 +111,50 @@ describe('boatTagWorldHeight', () => {
     expect(far).toBeGreaterThan(near)
     // Mild falloff: less than full constant-screen (×4 for 80→320)
     expect(far / near).toBeLessThan(4)
+  })
+})
+
+describe('boat tag plate', () => {
+  it('draws a sharp rectangle (not a pennant or rounded pill)', () => {
+    const src = readFileSync(join(__dirname, 'boatTag.ts'), 'utf8')
+    expect(src).toContain('fillRect(0, 0, w, h)')
+    expect(src).toContain('strokeRect(3, 3, w - 6, h - 6)')
+    expect(src).not.toContain('roundRect')
+    expect(src).not.toContain('arcTo')
+  })
+})
+
+describe('boat heightM uniform hull scale', () => {
+  it('defaults to 1 when omitted and scales XYZ equally', () => {
+    expect(normalizeBoatHullScale(undefined)).toBe(1)
+    expect(normalizeBoatHullScale(Number.NaN)).toBe(1)
+    expect(normalizeBoatHullScale(0)).toBe(1)
+    expect(normalizeBoatHullScale(2)).toBe(2)
+
+    const plain = createBoatEntity({ id: '21', tryGltf: false })
+    const hull = plain.root.getObjectByName('hull')
+    expect(plain.getHullScale()).toBe(1)
+    expect(hull?.parent?.scale.x).toBe(1)
+    expect(hull?.parent?.scale.y).toBe(1)
+    expect(hull?.parent?.scale.z).toBe(1)
+    plain.dispose()
+
+    const tall = createBoatEntity({ id: '22', tryGltf: false, heightM: 2 })
+    const tallHull = tall.root.getObjectByName('hull')
+    expect(tall.getHullScale()).toBe(2)
+    expect(tallHull?.parent?.scale.x).toBe(2)
+    expect(tallHull?.parent?.scale.y).toBe(2)
+    expect(tallHull?.parent?.scale.z).toBe(2)
+
+    tall.setHullScale(0.5)
+    expect(tall.getHullScale()).toBe(0.5)
+    expect(tallHull?.parent?.scale.x).toBe(0.5)
+    expect(tallHull?.parent?.scale.y).toBe(0.5)
+    expect(tallHull?.parent?.scale.z).toBe(0.5)
+
+    tall.setHullScale(undefined)
+    expect(tall.getHullScale()).toBe(1)
+    expect(tallHull?.parent?.scale.x).toBe(1)
+    tall.dispose()
   })
 })

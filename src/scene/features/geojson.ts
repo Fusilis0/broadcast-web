@@ -1,5 +1,13 @@
-import type { WorldFeature, WorldFeatureType, WorldGpsPoint } from './types.ts'
+import {
+  BILLBOARD_CHAIN_MAX_POINTS,
+  type WorldFeature,
+  type WorldFeatureType,
+  type WorldGpsPoint,
+} from './types.ts'
 import { parseRounding } from './rounding.ts'
+import { parseBillboardLogos } from '../billboardLogos.ts'
+import { parseOptionalAlpha } from '../sponsors/boardCompose.ts'
+import { parseOptionalBoardAspect } from '../sponsors/sponsorLayout.ts'
 
 /** GeoJSON position: [lon, lat] or [lon, lat, alt]. */
 export type GeoJsonPosition = [number, number] | [number, number, number]
@@ -128,14 +136,24 @@ function worldFeatureToGeoJsonFeature(f: WorldFeature): GeoJsonFeature {
   }
   if (f.label !== undefined) props.label = f.label
   if (f.textureUrl !== undefined) props.textureUrl = f.textureUrl
+  if (f.logos !== undefined) props.logos = f.logos.map((l) => ({
+    url: l.url,
+    weight: l.weight,
+  }))
   if (f.panelColor !== undefined) {
     props.panelColor = `#${f.panelColor.toString(16).padStart(6, '0')}`
   }
   if (f.frameColor !== undefined) {
     props.frameColor = `#${f.frameColor.toString(16).padStart(6, '0')}`
   }
+  if (f.panelAlpha !== undefined) props.panelAlpha = f.panelAlpha
+  if (f.boardAspect !== undefined) props.boardAspect = f.boardAspect
   if (f.spacingM !== undefined) props.spacingM = f.spacingM
   if (f.telemetryId !== undefined) props.telemetryId = f.telemetryId
+  if (f.visible3d !== undefined) props.visible3d = f.visible3d
+  if (f.visible2d !== undefined) props.visible2d = f.visible2d
+  if (f.visibleBuoyMesh !== undefined) props.visibleBuoyMesh = f.visibleBuoyMesh
+  if (f.visibleTag !== undefined) props.visibleTag = f.visibleTag
   if (f.rounding !== undefined) props.rounding = f.rounding
 
   const coords = f.points.map(pointToPosition)
@@ -262,7 +280,7 @@ function convertOneFeature(
     }
     const line = readLineStringCoords(geometry.coordinates, defaultAlt)
     const minPts = type === 'billboardChain' ? 2 : 2
-    const maxPts = type === 'billboardChain' ? 64 : 2
+    const maxPts = type === 'billboardChain' ? BILLBOARD_CHAIN_MAX_POINTS : 2
     if (!line || line.length < minPts || line.length > maxPts) {
       console.warn(
         `[geojson] skip #${index}: ${type} LineString needs ${minPts}–${maxPts} positions`,
@@ -320,10 +338,17 @@ function optionalProps(
   | 'color'
   | 'label'
   | 'textureUrl'
+  | 'logos'
   | 'panelColor'
   | 'frameColor'
+  | 'panelAlpha'
+  | 'boardAspect'
   | 'spacingM'
   | 'telemetryId'
+  | 'visible3d'
+  | 'visible2d'
+  | 'visibleBuoyMesh'
+  | 'visibleTag'
   | 'rounding'
 > {
   const out: Pick<
@@ -332,10 +357,17 @@ function optionalProps(
     | 'color'
     | 'label'
     | 'textureUrl'
+    | 'logos'
     | 'panelColor'
     | 'frameColor'
+    | 'panelAlpha'
+    | 'boardAspect'
     | 'spacingM'
     | 'telemetryId'
+    | 'visible3d'
+    | 'visible2d'
+    | 'visibleBuoyMesh'
+    | 'visibleTag'
     | 'rounding'
   > = {}
   const heightM = readNumber(props.heightM)
@@ -350,10 +382,16 @@ function optionalProps(
   } else if (props.textureUrl === null) {
     out.textureUrl = null
   }
+  const logos = parseBillboardLogos(props.logos)
+  if (logos !== undefined) out.logos = logos
   const panelColor = readColor(props.panelColor)
   if (panelColor !== undefined) out.panelColor = panelColor
   const frameColor = readColor(props.frameColor)
   if (frameColor !== undefined) out.frameColor = frameColor
+  const panelAlpha = parseOptionalAlpha(props.panelAlpha)
+  if (panelAlpha !== undefined) out.panelAlpha = panelAlpha
+  const boardAspect = parseOptionalBoardAspect(props.boardAspect)
+  if (boardAspect !== undefined) out.boardAspect = boardAspect
   const spacingM = readNumber(props.spacingM)
   if (spacingM !== undefined && spacingM > 0) out.spacingM = spacingM
   if (typeof props.telemetryId === 'string') {
@@ -362,6 +400,12 @@ function optionalProps(
   } else if (props.telemetryId === null) {
     out.telemetryId = null
   }
+  if (typeof props.visible3d === 'boolean') out.visible3d = props.visible3d
+  if (typeof props.visible2d === 'boolean') out.visible2d = props.visible2d
+  if (typeof props.visibleBuoyMesh === 'boolean') {
+    out.visibleBuoyMesh = props.visibleBuoyMesh
+  }
+  if (typeof props.visibleTag === 'boolean') out.visibleTag = props.visibleTag
   const rounding = parseRounding(props.rounding)
   if (rounding !== undefined) out.rounding = rounding
   return out

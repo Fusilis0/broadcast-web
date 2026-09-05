@@ -54,6 +54,10 @@ function parseWaypoint(raw: unknown): CourseWaypoint | null {
   }
   const rounding = parseRounding(o.rounding)
   if (rounding !== undefined) waypoint.rounding = rounding
+  if (typeof o.visibleBuoyMesh === 'boolean') {
+    waypoint.visibleBuoyMesh = o.visibleBuoyMesh
+  }
+  if (typeof o.visibleTag === 'boolean') waypoint.visibleTag = o.visibleTag
   return waypoint
 }
 

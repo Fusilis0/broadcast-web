@@ -262,6 +262,10 @@ export {
 
   markNdiSync2dCapture,
 
+  clearNdiSyncFallbacks,
+
+  clearNdiSyncReadback,
+
   resetNdiStageTiming,
 
   NDI_STAGE_NAMES,
@@ -496,6 +500,10 @@ export {
 
   resolveNdiChannelIndicator,
 
+  formatNdiLiveStatus,
+
+  shouldShowNdiSyncFallbackBanner,
+
   startNdiControllerPanel,
 
   STREAM_MAP_NDI_BRIDGE_SUPPORTED,
@@ -515,6 +523,18 @@ export {
   type ResolveNdiChannelIndicatorInput,
 
 } from './ndiControllerPanel.ts'
+
+export {
+  defaultNdiChannelWanted,
+  loadNdiChannelWanted,
+  saveNdiChannelWanted,
+  normalizeNdiChannelWanted,
+  isNdiChannelWanted,
+  NDI_CHANNEL_WANTED_DEFAULTS,
+  NDI_CHANNEL_WANTED_STORAGE_KEY,
+  type NdiChannelWanted,
+} from './ndiChannelWanted.ts'
+
 
 
 

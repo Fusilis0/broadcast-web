@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   formatProjectMetaText,
   formatRacesRootHint,
+  formatSaveLoadStatus,
   mountLocalProjectControls,
 } from './localProjectControls.ts'
 import {
@@ -58,6 +59,31 @@ describe('formatProjectMetaText / formatRacesRootHint', () => {
   })
 })
 
+describe('formatSaveLoadStatus (19.9)', () => {
+  it('emits loading / loaded / saving / saved / downloaded', () => {
+    expect(formatSaveLoadStatus('loading')).toBe('loading')
+    expect(formatSaveLoadStatus('loaded')).toBe('loaded')
+    expect(formatSaveLoadStatus('saving')).toBe('saving')
+    expect(formatSaveLoadStatus('saved')).toBe('saved')
+    expect(formatSaveLoadStatus('downloaded')).toBe('downloaded')
+  })
+
+  it('keeps persist detail after saved', () => {
+    expect(
+      formatSaveLoadStatus('saved', 'folder: C:/repo/public/races/heat-local'),
+    ).toBe('saved · folder: C:/repo/public/races/heat-local')
+    expect(formatSaveLoadStatus('saved', 'download')).toBe('saved · download')
+  })
+
+  it('error line keeps id when given', () => {
+    expect(formatSaveLoadStatus('error', 'load failed: demo-istanbul')).toBe(
+      'load failed: demo-istanbul',
+    )
+    expect(formatSaveLoadStatus('error', 'save failed')).toBe('save failed')
+    expect(formatSaveLoadStatus('error')).toBe('failed')
+  })
+})
+
 describe('persistRaceProjectLocal', () => {
   it('Electron save calls races.save and skips download', async () => {
     const bridge = mockBridge()
@@ -87,6 +113,10 @@ describe('persistRaceProjectLocal', () => {
     expect(download).toHaveBeenCalledOnce()
     expect(result.downloaded).toBe(true)
     expect(result.local).toBeNull()
+    expect(formatSaveLoadStatus('saved', formatPersistStatus(result))).toBe(
+      'saved · download',
+    )
+    expect(formatSaveLoadStatus('downloaded')).toBe('downloaded')
   })
 
   it('export always downloads and skips folder write', async () => {
@@ -105,7 +135,7 @@ describe('persistRaceProjectLocal', () => {
 })
 
 describe('mountLocalProjectControls (folder mode)', () => {
-  it('shows project name, lists ids, Save calls save hook, Load on change', async () => {
+  it('shows project name, lists ids, Save calls save hook; pick does not load', async () => {
     const root = document.createElement('div')
     document.body.appendChild(root)
 
@@ -129,6 +159,7 @@ describe('mountLocalProjectControls (folder mode)', () => {
 
     const hint = root.querySelector('[data-ops="race-hint"]')
     expect(hint?.textContent).toContain('Save=folder')
+    expect(hint?.textContent).toContain('pick does not load')
 
     handle.setRootHint('C:/repo/public/races')
     expect(root.querySelector('[data-ops="races-root"]')?.textContent).toBe(
@@ -139,6 +170,9 @@ describe('mountLocalProjectControls (folder mode)', () => {
     const select = root.querySelector(
       '[data-ops="race-select"]',
     ) as HTMLSelectElement
+    const custom = root.querySelector(
+      '[data-ops="race-custom"]',
+    ) as HTMLInputElement
     expect([...select.options].map((o) => o.value)).toEqual([
       'demo-istanbul',
       'heat-local',
@@ -147,6 +181,14 @@ describe('mountLocalProjectControls (folder mode)', () => {
 
     select.value = 'demo-istanbul'
     select.dispatchEvent(new Event('change'))
+    expect(onLoad).not.toHaveBeenCalled()
+    expect(custom.value).toBe('demo-istanbul')
+
+    const loadBtn = root.querySelector(
+      '[data-ops="race-load"]',
+    ) as HTMLButtonElement
+    loadBtn.click()
+    expect(onLoad).toHaveBeenCalledOnce()
     expect(onLoad).toHaveBeenCalledWith('demo-istanbul')
 
     const saveBtn = root.querySelector(
@@ -167,6 +209,34 @@ describe('mountLocalProjectControls (folder mode)', () => {
       'folder: C:/repo/public/races/heat-local',
     )
 
+    handle.setSaveStatus(formatSaveLoadStatus('loading'))
+    expect(root.querySelector('[data-ops="save-status"]')?.textContent).toBe(
+      'loading',
+    )
+    handle.setSaveStatus(formatSaveLoadStatus('loaded'))
+    expect(root.querySelector('[data-ops="save-status"]')?.textContent).toBe(
+      'loaded',
+    )
+    handle.setSaveStatus(formatSaveLoadStatus('saving'))
+    expect(root.querySelector('[data-ops="save-status"]')?.textContent).toBe(
+      'saving',
+    )
+    handle.setSaveStatus(
+      formatSaveLoadStatus('saved', 'folder: C:/repo/public/races/heat-local'),
+    )
+    expect(root.querySelector('[data-ops="save-status"]')?.textContent).toBe(
+      'saved · folder: C:/repo/public/races/heat-local',
+    )
+    handle.setSaveStatus(
+      formatSaveLoadStatus('error', 'load failed: demo-istanbul'),
+    )
+    expect(root.querySelector('[data-ops="save-status"]')?.textContent).toBe(
+      'load failed: demo-istanbul',
+    )
+    expect(root.querySelector('[data-ops="races-root"]')?.textContent).toBe(
+      'saving to: C:/repo/public/races',
+    )
+
     handle.dispose()
     root.remove()
   })
@@ -185,12 +255,46 @@ describe('mountLocalProjectControls (folder mode)', () => {
     expect(root.querySelector('[data-ops="race-hint"]')?.textContent).toContain(
       'Save=download',
     )
+    expect(root.querySelector('[data-ops="race-hint"]')?.textContent).toContain(
+      'pick does not load',
+    )
     const select = root.querySelector(
       '[data-ops="race-select"]',
     ) as HTMLSelectElement
+    const custom = root.querySelector(
+      '[data-ops="race-custom"]',
+    ) as HTMLInputElement
     select.value = 'other'
     select.dispatchEvent(new Event('change'))
     expect(onLoad).not.toHaveBeenCalled()
+    expect(custom.value).toBe('other')
+
+    const loadBtn = root.querySelector(
+      '[data-ops="race-load"]',
+    ) as HTMLButtonElement
+    loadBtn.click()
+    expect(onLoad).toHaveBeenCalledOnce()
+    expect(onLoad).toHaveBeenCalledWith('other')
+    handle.dispose()
+  })
+
+  it('Enter in the id field loads once (folderMode)', () => {
+    const root = document.createElement('div')
+    const onLoad = vi.fn()
+    const handle = mountLocalProjectControls({
+      container: root,
+      folderMode: true,
+      raceIds: ['demo-istanbul', 'heat-local'],
+      activeRaceId: 'demo-istanbul',
+      onRaceLoad: onLoad,
+    })
+    const custom = root.querySelector(
+      '[data-ops="race-custom"]',
+    ) as HTMLInputElement
+    custom.value = 'heat-local'
+    custom.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))
+    expect(onLoad).toHaveBeenCalledOnce()
+    expect(onLoad).toHaveBeenCalledWith('heat-local')
     handle.dispose()
   })
 })
@@ -265,7 +369,13 @@ describe('list + load via mocked races bridge (wiring contract)', () => {
     ])
     select.value = 'studio-heat'
     select.dispatchEvent(new Event('change'))
+    expect(onLoad).not.toHaveBeenCalled()
+    const loadBtn = root.querySelector(
+      '[data-ops="race-load"]',
+    ) as HTMLButtonElement
+    loadBtn.click()
     await vi.waitFor(() => {
+      expect(onLoad).toHaveBeenCalledOnce()
       expect(onLoad).toHaveBeenCalledWith('studio-heat')
     })
     expect(bridge.read).toHaveBeenCalledWith('studio-heat')

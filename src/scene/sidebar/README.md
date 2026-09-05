@@ -39,7 +39,8 @@ sidebar.registerSection({
 sidebar.setCollapsed(true)              // left rail (compat)
 sidebar.setRailCollapsed('right', true) // independent
 sidebar.isCollapsed()
-sidebar.getOverlayHost()     // full-viewport host for PiP overlays (stream map)
+sidebar.getOverlayHost()     // full-viewport host (local 2D map host, World Authoring)
+sidebar.getHeaderActionsHost('left') // Race setup chrome slot (World toggle)
 sidebar.dispose()
 ```
 
@@ -70,32 +71,38 @@ sidebar.dispose()
 | left | 10 | `project` | Project | Race Load/Save/Pack + world origin |
 | left | 20 | `live` | Fleet & Live | Fleet / Live panel |
 | left | 30 | `assets` | Assets | Per-entity Focus / Show-3D / Show-2D / Details (SCN-03) |
-| left | 40 | `world-map` | World | **Open authoring** launcher + status |
 | left | 50 | `library` | Library | Universal asset browse/upload (PLT-01; pragmatic left) |
-| left | 60 | `ops` | Race ops | Leftover stubHud: telemetry, POV, view, countdown, stream-map, status |
+| left | 60 | `ops` | Race ops | Leftover stubHud: telemetry, POV, view, countdown, status |
 | right | 10 | `ndi` | Output | Output mode (OUT) + NDI controller / delay |
 | right | 15 | `flow` | Flow | Per-entity telem + SRT JSON inspector (SCN-10; DOM-only; default off) |
 | right | 20 | `calib` | Calibration | CAL offset sliders + SCN **Calibration overlay** checkbox |
-| right | 30 | `environment` | Environment | simple/realistic, sea, terrain, ion token, **water m** discard |
+| right | 30 | `environment` | Environment | simple/realistic, sea, terrain, ion token, **sea m** (ocean Y), **Cesium hide m** (tile discard) |
 | right | 40 | `wind` | Wind | source / from-deg / hold |
 
-Section **ids** (`data-ops-section`) are unchanged so existing hooks keep working. Output mode moved into `ndi`; env/wind rows moved out of `ops`.
+Section **ids** (`data-ops-section`) stay stable for remaining panels so existing hooks keep working. `world-map` was removed in 19.6 (header **World** toggle). Output mode moved into `ndi`; env/wind rows moved out of `ops`.
 
 ### Assets section (`startAssetInspector`)
 
 Lists boats, POVs, and `WorldFeature`s grouped by type. Focus frames free cam + map
 (`frameEnuPoint` / `focusEnu`). Boats reuse `solid`/`ghost`/`hidden` for 3D; features use soft
-`visible3d` / `visible2d`. Texture Details prefer Library catalogue, stub list as fallback.
+`visible3d` / `visible2d`. Details match World Authoring (19.7): name/label, lat/lon/alt/height,
+start/finish both ends, sponsor + chain logos via `openLibraryLogoPicker`. Buoy / mark / gate
+Details add Full 3D / Buoy mesh / Tag checkboxes (`visibleBuoyMesh` / `visibleTag`, omit = on;
+full hide stays `visible3d`) plus rounding Off/CW/CCW. Sponsor and chain
+Details include plate colour + alpha (`panelAlpha` 0–1). Drones: telemetry id
+and name/label editable; pose GPS read-only from TEL. Billboard-chain Details: logo rows with
+integer weights; `spacingM` = logo pitch on the ribbon; empty list = solid `#2A6FA6` plate.
 
-### World Map + Authoring workspace (SCN-04)
+### World Authoring workspace (SCN-04 / 19.6)
 
-World Map section is the **launcher** only (`Open authoring` / `Close authoring`). The dedicated
-**World Authoring** window mounts on `getOverlayHost()` (DOM overlay — never WebGL / NDI): large
-2D map (≥560px default, user-resizable 420–900px) + grouped tool palette (Course / Graphics /
-Fleet / Anchor). Editor role defaults the workspace open; air stays closed. `?editor=1` /
-`?editor=0` override. Ops **authoring** checkbox mirrors the same open state (not a second gate).
-Close uses `hidden` + `.world-authoring[hidden] { display: none }` so the panel actually disappears.
-
+There is **no World accordion**. A compact **World** toggle sits on the Race setup header
+(`getHeaderActionsHost('left')`). Click opens the workspace; click again closes it (overlay has
+no Close button). The dedicated **World Authoring** window mounts on `getOverlayHost()` (DOM
+overlay — never WebGL / NDI): large 2D map (≥560px default, user-resizable 420–900px) + grouped
+tool palette (Course / Graphics / Fleet / Anchor). OSM / Fit stay on the map toolbar inside the
+window. Editor role defaults the workspace open; air stays closed. `?editor=1` / `?editor=0`
+override. Ops **authoring** checkbox mirrors the same open state (not a second gate). Hide uses
+`hidden` + `.world-authoring[hidden] { display: none }` so the panel actually disappears.
 
 ```ts
 import {
@@ -107,14 +114,16 @@ import {
 const workspace = createWorldAuthoringWorkspace({
   container: sidebar.getOverlayHost(),
 })
-mountWorldMapAuthoringLauncher(worldMapSection, workspace)
+mountWorldMapAuthoringLauncher(sidebar.getHeaderActionsHost('left'), workspace)
 ```
 
-## Stream / PiP map
+## Stream / 2D map (Phase 19.2)
 
-The on-air stream map stays **outside** the rails (absolute PiP). Mount it under
-`sidebar.getOverlayHost()` (still a DOM overlay — never WebGL). Only the show/hide checkbox
-belongs in the leftover Race ops section.
+The on-air stream map is **not** a PiP overlay. Mount it under `.local-2d-map-host`
+(created in `main.ts` on `sidebar.getOverlayHost()`): off-screen for 2D NDI, on-screen
+for local **2D** focus. Source canvas is **1920×1080**. **Boat size** slider sits under
+the map in 2D focus only. There is no ops show/hide checkbox. To restore a PiP later,
+re-add `#ops-stream-map` and absolute corner CSS (see `style.css` comment on `.stream-map`).
 
 ## CSS
 

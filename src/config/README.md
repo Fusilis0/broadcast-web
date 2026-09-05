@@ -29,7 +29,7 @@ Owned by **PLT+BW**. Thin `/config.json` loader — no domain logic.
 | `buoyIds` | Buoy telemetry ids (default `[]` = no buoy channel). Boat-shaped packets; keep disjoint from `boatIds`. Demo: `["91"]` |
 | `outputMode` | OUT clear mode: `preview` (committed default) \| `chroma` \| `transparent` (NDI alpha plate). Unknown → preview |
 | `chromaKey` | Optional chroma hex when mode is chroma (e.g. `"#00ff00"`). Empty → OUT default green |
-| `timecodeEnabled` | OUT 8×8 visual timecode burn-in (default `true`) |
+| `timecodeEnabled` | OUT 8×8 visual timecode burn-in (default `false`, Phase 19.1). Set `true` in `config.json` or a race pack `output.timecodeEnabled` to restore. Modules stay in `src/output/visualTimecode*.ts`. |
 | `timecodeCorner` | `"bottom-right"` (default) \| `"bottom-left"` |
 | `timecodeSizePx` | On-screen barcode size in CSS px (default `96`, clamped 32–256) |
 | `whepUrl` | OUT MediaMTX WHEP underlay URL (default `""` = idle). Non-empty enables in preview — see [`src/output/README.md`](../output/README.md) |

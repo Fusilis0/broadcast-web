@@ -52,3 +52,31 @@ export function boatColorsFromCatalogue(
   }
   return out
 }
+
+/**
+ * Flatten catalogue → id → trimmed name for stream fleet pills.
+ * Empty names are omitted so the map can fall back to id.
+ */
+export function boatNamesFromCatalogue(
+  catalogue: ReadonlyMap<string, { name: string }>,
+): Map<string, string> {
+  const out = new Map<string, string>()
+  for (const [id, entry] of catalogue) {
+    const name = entry.name.trim()
+    if (name) out.set(id, name)
+  }
+  return out
+}
+
+/** Stream fleet pill: catalogue name when non-empty, else id. */
+export function resolveStreamFleetLabel(
+  id: string,
+  names: ReadonlyMap<string, string>,
+): string {
+  const n = names.get(id)
+  if (typeof n === 'string') {
+    const t = n.trim()
+    if (t) return t
+  }
+  return id
+}

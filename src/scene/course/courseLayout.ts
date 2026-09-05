@@ -7,17 +7,17 @@ import type {
 } from './types.ts'
 
 /**
- * Water-plane Y for course lines and buoy bases (Unity `waterSurfaceY`).
- * AMSL→ENU `y` is ignored for graphics so Istanbul geoid offset does not lift the course.
+ * Default water-plane Y when Alt MSL ≈ 0 (Unity `waterSurfaceY`).
+ * Course layout uses GEO `enu.y` so mark/gate Alt MSL lifts 3D props.
  */
 export const COURSE_WATER_Y = 0
 
 export type CourseLayout = {
-  /** All waypoints in fixture order, ENU with y forced to water. */
+  /** All waypoints in fixture order, ENU with GEO y. */
   points: CourseEnuPoint[]
   /** Mark positions only (boundary vertices, fixture order). */
   marks: CourseEnuPoint[]
-  /** Paired gates with ENU ends at water Y. */
+  /** Paired gates with ENU ends (GEO y). */
   gates: Array<{
     baseName: string
     left: CourseEnuPoint
@@ -33,6 +33,8 @@ function toEnuPoint(
     lon: number
     altMsl: number
     rounding?: CourseEnuPoint['rounding']
+    visibleBuoyMesh?: boolean
+    visibleTag?: boolean
   },
   gpsToEnuAmsl: GpsToEnuAmslFn,
 ): CourseEnuPoint {
@@ -41,10 +43,12 @@ function toEnuPoint(
     name: wp.name,
     type: wp.type,
     x: enu.x,
-    y: COURSE_WATER_Y,
+    y: enu.y,
     z: enu.z,
   }
   if (wp.rounding !== undefined) point.rounding = wp.rounding
+  if (wp.visibleBuoyMesh !== undefined) point.visibleBuoyMesh = wp.visibleBuoyMesh
+  if (wp.visibleTag !== undefined) point.visibleTag = wp.visibleTag
   return point
 }
 

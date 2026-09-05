@@ -1,13 +1,35 @@
 import * as THREE from 'three'
 
-/** Water-plane Y for graphics that sit on the sea (Unity `waterSurfaceY`). */
-export const WATER_PLANE_Y = 0
+/** Environment sea height (m). Moves Gerstner rest Y + shared water-plane graphics. */
+export const SEA_HEIGHT_Y_MIN = -20
+export const SEA_HEIGHT_Y_MAX = 20
+export const SEA_HEIGHT_Y_DEFAULT = 0
+
+/**
+ * Water-plane Y for graphics that sit on the sea (Unity `waterSurfaceY`).
+ * Mutable via `setWaterPlaneY` / Environment **sea m** (not Cesium tile discard).
+ */
+export let WATER_PLANE_Y = SEA_HEIGHT_Y_DEFAULT
 
 /**
  * Slight lift so a coplanar water graphic does not z-fight the clear colour
  * or Gerstner `liftY` (both 0.08 m). Shared so line signs and sponsors cannot drift.
  */
 export const WATER_PLANE_Y_OFFSET = 0.08
+
+export function clampSeaHeightYM(yM: number): number {
+  if (!Number.isFinite(yM)) return SEA_HEIGHT_Y_DEFAULT
+  return Math.min(SEA_HEIGHT_Y_MAX, Math.max(SEA_HEIGHT_Y_MIN, yM))
+}
+
+/** Shared sea rest Y (Environment **sea m**). Does not change Cesium hide. */
+export function setWaterPlaneY(yM: number): void {
+  WATER_PLANE_Y = clampSeaHeightYM(yM)
+}
+
+export function getWaterPlaneY(): number {
+  return WATER_PLANE_Y
+}
 
 export type WaterPlaneSpan = {
   ax: number
@@ -16,6 +38,11 @@ export type WaterPlaneSpan = {
   bz: number
   midX: number
   midZ: number
+  /**
+   * GEO ENU Y (Alt MSL). When set, boards stay at this height + offset so
+   * Environment **sea m** can lower the ocean under them.
+   */
+  midY?: number
 }
 
 /**
@@ -50,10 +77,10 @@ export function applyFlatOnWaterPlacement(
   if (!basis) return false
   const m = new THREE.Matrix4().makeBasis(basis.along, basis.across, basis.up)
   object.quaternion.setFromRotationMatrix(m)
-  object.position.set(
-    span.midX,
-    WATER_PLANE_Y + WATER_PLANE_Y_OFFSET,
-    span.midZ,
-  )
+  const baseY =
+    span.midY !== undefined && Number.isFinite(span.midY)
+      ? span.midY
+      : WATER_PLANE_Y
+  object.position.set(span.midX, baseY + WATER_PLANE_Y_OFFSET, span.midZ)
   return true
 }

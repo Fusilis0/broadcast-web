@@ -80,7 +80,8 @@ Base path: `/api` (same-origin via reverse proxy preferred).
 
 ### Asset library (`GET`/`POST /api/assets`)
 
-Phase 11.3 — git-trackable shared textures/models under `public/assets/library/`.
+Phase 11.3 / 19.16 — git-trackable shared textures/models under `public/assets/library/`.
+After upload, commit `index.json` + new files so other studio PCs get them on pull.
 
 - Storage: `<kind>/<slug>-<shortHash>.<ext>` where `kind` is `image` | `model`.
 - Manifest: `public/assets/library/index.json` (pretty-printed).

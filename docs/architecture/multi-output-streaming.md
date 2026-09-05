@@ -2,7 +2,10 @@
 
 **Status:** Design + **wave 1 multi-sender bridge landed** (`DSP-OUT-20260812-01`);
 channels 13.3–13.4 pumps + **13.6 delay buffer** (`DSP-OUT-20260812-05`) landed.
-Local screen switcher (13.5 / OUT-04) may land in parallel.  
+Local screen switcher (13.5) landed. Phase **19.2** (`DSP-SCN-20260829-03`): PiP
+minimap card and ops checkbox **removed**; `createStreamMap2d` canvas stays
+**off-screen** for `broadcast-web-2d` and is CSS-hosted for local **2D**. Source
+is **16:9 1920×1080** (same studio lock as AR/3D; `letterboxRect` identity).  
 **Owner:** OUT (bridge/NDI/switcher), with SCN (3D channel content), CAL (calibration hooks),
 PLT (config/schema).  
 **Requested:** 2026-08-12 (user) — see companion docs

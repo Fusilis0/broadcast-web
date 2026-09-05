@@ -8,6 +8,9 @@ import type { WorldFeature } from '../features/types.ts'
 import {
   filterFeaturesFor2d,
   filterFeaturesFor3d,
+  isBuoyMarkerFeatureType,
+  isBuoyMeshVisible,
+  isBuoyTagVisible,
   isFeatureVisible2d,
   isFeatureVisible3d,
 } from '../features/featureVisibility.ts'
@@ -43,6 +46,30 @@ describe('feature visibility helpers', () => {
       filterFeaturesFor2d([
         { id: 'a', visible2d: false },
         { id: 'b' },
+      ]).map((f) => f.id),
+    ).toEqual(['b'])
+  })
+
+  it('buoy mesh/tag omit → on; false hides; 2D stays independent', () => {
+    expect(isBuoyMeshVisible({})).toBe(true)
+    expect(isBuoyTagVisible({})).toBe(true)
+    expect(isBuoyMeshVisible({ visibleBuoyMesh: false })).toBe(false)
+    expect(isBuoyTagVisible({ visibleTag: false })).toBe(false)
+    expect(isBuoyMarkerFeatureType('buoy')).toBe(true)
+    expect(isBuoyMarkerFeatureType('mark')).toBe(true)
+    expect(isBuoyMarkerFeatureType('gateLeft')).toBe(true)
+    expect(isBuoyMarkerFeatureType('sponsor')).toBe(false)
+    expect(
+      isFeatureVisible2d({
+        visible2d: true,
+        visibleBuoyMesh: false,
+        visibleTag: false,
+      }),
+    ).toBe(true)
+    expect(
+      filterFeaturesFor3d([
+        { id: 'a', visible3d: false, visibleBuoyMesh: true, visibleTag: true },
+        { id: 'b', visibleBuoyMesh: false },
       ]).map((f) => f.id),
     ).toEqual(['b'])
   })
@@ -116,16 +143,22 @@ describe('visibility Save → Load round-trip', () => {
           points: [{ lat: 41, lon: 29, altMsl: 0 }],
           visible3d: false,
           visible2d: true,
+          visibleBuoyMesh: false,
+          visibleTag: true,
         },
       ],
     })
     expect(built.fleet.boatMapVisible).toEqual({ '21': false })
     expect(built.fleet.povMapVisible).toEqual({ '1': false })
     expect(built.features?.[0]?.visible3d).toBe(false)
+    expect(built.features?.[0]?.visibleBuoyMesh).toBe(false)
+    expect(built.features?.[0]?.visibleTag).toBe(true)
 
     const again = parseRaceProject(built)
     expect(again.fleet.boatMapVisible).toEqual({ '21': false })
     expect(again.features?.[0]?.visible3d).toBe(false)
+    expect(again.features?.[0]?.visibleBuoyMesh).toBe(false)
+    expect(again.features?.[0]?.visibleTag).toBe(true)
 
     // Old pack without visibility fields still parses.
     const old = parseRaceProject({
@@ -146,7 +179,11 @@ describe('visibility Save → Load round-trip', () => {
     })
     expect(old.fleet.boatMapVisible).toBeUndefined()
     expect(old.features?.[0]?.visible3d).toBeUndefined()
+    expect(old.features?.[0]?.visibleBuoyMesh).toBeUndefined()
+    expect(old.features?.[0]?.visibleTag).toBeUndefined()
     expect(isFeatureVisible3d(old.features![0]!)).toBe(true)
+    expect(isBuoyMeshVisible(old.features![0]!)).toBe(true)
+    expect(isBuoyTagVisible(old.features![0]!)).toBe(true)
   })
 })
 

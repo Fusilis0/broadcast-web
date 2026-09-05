@@ -21,8 +21,13 @@ export {
   featureEnuCentroid,
   filterFeaturesFor2d,
   filterFeaturesFor3d,
+  filterFeaturesForStreamMap,
+  isBuoyMarkerFeatureType,
+  isBuoyMeshVisible,
+  isBuoyTagVisible,
   isFeatureVisible2d,
   isFeatureVisible3d,
+  isOnAirMapFeatureType,
 } from './featureVisibility.ts'
 export {
   getLayoutFeatures,
@@ -41,7 +46,9 @@ export type {
   LayoutEnuPoint,
   LayoutFeature,
   RoundingSense,
+  BillboardLogo,
 } from './types.ts'
+export { BILLBOARD_CHAIN_MAX_POINTS } from './types.ts'
 export {
   parseRounding,
   effectiveRounding,
@@ -59,6 +66,8 @@ export {
   createPointFeature,
   createSponsorFeature,
   createGatePairFeatures,
+  addFromCoordinates,
+  editFromCoordinates,
   featuresToCourseData,
   featuresToSponsorsData,
   featuresToFlagsData,
@@ -71,4 +80,7 @@ export {
   type MapFeatureEditorOptions,
   type EditorTool,
   type FeatureValidationResult,
+  type CoordinatePlaceDraft,
+  type FleetPlaceInput,
+  type PlaceKind,
 } from './editor/index.ts'

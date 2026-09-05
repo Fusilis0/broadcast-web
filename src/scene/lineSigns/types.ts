@@ -19,5 +19,7 @@ export type LineSignEnu = {
   bz: number
   midX: number
   midZ: number
+  /** GEO ENU Y (Alt MSL average of endpoints). */
+  midY: number
   widthM: number
 }

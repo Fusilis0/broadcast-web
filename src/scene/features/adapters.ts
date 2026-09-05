@@ -21,6 +21,10 @@ export function adaptCourseToFeatures(course: CourseData): WorldFeature[] {
         : course.appearance.buoyColor,
     }
     if (wp.rounding !== undefined) feature.rounding = wp.rounding
+    if (wp.visibleBuoyMesh !== undefined) {
+      feature.visibleBuoyMesh = wp.visibleBuoyMesh
+    }
+    if (wp.visibleTag !== undefined) feature.visibleTag = wp.visibleTag
     return feature
   })
 }
@@ -43,6 +47,8 @@ export function adaptSponsorsToFeatures(data: SponsorsData): WorldFeature[] {
     }
     if (sp.panelColor !== undefined) feature.panelColor = sp.panelColor
     if (sp.frameColor !== undefined) feature.frameColor = sp.frameColor
+    if (sp.panelAlpha !== undefined) feature.panelAlpha = sp.panelAlpha
+    if (sp.boardAspect !== undefined) feature.boardAspect = sp.boardAspect
     return feature
   })
 }

@@ -7,6 +7,7 @@ import {
   type GerstnerOceanHandle,
   type GerstnerOceanOptions,
 } from './gerstnerOcean.ts'
+import type { OceanSuppressFootprint } from './oceanSuppress.ts'
 import {
   SEA_QUALITY_PRESETS,
   normalizeSeaQuality,
@@ -54,7 +55,7 @@ export const REALISTIC_ENVIRONMENT_DEFAULTS = {
   /** Sun spherical: phi from zenith, theta azimuth (radians). */
   sunPhi: Math.PI * 0.38,
   sunTheta: Math.PI * 0.22,
-  fogColor: 0x8a9aaa,
+  fogColor: GERSTNER_OCEAN_DEFAULTS.horizonColor,
   fogNear: 900,
   fogFar: 5200,
   sunColor: GERSTNER_OCEAN_DEFAULTS.sunColor,
@@ -120,6 +121,11 @@ export type RealisticEnvironmentHandle = {
   getShoreFoamEnabled: () => boolean
   getShoreDepthTarget: () => THREE.WebGLRenderTarget | null
   getSeaQuality: () => SeaQuality
+  /** 19.15 local Gerstner flatten under flat-on-water platforms (no discard). */
+  setSuppressFootprints: (footprints: readonly OceanSuppressFootprint[]) => void
+  /** Environment **sea m** — moves Gerstner rest Y. */
+  setSeaHeightYM: (yM: number) => void
+  getSeaHeightYM: () => number
   dispose: () => void
 }
 
@@ -280,6 +286,13 @@ export function createRealisticEnvironment(
     getShoreFoamEnabled: () => oceanHandle.getShoreFoamEnabled(),
     getShoreDepthTarget: () => oceanHandle.getShoreDepthTarget(),
     getSeaQuality: () => seaQuality,
+    setSuppressFootprints(footprints: readonly OceanSuppressFootprint[]): void {
+      oceanHandle.setSuppressFootprints(footprints)
+    },
+    setSeaHeightYM(yM: number): void {
+      oceanHandle.setSeaHeightYM(yM)
+    },
+    getSeaHeightYM: () => oceanHandle.getSeaHeightYM(),
     dispose(): void {
       if (disposed) return
       disposed = true

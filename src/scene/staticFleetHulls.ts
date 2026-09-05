@@ -60,6 +60,20 @@ export function canApplyStaticHull(lastLiveAtMs: number | undefined): boolean {
   return lastLiveAtMs === undefined
 }
 
+/**
+ * Operator may drag a hull on the world map when it is not currently live.
+ * Fresh packets within `STATIC_HULL_LIVE_HOLD_MS` win; after that (or never
+ * live) map-authored ENU is allowed. Fleet sync still uses `canApplyStaticHull`
+ * so a remount cannot teleport a previously-live boat back to planned.
+ */
+export function canAuthorStaticHull(
+  lastLiveAtMs: number | undefined,
+  nowMs = Date.now(),
+): boolean {
+  if (lastLiveAtMs === undefined) return true
+  return nowMs - lastLiveAtMs > STATIC_HULL_LIVE_HOLD_MS
+}
+
 /** Resolve ENU for a seed (planned position or grid by index). */
 export function resolveStaticHullPosition(
   seed: StaticHullSeed,

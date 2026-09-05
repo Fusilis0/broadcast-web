@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildCourseLayout, COURSE_WATER_Y } from './courseLayout.ts'
+import { buildCourseLayout } from './courseLayout.ts'
 import { gateBaseName, pairGates } from './gatePairing.ts'
 import { normalizeCourse } from './normalizeCourse.ts'
 import type { GpsToEnuAmslFn } from './types.ts'
@@ -111,7 +111,7 @@ describe('buildCourseLayout', () => {
     z: lat * 1000,
   })
 
-  it('forces water Y and pairs gates', () => {
+  it('uses GEO y (Alt MSL) and pairs gates', () => {
     const course = normalizeCourse({
       waypoints: [
         { name: 'M1', type: 'mark', lat: 0.01, lon: 0.02 },
@@ -124,10 +124,21 @@ describe('buildCourseLayout', () => {
     const layout = buildCourseLayout(course, mockEnu)
     expect(layout.marks).toHaveLength(3)
     expect(layout.gates).toHaveLength(1)
-    expect(layout.marks.every((m) => m.y === COURSE_WATER_Y)).toBe(true)
+    // mockEnu y = alt + 35; default alt 0 → 35 (not COURSE_WATER_Y)
+    expect(layout.marks.every((m) => m.y === 35)).toBe(true)
     expect(layout.gates[0]!.left.x).toBe(80)
     expect(layout.gates[0]!.right.z).toBe(90)
-    expect(layout.gates[0]!.left.y).toBe(COURSE_WATER_Y)
+    expect(layout.gates[0]!.left.y).toBe(35)
+
+    const lifted = buildCourseLayout(
+      normalizeCourse({
+        waypoints: [
+          { name: 'Hi', type: 'mark', lat: 0, lon: 0, altMsl: 3 },
+        ],
+      }),
+      mockEnu,
+    )
+    expect(lifted.marks[0]!.y).toBe(38)
   })
 })
 

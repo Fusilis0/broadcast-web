@@ -46,7 +46,7 @@ const DEFAULT_CONFIG: AppConfig = {
   outputMode: 'preview',
   arBackground: 'alpha',
   chromaKey: '',
-  timecodeEnabled: true,
+  timecodeEnabled: false,
   timecodeCorner: 'bottom-right',
   timecodeSizePx: 96,
   whepUrl: '',
@@ -60,7 +60,7 @@ const DEFAULT_CONFIG: AppConfig = {
 
 function parseTimecodeEnabled(value: unknown): boolean {
   if (typeof value === 'boolean') return value
-  return true
+  return false
 }
 
 function parseTimecodeCorner(value: unknown): string {

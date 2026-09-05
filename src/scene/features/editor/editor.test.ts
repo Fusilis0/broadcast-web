@@ -336,6 +336,47 @@ describe('serializeWorldFeaturesExport', () => {
     expect(parsed.features[0]!.panelColor).toBe(0xf4f4f2)
     expect(parsed.features[0]!.frameColor).toBe(0x2c3338)
   })
+
+  it('round-trips panelAlpha / boardAspect on export JSON', () => {
+    const features: WorldFeature[] = [
+      {
+        id: 'sponsor:sp1',
+        name: 'sp1',
+        type: 'sponsor',
+        points: [
+          { lat: 41, lon: 29, altMsl: 0 },
+          { lat: 41.01, lon: 29, altMsl: 0 },
+        ],
+        panelAlpha: 0.4,
+        boardAspect: 2.5,
+      },
+    ]
+    const text = serializeWorldFeaturesExport(features)
+    const parsed = JSON.parse(text) as { features: WorldFeature[] }
+    expect(parsed.features[0]!.panelAlpha).toBe(0.4)
+    expect(parsed.features[0]!.boardAspect).toBe(2.5)
+  })
+
+  it('round-trips billboardChain logos on export JSON', () => {
+    const features: WorldFeature[] = [
+      {
+        id: 'chain:1',
+        name: 'chain-1',
+        type: 'billboardChain',
+        points: [
+          { lat: 41, lon: 29, altMsl: 0 },
+          { lat: 41.01, lon: 29.01, altMsl: 0 },
+        ],
+        logos: [
+          { url: '/a.png', weight: 3 },
+          { url: '/b.png', weight: 2 },
+        ],
+      },
+    ]
+    const text = serializeWorldFeaturesExport(features)
+    const parsed = JSON.parse(text) as { features: WorldFeature[] }
+    expect(parsed.features[0]!.logos).toEqual(features[0]!.logos)
+  })
 })
 
 describe('reverseAdapters', () => {
@@ -349,6 +390,8 @@ describe('reverseAdapters', () => {
         heightM: 5,
         color: 0xffdd33,
         rounding: 'ccw',
+        visibleBuoyMesh: false,
+        visibleTag: true,
       },
       {
         id: 'sponsor:sp1',
@@ -363,6 +406,8 @@ describe('reverseAdapters', () => {
         heightM: 8,
         panelColor: 0xf4f4f2,
         frameColor: 0x2c3338,
+        panelAlpha: 0.6,
+        boardAspect: 2.5,
       },
       {
         id: 'flags:p1',
@@ -384,12 +429,16 @@ describe('reverseAdapters', () => {
     expect(course.waypoints).toHaveLength(1)
     expect(course.waypoints[0]!.name).toBe('Mark-NW')
     expect(course.waypoints[0]!.rounding).toBe('ccw')
+    expect(course.waypoints[0]!.visibleBuoyMesh).toBe(false)
+    expect(course.waypoints[0]!.visibleTag).toBe(true)
 
     const sponsors = featuresToSponsorsData(features)
     expect(sponsors.sponsors).toHaveLength(1)
     expect(sponsors.sponsors[0]!.label).toBe('Acme')
     expect(sponsors.sponsors[0]!.panelColor).toBe(0xf4f4f2)
     expect(sponsors.sponsors[0]!.frameColor).toBe(0x2c3338)
+    expect(sponsors.sponsors[0]!.panelAlpha).toBe(0.6)
+    expect(sponsors.sponsors[0]!.boardAspect).toBe(2.5)
 
     const flags = featuresToFlagsData(features)
     expect(flags).not.toBeNull()

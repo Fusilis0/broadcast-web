@@ -11,6 +11,9 @@ import {
 } from '../boatVisibility.ts'
 import {
   featureEnuCentroid,
+  isBuoyMarkerFeatureType,
+  isBuoyMeshVisible,
+  isBuoyTagVisible,
   isFeatureVisible2d,
   isFeatureVisible3d,
 } from '../features/featureVisibility.ts'
@@ -27,7 +30,25 @@ import type {
   WorldFeatureType,
 } from '../features/types.ts'
 import type { FleetBoatRow } from '../fleetLivePanel.ts'
-import { promptTextureUrl } from './texturePicker.ts'
+import { openLibraryLogoPicker } from './libraryLogoPicker.ts'
+import { appendPlateColourAlphaFields } from './plateColourFields.ts'
+import {
+  resolveChainLogos,
+  resolveChainPanelColor,
+  type BillboardLogo,
+} from '../billboardLogos.ts'
+import {
+  resolvePanelAlpha,
+  resolveSponsorPanelColor,
+  resolveWaterPlanePanelAlpha,
+} from '../sponsors/boardCompose.ts'
+import {
+  applySponsorScaleOnEdit,
+} from '../sponsors/sponsorLayout.ts'
+import {
+  heightFieldCaption,
+  spacingFieldCaption,
+} from '../features/editor/coordinatePlace.ts'
 
 export type AssetKind =
   | 'boat'
@@ -107,12 +128,21 @@ export type AssetInspectorOptions = {
   ) => void | Promise<void>
   /** Deep-link: open Fleet row edit for this boat id. */
   onOpenBoatDetails?: (id: string) => void
-  /** Inspector lat/lon — seeds 3D hull + map without telemetry. */
+  /** Inspector lat/lon/alt — seeds 3D hull + map without telemetry. */
   onBoatPlannedGpsChange?: (
     id: string,
     plannedLat: number,
     plannedLon: number,
+    plannedAlt?: number,
   ) => void
+  onBoatHeightMChange?: (id: string, heightM: number) => void
+  /** Live drone GPS from TEL (read-only in Details). */
+  getPovLiveGps?: (
+    id: string,
+  ) => { lat: number; lon: number; alt: number } | null
+  getPovLabel?: (id: string) => string
+  onPovIdChange?: (oldId: string, newId: string) => void
+  onPovLabelChange?: (id: string, label: string) => void
 }
 
 export type AssetInspectorHandle = {
@@ -190,42 +220,82 @@ export function startAssetInspector(
       const p = document.createElement('p')
       p.className = 'asset-insp__note'
       p.textContent =
-        'Name / category edit lives in Fleet / Live. Planned lat/lon moves the 3D hull when there is no live telemetry.'
+        'Telemetry id is the boat id. Planned lat/lon/alt move the 3D hull when there is no live telemetry. Height is uniform scale (session). Visibility: hidden = hull off, tag on.'
       details.appendChild(p)
 
       const boat = options.getBoats().find((b) => b.id === id)
       const form = document.createElement('div')
       form.className = 'asset-insp__form'
+      const idInput = document.createElement('input')
       const latInput = document.createElement('input')
       const lonInput = document.createElement('input')
+      const altInput = document.createElement('input')
+      const heightInput = document.createElement('input')
       const commitGps = (): void => {
         const lat = Number(latInput.value)
         const lon = Number(lonInput.value)
+        const alt = Number(altInput.value)
         if (!Number.isFinite(lat) || !Number.isFinite(lon)) return
-        options.onBoatPlannedGpsChange?.(id, lat, lon)
+        options.onBoatPlannedGpsChange?.(
+          id,
+          lat,
+          lon,
+          Number.isFinite(alt) ? alt : 0,
+        )
       }
-      for (const spec of [
-        {
-          label: 'Lat',
-          input: latInput,
-          value: boat?.plannedLat,
-        },
-        {
-          label: 'Lon',
-          input: lonInput,
-          value: boat?.plannedLon,
-        },
-      ] as const) {
+      const addBoatField = (
+        caption: string,
+        input: HTMLInputElement,
+        value: string | number | undefined,
+        onChange?: () => void,
+      ): void => {
         const row = document.createElement('label')
         row.className = 'asset-insp__field'
-        row.appendChild(document.createTextNode(spec.label))
-        spec.input.className = 'asset-insp__input'
-        spec.input.value =
-          spec.value !== undefined ? String(spec.value) : ''
-        spec.input.addEventListener('change', commitGps)
-        row.appendChild(spec.input)
+        row.appendChild(document.createTextNode(caption))
+        input.className = 'asset-insp__input'
+        input.value = value !== undefined && value !== '' ? String(value) : ''
+        if (onChange) input.addEventListener('change', onChange)
+        row.appendChild(input)
         form.appendChild(row)
       }
+      addBoatField('Telemetry id', idInput, id)
+      idInput.readOnly = true
+      addBoatField('Lat', latInput, boat?.plannedLat, commitGps)
+      addBoatField('Lon', lonInput, boat?.plannedLon, commitGps)
+      addBoatField('Alt MSL', altInput, boat?.plannedAlt ?? 0, commitGps)
+      addBoatField(
+        heightFieldCaption('boat'),
+        heightInput,
+        boat?.heightM,
+        () => {
+          const n = Number(heightInput.value)
+          if (Number.isFinite(n)) options.onBoatHeightMChange?.(id, n)
+        },
+      )
+      const visRow = document.createElement('label')
+      visRow.className = 'asset-insp__field'
+      visRow.appendChild(document.createTextNode('visibility'))
+      const visSel = document.createElement('select')
+      visSel.className = 'asset-insp__input'
+      const mode = normalizeBoatVisibilityMode(
+        boat?.visibility ?? DEFAULT_BOAT_VISIBILITY_MODE,
+      )
+      for (const m of ['solid', 'ghost', 'hidden'] as const) {
+        const opt = document.createElement('option')
+        opt.value = m
+        opt.textContent = m === 'hidden' ? '3D off (tag on)' : m
+        visSel.appendChild(opt)
+      }
+      visSel.value = mode
+      visSel.addEventListener('change', () => {
+        options.onBoatVisibilityChange(
+          id,
+          normalizeBoatVisibilityMode(visSel.value),
+        )
+        refresh()
+      })
+      visRow.appendChild(visSel)
+      form.appendChild(visRow)
       details.appendChild(form)
 
       const open = document.createElement('button')
@@ -242,6 +312,70 @@ export function startAssetInspector(
     if (detailsTarget.kind === 'pov') {
       const id = detailsTarget.id
       title.textContent = `POV ${id}`
+      const form = document.createElement('div')
+      form.className = 'asset-insp__form'
+      const idInput = document.createElement('input')
+      const nameInput = document.createElement('input')
+      const addPovField = (
+        caption: string,
+        input: HTMLInputElement,
+        value: string,
+        onChange?: () => void,
+        readOnly = false,
+      ): void => {
+        const row = document.createElement('label')
+        row.className = 'asset-insp__field'
+        row.appendChild(document.createTextNode(caption))
+        input.className = 'asset-insp__input'
+        input.value = value
+        input.readOnly = readOnly
+        if (onChange) input.addEventListener('change', onChange)
+        row.appendChild(input)
+        form.appendChild(row)
+      }
+      addPovField('Telemetry id', idInput, id, () => {
+        const next = idInput.value.trim()
+        if (next === '' || next === id) return
+        options.onPovIdChange?.(id, next)
+        detailsTarget = { kind: 'pov', id: next }
+        renderDetails()
+        refresh()
+      })
+      addPovField(
+        'Name / label',
+        nameInput,
+        options.getPovLabel?.(id) ?? '',
+        () => {
+          options.onPovLabelChange?.(id, nameInput.value.trim())
+        },
+      )
+      const live = options.getPovLiveGps?.(id)
+      const latIn = document.createElement('input')
+      const lonIn = document.createElement('input')
+      const altIn = document.createElement('input')
+      addPovField(
+        'Lat (TEL, read-only)',
+        latIn,
+        live ? String(live.lat) : '',
+        undefined,
+        true,
+      )
+      addPovField(
+        'Lon (TEL, read-only)',
+        lonIn,
+        live ? String(live.lon) : '',
+        undefined,
+        true,
+      )
+      addPovField(
+        'Alt MSL (TEL, read-only)',
+        altIn,
+        live ? String(live.alt) : '',
+        undefined,
+        true,
+      )
+      details.appendChild(form)
+
       const offs = getOffsets(id)
       const pre = document.createElement('pre')
       pre.className = 'asset-insp__calib'
@@ -250,9 +384,9 @@ export function startAssetInspector(
         `yaw°: ${offs.yawDeg.toFixed(2)}`,
         `pitch°: ${offs.pitchDeg.toFixed(2)}`,
         `roll°: ${offs.rollDeg.toFixed(2)}`,
-        `alt m: ${offs.altMeters.toFixed(2)}`,
+        `alt m (CAL offset): ${offs.altMeters.toFixed(2)}`,
         '',
-        '(Read-only — edit via sidebar → Calib)',
+        'Pose GPS is live TEL — not written from this inspector. Calib offsets: sidebar → Calib.',
       ].join('\n')
       details.appendChild(pre)
       return
@@ -306,6 +440,18 @@ export function startAssetInspector(
       form.appendChild(row)
     }
 
+    async function patchChainLogos(
+      id: string,
+      next: BillboardLogo[],
+    ): Promise<void> {
+      await options.onFeaturePatch(id, {
+        logos: next.map((l) => ({ url: l.url, weight: l.weight })),
+        textureUrl: next[0]?.url ?? null,
+      })
+      renderDetails()
+      refresh()
+    }
+
     function addRoundingSelect(): void {
       const row = document.createElement('label')
       row.className = 'asset-insp__field'
@@ -335,45 +481,100 @@ export function startAssetInspector(
       form.appendChild(row)
     }
 
-    if (
-      f.type === 'sponsor' ||
-      f.type === 'billboardChain'
-    ) {
-      addText('Label', f.label ?? '', (v) => {
+    function patchFeature(patch: Partial<WorldFeature>): void {
+      if (f.type !== 'sponsor') {
+        void options.onFeaturePatch(f.id, patch)
+        return
+      }
+      const next: WorldFeature = {
+        ...f,
+        ...patch,
+        points: patch.points ?? f.points,
+      }
+      const scaled = applySponsorScaleOnEdit(f, next, options.gpsToEnuAmsl)
+      void options.onFeaturePatch(f.id, {
+        ...patch,
+        heightM: scaled.heightM,
+        boardAspect: scaled.boardAspect,
+      })
+    }
+
+    function addGpsPoint(
+      index: number,
+      suffix: string,
+    ): void {
+      const p = f.points[index]
+      if (!p) return
+      addNumber(`Lat${suffix}`, p.lat, (v) => {
+        const points = f.points.map((pt, i) =>
+          i === index ? { ...pt, lat: v } : { ...pt },
+        )
+        patchFeature({ points })
+      })
+      addNumber(`Lon${suffix}`, p.lon, (v) => {
+        const points = f.points.map((pt, i) =>
+          i === index ? { ...pt, lon: v } : { ...pt },
+        )
+        patchFeature({ points })
+      })
+      addNumber(`Alt MSL${suffix}`, p.altMsl, (v) => {
+        const points = f.points.map((pt, i) =>
+          i === index ? { ...pt, altMsl: v } : { ...pt },
+        )
+        patchFeature({ points })
+      })
+    }
+
+    addText('Name', f.name, (v) => {
+      const name = v.trim()
+      if (name !== '') void options.onFeaturePatch(f.id, { name })
+    })
+    addText('Label', f.label ?? '', (v) => {
+      void options.onFeaturePatch(f.id, {
+        label: v.trim() === '' ? undefined : v.trim(),
+      })
+    })
+    if (f.type === 'start' || f.type === 'finish' || f.type === 'sponsor') {
+      addGpsPoint(0, ' A')
+      addGpsPoint(1, ' B')
+    } else {
+      addGpsPoint(0, '')
+      if (f.points.length > 1 && f.type !== 'billboardChain') {
+        addGpsPoint(1, ' B')
+      }
+    }
+    addNumber(heightFieldCaption(f.type), f.heightM, (v) => {
+      patchFeature({ heightM: v })
+    })
+
+    if (f.type === 'buoy' || f.type === 'mark') {
+      addText('Telemetry id', f.telemetryId ?? '', (v) => {
         void options.onFeaturePatch(f.id, {
-          label: v.trim() === '' ? undefined : v.trim(),
+          telemetryId: v.trim() === '' ? null : v.trim(),
         })
       })
-      if (f.type === 'sponsor') {
-        addNumber('heightM (depth across water)', f.heightM, (v) => {
-          void options.onFeaturePatch(f.id, { heightM: v })
-        })
-        const note = document.createElement('p')
-        note.className = 'asset-insp__note'
-        note.textContent =
-          'Sponsors lie flat on the sea (like start/finish). A→B is board width; heightM is depth across the water, not wall height. Billboard chains stay upright.'
-        form.appendChild(note)
-      } else {
-        addNumber('Height m', f.heightM, (v) => {
-          void options.onFeaturePatch(f.id, { heightM: v })
-        })
-        addNumber('Spacing m', f.spacingM, (v) => {
-          void options.onFeaturePatch(f.id, { spacingM: v })
-        })
-      }
+    }
+
+    if (f.type === 'sponsor') {
+      const note = document.createElement('p')
+      note.className = 'asset-insp__note'
+      note.textContent =
+        'Sponsors lie flat on the sea. GPS A–B is the canvas; across-water follows board aspect (not heightM metres). heightM scales the glyph inside that canvas (clamped — it cannot grow a slab). Chosen Library logo is contain-fit; the name stays in this list, not on the mesh.'
+      form.appendChild(note)
       const texRow = document.createElement('div')
       texRow.className = 'asset-insp__field'
       const texLabel = document.createElement('span')
-      texLabel.textContent = `Texture: ${f.textureUrl ?? '(procedural)'}`
+      texLabel.textContent = `Logo: ${f.textureUrl ?? '(none)'}`
       const texBtn = document.createElement('button')
       texBtn.type = 'button'
       texBtn.className = 'asset-insp__btn'
-      texBtn.textContent = 'Pick…'
+      texBtn.textContent = 'Library…'
       texBtn.addEventListener('click', () => {
         void (async () => {
-          const url = await promptTextureUrl({
+          const url = await openLibraryLogoPicker({
             projectsApiBase: options.projectsApiBase,
-            defaultUrl: f.textureUrl,
+            title: 'Sponsor logo',
+            allowEmpty: true,
           })
           if (url === null) return
           await options.onFeaturePatch(f.id, {
@@ -385,36 +586,159 @@ export function startAssetInspector(
       })
       texRow.append(texLabel, texBtn)
       form.appendChild(texRow)
-    } else if (f.type === 'buoy') {
-      addText('Telemetry id', f.telemetryId ?? '', (v) => {
-        void options.onFeaturePatch(f.id, {
-          telemetryId: v.trim() === '' ? null : v.trim(),
-        })
+
+      appendPlateColourAlphaFields({
+        parent: form,
+        fieldClass: 'asset-insp__field',
+        inputClass: 'asset-insp__input',
+        panelColor: resolveSponsorPanelColor(f.panelColor),
+        panelAlpha: resolveWaterPlanePanelAlpha(f.panelAlpha),
+        onColorChange: (color) => {
+          void options.onFeaturePatch(f.id, { panelColor: color })
+        },
+        onAlphaChange: (alpha) => {
+          void options.onFeaturePatch(f.id, { panelAlpha: alpha })
+        },
       })
-      const p0 = f.points[0]
-      if (p0) {
-        addNumber('Lat', p0.lat, (v) => {
-          const points = f.points.map((p, i) =>
-            i === 0 ? { ...p, lat: v } : { ...p },
-          )
-          void options.onFeaturePatch(f.id, { points })
-        })
-        addNumber('Lon', p0.lon, (v) => {
-          const points = f.points.map((p, i) =>
-            i === 0 ? { ...p, lon: v } : { ...p },
-          )
-          void options.onFeaturePatch(f.id, { points })
-        })
+    } else if (f.type === 'billboardChain') {
+      addNumber(spacingFieldCaption(), f.spacingM, (v) => {
+        void options.onFeaturePatch(f.id, { spacingM: v })
+      })
+      const heightNote = document.createElement('p')
+      heightNote.className = 'asset-insp__note'
+      heightNote.textContent =
+        'Height is vertical only; logos keep their ratio (contain-fit). spacingM is logo pitch on the ribbon, not panel gaps.'
+      form.appendChild(heightNote)
+
+      appendPlateColourAlphaFields({
+        parent: form,
+        fieldClass: 'asset-insp__field',
+        inputClass: 'asset-insp__input',
+        panelColor: resolveChainPanelColor(f.panelColor),
+        panelAlpha: resolvePanelAlpha(f.panelAlpha),
+        onColorChange: (color) => {
+          void options.onFeaturePatch(f.id, { panelColor: color })
+        },
+        onAlphaChange: (alpha) => {
+          void options.onFeaturePatch(f.id, { panelAlpha: alpha })
+        },
+      })
+
+      const logosHead = document.createElement('div')
+      logosHead.className = 'asset-insp__logos-head'
+      logosHead.textContent = 'Logos (integer weights → fair AABAB, not AAA BB)'
+      form.appendChild(logosHead)
+
+      const logos = resolveChainLogos(f)
+      const logosList = document.createElement('div')
+      logosList.className = 'asset-insp__logos'
+      if (logos.length === 0) {
+        const empty = document.createElement('p')
+        empty.className = 'asset-insp__note'
+        empty.textContent = 'Empty — solid framed plate'
+        logosList.appendChild(empty)
       }
-    } else {
+      logos.forEach((logo, index) => {
+        const row = document.createElement('div')
+        row.className = 'asset-insp__logo-row'
+
+        const thumb = document.createElement('img')
+        thumb.className = 'asset-insp__logo-thumb'
+        thumb.src = logo.url
+        thumb.alt = ''
+
+        const urlSpan = document.createElement('span')
+        urlSpan.className = 'asset-insp__logo-url'
+        urlSpan.textContent = logo.url
+
+        const weightLabel = document.createElement('label')
+        weightLabel.className = 'asset-insp__weight'
+        weightLabel.appendChild(document.createTextNode('w'))
+        const weightInput = document.createElement('input')
+        weightInput.type = 'number'
+        weightInput.min = '1'
+        weightInput.step = '1'
+        weightInput.className = 'asset-insp__input'
+        weightInput.value = String(logo.weight)
+        weightInput.addEventListener('change', () => {
+          const n = Math.max(1, Math.trunc(Number(weightInput.value)))
+          if (!Number.isFinite(n)) return
+          const next = logos.map((l, i) =>
+            i === index ? { url: l.url, weight: n } : { ...l },
+          )
+          void patchChainLogos(f.id, next)
+        })
+        weightLabel.appendChild(weightInput)
+
+        const removeBtn = document.createElement('button')
+        removeBtn.type = 'button'
+        removeBtn.className = 'asset-insp__btn'
+        removeBtn.textContent = 'Remove'
+        removeBtn.addEventListener('click', () => {
+          const next = logos.filter((_, i) => i !== index)
+          void patchChainLogos(f.id, next)
+        })
+
+        row.append(thumb, urlSpan, weightLabel, removeBtn)
+        logosList.appendChild(row)
+      })
+      form.appendChild(logosList)
+
+      const addBtn = document.createElement('button')
+      addBtn.type = 'button'
+      addBtn.className = 'asset-insp__btn'
+      addBtn.textContent = 'Add logo…'
+      addBtn.addEventListener('click', () => {
+        void (async () => {
+          const url = await openLibraryLogoPicker({
+            projectsApiBase: options.projectsApiBase,
+            title: 'Add chain logo',
+            allowEmpty: false,
+          })
+          if (url === null || url === '') return
+          const next: BillboardLogo[] = [
+            ...logos,
+            { url, weight: 1 },
+          ]
+          await patchChainLogos(f.id, next)
+        })()
+      })
+      form.appendChild(addBtn)
+    } else if (f.type !== 'buoy' && f.type !== 'mark') {
       const note = document.createElement('p')
       note.className = 'asset-insp__note'
       note.textContent =
-        'Move / reshape this feature with World Map tools. Visibility toggles are on the list row.'
+        'Reshape extra vertices with World Authoring tools. Visibility toggles are on the list row.'
       form.appendChild(note)
-      addText('Name', f.name, (v) => {
-        const name = v.trim()
-        if (name !== '') void options.onFeaturePatch(f.id, { name })
+    }
+
+    function addCheckbox(
+      label: string,
+      checked: boolean,
+      onCommit: (v: boolean) => void,
+    ): void {
+      const row = document.createElement('label')
+      row.className = 'asset-insp__field'
+      const input = document.createElement('input')
+      input.type = 'checkbox'
+      input.checked = checked
+      input.addEventListener('change', () => onCommit(input.checked))
+      row.append(input, document.createTextNode(` ${label}`))
+      form.appendChild(row)
+    }
+
+    if (isBuoyMarkerFeatureType(f.type)) {
+      addCheckbox('Full 3D', isFeatureVisible3d(f), (v) => {
+        void options.onFeaturePatch(f.id, { visible3d: v })
+        refresh()
+      })
+      addCheckbox('Buoy mesh', isBuoyMeshVisible(f), (v) => {
+        void options.onFeaturePatch(f.id, { visibleBuoyMesh: v })
+        refresh()
+      })
+      addCheckbox('Tag', isBuoyTagVisible(f), (v) => {
+        void options.onFeaturePatch(f.id, { visibleTag: v })
+        refresh()
       })
     }
 

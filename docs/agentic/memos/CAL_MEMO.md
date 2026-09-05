@@ -1,7 +1,21 @@
 # CAL_MEMO
 
-**Last updated:** 2026-08-26  
-**Status:** Phase 17.1 `syncTrimMs` stored; TEL-08 applies it. FOV/distortion (C6) still open.
+**Last updated:** 2026-09-02  
+**Status:** Phase 19 CAL done. Handoff to SCN issued.
+
+## Phase 19 domain roadmap (CAL)
+
+| Wave | Item | DSP | Notes |
+| --- | --- | --- | --- |
+| A | **19.5** yaw/pitch/roll ±200° | `DSP-CAL-20260901-01-offset-range-200` | **Worker done** — human test next |
+
+FOV / alt / `syncTrimMs` unchanged. No further CAL Phase 19 DSPs.
+
+## Issued dispatches
+—
+
+## Done (Phase 19)
+- **DSP-CAL-20260901-01-offset-range-200** — yaw/pitch/roll ±200°, step 0.1; FOV/alt/`syncTrimMs` unchanged. Tests cover all three angle fields + unchanged FOV/alt/sync specs. CV spike soak criterion now ±200°. Client 1027 + server 23 tests; build green.
 
 ## Phase 17.1 accepted 2026-08-26 (BW)
 
@@ -21,10 +35,12 @@ Handoff: `docs/agentic/handoffs/HO-BW-CAL-20260817-01.md`
   Ops: `docs/ops/ar-calibration-overlay.md`. CAL may later fold the checkbox into `offsetSliders`
   if desired — not required.
 
-## Phase 13 — planned, design only (2026-08-12) — superseded
-BW wrote [`docs/architecture/ar-calibration-map-overlay.md`](../../architecture/ar-calibration-map-overlay.md):
-manual ENU-grid/marks overlay — precursor to `docs/research/cv-calibration-spike.md`.
-
-## Accepted
-- **DSP-CAL-20260811-01** — offset sliders in sidebar **Calib** (order 35); fixed top-left chrome gone; Assets POV hint → “sidebar → Calib”
+## Accepted (prior)
+- **DSP-CAL-20260811-01** — offset sliders in sidebar **Calib** (order 35)
 - **DSP-CAL-20260804-01** — `calibration.byPovId` on RaceProject Save/Load
+
+## Handoffs
+- **HO-CAL-SCN-20260902-01** — CAL 19.5 complete; SCN takes Wave B. Path: `docs/agentic/handoffs/HO-CAL-SCN-20260902-01.md`
+
+## Next actions
+- CAL idle for Phase 19. Human opens **SCN** with the paste block (and optional Calib ±200 eyeball).

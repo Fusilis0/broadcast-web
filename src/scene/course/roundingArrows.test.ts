@@ -100,3 +100,85 @@ describe('createBuoyMarkers rounding', () => {
     gate.dispose()
   })
 })
+
+describe('createBuoyMarkers mesh / tag visibility', () => {
+  const appearance = DEFAULT_COURSE_APPEARANCE
+
+  it('mesh off + tag on + arrows off → only the name sprite', () => {
+    const handle = createBuoyMarkers(
+      [
+        {
+          name: 'TagOnly',
+          type: 'mark',
+          x: 0,
+          y: 0,
+          z: 0,
+          visibleBuoyMesh: false,
+          rounding: 'none',
+        },
+      ],
+      appearance,
+    )
+    const pole = handle.root.getObjectByName('buoy_TagOnly')!
+    expect(pole.getObjectByName('buoyFloat')).toBeFalsy()
+    expect(pole.getObjectByName('buoyBand')).toBeFalsy()
+    expect(pole.getObjectByName('buoyStem')).toBeFalsy()
+    expect(pole.getObjectByName('buoyCap')).toBeFalsy()
+    expect(pole.getObjectByName('buoyLabel')).toBeTruthy()
+    expect(pole.getObjectByName('roundingArrows')).toBeFalsy()
+    handle.dispose()
+  })
+
+  it('tag off + mesh on → buoy without name', () => {
+    const handle = createBuoyMarkers(
+      [
+        {
+          name: 'MeshOnly',
+          type: 'mark',
+          x: 1,
+          y: 0,
+          z: 1,
+          visibleTag: false,
+          rounding: 'none',
+        },
+      ],
+      appearance,
+    )
+    const pole = handle.root.getObjectByName('buoy_MeshOnly')!
+    expect(pole.getObjectByName('buoyFloat')).toBeTruthy()
+    expect(pole.getObjectByName('buoyLabel')).toBeFalsy()
+    handle.dispose()
+  })
+
+  it('omit mesh/tag flags still draws both (old packs)', () => {
+    const handle = createBuoyMarkers(
+      [{ name: 'Default', type: 'gateLeft', x: 2, y: 0, z: 2, rounding: 'none' }],
+      appearance,
+    )
+    const pole = handle.root.getObjectByName('buoy_Default')!
+    expect(pole.getObjectByName('buoyFloat')).toBeTruthy()
+    expect(pole.getObjectByName('buoyLabel')).toBeTruthy()
+    handle.dispose()
+  })
+
+  it('mesh off + tag off + arrows off → empty water (group with no prop)', () => {
+    const handle = createBuoyMarkers(
+      [
+        {
+          name: 'Empty',
+          type: 'mark',
+          x: 3,
+          y: 0,
+          z: 3,
+          visibleBuoyMesh: false,
+          visibleTag: false,
+          rounding: 'none',
+        },
+      ],
+      appearance,
+    )
+    const pole = handle.root.getObjectByName('buoy_Empty')!
+    expect(pole.children).toHaveLength(0)
+    handle.dispose()
+  })
+})

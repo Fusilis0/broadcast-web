@@ -1,4 +1,4 @@
-import { parseOptionalHexColor } from './boardCompose.ts'
+import { parseOptionalAlpha, parseOptionalHexColor } from './boardCompose.ts'
 import type {
   SponsorEntry,
   SponsorGpsPoint,
@@ -61,6 +61,14 @@ function parseSponsor(raw: unknown): SponsorEntry | null {
   if (panelColor !== undefined) entry.panelColor = panelColor
   const frameColor = parseOptionalHexColor(o.frameColor)
   if (frameColor !== undefined) entry.frameColor = frameColor
+  const panelAlpha = parseOptionalAlpha(o.panelAlpha)
+  if (panelAlpha !== undefined) entry.panelAlpha = panelAlpha
+  if (
+    isFiniteNumber(o.boardAspect) &&
+    o.boardAspect > 0
+  ) {
+    entry.boardAspect = o.boardAspect
+  }
   return entry
 }
 

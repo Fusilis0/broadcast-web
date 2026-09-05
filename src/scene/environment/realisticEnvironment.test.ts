@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import * as THREE from 'three'
 import { WindBus, resetWindBusForTests, windBus } from '../../telemetry/windBus.ts'
 import { knotsToMs } from '../../telemetry/windDirection.ts'
-import { createRealisticEnvironment } from './realisticEnvironment.ts'
-import { waveDirectionXZ } from './gerstnerOcean.ts'
+import { createRealisticEnvironment, REALISTIC_ENVIRONMENT_DEFAULTS } from './realisticEnvironment.ts'
+import { GERSTNER_OCEAN_DEFAULTS, waveDirectionXZ } from './gerstnerOcean.ts'
 import { WIND_OCEAN_RAMP_SECONDS } from './windOceanCoupling.ts'
 import { shouldShowRealisticEnvironment } from './environmentMode.ts'
 
@@ -194,5 +194,25 @@ describe('createRealisticEnvironment', () => {
     expect(subCalls).toBe(1)
     handle.dispose()
     expect(unsubCalls).toBe(1)
+  })
+})
+
+describe('realistic fog (04-07)', () => {
+  it('matches dark ocean horizon, not 04-06 mid-teal or 0x8a9aaa', () => {
+    expect(REALISTIC_ENVIRONMENT_DEFAULTS.fogColor).toBe(
+      GERSTNER_OCEAN_DEFAULTS.horizonColor,
+    )
+    expect(REALISTIC_ENVIRONMENT_DEFAULTS.fogColor).toBe(0x2a4a52)
+    expect(REALISTIC_ENVIRONMENT_DEFAULTS.fogColor).not.toBe(0x5a8a8c)
+    expect(REALISTIC_ENVIRONMENT_DEFAULTS.fogColor).not.toBe(0x8a9aaa)
+    const handle = createRealisticEnvironment({
+      skyScale: 100,
+      ocean: { innerSegments: 2, ringCount: 1, ringSegments: 4 },
+    })
+    try {
+      expect(handle.fog.color.getHex()).toBe(0x2a4a52)
+    } finally {
+      handle.dispose()
+    }
   })
 })

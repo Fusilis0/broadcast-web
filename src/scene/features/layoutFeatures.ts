@@ -6,14 +6,15 @@ import type {
 } from './types.ts'
 
 /**
- * Water-plane Y for shared layout (Unity `waterSurfaceY`).
- * AMSL→ENU `y` is ignored so Istanbul geoid offset does not lift features.
+ * Default water-plane Y when Alt MSL ≈ 0 and origin is applied (Unity
+ * `waterSurfaceY`). Layout uses GEO `enu.y` so inspector Alt MSL lifts assets.
  */
 export const FEATURE_WATER_Y = 0
 
 /**
  * Convert WorldFeature[] → LayoutFeature[] via a single GEO pass.
  * Pure — no Three.js. Call after `applyConfigOrigin` + EGM96.
+ * 3D Y is GEO `enu.y` (do not force `FEATURE_WATER_Y`).
  */
 export function layoutFeatures(
   features: readonly WorldFeature[],
@@ -25,18 +26,23 @@ export function layoutFeatures(
     type: f.type,
     points: f.points.map((p) => {
       const enu = gpsToEnuAmsl(p.lat, p.lon, p.altMsl)
-      return { x: enu.x, y: FEATURE_WATER_Y, z: enu.z }
+      return { x: enu.x, y: enu.y, z: enu.z }
     }),
     heightM: f.heightM,
     color: f.color,
     label: f.label,
     textureUrl: f.textureUrl,
+    logos: f.logos?.map((l) => ({ url: l.url, weight: l.weight })),
     panelColor: f.panelColor,
     frameColor: f.frameColor,
+    panelAlpha: f.panelAlpha,
+    boardAspect: f.boardAspect,
     spacingM: f.spacingM,
     telemetryId: f.telemetryId,
     visible3d: f.visible3d,
     visible2d: f.visible2d,
+    visibleBuoyMesh: f.visibleBuoyMesh,
+    visibleTag: f.visibleTag,
     rounding: f.rounding,
     rawPoints: f.points.map((p) => ({ ...p })),
   }))

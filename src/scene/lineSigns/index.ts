@@ -10,6 +10,7 @@ export {
 export {
   createLineSignMesh,
   createLineSignTexture,
+  LINE_SIGN_STROKE_PX,
   type LineSignHandle,
 } from './lineSignMesh.ts'
 export {

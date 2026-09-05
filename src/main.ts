@@ -19,6 +19,7 @@ import {
   enuToGpsAmsl,
   gpsToEnuAmsl,
   northFromSceneZ,
+  sceneZFromNorth,
   type ConfigOrigin,
 } from './geodesy/index.ts'
 import {
@@ -32,6 +33,7 @@ import {
   downloadVenuePack,
   getDefaultVenuePackCache,
   formatPersistStatus,
+  formatSaveLoadStatus,
   getRacesBridge,
   isSafeRaceId,
   listLocalRaceIds,
@@ -43,11 +45,13 @@ import {
   resolveBootPanelBoats,
   resolveLoadedFleetBoats,
   resolveProjectsRole,
+  resolveWorldLoadSource,
   retainMaterializedVenuePack,
   snapshotFleetBoats,
   startProjectManagerPanel,
   writeRaceProject,
   WriteRaceProjectError,
+  yieldPaintFrames,
   type RaceProject,
   type RaceProjectOutputDefaults,
 } from './projects/index.ts'
@@ -71,6 +75,9 @@ import {
   startDualFrameClock,
   startLocalChannelSwitcher,
   startNdiControllerPanel,
+  loadNdiChannelWanted,
+  saveNdiChannelWanted,
+  type NdiChannelWanted,
   startNdi3dChannelPump,
   startNdiFramePump,
   startOutputModeControl,
@@ -126,6 +133,7 @@ import {
 } from './pose/index.ts'
 import {
   boatColorsFromCatalogue,
+  boatNamesFromCatalogue,
   createSidebar,
   layoutFeatures,
   loadFleetLiveFromSession,
@@ -143,7 +151,6 @@ import {
   createWorldAuthoringWorkspace,
   mountWorldMapAuthoringLauncher,
   resolveAuthoringInitiallyOpen,
-  STREAM_MAP_SIZE_PX,
   WORLD_AUTHORING_MAP_SIZE,
   createTerrainAttributionOverlay,
   CESIUM_ION_TOKEN_MAX_LEN,
@@ -202,17 +209,15 @@ let videoStreamManager: VideoStreamManager | null = null
 let posePipeline: PosePipelineHandle | null = null
 /** Shared matched-buffer (TEL-08). Adaptive policy + pose sampleAt. */
 let telemetryHistory: TelemetryHistory = createTelemetryHistory()
-/** Stream-map PiP visibility before entering local 2D focus. */
-let streamMapPipBefore2d = false
-/** True while local 2D focus owns stream-map size/visibility. */
-let local2dMapActive = false
 let visualTimecode: VisualTimecodeHandle | null = null
 let whepUnderlay: WhepUnderlayHandle | null = null
 let previewClock: DualFrameClock | null = null
 let ndiPump: NdiFramePumpHandle | null = null
-/** Desired 2D NDI enable (default on); applied when pump boots. */
-let streamMapNdiWanted = true
+/** Session-only NDI hand toggles (AR/3D/2D); default all on. Not project.json. */
+let ndiChannelWanted: NdiChannelWanted = loadNdiChannelWanted()
 let streamMapNdiPump: StreamMapNdiPumpHandle | null = null
+/** Off-screen / local-2D host for the stream-map canvas (2D NDI + switcher). */
+let local2dMapHost: HTMLElement | null = null
 /** Per-channel NDI delay (ms). Default 0 = no ring; optional `config.outputDelayMs`. */
 let ndiDelayMs: OutputDelayMsConfig = normalizeOutputDelayMs(undefined)
 /** 3D opaque channel (OUT-02) — do not change pump internals here. */
@@ -264,9 +269,12 @@ const srtHold = createSrtDisconnectHold()
 /** Push catalogue category colours onto 2D map boat dots (hull tint is via scene). */
 function syncMapBoatDotColors(): void {
   if (!scene) return
-  const colors = boatColorsFromCatalogue(scene.getBoatNamesCatalogue())
+  const catalogue = scene.getBoatNamesCatalogue()
+  const colors = boatColorsFromCatalogue(catalogue)
+  const names = boatNamesFromCatalogue(catalogue)
   hud.getMap().setBoatDotColors(colors)
   hud.getStreamMap().setBoatDotColors(colors)
+  hud.getStreamMap().setBoatNames(names)
 }
 
 /** Build soft RaceProject fleet.boatVisibility from Fleet rows (skip pure solid). */
@@ -411,7 +419,7 @@ function applyOutputModeChrome(mode: string): void {
   document.getElementById('app')?.classList.toggle('output-transparent', on)
 }
 
-/** CSS hook for local 2D/3D/AR presentation (stream-map size, canvas hide). */
+/** CSS hook for local 2D/3D/AR presentation (stream-map host, canvas hide). */
 function applyLocalFocusDocumentClass(focus: LocalChannelFocus): void {
   const root = document.documentElement
   const body = document.body
@@ -424,20 +432,12 @@ function applyLocalFocusDocumentClass(focus: LocalChannelFocus): void {
   }
 }
 
-/** Large stream-map canvas for local 2D focus (still letterboxed for 2D NDI). */
-function resolveLocal2dMapSizePx(): number {
-  const sidebar = 360
-  const pad = 48
-  const avail = Math.min(
-    window.innerWidth - sidebar - pad,
-    window.innerHeight - pad,
-  )
-  return Math.max(520, Math.min(960, Math.floor(avail)))
-}
-
 /**
  * Apply local channel focus to screen only — never starts/stops NDI pumps.
  * `outputMode` still governs AR clear when focus is AR (and AR air capture).
+ *
+ * Stream-map canvas is 16:9 1920×1080 in `.local-2d-map-host`: off-screen
+ * for NDI sampling, on-screen when local focus is 2D (CSS-fit to the gap).
  */
 function applyLocalChannelFocus(focus: LocalChannelFocus): void {
   localChannelFocus = focus
@@ -463,19 +463,14 @@ function applyLocalChannelFocus(focus: LocalChannelFocus): void {
 
   applyOutputModeChrome(arOutputMode)
 
-  // Stream map: enlarge for 2D local view; restore PiP size/visibility otherwise.
-  const stream = hud.getStreamMap()
-  if (presentation.streamMapPrimary) {
-    if (!local2dMapActive) {
-      streamMapPipBefore2d = stream.isVisible()
-      local2dMapActive = true
+  if (local2dMapHost) {
+    const on = presentation.streamMapPrimary
+    local2dMapHost.setAttribute('aria-hidden', on ? 'false' : 'true')
+    if (on) {
+      local2dMapHost.setAttribute('aria-label', 'Local 2D race map')
+    } else {
+      local2dMapHost.removeAttribute('aria-label')
     }
-    stream.setSizePx(resolveLocal2dMapSizePx())
-    hud.setStreamMapVisible(true)
-  } else if (local2dMapActive) {
-    local2dMapActive = false
-    stream.setSizePx(STREAM_MAP_SIZE_PX)
-    hud.setStreamMapVisible(streamMapPipBefore2d)
   }
 
   // WebGL canvas visibility for local 2D (NDI still renders offscreen).
@@ -560,12 +555,22 @@ function cloneWorldFeatures(
   return features.map((f) => ({
     ...f,
     points: f.points.map((p) => ({ ...p })),
+    logos: f.logos?.map((l) => ({ url: l.url, weight: l.weight })),
   }))
 }
 
 function gpsToEnu(lat: number, lon: number, alt: number) {
   const v = gpsToEnuAmsl(lat, lon, alt)
   return { x: v.x, y: v.y, z: v.z }
+}
+
+/** Planned GPS → hull ENU. Keep GEO `y` (Alt MSL); never force `y: 0`. */
+function hullEnuFromPlannedGps(
+  lat: number,
+  lon: number,
+  altMsl?: number,
+): { x: number; y: number; z: number } {
+  return gpsToEnu(lat, lon, altMsl ?? 0)
 }
 
 /** Keep ops (+ stream) maps able to draw OSM + convert click-to-anchor. */
@@ -605,12 +610,19 @@ function syncFleetHullsFromPanel(): void {
       typeof row?.plannedLat === 'number' &&
       typeof row?.plannedLon === 'number'
     ) {
-      const enu = gpsToEnu(row.plannedLat, row.plannedLon, 0)
-      return { id, position: { x: enu.x, y: 0, z: enu.z } }
+      const enu = hullEnuFromPlannedGps(
+        row.plannedLat,
+        row.plannedLon,
+        row.plannedAlt,
+      )
+      return { id, position: { x: enu.x, y: enu.y, z: enu.z } }
     }
     return { id }
   })
   scene.syncFleetHulls(seeds)
+  for (const id of ids) {
+    scene.setBoatHeightM(id, byId.get(id)?.heightM)
+  }
 }
 
 /** Seed 2D map dots for map-placed fleet until live pose arrives. */
@@ -629,6 +641,7 @@ function seedPlannedFleetOnMap(
     id: string
     plannedLat?: number
     plannedLon?: number
+    plannedAlt?: number
   }[],
   plannedPovs: readonly {
     id: string
@@ -644,11 +657,11 @@ function seedPlannedFleetOnMap(
     ) {
       continue
     }
-    const enu = gpsToEnu(b.plannedLat, b.plannedLon, 0)
+    const enu = hullEnuFromPlannedGps(b.plannedLat, b.plannedLon, b.plannedAlt)
     map.updatePose({
       id: b.id,
       kind: 'boat',
-      position: { x: enu.x, y: 0, z: enu.z },
+      position: { x: enu.x, y: enu.y, z: enu.z },
       rotation: { yawDeg: 0, pitchDeg: 0, rollDeg: 0 },
       fovHDeg: 66.8832,
       ts: now,
@@ -677,7 +690,13 @@ function seedFleetPoseAtEnu(
   const pose = {
     id,
     kind,
-    position: { x: east, y: kind === 'drone' ? 10 : 0, z: north },
+    // Map `updatePose` stores scene XYZ (`z = −north`). Passing geographic
+    // north as `z` inverted drag (mouse up → icon south).
+    position: {
+      x: east,
+      y: kind === 'drone' ? 10 : 0,
+      z: sceneZFromNorth(north),
+    },
     rotation: { yawDeg: 0, pitchDeg: 0, rollDeg: 0 },
     fovHDeg: 66.8832,
     ts: Date.now(),
@@ -686,6 +705,16 @@ function seedFleetPoseAtEnu(
   hud.getStreamMap().updatePose(pose)
   hud.getMap().redraw()
   hud.getStreamMap().redraw()
+}
+
+/** Live drone GPS for inspectors — TEL-owned; never written back into pose. */
+function livePovGpsFromScene(
+  id: string,
+): { lat: number; lon: number; alt: number } | null {
+  const enu = scene?.getPovEnuPosition(id)
+  if (!enu) return null
+  const g = enuToGpsAmsl(enu.x, enu.y, northFromSceneZ(enu.z))
+  return { lat: g.lat, lon: g.lon, alt: g.alt }
 }
 
 function syncRaceQuery(id: string): void {
@@ -1267,10 +1296,12 @@ async function saveCurrentRaceProject(
   const config = bootConfig
   if (!config) {
     console.warn('[projects] save skipped; config not ready')
+    hud.setSaveStatus(formatSaveLoadStatus('error', 'save failed'))
     return
   }
   if (!canWriteProjectsApi(config, window.location.search)) {
     console.warn('[projects] save skipped; air-only role')
+    hud.setSaveStatus(formatSaveLoadStatus('error', 'air-only · Save disabled'))
     hud.setBootMessage('air-only · Save disabled')
     return
   }
@@ -1290,6 +1321,7 @@ async function saveCurrentRaceProject(
     defaultEditedRaceId()
   if (!isSafeRaceId(id)) {
     console.warn('[projects] save skipped; invalid race id', id)
+    hud.setSaveStatus(formatSaveLoadStatus('error', 'save failed: invalid id'))
     hud.setBootMessage(`save failed: invalid id`)
     return
   }
@@ -1306,6 +1338,7 @@ async function saveCurrentRaceProject(
     return
   }
 
+  hud.setSaveStatus(formatSaveLoadStatus('saving'))
   try {
     const boatVisibility = fleetBoatVisibilityRecord(fleet?.boats)
     const boatMapVisible = fleetBoatMapVisibleRecord(fleet?.boats)
@@ -1357,7 +1390,12 @@ async function saveCurrentRaceProject(
       await refreshRacePicker(finalProject.id)
     }
     const status = formatPersistStatus(persist, { api: Boolean(stored) })
-    hud.setSaveStatus(status)
+    const persisted = localSaved || persist.downloaded || Boolean(stored)
+    hud.setSaveStatus(
+      persisted
+        ? formatSaveLoadStatus('saved', status)
+        : formatSaveLoadStatus('error', status || 'save failed'),
+    )
     hud.setBootMessage(`saved: ${finalProject.id} · ${status}`)
     console.info('[projects] saved RaceProject', {
       id: finalProject.id,
@@ -1373,7 +1411,7 @@ async function saveCurrentRaceProject(
     })
   } catch (err) {
     console.warn('[projects] save/download failed', err)
-    hud.setSaveStatus('save failed')
+    hud.setSaveStatus(formatSaveLoadStatus('error', 'save failed'))
     hud.setBootMessage('save failed')
   }
 }
@@ -1381,6 +1419,7 @@ async function saveCurrentRaceProject(
 async function exportCurrentRaceProject(): Promise<void> {
   const project = buildCurrentRaceProject()
   if (!project) {
+    hud.setSaveStatus(formatSaveLoadStatus('error', 'export failed: no project'))
     hud.setBootMessage('export failed: no project')
     return
   }
@@ -1391,8 +1430,9 @@ async function exportCurrentRaceProject(): Promise<void> {
     hud.setBootMessage('export cancelled')
     return
   }
+  hud.setSaveStatus(formatSaveLoadStatus('saving'))
   downloadRaceProject(project)
-  hud.setSaveStatus('download')
+  hud.setSaveStatus(formatSaveLoadStatus('downloaded'))
   hud.setBootMessage(`exported: ${project.id}`)
 }
 
@@ -1406,21 +1446,69 @@ async function saveAsRaceProject(): Promise<void> {
   void saveCurrentRaceProject({ meta, mode: 'saveAs' })
 }
 
+/** Gated Load-switch timings: append `?debug1917=1` (Phase 19.17). */
+function projectSwitchDebugEnabled(): boolean {
+  try {
+    return new URLSearchParams(location.search).has('debug1917')
+  } catch {
+    return false
+  }
+}
+
+function logProjectSwitchStage(
+  stage: string,
+  t0: number,
+  extra?: Record<string, unknown>,
+): void {
+  if (!projectSwitchDebugEnabled()) return
+  console.info('[19.17]', {
+    stage,
+    ms: Math.round(performance.now() - t0),
+    ...extra,
+  })
+}
+
+/** Packed clone only — no 3D remount. URL packs have no JSON until loaders run. */
+function readPackedWorldFeatures(
+  project: RaceProject | null,
+): WorldFeature[] | null {
+  const source = resolveWorldLoadSource(project)
+  if (source.kind !== 'features') return null
+  return cloneWorldFeatures(source.features)
+}
+
+/**
+ * Boot (and URL fallback): fetch/mount 3D then return features.
+ * Packed Load must not call this before lists — clone + remount separately.
+ */
 async function loadWorldForProject(
   project: RaceProject | null,
 ): Promise<WorldFeature[]> {
   if (!scene) return []
-  const packFeatures = project?.features
-  if (packFeatures && packFeatures.length > 0) {
-    const world = cloneWorldFeatures(packFeatures)
-    await scene.remountWorldFromFeatures(world)
-    await scene.loadPositionMarkersFromUrl()
-    return world
+  const packed = readPackedWorldFeatures(project)
+  if (packed !== null) {
+    const tRemount = performance.now()
+    await scene.remountWorldFromFeatures(packed, {
+      retainPositionMarkers: false,
+    })
+    logProjectSwitchStage('remountWorldFromFeatures', tRemount, {
+      kind: 'features',
+      features: packed.length,
+    })
+    return packed
   }
+  const tRemountEmpty = performance.now()
+  await scene.remountWorldFromFeatures([], { retainPositionMarkers: false })
+  logProjectSwitchStage('remountWorldFromFeatures', tRemountEmpty, {
+    kind: 'urls',
+    features: 0,
+  })
+  const tUrls = performance.now()
   const course = await scene.loadCourseFromUrl(courseUrl)
   const sponsors = await scene.loadSponsorsFromUrl(sponsorsUrl)
   const flags = await scene.loadCountdownFlagsFromUrl(flagsUrl)
   const extras = await loadWorldExtrasFeatures()
+  logProjectSwitchStage('loadWorldForProject.urls', tUrls)
   const world = [
     ...(course?.worldFeatures ?? []),
     ...(sponsors?.worldFeatures ?? []),
@@ -1432,13 +1520,29 @@ async function loadWorldForProject(
   return world
 }
 
+function startPackedWorldRemount(world: WorldFeature[]): void {
+  if (!scene) return
+  const tRemount = performance.now()
+  void scene
+    .remountWorldFromFeatures(world, { retainPositionMarkers: false })
+    .then(() => {
+      logProjectSwitchStage('remountWorldFromFeatures', tRemount, {
+        kind: 'features',
+        features: world.length,
+      })
+    })
+    .catch((err) => {
+      console.warn('[projects] remount after load failed', err)
+    })
+}
+
 async function applyWorldFeatures(world: WorldFeature[]): Promise<void> {
   currentWorldFeatures = cloneWorldFeatures(world)
   const layout = layoutFeatures(currentWorldFeatures, gpsToEnu)
   setLayoutFeatures(layout)
   hud.setLayoutFeatures(layout)
   scene?.refreshCalibrationOverlay()
-  // 3D already mounted by loadWorldForProject — sync editor/map only.
+  // GPS→ENU 2D/editor only — 3D remount is separate (Load lists-first).
   mapEditor?.replaceFeatures(currentWorldFeatures, false)
 }
 
@@ -1492,7 +1596,9 @@ async function applyLoadedRaceProject(project: RaceProject): Promise<void> {
   applyConfigOrigin(config.origin)
   hud.setOrigin(config.origin)
   startOpenMeteoWind({ origin: config.origin })
+  const tBoatNames = performance.now()
   await scene.loadBoatNamesFromUrl(boatNamesUrl)
+  logProjectSwitchStage('loadBoatNamesFromUrl', tBoatNames)
   const packVis = project.fleet.boatVisibility ?? {}
   const packBoatMap = project.fleet.boatMapVisible ?? {}
   const loadedBoats = resolveLoadedFleetBoats({
@@ -1517,8 +1623,19 @@ async function applyLoadedRaceProject(project: RaceProject): Promise<void> {
   }
   syncMapBoatDotColors()
 
-  const world = await loadWorldForProject(project)
-  await applyWorldFeatures(world)
+  const packedWorld = readPackedWorldFeatures(project)
+  const tRead = performance.now()
+  if (packedWorld !== null) {
+    logProjectSwitchStage('readWorldFeatures', tRead, {
+      kind: 'features',
+      features: packedWorld.length,
+    })
+    const tApply2d = performance.now()
+    await applyWorldFeatures(packedWorld)
+    logProjectSwitchStage('applyWorldFeatures', tApply2d)
+  } else {
+    logProjectSwitchStage('readWorldFeatures', tRead, { kind: 'urls' })
+  }
 
   mapEditor?.setProjectMeta(project.id, project.name)
   hud.setProjectMeta(project.id, project.name)
@@ -1534,10 +1651,11 @@ async function applyLoadedRaceProject(project: RaceProject): Promise<void> {
   calib?.setPovIds(config.povIds, activePov)
   syncRaceQuery(project.id)
 
+  const tHud = performance.now()
   liveBoatIds = liveBoatIds.filter((id) => boatIds.includes(id))
   livePovIds = livePovIds.filter((id) => povIds.includes(id))
+  logProjectSwitchStage('fleetHud.setBoatIds', tHud)
 
-  await restartIngest(ingest?.mode ?? config.telemetryMode)
   povMapVisible.clear()
   povVisible3d.clear()
   if (project.fleet.povMapVisible) {
@@ -1545,6 +1663,7 @@ async function applyLoadedRaceProject(project: RaceProject): Promise<void> {
       if (typeof v === 'boolean') povMapVisible.set(id, v)
     }
   }
+  const tLists = performance.now()
   fleetPanel?.setState({
     boatIds: config.boatIds,
     povIds: config.povIds,
@@ -1562,8 +1681,37 @@ async function applyLoadedRaceProject(project: RaceProject): Promise<void> {
   syncFleetMapPosesToAllowList()
   syncFleetHullsFromPanel()
   assetInspector?.refresh()
+  logProjectSwitchStage('fleetPanel.setState', tLists)
   hud.setBootMessage(`project: ${project.id}`)
   console.info('[projects] switched race pack', { id: project.id })
+
+  const tIngest = performance.now()
+  void restartIngest(ingest?.mode ?? config.telemetryMode)
+    .then(() => {
+      logProjectSwitchStage('restartIngest', tIngest)
+    })
+    .catch((err) => {
+      console.warn('[projects] restartIngest after load failed', err)
+    })
+
+  const tPaint = performance.now()
+  await yieldPaintFrames()
+  logProjectSwitchStage('uiPaint', tPaint)
+
+  if (packedWorld !== null) {
+    logProjectSwitchStage('remountStarted', tPaint, {
+      kind: 'features',
+      features: packedWorld.length,
+    })
+    startPackedWorldRemount(packedWorld)
+  } else {
+    logProjectSwitchStage('remountStarted', tPaint, { kind: 'urls' })
+    void loadWorldForProject(project)
+      .then((urlWorld) => applyWorldFeatures(urlWorld))
+      .catch((err) => {
+        console.warn('[projects] URL world load after lists failed', err)
+      })
+  }
 }
 
 async function switchRace(id: string): Promise<void> {
@@ -1572,18 +1720,30 @@ async function switchRace(id: string): Promise<void> {
   const trimmed = id.trim()
   if (!isSafeRaceId(trimmed)) {
     console.warn('[projects] invalid race id', id)
+    hud.setSaveStatus(
+      formatSaveLoadStatus('error', `load failed: ${trimmed || 'invalid id'}`),
+    )
     hud.setBootMessage(`invalid race id`)
     return
   }
   switchingRace = true
   try {
+    hud.setSaveStatus(formatSaveLoadStatus('loading'))
     hud.setBootMessage(`project: loading ${trimmed}…`)
+    const tSwitch = performance.now()
+    const tLoad = performance.now()
     const project = await loadRaceProject(trimmed, {
       projectsApiBase: config.projectsApiBase,
     })
+    logProjectSwitchStage('loadRaceProject', tLoad, { id: trimmed })
+    const tApply = performance.now()
     await applyLoadedRaceProject(project)
+    logProjectSwitchStage('applyLoadedRaceProject', tApply, { id: trimmed })
+    logProjectSwitchStage('switchRace', tSwitch, { id: trimmed })
+    hud.setSaveStatus(formatSaveLoadStatus('loaded'))
   } catch (err) {
     console.warn('[projects] race pack switch failed', err)
+    hud.setSaveStatus(formatSaveLoadStatus('error', `load failed: ${trimmed}`))
     hud.setBootMessage(`project load failed: ${trimmed}`)
   } finally {
     switchingRace = false
@@ -1639,6 +1799,13 @@ async function loadVenuePackFromFile(file: File): Promise<void> {
 
 const opsSidebar = createSidebar({ container: app })
 
+const local2dHost = document.createElement('div')
+local2dHost.className = 'local-2d-map-host'
+local2dHost.setAttribute('data-ops', 'local-2d-map-host')
+local2dHost.setAttribute('aria-hidden', 'true')
+opsSidebar.getOverlayHost().appendChild(local2dHost)
+local2dMapHost = local2dHost
+
 const terrainAttrib = createTerrainAttributionOverlay()
 opsSidebar.getOverlayHost().appendChild(terrainAttrib.el)
 
@@ -1657,6 +1824,10 @@ const authoringShell = createWorldAuthoringWorkspace({
   initiallyOpen: false,
 })
 worldAuthoring = authoringShell
+worldMapLauncher = mountWorldMapAuthoringLauncher(
+  opsSidebar.getHeaderActionsHost('left'),
+  authoringShell,
+)
 
 /** Section body hosts — filled synchronously by registerSection mount. */
 let projectSectionEl!: HTMLElement
@@ -1705,20 +1876,6 @@ opsSidebar.registerSection({
       dispose() {
         assetInspector?.dispose()
         assetInspector = null
-      },
-    }
-  },
-})
-opsSidebar.registerSection({
-  id: 'world-map',
-  label: 'World',
-  order: 40,
-  mount(container) {
-    worldMapLauncher = mountWorldMapAuthoringLauncher(container, authoringShell)
-    return {
-      dispose() {
-        worldMapLauncher?.dispose()
-        worldMapLauncher = null
       },
     }
   },
@@ -1846,9 +2003,12 @@ ndiController = startNdiControllerPanel({
     else streamMapNdiPump?.setDelayMs(delayMs)
   },
   initialDelayMs: ndiDelayMs,
-  onStreamMapNdiEnabledChange: (enabled) => {
-    streamMapNdiWanted = enabled
-    streamMapNdiPump?.setEnabled(enabled)
+  initialChannelWanted: ndiChannelWanted,
+  onNdiChannelWantedChange: (channel, enabled) => {
+    ndiChannelWanted = saveNdiChannelWanted({ [channel]: enabled }, undefined, ndiChannelWanted)
+    if (channel === 'ar') ndiPump?.setEnabled(enabled)
+    else if (channel === '3d') ndi3dPump?.setEnabled(enabled)
+    else streamMapNdiPump?.setEnabled(enabled)
   },
 })
 
@@ -1877,7 +2037,7 @@ const hud = startStubHud({
     environment: environmentSectionEl,
     wind: windSectionEl,
     map: authoringShell.getMapHost(),
-    streamMapHost: opsSidebar.getOverlayHost(),
+    streamMapHost: local2dHost,
   },
   editorInitiallyOpen: false,
   onModeChange: (mode) => {
@@ -1918,6 +2078,9 @@ const hud = startStubHud({
   },
   onTerrainWaterDiscardYChange: (yM) => {
     scene?.setTerrainWaterDiscardYM(yM)
+  },
+  onSeaHeightYChange: (yM) => {
+    scene?.setSeaHeightYM(yM)
   },
   onCesiumIonTokenApply: (token) => {
     void persistAndApplyIonToken(token)
@@ -2196,6 +2359,7 @@ void (async () => {
   scene.setTerrainAltitudeNudgeM(hud.getTerrainAltitudeNudgeM())
   scene.setTerrainTilesLocked(hud.getTerrainTilesLocked())
   scene.setTerrainWaterDiscardYM(hud.getTerrainWaterDiscardYM())
+  scene.setSeaHeightYM(hud.getSeaHeightYM())
   scene.setTerrainCreditsListener(() => {
     hud.setTerrainStatus(scene?.getTerrainStatusMessage() ?? '')
     syncTerrainAttribution()
@@ -2269,9 +2433,12 @@ void (async () => {
     renderer: scene.renderer,
   })
 
-  // In-WebGL AR background (DSP-OUT-04). Wrap MUST install before visual
-  // timecode: videoBackground innermost (draws BEFORE the scene), timecode
-  // outermost (draws AFTER). NDI pumps bind renderer.render last.
+  // In-WebGL AR background (DSP-OUT-04). Wrap install order:
+  //   videoBackground (pre-pass, innermost — draws BEFORE the scene)
+  //   visualTimecode   (post-pass — optional; skipped when timecodeEnabled
+  //                     is false — Phase 19.1 default)
+  //   NDI pumps bind renderer.render last (capture the stacked wrap)
+  // With the middle layer absent, NDI binds the videoBackground wrap.
   if (scene) {
     const sceneHandle = scene
     videoBackgroundTestPattern = createVideoBackgroundTestPattern()
@@ -2335,7 +2502,8 @@ void (async () => {
     })
   }
 
-  // Electron studio only — after timecode wrap so barcode is in readback.
+  // Electron studio only — after the optional timecode wrap so a pack that
+  // sets timecodeEnabled true still puts the barcode in NDI readback.
   // AR pump first, then 3D, then 2D (DSP-OUT-20260828-04: one FBO per tick).
   // Air lock: AR/3D FBO-capture active POV on studio:tick. Preview rAF does not
   // drive NDI. 2D default on @ 30; toggle stops only 2D.
@@ -2366,6 +2534,7 @@ void (async () => {
       scene?.getEnvironmentOpaqueClearSafe() ?? false,
     fps: 30,
     delayMs: ndiDelayMs.ar,
+    enabled: ndiChannelWanted.ar,
   })
   ndi3dPump = startNdi3dChannelPump({
     renderer: scene.renderer,
@@ -2381,17 +2550,18 @@ void (async () => {
       scene?.getEnvironmentOpaqueClearSafe() ?? false,
     fps: 30,
     delayMs: ndiDelayMs['3d'],
+    enabled: ndiChannelWanted['3d'],
   })
 
-  // 2D stream-map NDI (channel `'2d'`) — letterbox into 1920×1080; independent
-  // of PiP visibility / sidebar. Default on @ 30; NDI tab toggle starts/stops
-  // only this sender (does not affect AR/3D).
+  // 2D stream-map NDI (channel `'2d'`) — 16:9 source letterboxed into
+  // 1920×1080; independent of local 2D host / sidebar. Default on @ 30;
+  // NDI tab toggle starts/stops only this sender (does not affect AR/3D).
   streamMapNdiPump = startStreamMapNdiPump({
     getSourceCanvas: () => hud.getStreamMap().getCanvas(),
     ensureDrawn: () => {
       hud.getStreamMap().redraw()
     },
-    enabled: streamMapNdiWanted,
+    enabled: ndiChannelWanted['2d'],
     fps: 30,
     delayMs: ndiDelayMs['2d'],
   })
@@ -2445,14 +2615,18 @@ void (async () => {
     initialProjectId: projectIdDefault,
     initialProjectName: projectNameDefault,
     projectWritesEnabled,
+    projectsApiBase: config.projectsApiBase,
     knownBuoyIds: bootConfig?.buoyIds ?? [],
     onApply: async (features) => {
       currentWorldFeatures = cloneWorldFeatures(features)
       await scene?.remountWorldFromFeatures(features)
-      assetInspector?.refresh()
       authoringShell.setStatus(
         `Authoring: open · ${features.length} feature(s)`,
       )
+    },
+    onStoreChange: (features) => {
+      currentWorldFeatures = cloneWorldFeatures(features)
+      assetInspector?.refresh()
     },
     onSaveProject: (meta) => {
       // Editor id/name fields → Save as semantics (explicit pack identity).
@@ -2490,13 +2664,129 @@ void (async () => {
       // Click ENU is authoritative — show icon + 3D hull immediately (no telemetry needed).
       seedFleetPoseAtEnu(id, kind, east, north)
       if (kind === 'boat') {
-        scene?.upsertStaticBoat(id, { x: east, y: 0, z: north })
+        // Click ENU is authoritative; Y from GEO at alt 0 (map place has no Alt MSL).
+        const hull = hullEnuFromPlannedGps(g.lat, g.lon, 0)
+        scene?.upsertStaticBoat(id, {
+          x: east,
+          y: hull.y,
+          z: sceneZFromNorth(north),
+        })
       }
       authoringShell.setStatus(
         created
           ? `Placed ${kind} ${id} on map`
           : `${kind} ${id} already in fleet — position updated on map`,
       )
+      assetInspector?.refresh()
+    },
+    canMoveFleetPose: (id, kind) => {
+      if (kind !== 'boat') return false
+      return scene?.canAuthorBoatPose(id) ?? true
+    },
+    onSelectFleetPose: (id, kind) => {
+      if (kind === 'boat') fleetPanel?.highlightBoat(id)
+    },
+    onMoveFleet: (kind, east, north, id) => {
+      if (kind !== 'boat') return
+      const g = enuToGpsAmsl(east, 0, north)
+      fleetPanel?.setBoatPlannedGps(id, g.lat, g.lon, 0)
+      seedFleetPoseAtEnu(id, 'boat', east, north)
+      const hull = hullEnuFromPlannedGps(g.lat, g.lon, 0)
+      const moved = scene?.applyAuthoredBoatPose(id, {
+        x: east,
+        y: hull.y,
+        z: sceneZFromNorth(north),
+      })
+      if (moved === false) {
+        authoringShell.setStatus(`Boat ${id} is live — cannot move`)
+        return
+      }
+      assetInspector?.refresh()
+    },
+    getLivePovGps: livePovGpsFromScene,
+    onPlaceFleetGps: (input) => {
+      const latOk = Number.isFinite(input.lat) && Number.isFinite(input.lon)
+      if (input.kind === 'boat') {
+        const result = fleetPanel?.addBoat({
+          id: input.id,
+          name: input.name,
+          plannedLat: latOk ? input.lat : undefined,
+          plannedLon: latOk ? input.lon : undefined,
+          plannedAlt: input.altMsl,
+          heightM: input.heightM,
+          visibility: input.visibility,
+        })
+        if (result && !result.ok) {
+          authoringShell.setStatus('Place boat: id required')
+          return
+        }
+        if (latOk) {
+          const enu = hullEnuFromPlannedGps(input.lat, input.lon, input.altMsl)
+          seedFleetPoseAtEnu(input.id, 'boat', enu.x, northFromSceneZ(enu.z))
+          scene?.upsertStaticBoat(input.id, {
+            x: enu.x,
+            y: enu.y,
+            z: enu.z,
+          })
+          scene?.setBoatHeightM(input.id, input.heightM)
+        }
+        authoringShell.setStatus(`Placed boat ${input.id}`)
+      } else {
+        const result = fleetPanel?.addDrone({
+          id: input.id,
+          plannedLat: latOk ? input.lat : undefined,
+          plannedLon: latOk ? input.lon : undefined,
+          name: input.name,
+          label: input.label,
+        })
+        if (result && !result.ok) {
+          authoringShell.setStatus('Place drone: id required')
+          return
+        }
+        if (latOk) {
+          const enu = gpsToEnu(input.lat, input.lon, input.altMsl)
+          seedFleetPoseAtEnu(input.id, 'drone', enu.x, northFromSceneZ(enu.z))
+        }
+        authoringShell.setStatus(`Placed drone ${input.id}`)
+      }
+      assetInspector?.refresh()
+    },
+    onEditFleetGps: (input) => {
+      if (input.kind === 'drone') {
+        const labels = fleetPanel?.getState().povIds ?? []
+        if (labels.includes(input.id)) {
+          fleetPanel?.setPovLabel(input.id, input.label ?? input.name ?? '')
+        } else {
+          fleetPanel?.addDrone({
+            id: input.id,
+            name: input.name,
+            label: input.label,
+          })
+        }
+        assetInspector?.refresh()
+        return
+      }
+      const latOk = Number.isFinite(input.lat) && Number.isFinite(input.lon)
+      fleetPanel?.addBoat({
+        id: input.id,
+        name: input.name,
+        plannedLat: latOk ? input.lat : undefined,
+        plannedLon: latOk ? input.lon : undefined,
+        plannedAlt: input.altMsl,
+        heightM: input.heightM,
+        visibility: input.visibility,
+      })
+      if (latOk) {
+        const enu = hullEnuFromPlannedGps(input.lat, input.lon, input.altMsl)
+        seedFleetPoseAtEnu(input.id, 'boat', enu.x, northFromSceneZ(enu.z))
+        scene?.upsertStaticBoat(input.id, {
+          x: enu.x,
+          y: enu.y,
+          z: enu.z,
+        })
+        scene?.setBoatHeightM(input.id, input.heightM)
+      }
+      assetInspector?.refresh()
     },
   })
   // Maximize / map-resize should re-layout the canvas backing store while open.
@@ -2583,6 +2873,7 @@ void (async () => {
       boats: bootBoats,
       activePovId: scene.getActivePovId(),
       plannedPovs: sessionFleet?.plannedPovs?.map((p) => ({ ...p })) ?? [],
+      povLabels: { ...(sessionFleet?.povLabels ?? {}) },
       srtUrlTemplate:
         sessionFleet?.srtUrlTemplate ||
         raceProject?.output?.srtUrlTemplate ||
@@ -2871,9 +3162,25 @@ void (async () => {
     onOpenBoatDetails: (id) => {
       fleetPanel?.highlightBoat(id)
     },
-    onBoatPlannedGpsChange: (id, plannedLat, plannedLon) => {
-      fleetPanel?.setBoatPlannedGps(id, plannedLat, plannedLon)
+    onBoatPlannedGpsChange: (id, plannedLat, plannedLon, plannedAlt) => {
+      fleetPanel?.setBoatPlannedGps(id, plannedLat, plannedLon, plannedAlt)
+      const enu = hullEnuFromPlannedGps(plannedLat, plannedLon, plannedAlt)
+      seedFleetPoseAtEnu(id, 'boat', enu.x, northFromSceneZ(enu.z))
+      scene?.upsertStaticBoat(id, { x: enu.x, y: enu.y, z: enu.z })
       assetInspector?.refresh()
+    },
+    onBoatHeightMChange: (id, heightM) => {
+      fleetPanel?.setBoatHeightM(id, heightM)
+      scene?.setBoatHeightM(id, heightM)
+    },
+    getPovLiveGps: livePovGpsFromScene,
+    getPovLabel: (id) => fleetPanel?.getPovLabel(id) ?? '',
+    onPovIdChange: (oldId, newId) => {
+      fleetPanel?.renamePov(oldId, newId)
+      assetInspector?.refresh()
+    },
+    onPovLabelChange: (id, label) => {
+      fleetPanel?.setPovLabel(id, label)
     },
   })
 
@@ -2953,6 +3260,8 @@ void (async () => {
     localChannelSwitcher = null
     mapEditor?.dispose()
     mapEditor = null
+    worldMapLauncher?.dispose()
+    worldMapLauncher = null
     worldAuthoring?.dispose()
     worldAuthoring = null
     fleetPanel?.stop()

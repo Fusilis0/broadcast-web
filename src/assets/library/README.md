@@ -9,7 +9,10 @@ Phase 11.3 (`DSP-PLT-20260811-01`). Design:
 
 Shared, git-trackable images/models under `public/assets/library/`, reusable from
 any race project by URL (`textureUrl` / future `modelUrl`). Not embedded in one
-project's JSON.
+project's JSON. Seeded with Rolex / Senexus / Vodafone (copies of
+`public/textures/sponsors/`). After a Library upload, **commit** `index.json` and
+the new file(s) so other studio PCs get them on pull. `--file` / `userData` is
+not the shared logo store.
 
 ## Public API
 
@@ -32,5 +35,6 @@ Air role (`canUpload: false`): browse-only even when API base is set.
 
 ## SCN consumers
 
-Billboard-chain / sponsor / details pickers (`DSP-SCN-20260811-02` / `-03`) should
-call `listLibraryAssets` + `resolveLibraryAssetUrl` — do not re-implement paths.
+Billboard-chain / sponsor / details pickers should call
+`openLibraryLogoPicker` (`src/scene/sidebar/libraryLogoPicker.ts`) which uses
+`listLibraryAssets` + `resolveLibraryAssetUrl` — do not re-implement paths or re-seed PNGs.

@@ -106,4 +106,62 @@ describe('loadRaceProject', () => {
       '/api/races/demo-istanbul',
     )
   })
+
+  it('does not fetch featuresUrl when features is []', async () => {
+    const pack = {
+      ...staticPack,
+      features: [] as unknown[],
+      featuresUrl: '/fixtures/world/demo-istanbul-extras.json',
+    }
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/races/demo-istanbul/project.json') {
+        return Response.json(pack)
+      }
+      throw new Error(`unexpected fetch ${url}`)
+    }) as unknown as typeof fetch
+
+    const project = await loadRaceProject('demo-istanbul', {
+      fetchImpl,
+      racesBridge: null,
+      venuePackCache: false,
+    })
+    expect(project.features).toEqual([])
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+  })
+
+  it('fetches featuresUrl only when features is omitted', async () => {
+    const pack = {
+      ...staticPack,
+      featuresUrl: '/world-features.json',
+    }
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/races/demo-istanbul/project.json') {
+        return Response.json(pack)
+      }
+      if (url === '/world-features.json') {
+        return Response.json({
+          features: [
+            {
+              id: 'course:Mark-NW',
+              name: 'Mark-NW',
+              type: 'mark',
+              points: [{ lat: 41.0087, lon: 28.978, altMsl: 0 }],
+            },
+          ],
+        })
+      }
+      throw new Error(`unexpected fetch ${url}`)
+    }) as unknown as typeof fetch
+
+    const project = await loadRaceProject('demo-istanbul', {
+      fetchImpl,
+      racesBridge: null,
+      venuePackCache: false,
+    })
+    expect(project.features).toHaveLength(1)
+    expect(project.features?.[0]?.id).toBe('course:Mark-NW')
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+  })
 })

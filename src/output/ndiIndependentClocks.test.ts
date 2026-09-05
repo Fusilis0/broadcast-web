@@ -4,12 +4,13 @@
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Camera, Object3D, WebGLRenderer } from 'three'
 import { Color } from 'three'
 import { startNdiFramePump } from './ndiFramePump.ts'
 import { startNdi3dChannelPump } from './ndi3dChannelPump.ts'
 import { startStreamMapNdiPump } from './streamMapNdiPump.ts'
+import { resetNdiHeavyCaptureStagger } from './ndiCaptureStagger.ts'
 import type { BroadcastStudioBridge } from './studioBridge.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -97,6 +98,10 @@ function stubRenderer(gl: unknown, render: ReturnType<typeof vi.fn>): WebGLRende
 describe('independent AR/3D/2D clocks (DSP-OUT-20260829-04)', () => {
   const tickCbs = new Set<() => void>()
 
+  beforeEach(() => {
+    resetNdiHeavyCaptureStagger()
+  })
+
   function installBridge(): { sendFrame: ReturnType<typeof vi.fn> } {
     const sendFrame = vi.fn()
     const ndi = {
@@ -168,8 +173,8 @@ describe('independent AR/3D/2D clocks (DSP-OUT-20260829-04)', () => {
     expect(d3).not.toBeNull()
 
     for (const cb of tickCbs) cb()
-    // AR FBO + 3D FBO + 3D GPU UYVY pack (stub has no WebGLRenderer.prototype.render).
-    expect(render).toHaveBeenCalledTimes(3)
+    // AR FBO + 3D FBO (3D CPU-packs UYVY; no GPU pack render).
+    expect(render).toHaveBeenCalledTimes(2)
 
     ar?.stop()
     d3?.stop()
@@ -177,6 +182,8 @@ describe('independent AR/3D/2D clocks (DSP-OUT-20260829-04)', () => {
 
   it('sync fallback still arbitrates: only one FBO render per tick', () => {
     installBridge()
+    const nowMs = 1_000
+    vi.spyOn(performance, 'now').mockReturnValue(nowMs)
     const render = vi.fn()
     const renderer = stubRenderer(null, render)
     const scene = {} as Object3D

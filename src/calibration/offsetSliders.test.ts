@@ -44,6 +44,27 @@ describe('offset slider specs', () => {
     expect(DEFAULT_HFOV_DEG).toBeLessThanOrEqual(fov!.max)
   })
 
+  it('yaw / pitch / roll are ±200° step 0.1', () => {
+    for (const field of ['yawDeg', 'pitchDeg', 'rollDeg'] as const) {
+      const angle = OFFSET_SLIDER_SPECS.find((s) => s.field === field)
+      expect(angle).toMatchObject({ min: -200, max: 200, step: 0.1 })
+    }
+  })
+
+  it('FOV / alt / syncTrimMs ranges stay at prior product limits', () => {
+    expect(OFFSET_SLIDER_SPECS.find((s) => s.field === 'fovHDeg')).toMatchObject({
+      min: 20,
+      max: 120,
+      step: 0.1,
+    })
+    expect(
+      OFFSET_SLIDER_SPECS.find((s) => s.field === 'altMeters'),
+    ).toMatchObject({ min: -50, max: 50, step: 0.1 })
+    expect(
+      OFFSET_SLIDER_SPECS.find((s) => s.field === 'syncTrimMs'),
+    ).toMatchObject({ min: -500, max: 500, step: 5 })
+  })
+
   it('syncTrimMs is ±500 ms step 5 with a written sign convention', () => {
     const sync = OFFSET_SLIDER_SPECS.find((s) => s.field === 'syncTrimMs')
     expect(sync).toEqual({
@@ -60,10 +81,14 @@ describe('offset slider specs', () => {
 })
 
 describe('clampOffsetField', () => {
-  it('clamps yaw to ±45', () => {
-    expect(clampOffsetField('yawDeg', -100)).toBe(-45)
-    expect(clampOffsetField('yawDeg', 100)).toBe(45)
-    expect(clampOffsetField('yawDeg', 12.3)).toBe(12.3)
+  it('clamps yaw / pitch / roll to ±200', () => {
+    for (const field of ['yawDeg', 'pitchDeg', 'rollDeg'] as const) {
+      expect(clampOffsetField(field, -300)).toBe(-200)
+      expect(clampOffsetField(field, 300)).toBe(200)
+      expect(clampOffsetField(field, 12.3)).toBe(12.3)
+      expect(clampOffsetField(field, -100)).toBe(-100)
+      expect(clampOffsetField(field, 100)).toBe(100)
+    }
   })
 
   it('clamps FOV to 20–120', () => {
@@ -99,11 +124,16 @@ describe('writeOffsetField', () => {
     expect(getOffsets(id).yawDeg).toBe(10)
 
     writeOffsetField(id, 'yawDeg', 999)
-    expect(getOffsets(id).yawDeg).toBe(45)
+    expect(getOffsets(id).yawDeg).toBe(200)
+
+    writeOffsetField(id, 'pitchDeg', -999)
+    expect(getOffsets(id).pitchDeg).toBe(-200)
+    writeOffsetField(id, 'rollDeg', 999)
+    expect(getOffsets(id).rollDeg).toBe(200)
 
     writeOffsetField(id, 'fovHDeg', 90)
     expect(getOffsets(id).fovHDeg).toBe(90)
-    expect(getOffsets(id).yawDeg).toBe(45)
+    expect(getOffsets(id).yawDeg).toBe(200)
 
     writeOffsetField(id, 'syncTrimMs', 999)
     expect(getOffsets(id).syncTrimMs).toBe(500)

@@ -25,6 +25,20 @@ describe('letterboxRect', () => {
     expect(box.dy).toBe(0)
   })
 
+  it('fills 1920×1080 from a 16:9 960×540 source (no matte)', () => {
+    const box = letterboxRect(960, 540, 1920, 1080)
+    expect(box).toEqual({ dx: 0, dy: 0, dw: 1920, dh: 1080 })
+  })
+
+  it('is identity when the 2D source already matches the studio lock', () => {
+    expect(letterboxRect(1920, 1080, 1920, 1080)).toEqual({
+      dx: 0,
+      dy: 0,
+      dw: 1920,
+      dh: 1080,
+    })
+  })
+
   it('pillarboxes a wide source', () => {
     const box = letterboxRect(1920, 540, 1920, 1080)
     expect(box.dw).toBe(1920)
@@ -58,6 +72,8 @@ describe('streamMapNdiPump source invariants', () => {
     expect(src).toMatch(/createNdi2dAsyncCapture/)
     expect(src).toMatch(/scheduleCapture/)
     expect(src).toMatch(/capture\.defer/)
+    expect(src).toMatch(/recordNdiCapture\(['"]2d['"]/)
+    expect(src).toMatch(/2D source canvas unavailable/)
   })
 })
 
@@ -186,6 +202,34 @@ describe('startStreamMapNdiPump enable/disable', () => {
     expect(pump?.isEnabled()).toBe(false)
     expect(startCalls).toBe(0)
     expect(tickCbs.size).toBe(0)
+    pump?.stop()
+  })
+
+  it('sets an error when the sender is live but the source canvas is empty', async () => {
+    installBridge()
+    const canvas = document.createElement('canvas')
+    canvas.width = 0
+    canvas.height = 0
+    const pump = startStreamMapNdiPump({
+      getSourceCanvas: () => canvas,
+      ensureDrawn: () => {},
+      ndi2dCapture: {
+        forceSync: true,
+        onFallbackNote: () => {},
+        defer: (fn) => {
+          fn()
+        },
+      },
+    })
+    expect(pump).not.toBeNull()
+    await vi.waitFor(() => {
+      expect(pump?.getSourceName()).toContain('broadcast-web-2d')
+    })
+    for (const cb of tickCbs) cb()
+    await vi.waitFor(() => {
+      expect(pump?.getError()).toBe('2D source canvas unavailable')
+    })
+    expect(pump?.getSendFps()).toBe(0)
     pump?.stop()
   })
 

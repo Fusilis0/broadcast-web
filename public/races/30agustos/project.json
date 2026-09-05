@@ -21,19 +21,15 @@
       {
         "id": "8",
         "name": "alp",
-        "category": "",
-        "visibility": "ghost"
+        "category": ""
       }
     ],
-    "boatNamesUrl": "/fixtures/boats/demo-istanbul-names.json",
-    "boatVisibility": {
-      "8": "ghost"
-    }
+    "boatNamesUrl": "/fixtures/boats/demo-istanbul-names.json"
   },
   "povIds": [
     "1"
   ],
-  "updatedAt": "2026-08-30T11:16:40.362Z",
+  "updatedAt": "2026-09-04T21:16:29.373Z",
   "takeoffAltitudeMSL": 0,
   "features": [
     {
@@ -262,6 +258,25 @@
       "heightM": 5,
       "color": 16757248,
       "label": "buoy"
+    },
+    {
+      "id": "finish:9",
+      "name": "finish-9",
+      "type": "finish",
+      "points": [
+        {
+          "lat": 41.05995379604054,
+          "lon": 29.041504130055735,
+          "altMsl": 0
+        },
+        {
+          "lat": 41.05953364163434,
+          "lon": 29.0423053669968,
+          "altMsl": 0
+        }
+      ],
+      "color": 11337728,
+      "label": "FINISH"
     }
   ],
   "courseUrl": "/fixtures/course/demo-istanbul.json",
@@ -270,7 +285,7 @@
   "replayUrl": "/fixtures/telemetry/spine-demo.json",
   "output": {
     "outputMode": "transparent",
-    "timecodeEnabled": true,
+    "timecodeEnabled": false,
     "timecodeCorner": "bottom-right",
     "timecodeSizePx": 96,
     "srtByPovId": {

@@ -30,6 +30,7 @@ docs/agentic/
   orchestrators/            ← per-domain charters
   memos/                    ← compaction-safe memory
   dispatches/               ← paste-ready bootstrap + templates
+  briefs/                   ← BW-locked phase briefs (orchestrators plan from these)
 docs/architecture/
   system-architecture.md
 docs/roadmap/

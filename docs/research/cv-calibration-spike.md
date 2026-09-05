@@ -104,7 +104,7 @@ Detect known SCN objects (buoy markers, boat hulls) in video; solve PnP-like res
 
 1. **Offline fixture** — Recorded underlay (or file) + pose log + SCN screenshot sequence. Offline script/notebook estimates Δyaw/Δpitch; write results as if `setOffsets` (JSON dump). Success: residual shrinks vs human-calibrated reference.
 2. **Live underlay hook** — After OUT 3.3 WHEP: grab frames + current `getOffsets` / pose; run estimator in a worker; call `setOffsets` behind a feature flag. Success: AR visibly improves within ~1–2 s of arming, no pose-bus fork.
-3. **Race soak** — Multi-minute race segment; log offset time series, false-lock rate, CPU. Success: stable offsets within slider ranges (±45° angles, FOV 20–120°, alt ±50 m) without operator babysitting every second.
+3. **Race soak** — Multi-minute race segment; log offset time series, false-lock rate, CPU. Success: stable offsets within slider ranges (±200° angles, FOV 20–120°, alt ±50 m) without operator babysitting every second.
 
 Each milestone stays docs+spike code behind a flag; promotion to product is a later CAL dispatch.
 

@@ -1,4 +1,8 @@
 import * as THREE from 'three'
+import {
+  isBuoyMeshVisible,
+  isBuoyTagVisible,
+} from '../features/featureVisibility.ts'
 import type { CourseAppearance, CourseEnuPoint } from './types.ts'
 import { COURSE_WATER_Y } from './courseLayout.ts'
 import {
@@ -75,77 +79,84 @@ function createBuoyPole(
     tex?: THREE.Texture
   }> = []
 
-  const bodyMat = new THREE.MeshStandardMaterial({
-    color: bodyColor,
-    roughness: 0.38,
-    metalness: 0.12,
-  })
-  const accentMat = new THREE.MeshStandardMaterial({
-    color: accent,
-    roughness: 0.32,
-    metalness: 0.18,
-  })
-  const darkMat = new THREE.MeshStandardMaterial({
-    color: 0x1a1e24,
-    roughness: 0.65,
-    metalness: 0.05,
-  })
-  disposables.push({ mat: bodyMat }, { mat: accentMat }, { mat: darkMat })
+  const showMesh = isBuoyMeshVisible(point)
+  const showTag = isBuoyTagVisible(point)
 
-  // Float — slightly elongated sphere sitting mostly above water.
-  const floatGeom = new THREE.SphereGeometry(bodyR, 16, 12)
-  disposables.push({ geom: floatGeom })
-  const floatMesh = new THREE.Mesh(floatGeom, bodyMat)
-  floatMesh.name = 'buoyFloat'
-  floatMesh.scale.set(1, floatH / (bodyR * 2), 1)
-  floatMesh.position.y = floatH * 0.45
-  group.add(floatMesh)
+  if (showMesh) {
+    const bodyMat = new THREE.MeshStandardMaterial({
+      color: bodyColor,
+      roughness: 0.38,
+      metalness: 0.12,
+    })
+    const accentMat = new THREE.MeshStandardMaterial({
+      color: accent,
+      roughness: 0.32,
+      metalness: 0.18,
+    })
+    const darkMat = new THREE.MeshStandardMaterial({
+      color: 0x1a1e24,
+      roughness: 0.65,
+      metalness: 0.05,
+    })
+    disposables.push({ mat: bodyMat }, { mat: accentMat }, { mat: darkMat })
 
-  // Mid band (gate ends get gate-green stripe; marks keep yellow/dark).
-  const bandGeom = new THREE.TorusGeometry(bodyR * 0.92, bodyR * 0.12, 8, 24)
-  disposables.push({ geom: bandGeom })
-  const band = new THREE.Mesh(bandGeom, gate ? accentMat : darkMat)
-  band.name = 'buoyBand'
-  band.rotation.x = Math.PI / 2
-  band.position.y = floatH * 0.5
-  group.add(band)
+    // Float — slightly elongated sphere sitting mostly above water.
+    const floatGeom = new THREE.SphereGeometry(bodyR, 16, 12)
+    disposables.push({ geom: floatGeom })
+    const floatMesh = new THREE.Mesh(floatGeom, bodyMat)
+    floatMesh.name = 'buoyFloat'
+    floatMesh.scale.set(1, floatH / (bodyR * 2), 1)
+    floatMesh.position.y = floatH * 0.45
+    group.add(floatMesh)
 
-  // Stem
-  const stemR = bodyR * 0.22
-  const stemGeom = new THREE.CylinderGeometry(stemR, stemR * 1.15, stemH, 10)
-  disposables.push({ geom: stemGeom })
-  const stem = new THREE.Mesh(stemGeom, darkMat)
-  stem.name = 'buoyStem'
-  stem.position.y = floatH + stemH / 2
-  group.add(stem)
+    // Mid band (gate ends get gate-green stripe; marks keep yellow/dark).
+    const bandGeom = new THREE.TorusGeometry(bodyR * 0.92, bodyR * 0.12, 8, 24)
+    disposables.push({ geom: bandGeom })
+    const band = new THREE.Mesh(bandGeom, gate ? accentMat : darkMat)
+    band.name = 'buoyBand'
+    band.rotation.x = Math.PI / 2
+    band.position.y = floatH * 0.5
+    group.add(band)
 
-  // Cap cone
-  const capGeom = new THREE.ConeGeometry(bodyR * 0.45, capH, 10)
-  disposables.push({ geom: capGeom })
-  const cap = new THREE.Mesh(capGeom, accentMat)
-  cap.name = 'buoyCap'
-  cap.position.y = floatH + stemH + capH / 2
-  group.add(cap)
+    // Stem
+    const stemR = bodyR * 0.22
+    const stemGeom = new THREE.CylinderGeometry(stemR, stemR * 1.15, stemH, 10)
+    disposables.push({ geom: stemGeom })
+    const stem = new THREE.Mesh(stemGeom, darkMat)
+    stem.name = 'buoyStem'
+    stem.position.y = floatH + stemH / 2
+    group.add(stem)
 
-  const canvas = document.createElement('canvas')
-  drawBuoyLabel(canvas, point.name, accent)
-  const map = new THREE.CanvasTexture(canvas)
-  map.colorSpace = THREE.SRGBColorSpace
-  map.needsUpdate = true
-  disposables.push({ tex: map })
-  const spriteMat = new THREE.SpriteMaterial({
-    map,
-    transparent: true,
-    depthTest: true,
-    depthWrite: false,
-  })
-  disposables.push({ mat: spriteMat })
-  const sprite = new THREE.Sprite(spriteMat)
-  sprite.name = 'buoyLabel'
-  sprite.position.set(0, height + 1.8, 0)
-  const labelH = 2.2
-  sprite.scale.set(labelH * LABEL_ASPECT, labelH, 1)
-  group.add(sprite)
+    // Cap cone
+    const capGeom = new THREE.ConeGeometry(bodyR * 0.45, capH, 10)
+    disposables.push({ geom: capGeom })
+    const cap = new THREE.Mesh(capGeom, accentMat)
+    cap.name = 'buoyCap'
+    cap.position.y = floatH + stemH + capH / 2
+    group.add(cap)
+  }
+
+  if (showTag) {
+    const canvas = document.createElement('canvas')
+    drawBuoyLabel(canvas, point.name, accent)
+    const map = new THREE.CanvasTexture(canvas)
+    map.colorSpace = THREE.SRGBColorSpace
+    map.needsUpdate = true
+    disposables.push({ tex: map })
+    const spriteMat = new THREE.SpriteMaterial({
+      map,
+      transparent: true,
+      depthTest: true,
+      depthWrite: false,
+    })
+    disposables.push({ mat: spriteMat })
+    const sprite = new THREE.Sprite(spriteMat)
+    sprite.name = 'buoyLabel'
+    sprite.position.set(0, height + 1.8, 0)
+    const labelH = 2.2
+    sprite.scale.set(labelH * LABEL_ASPECT, labelH, 1)
+    group.add(sprite)
+  }
 
   const extraDispose: Array<() => void> = []
 

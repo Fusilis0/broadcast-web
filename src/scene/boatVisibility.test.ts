@@ -4,6 +4,7 @@ import { createProceduralBoatVisual } from '../assets/createProceduralBoatVisual
 import {
   applyBoatVisibilityMode,
   applyHullMaterialOpacity,
+  cloneSharedMaterials,
   createGhostBoatRing,
   DEFAULT_BOAT_VISIBILITY_MODE,
   GHOST_HULL_OPACITY,
@@ -96,13 +97,13 @@ describe('applyBoatVisibilityMode', () => {
     expect(mat.transparent).toBe(true)
   })
 
-  it('hidden: no hull/tag/ring (map-dot tracks separately)', () => {
+  it('hidden: hull/ring off, tag on (map-dot tracks separately)', () => {
     const t = targets()
     applyBoatVisibilityMode('hidden', t)
 
     expect(t.visual.visible).toBe(false)
     expect(t.ghostRing.visible).toBe(false)
-    expect(t.tagRoot.visible).toBe(false)
+    expect(t.tagRoot.visible).toBe(true)
   })
 
   it('solid: opaque hull, no ring', () => {
@@ -117,5 +118,54 @@ describe('applyBoatVisibilityMode', () => {
     const mat = hull.material as THREE.MeshStandardMaterial
     expect(mat.opacity).toBe(1)
     expect(mat.transparent).toBe(false)
+  })
+})
+
+describe('cloneSharedMaterials', () => {
+  it('Object3D.clone(true) shares materials (ghost leak without clone)', () => {
+    const a = createProceduralBoatVisual()
+    const b = a.clone(true)
+    const hullA = a.getObjectByName('hull') as THREE.Mesh
+    const hullB = b.getObjectByName('hull') as THREE.Mesh
+    expect(hullA.material).toBe(hullB.material)
+
+    applyHullMaterialOpacity(b, GHOST_HULL_OPACITY, true)
+    expect((hullA.material as THREE.MeshStandardMaterial).opacity).toBe(
+      GHOST_HULL_OPACITY,
+    )
+  })
+
+  it('isolates ghost opacity across clones; keeps in-boat sharing', () => {
+    const solid = createProceduralBoatVisual()
+    const ghost = solid.clone(true)
+    cloneSharedMaterials(ghost)
+
+    const hullSolid = solid.getObjectByName('hull') as THREE.Mesh
+    const hullGhost = ghost.getObjectByName('hull') as THREE.Mesh
+    expect(hullSolid.material).not.toBe(hullGhost.material)
+
+    const sail = ghost.getObjectByName('sail') as THREE.Mesh
+    const jib = ghost.getObjectByName('jib') as THREE.Mesh
+    expect(sail.material).toBe(jib.material)
+
+    const ring = createGhostBoatRing()
+    const tagRoot = new THREE.Object3D()
+    applyBoatVisibilityMode('ghost', { visual: ghost, ghostRing: ring, tagRoot })
+    applyBoatVisibilityMode('solid', {
+      visual: solid,
+      ghostRing: createGhostBoatRing(),
+      tagRoot: new THREE.Object3D(),
+    })
+
+    expect((hullSolid.material as THREE.MeshStandardMaterial).opacity).toBe(1)
+    expect(
+      (hullSolid.material as THREE.MeshStandardMaterial).transparent,
+    ).toBe(false)
+    expect((hullGhost.material as THREE.MeshStandardMaterial).opacity).toBe(
+      GHOST_HULL_OPACITY,
+    )
+    expect(
+      (hullGhost.material as THREE.MeshStandardMaterial).transparent,
+    ).toBe(true)
   })
 })

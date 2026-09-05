@@ -19,8 +19,8 @@ Prefer real textures/glTF from Unity over more procedural stubs. This doc tracks
 
 | Asset | Unity path | Kind | Web status | Follow-up |
 | --- | --- | --- | --- | --- |
-| Start line | `Assets/Prefabs/Start.prefab` + `BillboardBetweenTwoPoints.cs` | World-space canvas (flat water “START” + red bar) | **Ported** — `src/scene/lineSigns/` procedural plane | Optional TMP font parity |
-| Finish line | `Assets/Prefabs/Finish.prefab` | Same as Start (“FINISH”) | **Ported** — same module | — |
+| Start line | `Assets/Prefabs/Start.prefab` + `BillboardBetweenTwoPoints.cs` | World-space canvas (flat water “START” + red bar) | **Ported** — `src/scene/lineSigns/` procedural plane, band **24 m** deep (19.10) | Optional TMP font parity |
+| Finish line | `Assets/Prefabs/Finish.prefab` | Same as Start (“FINISH”) | **Ported** — same module / same 24 m depth | — |
 | Sponsor logos on sea | `Assets/Prefabs/Sponsors/*LogoOnSea.prefab` | Canvas + sprite | **Board frame (16.4)** — canvas compose: opaque panel `#f4f4f2` + dark slate frame + contain-fit logo (or label). Optional `panelColor` / `frameColor`. 3 demo PNGs | Full logo pack |
 | Billboard panel tex | `Assets/Sprites/billboard1.png` | PNG (~887 KB) | Not copied (size); canvas-composed frame used (`src/scene/sponsors/boardCompose.ts`) | Optional Unity PNG chrome |
 | Position / distance marks | `Assets/Prefabs/Distances.prefab` | TMP numbers 100–1000 on water | **Ported visual** — `src/scene/positionMarkers/` + demo fixture | Editor WorldFeature type; pull GPS from Unity scenes |
