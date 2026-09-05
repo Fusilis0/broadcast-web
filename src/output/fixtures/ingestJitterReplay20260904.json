@@ -1,0 +1,63 @@
+{
+  "source": "diag-jitter-session1-20260904.log live drone MAX_QUEUED=32 pre present-unstick fix",
+  "mechanism": "IPC queuedHighWater<=3 rejects ingest bufferbloat; connect fills retained to queueCap; unstick-to-oldest + blocked lut-miss catch-up parks latency near 700-800ms while unique~30",
+  "maxQueuedChunks": 32,
+  "presentSecs": 301,
+  "ipc": {
+    "queuedHighWaterMax": 3,
+    "queuedHighWaterP90": 2,
+    "ipcDrops": 0
+  },
+  "pace": {
+    "advMaxMax": 96.69999998807907,
+    "advMaxGe100": 0,
+    "advHistPct": {
+      "lt20": 1.8,
+      "b20_40": 70.7,
+      "b40_60": 21.7,
+      "gte60": 5.8
+    }
+  },
+  "latency": {
+    "mean": 686.6,
+    "max": 801.005615234375,
+    "first15": [
+      266.7,
+      300,
+      366.7,
+      533.3,
+      700,
+      800,
+      733.3,
+      733.3,
+      733.3,
+      733.3,
+      633.3,
+      800,
+      733.3,
+      766.7,
+      633.3
+    ]
+  },
+  "retained": {
+    "mean": 21.6,
+    "max": 25,
+    "first15": [
+      9,
+      10,
+      12,
+      17,
+      22,
+      25,
+      23,
+      23,
+      23,
+      23,
+      20,
+      25,
+      23,
+      24,
+      20
+    ]
+  }
+}

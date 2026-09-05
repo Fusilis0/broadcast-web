@@ -11,6 +11,10 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 5173,
     strictPort: true,
+    // Diag logs are written while open; watching them on Windows → EBUSY crash.
+    watch: {
+      ignored: ['**/diag-srt-fps*.log', '**/debug-*.log', '**/.cursor/**'],
+    },
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:8787',

@@ -50,6 +50,18 @@ const {
  *   stderrTail: string,
  *   ffProgress: Record<string, string>,
  *   diagDropAtLastLog: number,
+ *   lastIpcDropPerSec: number,
+ *   queueDepthHighWater: number,
+ *   queueDepthSum: number,
+ *   queueDepthSamples: number,
+ *   enqueueCount: number,
+ *   enqueueBytes: number,
+ *   flushCount: number,
+ *   sendingTrueSamples: number,
+ *   lastStdoutAt: number | null,
+ *   stdoutGapSum: number,
+ *   stdoutGapN: number,
+ *   stdoutGapMax: number,
  *   cpuSampling: boolean,
  *   cpuSecLast: number | null,
  *   cpuCoresLast: number | null,
@@ -268,6 +280,11 @@ function statusPayload(session) {
     state: session.state,
     bitrateKbps: session.bitrateKbps,
     lastError: session.lastError,
+    /* DIAG:decode-error — proxies; libsrt packet-loss counters are not exposed. */
+    ipcDropCount: session.dropCount,
+    ipcDropPerSec: session.lastIpcDropPerSec,
+    ffmpegDropFrames: session.ffProgress.drop_frames ?? null,
+    ffmpegDupFrames: session.ffProgress.dup_frames ?? null,
   }
 }
 
@@ -290,18 +307,49 @@ function setState(session, state, lastError) {
 /**
  * @param {SrtSession} session
  */
+function noteQueueDepth(session) {
+  const depth = session.queued.length + (session.sending ? 1 : 0)
+  session.queueDepthSamples += 1
+  session.queueDepthSum += depth
+  if (depth > session.queueDepthHighWater) session.queueDepthHighWater = depth
+  if (session.sending) session.sendingTrueSamples += 1
+}
+
+/**
+ * @param {SrtSession} session
+ */
+function resetQueueDepthWindow(session) {
+  session.queueDepthHighWater = 0
+  session.queueDepthSum = 0
+  session.queueDepthSamples = 0
+  session.enqueueCount = 0
+  session.enqueueBytes = 0
+  session.flushCount = 0
+  session.sendingTrueSamples = 0
+  session.stdoutGapSum = 0
+  session.stdoutGapN = 0
+  session.stdoutGapMax = 0
+}
+
+/**
+ * @param {SrtSession} session
+ */
 function flushQueue(session) {
   if (session.sending || session.queued.length === 0) return
   if (session.closing || session.state === 'idle') {
     session.queued.length = 0
+    noteQueueDepth(session)
     return
   }
   const chunk = session.queued.shift()
   if (!chunk) return
   session.sending = true
+  session.flushCount += 1
+  noteQueueDepth(session)
   sendToOwner(session, 'srt:data', { povId: session.povId, chunk })
   setImmediate(() => {
     session.sending = false
+    noteQueueDepth(session)
     flushQueue(session)
   })
 }
@@ -318,8 +366,17 @@ function onStdoutChunk(session, buf) {
     logSrt(session.povId, 'live')
   }
   session.bytesWindow += buf.length
+  const now = Date.now()
+  if (session.lastStdoutAt != null) {
+    const gap = now - session.lastStdoutAt
+    session.stdoutGapSum += gap
+    session.stdoutGapN += 1
+    if (gap > session.stdoutGapMax) session.stdoutGapMax = gap
+  }
+  session.lastStdoutAt = now
   if (session.queued.length >= MAX_QUEUED_CHUNKS && session.sending) {
     session.dropCount += 1
+    noteQueueDepth(session)
     return
   }
   if (session.queued.length >= MAX_QUEUED_CHUNKS) {
@@ -327,6 +384,9 @@ function onStdoutChunk(session, buf) {
     session.queued.length = 0
   }
   session.queued.push(Uint8Array.from(buf))
+  session.enqueueCount += 1
+  session.enqueueBytes += buf.length
+  noteQueueDepth(session)
   flushQueue(session)
 }
 
@@ -483,15 +543,28 @@ function startBitrateTimer(session) {
     session.bitrateKbps = Math.round((session.bytesWindow * 8) / 1000)
     const stdoutBytesPerSec = session.bytesWindow
     session.bytesWindow = 0
-    if (session.state === 'live') {
-      sendToOwner(session, 'srt:status', statusPayload(session))
-    }
     /* DIAG:srt-fps */
     const dropNow = session.dropCount
     const ipcDropPerSec = dropNow - session.diagDropAtLastLog
     session.diagDropAtLastLog = dropNow
+    session.lastIpcDropPerSec = ipcDropPerSec
+    if (session.state === 'live') {
+      sendToOwner(session, 'srt:status', statusPayload(session))
+    }
+    if (ipcDropPerSec > 0) {
+      diagSrtFpsLog({
+        stage: 'ipc-drop',
+        wallMs: Date.now(),
+        povId: session.povId,
+        ipcDropPerSec,
+        ipcDropCount: dropNow,
+        bitrateKbps: session.bitrateKbps,
+        ffmpegDropFrames: session.ffProgress.drop_frames ?? null,
+      })
+    }
     diagSrtFpsLog({
       stage: 'ingest',
+      wallMs: Date.now(),
       povId: session.povId,
       transcodeToH264: session.transcodeToH264,
       state: session.state,
@@ -500,11 +573,35 @@ function startBitrateTimer(session) {
       ipcDropCount: dropNow,
       ipcDropPerSec,
       queued: session.queued.length,
+      queuedHighWater: session.queueDepthHighWater,
+      queuedMean:
+        session.queueDepthSamples > 0
+          ? Math.round(
+              (1000 * session.queueDepthSum) / session.queueDepthSamples,
+            ) / 1000
+          : 0,
+      queuedSamples: session.queueDepthSamples,
+      enqueueCount: session.enqueueCount,
+      enqueueBytes: session.enqueueBytes,
+      flushCount: session.flushCount,
+      sendingBusyShare:
+        session.queueDepthSamples > 0
+          ? Math.round(
+              (1000 * session.sendingTrueSamples) / session.queueDepthSamples,
+            ) / 1000
+          : 0,
+      stdoutGapMeanMs:
+        session.stdoutGapN > 0
+          ? Math.round((1000 * session.stdoutGapSum) / session.stdoutGapN) / 1000
+          : null,
+      stdoutGapMaxMs: session.stdoutGapN > 0 ? session.stdoutGapMax : null,
       sending: session.sending,
+      maxQueuedChunks: MAX_QUEUED_CHUNKS,
       ffmpeg: { ...session.ffProgress },
       ffmpegCpuCores: session.cpuCoresLast,
       childPid: session.childPid,
     })
+    resetQueueDepthWindow(session)
     sampleChildCpu(session)
   }, 1000)
 }
@@ -569,6 +666,18 @@ function open(webContents, raw) {
     stderrTail: '',
     ffProgress: {},
     diagDropAtLastLog: 0,
+    lastIpcDropPerSec: 0,
+    queueDepthHighWater: 0,
+    queueDepthSum: 0,
+    queueDepthSamples: 0,
+    enqueueCount: 0,
+    enqueueBytes: 0,
+    flushCount: 0,
+    sendingTrueSamples: 0,
+    lastStdoutAt: null,
+    stdoutGapSum: 0,
+    stdoutGapN: 0,
+    stdoutGapMax: 0,
     cpuSampling: false,
     cpuSecLast: null,
     cpuCoresLast: null,

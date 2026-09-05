@@ -48,7 +48,9 @@ describe('streamMapNdiPump source invariants', () => {
     expect(src).toMatch(/letterbox/)
     expect(src).toMatch(/1920/)
     expect(src).toMatch(/bottomUp:\s*false/)
-    expect(src).toMatch(/onStudioTick/)
+    expect(src).toMatch(/setInterval/)
+    expect(src).not.toMatch(/onStudioTick/)
+    expect(src).toMatch(/isNdiFboReadbackPressured/)
     expect(src).not.toMatch(/ndiControllerPanel/)
     expect(src).not.toMatch(/scene\/sidebar/)
     expect(src).not.toMatch(/stubHud/)
@@ -200,8 +202,7 @@ describe('startStreamMapNdiPump enable/disable', () => {
   })
 })
 
-describe('startStreamMapNdiPump defers capture off the studio:tick stack', () => {
-  const tickCbs = new Set<() => void>()
+describe('startStreamMapNdiPump uses independent interval (not studio:tick)', () => {
   const deferred: Array<() => void> = []
   let restoreCtx: (() => void) | undefined
 
@@ -275,12 +276,7 @@ describe('startStreamMapNdiPump defers capture off the studio:tick stack', () =>
     const bridge: BroadcastStudioBridge = {
       isStudio: true,
       ndi,
-      onStudioTick: (cb) => {
-        tickCbs.add(cb)
-        return () => {
-          tickCbs.delete(cb)
-        }
-      },
+      onStudioTick: () => () => {},
     }
     ;(window as Window & { broadcastStudio?: BroadcastStudioBridge }).broadcastStudio =
       bridge
@@ -290,14 +286,13 @@ describe('startStreamMapNdiPump defers capture off the studio:tick stack', () =>
   afterEach(() => {
     restoreCtx?.()
     restoreCtx = undefined
-    tickCbs.clear()
     deferred.length = 0
     delete (window as Window & { broadcastStudio?: BroadcastStudioBridge })
       .broadcastStudio
     vi.restoreAllMocks()
   })
 
-  it('does not run ensureDrawn or sendFrame inside the studio:tick callback', async () => {
+  it('does not run ensureDrawn or sendFrame until the independent defer fires', async () => {
     restoreCtx = installFake2dContext()
     const { sendFrame } = installBridge()
     const canvas = document.createElement('canvas')
@@ -314,6 +309,7 @@ describe('startStreamMapNdiPump defers capture off the studio:tick stack', () =>
       },
       outputWidth: 16,
       outputHeight: 8,
+      fps: 50,
       ndi2dCapture: {
         forceSync: true,
         onFallbackNote: () => {},
@@ -327,13 +323,14 @@ describe('startStreamMapNdiPump defers capture off the studio:tick stack', () =>
       expect(pump?.getSourceName()).toContain('broadcast-web-2d')
     })
 
-    drawn = 0
-    for (const cb of tickCbs) cb()
+    await vi.waitFor(() => {
+      expect(deferred.length).toBeGreaterThanOrEqual(1)
+    })
     expect(drawn).toBe(0)
     expect(sendFrame).not.toHaveBeenCalled()
-    expect(deferred).toHaveLength(1)
 
-    deferred[0]?.()
+    const first = deferred.shift()
+    first?.()
     await vi.waitFor(() => {
       expect(sendFrame).toHaveBeenCalled()
     })

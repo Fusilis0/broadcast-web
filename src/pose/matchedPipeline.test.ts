@@ -185,6 +185,50 @@ describe('matched pose pipeline', () => {
     handle.stop()
   })
 
+  it('delayed draw uses pose for shown PTS, not newest-at-draw (pacing lock)', () => {
+    applyConfigOrigin(ORIGIN)
+    const tel = new TelemetryBus()
+    const poses = new PoseBus()
+    let last: PoseEvent | undefined
+    poses.on('pose', (p) => {
+      if (p.kind === 'drone' && p.id === '1') last = p
+    })
+
+    const presentedPts = 0
+    const handle = startPosePipeline({
+      telemetryBus: tel,
+      poseBus: poses,
+      takeoffAltitudeMSL: 0,
+      manualTick: true,
+      matchClock: {
+        enabled: () => true,
+        getActivePovId: () => '1',
+        getLutStreamId: () => SRT_A,
+        getPresentedPts90k: () => presentedPts,
+        getSyncTrimMs: () => 0,
+      },
+    })
+
+    tel.emit('stream_anchor', pacingAnchor(SRT_A, 0, NTP0))
+    tel.emit('stream_anchor', pacingAnchor(SRT_A, PTS_1S, NTP0 + 1_000))
+    tel.emit('drone', makeDrone({ ts: NTP0, gimbal: identityQuat(10, 0, 0) }))
+    handle.tick(0)
+    expect(last?.rotation.yawDeg).toBeCloseTo(10, 4)
+
+    tel.emit(
+      'drone',
+      makeDrone({ ts: NTP0 + 1_000, seq: 2, gimbal: identityQuat(90, 0, 0) }),
+    )
+    last = undefined
+    handle.tick(0)
+    expect(last?.rotation.yawDeg).toBeCloseTo(10, 4)
+    const debug = handle.getSyncPoseDebug('1')
+    expect(debug.tNtpMs).toBe(NTP0)
+    expect(debug.newestPoseNtpMs).toBe(NTP0 + 1_000)
+    expect(debug.poseMinusVideoMs).toBe(1_000)
+    handle.stop()
+  })
+
   it('LUT alias: anchors on telem id still match when lookup uses mapped SRT id', () => {
     applyConfigOrigin(ORIGIN)
     const tel = new TelemetryBus()

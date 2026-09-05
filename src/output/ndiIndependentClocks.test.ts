@@ -262,12 +262,18 @@ describe('independent AR/3D/2D clocks (DSP-OUT-20260829-04)', () => {
       ensureDrawn: () => {},
       outputWidth: 8,
       outputHeight: 4,
-      ndi2dCapture: { forceSync: true, onFallbackNote: () => {} },
+      ndi2dCapture: {
+        forceSync: true,
+        onFallbackNote: () => {},
+        // Do not run sync grab while AR/3D FBO probes are registered.
+        defer: () => {},
+      },
     })
     await vi.waitFor(() => {
       expect(map?.getSourceName()).toContain('broadcast-web-2d')
     })
-    expect(tickCbs.size).toBe(3)
+    // 2D uses setInterval — only AR+3D subscribe to studio:tick.
+    expect(tickCbs.size).toBe(2)
     ar?.stop()
     d3?.stop()
     map?.stop()

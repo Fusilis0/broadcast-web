@@ -39,10 +39,9 @@
     "boatNamesUrl": "/fixtures/boats/demo-istanbul-names.json"
   },
   "povIds": [
-    "1",
-    "2"
+    "1"
   ],
-  "updatedAt": "2026-08-26T18:24:48.296Z",
+  "updatedAt": "2026-09-02T09:24:29.911Z",
   "takeoffAltitudeMSL": 0,
   "features": [
     {
@@ -283,19 +282,14 @@
     "outputMode": "transparent",
     "timecodeEnabled": true,
     "timecodeCorner": "bottom-right",
-    "timecodeSizePx": 96
+    "timecodeSizePx": 96,
+    "srtByPovId": {
+      "1": "1"
+    }
   },
   "calibration": {
     "byPovId": {
       "1": {
-        "yawDeg": 0,
-        "pitchDeg": 0,
-        "rollDeg": 0,
-        "fovHDeg": 66.8832,
-        "altMeters": 0,
-        "syncTrimMs": 0
-      },
-      "2": {
         "yawDeg": 0,
         "pitchDeg": 0,
         "rollDeg": 0,

@@ -23,16 +23,28 @@ type FakePbo = {
   data: Uint8Array
 }
 
-function makeFakeGl2(opts?: { fenceReady?: boolean; fill?: number }): {
+function makeFakeGl2(opts?: {
+  fenceReady?: boolean
+  fill?: number
+  /** Default CONDITION_SATISFIED (0x911c). */
+  signaledStatus?: number
+}): {
   gl: Record<string, unknown>
   setFenceReady: (ready: boolean) => void
   readPixelCount: () => number
+  flushCount: () => number
+  waitStatuses: () => number[]
+  callsBetween: (start: string, end: string) => string[]
 } {
   const PIXEL_PACK_BUFFER = 0x88eb
   let packBinding: FakePbo | null = null
   let fenceReady = opts?.fenceReady ?? false
   let readPixelCount = 0
+  let flushCount = 0
+  const waitStatuses: number[] = []
+  const callLog: string[] = []
   const fill = opts?.fill ?? 9
+  const signaledStatus = opts?.signaledStatus ?? 0x911c
 
   const gl: Record<string, unknown> = {
     PIXEL_PACK_BUFFER,
@@ -71,9 +83,20 @@ function makeFakeGl2(opts?: { fenceReady?: boolean; fill?: number }): {
       const n = w * h * 4
       for (let i = 0; i < n; i++) packBinding.data[offset + i] = fill
     },
-    fenceSync: () => ({ id: readPixelCount }),
-    flush: () => {},
-    clientWaitSync: () => (fenceReady ? 0x911c : 0x911b),
+    fenceSync: () => {
+      callLog.push('fenceSync')
+      return { id: readPixelCount }
+    },
+    flush: () => {
+      callLog.push('flush')
+      flushCount += 1
+    },
+    clientWaitSync: () => {
+      callLog.push('clientWaitSync')
+      const status = fenceReady ? signaledStatus : 0x911b
+      waitStatuses.push(status)
+      return status
+    },
     deleteSync: () => {},
     getBufferSubData: (
       target: number,
@@ -99,6 +122,14 @@ function makeFakeGl2(opts?: { fenceReady?: boolean; fill?: number }): {
       fenceReady = ready
     },
     readPixelCount: () => readPixelCount,
+    flushCount: () => flushCount,
+    waitStatuses: () => waitStatuses.slice(),
+    callsBetween: (start: string, end: string) => {
+      const i = callLog.lastIndexOf(start)
+      const j = callLog.indexOf(end, i + 1)
+      if (i < 0 || j < 0) return []
+      return callLog.slice(i + 1, j)
+    },
   }
 }
 
@@ -273,6 +304,7 @@ describe('createNdiAsyncReadback PBO path', () => {
     expect(rb.begin(dummyTarget, 2, 2)).toBe(true)
     expect(stub.syncReads).toBe(0)
     expect(fake.readPixelCount()).toBe(1)
+    expect(fake.flushCount()).toBe(1)
     expect(rb.isPending()).toBe(true)
     expect(rb.poll(0)).toBeNull()
 
@@ -358,6 +390,71 @@ describe('createNdiAsyncReadback PBO path', () => {
     expect(rb.isPending()).toBe(false)
     rb.dispose()
   })
+
+  it('flushAfterPack false skips gl.flush; poll still sees a signaled fence with no GL in between', () => {
+    const fake = makeFakeGl2({ fenceReady: true, fill: 17 })
+    const stub = stubRenderer({ gl: fake.gl })
+    const rb = createNdiAsyncReadback({
+      renderer: stub.renderer,
+      gl: fake.gl,
+      flushAfterPack: false,
+      onFallbackNote: () => {},
+    })
+    expect(rb.begin(dummyTarget, 2, 1, 0)).toBe(true)
+    expect(fake.flushCount()).toBe(0)
+    expect(fake.readPixelCount()).toBe(1)
+    const pixels = rb.poll(0)
+    expect(fake.flushCount()).toBe(0)
+    expect(fake.callsBetween('fenceSync', 'clientWaitSync')).toEqual([])
+    expect(fake.waitStatuses()).toEqual([0x911c])
+    expect(pixels).not.toBeNull()
+    expect(pixels?.data[0]).toBe(17)
+    expect(rb.isPending()).toBe(false)
+    rb.dispose()
+  })
+
+  it('flushAfterPack false accepts ALREADY_SIGNALED the same as CONDITION_SATISFIED', () => {
+    const fake = makeFakeGl2({
+      fenceReady: true,
+      fill: 19,
+      signaledStatus: 0x911a,
+    })
+    const stub = stubRenderer({ gl: fake.gl })
+    const rb = createNdiAsyncReadback({
+      renderer: stub.renderer,
+      gl: fake.gl,
+      flushAfterPack: false,
+      onFallbackNote: () => {},
+    })
+    expect(rb.begin(dummyTarget, 1, 1, 0)).toBe(true)
+    expect(fake.flushCount()).toBe(0)
+    const pixels = rb.poll(0)
+    expect(fake.callsBetween('fenceSync', 'clientWaitSync')).toEqual([])
+    expect(fake.waitStatuses()).toEqual([0x911a])
+    expect(pixels?.data[0]).toBe(19)
+    rb.dispose()
+  })
+
+  it('flushAfterPack false still reports TIMEOUT_EXPIRED then CONDITION_SATISFIED across polls', () => {
+    const fake = makeFakeGl2({ fenceReady: false, fill: 21 })
+    const stub = stubRenderer({ gl: fake.gl })
+    const rb = createNdiAsyncReadback({
+      renderer: stub.renderer,
+      gl: fake.gl,
+      flushAfterPack: false,
+      onFallbackNote: () => {},
+    })
+    expect(rb.begin(dummyTarget, 1, 1, 0)).toBe(true)
+    expect(fake.flushCount()).toBe(0)
+    expect(rb.poll(0)).toBeNull()
+    expect(fake.waitStatuses()).toEqual([0x911b])
+    fake.setFenceReady(true)
+    const pixels = rb.poll(16)
+    expect(fake.waitStatuses()).toEqual([0x911b, 0x911c])
+    expect(pixels?.data[0]).toBe(21)
+    expect(fake.flushCount()).toBe(0)
+    rb.dispose()
+  })
 })
 
 describe('NDI caps stay 30/30/30 and STUDIO_TICK_FPS 60 (source)', () => {
@@ -383,5 +480,18 @@ describe('NDI caps stay 30/30/30 and STUDIO_TICK_FPS 60 (source)', () => {
     const d3 = readFileSync(join(here, 'ndi3dChannelPump.ts'), 'utf8')
     expect(ar).toMatch(/createNdiAsyncReadback/)
     expect(d3).toMatch(/createNdiAsyncReadback/)
+  })
+
+  it('AR skips packPbo flush; 3D keeps the default flush', () => {
+    const ar = readFileSync(join(here, 'ndiFramePump.ts'), 'utf8')
+    const d3 = readFileSync(join(here, 'ndi3dChannelPump.ts'), 'utf8')
+    const helper = readFileSync(join(here, 'ndiAsyncReadback.ts'), 'utf8')
+    expect(ar).toMatch(
+      /createNdiAsyncReadback\(\{\s*renderer,\s*flushAfterPack:\s*false\s*\}\)/,
+    )
+    expect(d3).toMatch(/createNdiAsyncReadback\(\{\s*renderer\s*\}\)/)
+    expect(d3).not.toMatch(/flushAfterPack/)
+    expect(helper).toMatch(/if \(flushAfterPack\) gl\.flush\(\)/)
+    expect(helper).toMatch(/flushAfterPack !== false/)
   })
 })

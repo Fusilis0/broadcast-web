@@ -1,11 +1,21 @@
 import { createSendFpsCounter } from './perfCounters.ts'
 import { diagRegisterNdiSendFps } from './diagNdiPeek.ts'
+import {
+  diagNoteArCaptureBegin,
+  diagNoteArSend,
+  diagTakeArCaptureStamp,
+  isNdiFrameDumpEnabled,
+  peekArCaptureRunLen,
+  peekLastPresentPts,
+} from './diagNdiContent.ts'
 import type { Camera, Object3D, WebGLRenderer } from 'three'
 import { Color, WebGLRenderTarget } from 'three'
 import { createNdiCaptureGate } from './ndiCaptureClock.ts'
 import { createNdiDeferredSend, takeNdiArrayBuffer } from './ndiDeferredSend.ts'
 import { createNdiAsyncReadback } from './ndiAsyncReadback.ts'
 import { applyNdiCaptureColorSpace } from './ndiCaptureColorSpace.ts'
+import { createNdiAirTargetPingPong } from './ndiAirTargetPingPong.ts'
+import type { NdiReadbackProbe } from './diagNdiReadbackProbe.ts'
 import { NDI_CAPTURE_FLIPPED_BOTTOM_UP } from './ndiCaptureFlip.ts'
 import { flipOwnedRgbaFrame } from './ndiFlipRows.ts'
 import { createNdiPackPool } from './ndiUyvy.ts'
@@ -14,6 +24,7 @@ import {
   releaseNdiHeavyCapture,
   tryClaimNdiHeavyCapture,
 } from './ndiCaptureStagger.ts'
+import { registerNdiFboCanBeginProbe } from './ndiFboReadbackPressure.ts'
 import { NdiDelayBuffer } from './ndiDelayBuffer.ts'
 import {
   noteNdiSkip,
@@ -85,6 +96,11 @@ export type NdiFramePumpOptions = {
    * Live changes via `setDelayMs` (clamped 0..30000).
    */
   delayMs?: number
+  /**
+   * DIAG:ndi-readback-probe — `idle` | `early` only. Default omitted = off.
+   * Revert with the probe helper after this diagnosis round.
+   */
+  readbackProbe?: NdiReadbackProbe
 }
 
 export type NdiFramePumpHandle = {
@@ -95,6 +111,12 @@ export type NdiFramePumpHandle = {
   setDelayMs: (ms: number) => number
   /** Successful sends in the last 1 s (not staggered-away claims). */
   getSendFps: () => number
+  /**
+   * DIAG:ndi-readback-probe=early — pack previous AR FBO. Caller must
+   * invoke this from a `studio:tick` listener registered **before**
+   * `present()`.
+   */
+  diagEarlyPack: () => void
   stop: () => void
 }
 
@@ -142,6 +164,7 @@ export function startNdiFramePump(
     setEnvironmentOpaqueClearSafe,
     getEnvironmentOpaqueClearSafe,
   } = options
+  const readbackProbe: NdiReadbackProbe = options.readbackProbe ?? 'off'
   const fps =
     typeof options.fps === 'number' && options.fps > 0
       ? options.fps
@@ -164,10 +187,31 @@ export function startNdiFramePump(
   let sourceName: string | null = null
   let sdkVersion: string | null = null
   let error: string | null = null
-  let airTarget: WebGLRenderTarget | null = null
-  let airTargetW = 0
-  let airTargetH = 0
-  const readback = createNdiAsyncReadback({ renderer })
+  const airTargets = createNdiAirTargetPingPong({
+    create(w, h) {
+      const target = new WebGLRenderTarget(w, h, {
+        depthBuffer: true,
+        stencilBuffer: false,
+      })
+      applyNdiCaptureColorSpace(target)
+      return target
+    },
+    dispose: (target) => {
+      target.dispose()
+    },
+  })
+  const readback = createNdiAsyncReadback({ renderer, flushAfterPack: false })
+  const unregFboPressure = registerNdiFboCanBeginProbe(() => readback.canBegin())
+  /* DIAG:ndi-readback-probe — separate PBO so idle begin cannot steal AR slots. */
+  const idleReadback =
+    readbackProbe === 'idle'
+      ? createNdiAsyncReadback({ renderer, flushAfterPack: false })
+      : null
+  let idleTarget: WebGLRenderTarget | null = null
+  let packedEarlyThisTick = false
+  let loggedProbe = false
+  /** Last AR-captured present PTS — freshness gate skips same-PTS re-captures. */
+  let lastCapturedContentPts: number | null = null
 
   const _clearColor = new Color()
 
@@ -221,20 +265,6 @@ export function startNdiFramePump(
     restoreClearPass(clearWriter, snapshot)
   }
 
-  function ensureAirTarget(w: number, h: number): WebGLRenderTarget {
-    if (!airTarget || airTargetW !== w || airTargetH !== h) {
-      airTarget?.dispose()
-      airTarget = new WebGLRenderTarget(w, h, {
-        depthBuffer: true,
-        stencilBuffer: false,
-      })
-      applyNdiCaptureColorSpace(airTarget)
-      airTargetW = w
-      airTargetH = h
-    }
-    return airTarget
-  }
-
   function sendFrameData(
     width: number,
     height: number,
@@ -266,6 +296,11 @@ export function startNdiFramePump(
     // Depth 2 holds the late slot-1 frame; recovered frames can be ~31 ms older.
     maxPending: 2,
     send: (frame) => {
+      diagNoteArSend({
+        pts90k: frame.contentPts90k ?? null,
+        reason: frame.contentReason ?? null,
+        povId: null,
+      })
       sendFrameData(frame.width, frame.height, frame.data, frame.bottomUp)
     },
     release: (data) => {
@@ -280,6 +315,8 @@ export function startNdiFramePump(
     bottomUp: boolean,
     capturedAtMs: number,
     nowMs: number,
+    contentPts90k: number | null,
+    contentReason: string | null,
   ): void {
     const ready = delayBuffer.push(
       {
@@ -288,6 +325,8 @@ export function startNdiFramePump(
         height,
         data,
         bottomUp,
+        contentPts90k,
+        contentReason,
       },
       nowMs,
     )
@@ -297,6 +336,8 @@ export function startNdiFramePump(
         height: frame.height,
         data: frame.data,
         bottomUp: frame.bottomUp,
+        contentPts90k: frame.contentPts90k,
+        contentReason: frame.contentReason,
       })
     }
   }
@@ -309,6 +350,8 @@ export function startNdiFramePump(
         height: frame.height,
         data: frame.data,
         bottomUp: frame.bottomUp,
+        contentPts90k: frame.contentPts90k,
+        contentReason: frame.contentReason,
       })
     }
   }
@@ -320,6 +363,7 @@ export function startNdiFramePump(
     bottomUp: boolean,
     nowMs: number,
   ): void {
+    const stamp = diagTakeArCaptureStamp()
     const __flipT0 = performance.now()
     const rgba = flipOwnedRgbaFrame(takeNdiArrayBuffer(buf), w, h)
     const __flipMs = performance.now() - __flipT0
@@ -343,7 +387,16 @@ export function startNdiFramePump(
             })
           }
           // #endregion
-          queueOwnedFrame(w, h, owned, bottomUp, nowMs, performance.now())
+          queueOwnedFrame(
+            w,
+            h,
+            owned,
+            bottomUp,
+            nowMs,
+            performance.now(),
+            stamp.pts90k,
+            stamp.reason,
+          )
         })
         .catch(() => {})
       return
@@ -364,7 +417,28 @@ export function startNdiFramePump(
       })
     }
     // #endregion
-    queueOwnedFrame(w, h, owned, bottomUp, nowMs, nowMs)
+    queueOwnedFrame(
+      w,
+      h,
+      owned,
+      bottomUp,
+      nowMs,
+      nowMs,
+      stamp.pts90k,
+      stamp.reason,
+    )
+  }
+
+  function shouldSkipStalePresent(): boolean {
+    const pts = peekLastPresentPts()
+    if (pts == null) return false
+    if (lastCapturedContentPts == null) return false
+    return pts === lastCapturedContentPts
+  }
+
+  function markCapturedPresent(): void {
+    const pts = peekLastPresentPts()
+    if (pts != null) lastCapturedContentPts = pts
   }
 
   function drainReadback(nowMs: number): void {
@@ -373,6 +447,28 @@ export function startNdiFramePump(
     const pixels = readback.poll(nowMs)
     recordNdiStage('arReadbackDrain', performance.now() - t0)
     if (!pixels) return
+    if (isNdiFrameDumpEnabled() && peekArCaptureRunLen() >= 2) {
+      const { width: w, height: h, data } = pixels
+      const at = (x: number, y: number): number[] => {
+        const i = (y * w + x) * 4
+        return [data[i] ?? 0, data[i + 1] ?? 0, data[i + 2] ?? 0, data[i + 3] ?? 0]
+      }
+      console.info(
+        `[diag:frame-id] ${JSON.stringify({
+          stage: 'ar-frame-sample',
+          runLen: peekArCaptureRunLen(),
+          w,
+          h,
+          corners: {
+            tl: at(0, 0),
+            tr: at(w - 1, 0),
+            bl: at(0, h - 1),
+            br: at(w - 1, h - 1),
+            c: at((w / 2) | 0, (h / 2) | 0),
+          },
+        })}`,
+      )
+    }
     enqueueRgba(
       pixels.width,
       pixels.height,
@@ -398,20 +494,129 @@ export function startNdiFramePump(
       if (syncClaim) releaseNdiHeavyCapture('ar', nowMs)
       return false
     }
+    diagNoteArCaptureBegin()
+    markCapturedPresent()
     recordNdiCapture('ar', nowMs)
     drainReadback(nowMs)
     return true
   }
 
-  function captureFrame(): void {
-    if (stopped) return
+  function logProbeOnce(): void {
+    if (loggedProbe || readbackProbe === 'off') return
+    loggedProbe = true
+    const gl = renderer.getContext() as WebGL2RenderingContext | null
+    let attributes: unknown = null
+    let unmaskedRenderer: string | null = null
+    let unmaskedVendor: string | null = null
+    try {
+      attributes = gl?.getContextAttributes?.() ?? null
+      const ext = gl?.getExtension?.('WEBGL_debug_renderer_info') as {
+        UNMASKED_RENDERER_WEBGL: number
+        UNMASKED_VENDOR_WEBGL: number
+      } | null
+      if (gl && ext) {
+        const r = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)
+        const v = gl.getParameter(ext.UNMASKED_VENDOR_WEBGL)
+        unmaskedRenderer = typeof r === 'string' ? r : null
+        unmaskedVendor = typeof v === 'string' ? v : null
+      }
+    } catch {
+      /* ignore */
+    }
+    console.info(
+      `[diag:srt-fps] ${JSON.stringify({
+        stage: 'ndi-readback-probe',
+        probe: readbackProbe,
+        attributes,
+        unmaskedVendor,
+        unmaskedRenderer,
+        idlePx: readbackProbe === 'idle' ? 16 : null,
+      })}`,
+    )
+  }
+
+  function ensureIdleTarget(): WebGLRenderTarget {
+    if (idleTarget) return idleTarget
+    idleTarget = new WebGLRenderTarget(16, 16, {
+      depthBuffer: false,
+      stencilBuffer: false,
+    })
+    applyNdiCaptureColorSpace(idleTarget)
+    const prev = renderer.getRenderTarget()
+    renderer.setRenderTarget(idleTarget)
+    renderer.clear()
+    renderer.setRenderTarget(prev)
+    return idleTarget
+  }
+
+  /** Idle pack after this tick's composite, before the real AR pack. Do not poll (that Finish()s). */
+  function probeIdleBegin(): void {
+    if (readbackProbe !== 'idle' || !idleReadback) return
+    if (!idleReadback.canBegin()) {
+      idleReadback.poll(performance.now())
+      if (!idleReadback.canBegin()) return
+    }
+    const target = ensureIdleTarget()
+    renderer.setRenderTarget(target)
+    const t0 = performance.now()
+    idleReadback.begin(target, 16, 16, t0)
+    recordNdiStage('arIdleReadbackBegin', performance.now() - t0)
+  }
+
+  function probeIdleDrain(): void {
+    if (!idleReadback) return
+    const pixels = idleReadback.poll(performance.now())
+    if (pixels) idleReadback.release(pixels.data)
+  }
+
+  function diagEarlyPack(): void {
+    if (stopped || readbackProbe !== 'early') return
+    packedEarlyThisTick = false
+    logProbeOnce()
     const now = performance.now()
     flushDelay(now)
     drainReadback(now)
     if (stopped) return
-    if (!captureGate.isDue(now)) {
-      noteNdiSkip('ar', 'rateCap')
-      return
+    if (shouldSkipStalePresent()) return
+
+    const canvas = renderer.domElement
+    const w = canvas.width
+    const h = canvas.height
+    if (w < 1 || h < 1) return
+    if (!captureGate.isDue(now)) return
+    if (!readback.canBegin()) return
+
+    const { pack } = airTargets.acquire(w, h)
+    if (!pack) return
+    if (!captureGate.tryAdmit(now)) return
+
+    const syncClaim = readback.mode === 'sync'
+    packedEarlyThisTick = captureAirTarget(pack, w, h, now, syncClaim)
+  }
+
+  function captureFrame(): void {
+    if (stopped) return
+    logProbeOnce()
+    const now = performance.now()
+    const earlyPacked = packedEarlyThisTick
+    packedEarlyThisTick = false
+
+    if (!earlyPacked) {
+      flushDelay(now)
+      drainReadback(now)
+      probeIdleDrain()
+      if (stopped) return
+      if (shouldSkipStalePresent()) {
+        noteNdiSkip('ar', 'freshness')
+        return
+      }
+      // Fresh present PTS: skip rateCap early-out — unique content beats
+      // knife-edge phase (forceAdmit after canBegin if tryAdmit fails).
+    } else {
+      flushDelay(now)
+      drainReadback(now)
+      probeIdleDrain()
+      if (stopped) return
     }
 
     const airCamera = getAirCamera?.() ?? null
@@ -423,21 +628,22 @@ export function startNdiFramePump(
     if (w < 1 || h < 1) return
 
     const syncClaim = readback.mode === 'sync'
-    if (syncClaim) {
-      if (!tryClaimNdiHeavyCapture('ar', now, { blocking: true })) {
-        noteNdiSkip('ar', 'stagger')
+    if (!earlyPacked) {
+      if (syncClaim) {
+        if (!tryClaimNdiHeavyCapture('ar', now, { blocking: true })) {
+          noteNdiSkip('ar', 'stagger')
+          return
+        }
+      }
+      if (!readback.canBegin()) {
+        if (syncClaim) releaseNdiHeavyCapture('ar', now)
+        noteNdiSkip('ar', 'busy')
         return
       }
-    }
-    if (!readback.canBegin()) {
-      if (syncClaim) releaseNdiHeavyCapture('ar', now)
-      noteNdiSkip('ar', 'busy')
-      return
-    }
-    if (!captureGate.tryAdmit(now)) {
-      if (syncClaim) releaseNdiHeavyCapture('ar', now)
-      noteNdiSkip('ar', 'rateCap')
-      return
+      if (!captureGate.tryAdmit(now)) {
+        // New present PTS already passed freshness — do not drop it.
+        captureGate.forceAdmit(now)
+      }
     }
 
     const plateSnap = beginAirPlateClear()
@@ -446,12 +652,15 @@ export function startNdiFramePump(
     renderer.xr.enabled = false
     try {
       preparePass(airCamera)
-      const target = ensureAirTarget(w, h)
-      renderer.setRenderTarget(target)
+      const { render, pack } = airTargets.acquire(w, h)
+      renderer.setRenderTarget(render)
       timeNdiStage('arFboRender', () => {
         tickRender(sceneRoot, airCamera)
       })
-      captureAirTarget(target, w, h, now, syncClaim)
+      airTargets.advance()
+      if (earlyPacked) return
+      if (readbackProbe === 'idle') probeIdleBegin()
+      if (pack) captureAirTarget(pack, w, h, now, syncClaim)
     } finally {
       renderer.setRenderTarget(prevTarget)
       renderer.xr.enabled = prevXrEnabled
@@ -494,17 +703,21 @@ export function startNdiFramePump(
     getDelayMs: () => delayBuffer.getDelayMs(),
     setDelayMs: (ms: number) => delayBuffer.setDelayMs(ms),
     getSendFps: () => sendFps.getFps(performance.now()),
+    diagEarlyPack,
     stop(): void {
       if (stopped) return
       stopped = true
       unregSendFps()
+      unregFboPressure()
       unsubTick()
       ipc.dispose()
       delayBuffer.clear()
       uyvyWorker?.dispose()
       readback.dispose()
-      airTarget?.dispose()
-      airTarget = null
+      idleReadback?.dispose()
+      idleTarget?.dispose()
+      idleTarget = null
+      airTargets.dispose()
       void ndi.stop({ channel }).catch(() => {
         /* ignore */
       })

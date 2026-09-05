@@ -245,6 +245,27 @@ describe('createTsDemuxer', () => {
     expect(aus[2]!.keyframe).toBe(false)
     expect(demux.videoPid()).toBe(VIDEO_PID)
     expect(demux.codec()).toBe('hevc')
+    expect(demux.lossStats().ccGaps).toBe(0)
+  })
+
+  it('counts continuity-counter gaps on the video PID', () => {
+    const trail = annexB([HEVC_TRAIL])
+    const pes = pesPacket(3000, trail)
+    const packets = pesToTs(pes, VIDEO_PID, 0)
+    expect(packets.length).toBeGreaterThanOrEqual(1)
+    const firstCc = packets[0]![3]! & 0x0f
+    const broken = packPackets([
+      sectionPacket(PAT_PID, patSection(), 0),
+      sectionPacket(PMT_PID, pmtSection(VIDEO_PID, STREAM_TYPE_HEVC), 0),
+      packets[0]!,
+      tsPacket(VIDEO_PID, new Uint8Array([0x02, 0x01, 0xaf, 0x08]), {
+        pusi: false,
+        cc: (firstCc + 2) & 0x0f,
+      }),
+    ])
+    const demux = createTsDemuxer()
+    demux.push(broken)
+    expect(demux.lossStats().ccGaps).toBeGreaterThanOrEqual(1)
   })
 
   it('emits H.264 IDR vs non-IDR with exact PTS', () => {

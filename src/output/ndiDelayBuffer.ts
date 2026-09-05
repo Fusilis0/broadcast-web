@@ -26,6 +26,9 @@ export type NdiDelayedFrame = {
   /** Owned RGBA pixel buffer (caller supplies a detached copy). */
   data: ArrayBuffer
   bottomUp: boolean
+  /** DIAG:srt-fps — present() PTS/reason stamped at AR capture begin. */
+  contentPts90k?: number | null
+  contentReason?: string | null
 }
 
 export type OutputDelayMsConfig = {

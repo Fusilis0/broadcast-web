@@ -1,0 +1,296 @@
+{
+  "source": "live drone Electron autoConnectSrt=1 2026-09-04; raw logs diag-decode-a-session{1,2}-20260904.log",
+  "mechanism": "srtReader IPC chunk drops (MAX_QUEUED_CHUNKS=1) splice MPEG-TS \u2192 demux CC gaps/sync resyncs \u2192 WebCodecs Decoding error. \u2192 waitingForKeyframe; ffmpeg drop_frames stayed 0",
+  "sessions": [
+    {
+      "id": "session1",
+      "presentSecs": 255,
+      "decodeErrors": 8,
+      "ipcDrops": 8,
+      "errorsWithCcGap": 8,
+      "errorsWithin1_5sOfIpcDrop": 8,
+      "events": [
+        {
+          "wallMs": 1788519213155,
+          "message": "Decoding error.",
+          "framesSinceKeyframe": 0,
+          "demuxDeltaCcGaps": 1,
+          "demuxDeltaSyncResyncs": 1,
+          "ipcDropCount": 1,
+          "bitrateKbps": 5392,
+          "ptsGap90k": 3000,
+          "lastFedKeyframe": true,
+          "nalTypes": [
+            35,
+            32,
+            33,
+            34,
+            19,
+            19,
+            48,
+            35,
+            1,
+            1
+          ]
+        },
+        {
+          "wallMs": 1788519220521,
+          "message": "Decoding error.",
+          "framesSinceKeyframe": 1,
+          "demuxDeltaCcGaps": 1,
+          "demuxDeltaSyncResyncs": 1,
+          "ipcDropCount": 1,
+          "bitrateKbps": 5169,
+          "ptsGap90k": 3000,
+          "lastFedKeyframe": false,
+          "nalTypes": [
+            35,
+            1,
+            1,
+            48,
+            35,
+            1,
+            1
+          ]
+        },
+        {
+          "wallMs": 1788519245169,
+          "message": "Decoding error.",
+          "framesSinceKeyframe": 0,
+          "demuxDeltaCcGaps": 1,
+          "demuxDeltaSyncResyncs": 1,
+          "ipcDropCount": 3,
+          "bitrateKbps": 4808,
+          "ptsGap90k": 3000,
+          "lastFedKeyframe": true,
+          "nalTypes": [
+            35,
+            32,
+            33,
+            34,
+            19,
+            19,
+            48,
+            35,
+            1,
+            1
+          ]
+        },
+        {
+          "wallMs": 1788519272124,
+          "message": "Decoding error.",
+          "framesSinceKeyframe": 6,
+          "demuxDeltaCcGaps": 5,
+          "demuxDeltaSyncResyncs": 2,
+          "ipcDropCount": 5,
+          "bitrateKbps": 98,
+          "ptsGap90k": 3000,
+          "lastFedKeyframe": false,
+          "nalTypes": [
+            35,
+            1,
+            1
+          ]
+        },
+        {
+          "wallMs": 1788519289245,
+          "message": "Decoding error.",
+          "framesSinceKeyframe": 1,
+          "demuxDeltaCcGaps": 1,
+          "demuxDeltaSyncResyncs": 1,
+          "ipcDropCount": 6,
+          "bitrateKbps": 5632,
+          "ptsGap90k": 3000,
+          "lastFedKeyframe": false,
+          "nalTypes": [
+            35,
+            1,
+            1,
+            48,
+            35,
+            1,
+            1
+          ]
+        },
+        {
+          "wallMs": 1788519322315,
+          "message": "Decoding error.",
+          "framesSinceKeyframe": 3,
+          "demuxDeltaCcGaps": 1,
+          "demuxDeltaSyncResyncs": 1,
+          "ipcDropCount": 7,
+          "bitrateKbps": 4903,
+          "ptsGap90k": 3000,
+          "lastFedKeyframe": false,
+          "nalTypes": [
+            35,
+            1,
+            1
+          ]
+        },
+        {
+          "wallMs": 1788519350293,
+          "message": "Decoding error.",
+          "framesSinceKeyframe": 1,
+          "demuxDeltaCcGaps": 2,
+          "demuxDeltaSyncResyncs": 1,
+          "ipcDropCount": 8,
+          "bitrateKbps": 5216,
+          "ptsGap90k": 3000,
+          "lastFedKeyframe": false,
+          "nalTypes": [
+            35,
+            1,
+            1,
+            48,
+            35,
+            1,
+            1
+          ]
+        },
+        {
+          "wallMs": 1788519375331,
+          "message": "Decoding error.",
+          "framesSinceKeyframe": 1,
+          "demuxDeltaCcGaps": 1,
+          "demuxDeltaSyncResyncs": 1,
+          "ipcDropCount": 9,
+          "bitrateKbps": 5414,
+          "ptsGap90k": 3000,
+          "lastFedKeyframe": false,
+          "nalTypes": [
+            35,
+            1,
+            1,
+            48,
+            35,
+            1,
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "id": "session2",
+      "presentSecs": 167,
+      "decodeErrors": 6,
+      "ipcDrops": 6,
+      "errorsWithCcGap": 5,
+      "errorsWithin1_5sOfIpcDrop": 6,
+      "events": [
+        {
+          "wallMs": 1788519452378,
+          "message": "Decoding error.",
+          "framesSinceKeyframe": 1,
+          "demuxDeltaCcGaps": 1,
+          "demuxDeltaSyncResyncs": 1,
+          "ipcDropCount": 0,
+          "bitrateKbps": 4417,
+          "ptsGap90k": 3000,
+          "lastFedKeyframe": false,
+          "nalTypes": [
+            35,
+            1,
+            1,
+            48,
+            35,
+            1,
+            1
+          ]
+        },
+        {
+          "wallMs": 1788519476784,
+          "message": "Decoding error.",
+          "framesSinceKeyframe": 3,
+          "demuxDeltaCcGaps": 1,
+          "demuxDeltaSyncResyncs": 1,
+          "ipcDropCount": 1,
+          "bitrateKbps": 5494,
+          "ptsGap90k": 3000,
+          "lastFedKeyframe": false,
+          "nalTypes": [
+            35,
+            1,
+            1
+          ]
+        },
+        {
+          "wallMs": 1788519495059,
+          "message": "Decoding error.",
+          "framesSinceKeyframe": 1,
+          "demuxDeltaCcGaps": 2,
+          "demuxDeltaSyncResyncs": 1,
+          "ipcDropCount": 3,
+          "bitrateKbps": 5090,
+          "ptsGap90k": 3000,
+          "lastFedKeyframe": false,
+          "nalTypes": [
+            35,
+            1,
+            1,
+            48,
+            35,
+            1,
+            1
+          ]
+        },
+        {
+          "wallMs": 1788519509461,
+          "message": "Decoding error.",
+          "framesSinceKeyframe": 1,
+          "demuxDeltaCcGaps": 1,
+          "demuxDeltaSyncResyncs": 1,
+          "ipcDropCount": 3,
+          "bitrateKbps": 4840,
+          "ptsGap90k": 3000,
+          "lastFedKeyframe": false,
+          "nalTypes": [
+            35,
+            1,
+            1,
+            48,
+            35,
+            1,
+            1
+          ]
+        },
+        {
+          "wallMs": 1788519540158,
+          "message": "Decoding error.",
+          "framesSinceKeyframe": 1,
+          "demuxDeltaCcGaps": 0,
+          "demuxDeltaSyncResyncs": 1,
+          "ipcDropCount": 5,
+          "bitrateKbps": 5111,
+          "ptsGap90k": 3000,
+          "lastFedKeyframe": false,
+          "nalTypes": [
+            35,
+            1,
+            1,
+            48,
+            35,
+            1,
+            1
+          ]
+        },
+        {
+          "wallMs": 1788519598944,
+          "message": "Decoding error.",
+          "framesSinceKeyframe": 4,
+          "demuxDeltaCcGaps": 1,
+          "demuxDeltaSyncResyncs": 1,
+          "ipcDropCount": 5,
+          "bitrateKbps": 4307,
+          "ptsGap90k": 3000,
+          "lastFedKeyframe": false,
+          "nalTypes": [
+            35,
+            1,
+            1
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -4,6 +4,7 @@
  */
 
 import type { NdiPackedFormat } from './ndiUyvy.ts'
+import { diagMarkMacrotask } from './ndiDeferredSend.ts'
 
 export type NdiUyvyWorkerHandle = {
   pack(
@@ -28,6 +29,7 @@ export function createNdiUyvyWorker(): NdiUyvyWorkerHandle | null {
       { resolve: (data: ArrayBuffer) => void; reject: (err: Error) => void }
     >()
     worker.onmessage = (event: MessageEvent<{ id: number; data?: ArrayBuffer; error?: string }>) => {
+      diagMarkMacrotask('uyvyWorker')
       const msg = event.data
       const entry = pending.get(msg.id)
       if (!entry) return

@@ -12,6 +12,7 @@
  */
 
 import { beginStudioTickTiming } from './ndiStageTiming.ts'
+import { diagMarkMacrotask } from './ndiDeferredSend.ts'
 import { HITCH_DT_MS_33, HITCH_DT_MS_50 } from './perfCounters.ts'
 
 export type ClockUnsubscribe = () => void
@@ -108,6 +109,7 @@ export function startDualFrameClock(
   function onRaf(): void {
     if (stopped) return
     rafId = raf(onRaf)
+    diagMarkMacrotask('raf-preview')
     if (isHidden()) return
     firePreview()
   }

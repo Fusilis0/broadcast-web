@@ -1,7 +1,23 @@
 # OUT_MEMO
 
-**Last updated:** 2026-08-30  
+**Last updated:** 2026-09-04  
 **Status:** Wave 3 + flip **accepted in code**. Live Send still ~5–7 after UYVY IPC cut. Next wall is renderer-thread pack / 2D grab — GPU + workers landed in tree, not yet live-proven.
+
+## 2D off studio:tick + FBO yield 2026-09-04 (SRT round-5, OUT-owned)
+
+Cross-ref `SRT_MEMO` round-5: post–freshness unique AR Send ~**26.3**/s (need ≥30). Mechanism: AR `busy` (PBO) tracks long `2dGrab` walls; worker path already real — not H1. **OUT diffs (separable):**
+
+- `streamMapNdiPump.ts` — independent `setInterval` (not `studio:tick`); yield when `isNdiFboReadbackPressured()`.
+- `ndiFboReadbackPressure.ts` — AR/3D register `readback.canBegin` probes.
+- `ndiFramePump.ts` / `ndi3dChannelPump.ts` — register/unregister probes.
+- `ndi2dAsyncCapture.ts` — per-grab worker errors no longer fail-closed to sync; sync refused while FBO probes live.
+- `ndiCaptureClock.ts` / `ndiFramePump.ts` — `forceAdmit` when a fresh present PTS would otherwise be rateCap-dropped (closes ~0.7 Send fps after busy→0).
+
+Keep round-4 freshness gate. No `ndiSender.cjs`. Live: sendNewPts **26.3→30.2**, AR busy **6.5→0**.
+
+## AR freshness gate 2026-09-04 (SRT round-4, OUT-owned pump)
+
+Cross-ref `SRT_MEMO` round-4: AR NDI was re-capturing the same `present()` PTS (~6.7 dup-run pairs/s). Fix in **`ndiFramePump.ts`** — skip when PTS unchanged (`freshness` skip). Live: capture dup-runs/s **6.66→0**, sendSamePts **19.4%→0**. Separable from SRT ingest/present diffs. No `ndiSender.cjs`.
 
 ## GPU / extra-core pack 2026-08-30 (live, not dispatched)
 

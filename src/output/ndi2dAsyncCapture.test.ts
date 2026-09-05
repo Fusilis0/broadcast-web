@@ -19,6 +19,10 @@ import {
   NDI_2D_SYNC_CAPTURE_NOTE,
   probeNdi2dWorkerCapture,
 } from './ndi2dAsyncCapture.ts'
+import {
+  registerNdiFboCanBeginProbe,
+  resetNdiFboReadbackPressure,
+} from './ndiFboReadbackPressure.ts'
 import { letterboxRect as pumpLetterboxRect } from './streamMapNdiPump.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -369,6 +373,29 @@ describe('createNdi2dAsyncCapture sync fallback', () => {
       expect(order).toEqual(['sync', 'deferred'])
     })
   })
+
+  it('refuses sync grab while AR/3D FBO readback probes are registered', async () => {
+    restoreCtx = installFake2dContext()
+    const unreg = registerNdiFboCanBeginProbe(() => true)
+    try {
+      const capture = createNdi2dAsyncCapture({
+        forceSync: true,
+        onFallbackNote: () => {},
+      })
+      await expect(
+        capture.grab({
+          source: sourceCanvas(),
+          outW: 8,
+          outH: 4,
+          box,
+        }),
+      ).rejects.toThrow(/sync grab disabled/)
+      capture.dispose()
+    } finally {
+      unreg()
+      resetNdiFboReadbackPressure()
+    }
+  })
 })
 
 describe('createNdi2dAsyncCapture worker path', () => {
@@ -446,6 +473,8 @@ describe('ndi2dAsyncCapture source invariants', () => {
     expect(src).toMatch(/postMessage\(request,\s*\[bitmap\]\)/)
     expect(src).not.toMatch(/tryClaimNdiHeavyCapture\(/)
     expect(src).toMatch(/NDI_2D_LETTERBOX_FILL\s*=\s*['"]#0a1018['"]/)
+    expect(src).toMatch(/if \(worker\)/)
+    expect(src).toMatch(/sync grab disabled while AR\/3D/)
     expect(src).not.toMatch(
       /getImageData\(\s*0\s*,\s*0\s*,\s*(outW|input\.outW)/,
     )

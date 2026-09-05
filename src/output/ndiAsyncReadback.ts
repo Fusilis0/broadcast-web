@@ -57,6 +57,15 @@ export type CreateNdiAsyncReadbackOptions = {
   forceSync?: boolean
   /** Test seam: capture the fallback note instead of `console.warn`. */
   onFallbackNote?: (message: string) => void
+  /**
+   * After `fenceSync`, call `gl.flush()` so the pack reaches the GPU.
+   * Default **true** (3D). AR sets **false**: Chromium WebGL2
+   * `clientWaitSync` already submits the command buffer (`WaitForCmd` /
+   * `Finish` in `GLES2Implementation`), and `arReadbackDrain` polls on
+   * the same tick as `begin` plus every later tick. Do not rely on a
+   * later canvas swap.
+   */
+  flushAfterPack?: boolean
 }
 
 /** Recycled RGBA CPU buffers — in-flight PBO + deferred IPC, no `slice`. */
@@ -230,6 +239,7 @@ export function createNdiAsyncReadback(
   options: CreateNdiAsyncReadbackOptions,
 ): NdiAsyncReadback {
   const { renderer } = options
+  const flushAfterPack = options.flushAfterPack !== false
   const onFallbackNote =
     options.onFallbackNote ??
     ((message: string) => {
@@ -380,18 +390,7 @@ export function createNdiAsyncReadback(
       }
       gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, 0)
       const fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0)
-      // #region agent log
-      const __flushT0 = performance.now()
-      // #endregion
-      gl.flush()
-      // #region agent log
-      const __flushMs = performance.now() - __flushT0
-      if (!(globalThis as { __ndiBeginLogAt?: number }).__ndiBeginLogAt ||
-        performance.now() - ((globalThis as { __ndiBeginLogAt?: number }).__ndiBeginLogAt ?? 0) > 1000) {
-        ;(globalThis as { __ndiBeginLogAt?: number }).__ndiBeginLogAt = performance.now()
-        fetch('http://127.0.0.1:7438/ingest/7196fb84-148e-4d0c-af68-4fcb53313232',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'173fbb'},body:JSON.stringify({sessionId:'173fbb',runId:'pre-fix',hypothesisId:'H2',location:'ndiAsyncReadback.ts:packPbo',message:'PBO pack+flush',data:{w,h,flushMs:__flushMs,bytes},timestamp:Date.now()})}).catch(()=>{});
-      }
-      // #endregion
+      if (flushAfterPack) gl.flush()
       if (!fence) return false
       slot.fence = fence
       slot.width = w

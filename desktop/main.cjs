@@ -454,7 +454,9 @@ function createWindow() {
     if (
       typeof message !== 'string' ||
       (!message.includes('[diag:srt-fps]') &&
-        !message.includes('[diag:auto-connect]'))
+        !message.includes('[diag:auto-connect]') &&
+        !message.includes('[diag:decode-error]') &&
+        !message.includes('[diag:frame-id]'))
     ) {
       return
     }
@@ -595,12 +597,24 @@ app.whenReady().then(async () => {
     `[desktop] GPU preference: ${useIntegratedGpu ? 'integrated (opt-out)' : 'high-performance (discrete preferred)'}`,
   )
   try {
-    const info = await app.getGPUInfo('basic')
-    const gpuDevice =
-      info && typeof info === 'object' && 'gpuDevice' in info
-        ? /** @type {{ gpuDevice?: unknown }} */ (info).gpuDevice
-        : undefined
-    console.info('[desktop] GPU info (basic):', JSON.stringify(gpuDevice ?? info))
+    const info = await app.getGPUInfo('complete')
+    const rec =
+      info && typeof info === 'object' ? /** @type {Record<string, unknown>} */ (info) : {}
+    const aux =
+      rec.auxAttributes && typeof rec.auxAttributes === 'object'
+        ? /** @type {Record<string, unknown>} */ (rec.auxAttributes)
+        : rec
+    const gpuDevice = rec.gpuDevice
+    console.info(
+      '[desktop] GPU info:',
+      JSON.stringify({
+        gpuDevice,
+        glRenderer: aux.glRenderer ?? aux.gl_renderer ?? null,
+        glVendor: aux.glVendor ?? aux.gl_vendor ?? null,
+        glImplementation: aux.implementation ?? aux.glImplementation ?? null,
+        inProcessGpu: rec.inProcessGpu ?? null,
+      }),
+    )
   } catch (err) {
     console.warn('[desktop] getGPUInfo failed', err)
   }

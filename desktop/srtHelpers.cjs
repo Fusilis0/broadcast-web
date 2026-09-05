@@ -13,10 +13,14 @@ const MAX_SESSIONS = 4
 const BACKOFF_MS = [1000, 2000, 4000, 8000, 15000, 30000]
 
 /**
- * One in-flight IPC chunk + one queued. At ~8 Mbps a typical stdout read is 64–256 KB;
- * this bounds main-process memory regardless of renderer speed.
+ * Bound main-process memory while absorbing ffmpeg stdout bursts that arrive
+ * faster than one IPC round-trip. `MAX_QUEUED_CHUNKS = 1` dropped mid-GOP TS
+ * (item a): every live `Decoding error.` co-occurred with ipc-drop + demux
+ * continuity-counter gaps. At ~8 Mbps a typical stdout read is 64–256 KB;
+ * 32 × 256 KB ≈ 8 MB worst case — enough for ~1 s of backlog without splicing
+ * the bitstream.
  */
-const MAX_QUEUED_CHUNKS = 1
+const MAX_QUEUED_CHUNKS = 32
 
 /**
  * Serialize an srt:// URL without percent-encoding `streamid` colons.

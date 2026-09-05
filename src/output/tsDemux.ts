@@ -30,11 +30,25 @@ export type DemuxedAccessUnit = {
   codec: VideoCodec
 }
 
+/** Packet-loss / resync counters for decode-error correlation (item a). */
+export type TsDemuxLossStats = {
+  /** Continuity-counter gaps on video PID (missing TS packets). */
+  ccGaps: number
+  /** Times the byte scanner jumped to re-find 0x47 sync. */
+  syncResyncs: number
+  /** Adaptation-field discontinuity_indicator=1 on video PID. */
+  adaptationDiscontinuities: number
+  /** TS packets seen on the video PID. */
+  videoPackets: number
+}
+
 export type TsDemuxer = {
   push(chunk: Uint8Array): DemuxedAccessUnit[]
   reset(): void
   videoPid(): number | null
   codec(): VideoCodec | null
+  /** Cumulative loss/resync counters since last `reset()`. */
+  lossStats(): TsDemuxLossStats
 }
 
 export type PtsUnwrapper = {
@@ -89,6 +103,12 @@ export function createTsDemuxer(): TsDemuxer {
   let codec: VideoCodec | null = null
   const pesByPid = new Map<number, PesAssembler>()
   const sectionByPid = new Map<number, Uint8Array>()
+  /** Last continuity counter per PID that carried a payload. */
+  const lastCcByPid = new Map<number, number>()
+  let ccGaps = 0
+  let syncResyncs = 0
+  let adaptationDiscontinuities = 0
+  let videoPackets = 0
 
   function resetState(): void {
     leftover = new Uint8Array(0)
@@ -97,6 +117,11 @@ export function createTsDemuxer(): TsDemuxer {
     codec = null
     pesByPid.clear()
     sectionByPid.clear()
+    lastCcByPid.clear()
+    ccGaps = 0
+    syncResyncs = 0
+    adaptationDiscontinuities = 0
+    videoPackets = 0
   }
 
   function assembler(pid: number): PesAssembler {
@@ -218,6 +243,15 @@ export function createTsDemuxer(): TsDemuxer {
     }
   }
 
+  function noteContinuity(pid: number, cc: number, hasPayload: boolean): void {
+    if (!hasPayload) return
+    const prev = lastCcByPid.get(pid)
+    lastCcByPid.set(pid, cc)
+    if (prev === undefined) return
+    const expected = (prev + 1) & 0x0f
+    if (cc !== expected) ccGaps += 1
+  }
+
   function handlePacket(pkt: Uint8Array, out: DemuxedAccessUnit[]): void {
     if (pkt[0] !== TS_SYNC_BYTE) return
     const tei = (pkt[1]! & 0x80) !== 0
@@ -227,6 +261,7 @@ export function createTsDemuxer(): TsDemuxer {
     if (pid === PID_NULL) return
     const adaptation = (pkt[3]! >> 4) & 0x03
     if (adaptation === 0) return
+    const cc = pkt[3]! & 0x0f
 
     let offset = 4
     let discontinuity = false
@@ -237,6 +272,12 @@ export function createTsDemuxer(): TsDemuxer {
         discontinuity = (pkt[offset]! & 0x80) !== 0
       }
       offset += afLen
+    }
+    const hasPayload = adaptation === 1 || adaptation === 3
+    noteContinuity(pid, cc, hasPayload)
+    if (videoPid !== null && pid === videoPid) {
+      videoPackets += 1
+      if (discontinuity) adaptationDiscontinuities += 1
     }
     if (adaptation === 2) return
     if (offset >= TS_PACKET_SIZE) return
@@ -268,6 +309,7 @@ export function createTsDemuxer(): TsDemuxer {
             leftover = buf.subarray(i)
             return out
           }
+          if (next > i) syncResyncs += 1
           i = next
           if (i + TS_PACKET_SIZE > buf.length) break
         }
@@ -280,6 +322,12 @@ export function createTsDemuxer(): TsDemuxer {
     reset: resetState,
     videoPid: () => videoPid,
     codec: () => codec,
+    lossStats: () => ({
+      ccGaps,
+      syncResyncs,
+      adaptationDiscontinuities,
+      videoPackets,
+    }),
   }
 }
 

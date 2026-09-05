@@ -14,6 +14,12 @@ export const DEFAULT_MAX_FRAME_COUNT = 512
 /** Residual gate after the first OLS pass. 1 s still rejects “seconds off”; see module doc. */
 export const DEFAULT_OUTLIER_RESIDUAL_MS = 1_000
 export const DEFAULT_CLOCK_STEP_MS = 1_000
+/**
+ * Healthy PTS→NTP slope is ~1 (ms NTP per ms media). Flat/drifting fits from
+ * the live lock mapped tens of seconds of PTS to ~0 ms NTP — reject those.
+ */
+export const MIN_HEALTHY_SLOPE = 0.5
+export const MAX_HEALTHY_SLOPE = 2.0
 
 export type PtsNtpMode = 'interpolated' | 'extrapolated' | 'unavailable'
 
@@ -324,6 +330,13 @@ export function createPtsNtpMap(options: PtsNtpMapOptions = {}): PtsNtpMap {
     toNtp(pts90k: number): PtsNtpResult {
       const series = fitSeries()
       if (!Number.isFinite(pts90k) || !fit || series.length < 2) return UNAVAILABLE
+
+      if (
+        fit.slope < MIN_HEALTHY_SLOPE ||
+        fit.slope > MAX_HEALTHY_SLOPE
+      ) {
+        return UNAVAILABLE
+      }
 
       const queryUnwrapped = unwrapPts(maskPts33(pts90k))
       let minPts = series[0]!.ptsUnwrapped

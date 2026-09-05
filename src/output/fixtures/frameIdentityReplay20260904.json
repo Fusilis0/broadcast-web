@@ -1,0 +1,101 @@
+{
+  "source": "live Electron A/B 2026-09-04 frame-identity round 4",
+  "date": "2026-09-04",
+  "mechanism": "AR NDI capture/send reuses the same present() PTS on consecutive captures (~6.7 capture dup-run pairs/s baseline). 71% of baseline capture-dup spans overlap a 2dGrab wall, but ndi2d=off only cuts capture-dup rate 6.66→5.26/s (−21%) and sendSamePts 19.4→16.8%; ndi3d=off similarly 5.18/s — contention amplifies, freshness gate is the direct fix.",
+  "baselineCaptureDupPerSec": 6.66,
+  "twoDOffCaptureDupPerSec": 5.26,
+  "threeDOffCaptureDupPerSec": 5.18,
+  "postFix": {
+    "healthySecs": 114,
+    "captureDupPerSec": 0,
+    "sendDupPerSec": 0,
+    "captureDupMaxLen": 0,
+    "sendSamePct": 0,
+    "freshnessSkipPerSec": 25.8,
+    "uniquePresentPerSec": 30.3,
+    "capturePerSec": 29.2
+  },
+  "conditions": [
+    {
+      "id": "baseline",
+      "healthySecs": 152,
+      "sendSamePts": 907,
+      "sendNewPts": 3767,
+      "sendSamePct": 19.4,
+      "uniquePresentPerSec": 28.8,
+      "capturePerSec": 31.9,
+      "captureDupRuns": {
+        "n": 1012,
+        "maxLen": 2,
+        "overlap2d": 719,
+        "overlapPct": 71.0,
+        "meanLen": 2.0,
+        "meanSpanMs": 17.43,
+        "perSec": 6.66
+      },
+      "sendDupRuns": {
+        "n": 907,
+        "maxLen": 2,
+        "overlap2d": 430,
+        "overlapPct": 47.4,
+        "meanLen": 2.0,
+        "meanSpanMs": 17.74,
+        "perSec": 5.97
+      }
+    },
+    {
+      "id": "2d-off",
+      "healthySecs": 117,
+      "sendSamePts": 628,
+      "sendNewPts": 3109,
+      "sendSamePct": 16.8,
+      "uniquePresentPerSec": 30.3,
+      "capturePerSec": 32.3,
+      "captureDupRuns": {
+        "n": 616,
+        "maxLen": 4,
+        "overlap2d": 0,
+        "overlapPct": 0.0,
+        "meanLen": 2.07,
+        "meanSpanMs": 22.79,
+        "perSec": 5.26
+      },
+      "sendDupRuns": {
+        "n": 591,
+        "maxLen": 4,
+        "overlap2d": 0,
+        "overlapPct": 0.0,
+        "meanLen": 2.06,
+        "meanSpanMs": 21.74,
+        "perSec": 5.05
+      }
+    },
+    {
+      "id": "3d-off",
+      "healthySecs": 115,
+      "sendSamePts": 663,
+      "sendNewPts": 3052,
+      "sendSamePct": 17.8,
+      "uniquePresentPerSec": 30.1,
+      "capturePerSec": 32.3,
+      "captureDupRuns": {
+        "n": 596,
+        "maxLen": 24,
+        "overlap2d": 484,
+        "overlapPct": 81.2,
+        "meanLen": 2.11,
+        "meanSpanMs": 26.67,
+        "perSec": 5.18
+      },
+      "sendDupRuns": {
+        "n": 596,
+        "maxLen": 24,
+        "overlap2d": 482,
+        "overlapPct": 80.9,
+        "meanLen": 2.11,
+        "meanSpanMs": 27.62,
+        "perSec": 5.18
+      }
+    }
+  ]
+}

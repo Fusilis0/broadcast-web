@@ -50,8 +50,9 @@ describe('NDI capture colour-space wiring', () => {
     expect(ar).toMatch(/applyNdiCaptureColorSpace/)
     expect(d3).toMatch(/applyNdiCaptureColorSpace/)
     expect(ar).toMatch(
-      /new WebGLRenderTarget[\s\S]*?applyNdiCaptureColorSpace\(airTarget\)/,
+      /new WebGLRenderTarget[\s\S]*?applyNdiCaptureColorSpace\(target\)/,
     )
+    expect(ar).toMatch(/createNdiAirTargetPingPong/)
     expect(d3).toMatch(
       /new WebGLRenderTarget[\s\S]*?applyNdiCaptureColorSpace\(target\)/,
     )

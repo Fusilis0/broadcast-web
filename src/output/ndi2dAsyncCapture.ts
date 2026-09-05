@@ -18,6 +18,11 @@ import {
   transferableRgbaBuffer,
 } from './letterboxRect.ts'
 import { markNdiSync2dCapture } from './ndiStageTiming.ts'
+import { diagMark2dGrabBitmap } from './ndiDeferredSend.ts'
+import {
+  hasNdiFboCanBeginProbes,
+  isNdiFboReadbackPressured,
+} from './ndiFboReadbackPressure.ts'
 import { debugSessionLog } from './studioBridge.ts'
 
 export type Ndi2dCaptureMode = 'worker' | 'sync'
@@ -303,7 +308,13 @@ export function createNdi2dAsyncCapture(
     // #region agent log
     const __bitT0 = performance.now()
     // #endregion
-    const bitmap = await createImageBitmapFn(input.source)
+    diagMark2dGrabBitmap(true)
+    let bitmap: ImageBitmap
+    try {
+      bitmap = await createImageBitmapFn(input.source)
+    } finally {
+      diagMark2dGrabBitmap(false)
+    }
     // #region agent log
     ;(globalThis as { __ndi2dBitMs?: number }).__ndi2dBitMs = performance.now() - __bitT0
     // #endregion
@@ -346,18 +357,18 @@ export function createNdi2dAsyncCapture(
       if (disposed) {
         throw new Error('2D NDI capture disposed')
       }
-      // #region agent log
       const __grabT0 = performance.now()
-      // #endregion
       if (mode === 'worker') {
         try {
           const data = await workerGrab(input)
-          // #region agent log
-          if (!(globalThis as { __ndi2dLogAt?: number }).__ndi2dLogAt ||
-            performance.now() - ((globalThis as { __ndi2dLogAt?: number }).__ndi2dLogAt ?? 0) > 1000) {
-            ;(globalThis as { __ndi2dLogAt?: number }).__ndi2dLogAt = performance.now()
-            fetch('http://127.0.0.1:7438/ingest/7196fb84-148e-4d0c-af68-4fcb53313232',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'173fbb'},body:JSON.stringify({sessionId:'173fbb',runId:'pre-fix',hypothesisId:'H3',location:'ndi2dAsyncCapture.ts:grab',message:'2d grab complete',data:{mode,srcW:input.source.width,srcH:input.source.height,outW:input.outW,outH:input.outH,totalMs:performance.now()-__grabT0,bitmapMs:(globalThis as { __ndi2dBitMs?: number }).__ndi2dBitMs??-1,bytes:data.byteLength},timestamp:Date.now()})}).catch(()=>{});
-            // #region agent log
+          if (
+            !(globalThis as { __ndi2dLogAt?: number }).__ndi2dLogAt ||
+            performance.now() -
+              ((globalThis as { __ndi2dLogAt?: number }).__ndi2dLogAt ?? 0) >
+              1000
+          ) {
+            ;(globalThis as { __ndi2dLogAt?: number }).__ndi2dLogAt =
+              performance.now()
             debugSessionLog({
               hypothesisId: 'H6',
               location: 'ndi2dAsyncCapture.ts:grab',
@@ -375,16 +386,28 @@ export function createNdi2dAsyncCapture(
                 bytes: data.byteLength,
               },
             })
-            // #endregion
           }
-          // #endregion
           return data
-        } catch {
+        } catch (err) {
           if (disposed) {
             throw new Error('2D NDI capture disposed')
           }
+          // Per-grab failures must not silently reappear as sync getImageData
+          // under load (SRT round 5). Permanent sync only via worker.onerror.
+          if (worker) {
+            throw err instanceof Error ? err : new Error(String(err))
+          }
           failClosedToSync()
         }
+      }
+      // Sync path: refuse while AR/3D FBO pumps are live (or pressured).
+      if (hasNdiFboCanBeginProbes()) {
+        throw new Error(
+          '2D NDI sync grab disabled while AR/3D NDI readback is active',
+        )
+      }
+      if (isNdiFboReadbackPressured()) {
+        throw new Error('2D NDI sync grab skipped under FBO readback pressure')
       }
       return syncGrabPixels(input, pool, scratch)
     },

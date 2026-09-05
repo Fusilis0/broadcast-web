@@ -228,6 +228,17 @@ describe('PtsNtpMap', () => {
     expect(slope).toBeCloseTo(1, 5)
   })
 
+  it('rejects flat slope fits as unavailable (live lock signature)', () => {
+    const map = createPtsNtpMap()
+    // PTS advances but NTP stays put → slope ≈ 0
+    addPacing(map, 0, BASE_NTP)
+    addPacing(map, 90_000, BASE_NTP)
+    expect(map.health().slope).not.toBeNull()
+    expect(Math.abs(map.health().slope!)).toBeLessThan(0.5)
+    expect(map.toNtp(45_000).mode).toBe('unavailable')
+    expect(map.toNtp(45_000).ntpMs).toBeNull()
+  })
+
   it('isolates maps per stream_id', () => {
     const a = getPtsNtpMap('5')
     const b = getPtsNtpMap('6')

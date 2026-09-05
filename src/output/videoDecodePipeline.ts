@@ -8,10 +8,21 @@
  * `PTS_TIMESTAMP_MATCH_US`) — never a 90 kHz PTS.
  * Annex-B config has **no** `description`.
  *
+ * Hybrid present (pace on): every `present()` consumes queued `VideoFrame`s
+ * via `onConsumeFrame` (must force GPU upload, e.g. `initTexture`), then
+ * closes immediately. Retained PTS metadata drives pick; the wall-clock gate
+ * only swaps the displayed ring slot. Overlay samples `toNtp(shownPts)` at
+ * that swap, never newest at consume time.
+ *
  * VideoDecoder is injectable — vitest-node has no WebCodecs.
  */
 
 import { maskPts33, ptsDiff33 } from '../telemetry/ptsNtpMap.ts'
+import {
+  logDecodeErrorEvent,
+  resetDecodeErrorDiagLossBaseline,
+  summarizeNalTypes,
+} from './diagDecodeError.ts'
 import {
   type DemuxedAccessUnit,
   type ParamSetCache,
@@ -30,6 +41,25 @@ import {
 export const MIN_PRESENT_LATENCY_MS = 100
 export const MAX_PRESENT_LATENCY_MS = 400
 export const DEFAULT_QUEUE_CAP = 24
+/**
+ * When |NTP latency − PTS latency| exceeds max(this, ratio×PTS gap), trust PTS.
+ * Live lock: tens-of-seconds PTS gap mapped to ~0 ms NTP (flat LUT fit).
+ */
+export const LATENCY_NTP_AGREE_MS = 50
+export const LATENCY_NTP_AGREE_RATIO = 0.25
+/**
+ * Wall-clock pace inside `present()` (Option A). Invoked only on `studio:tick`.
+ * Slack is derived from measured tick intervals (mean 17.41 ms, std 11.39 ms):
+ * threshold = mean+1σ = 28.80 ms; slack = 1000/30 − 28.80 = 4.53 → 5 ms.
+ */
+export const PRESENT_PACE_FPS = 30
+export const PRESENT_PACE_PERIOD_MS = 1000 / PRESENT_PACE_FPS
+export const PRESENT_PACE_SLACK_MS = 5
+/**
+ * Floor between unique display swaps. Stops 0 ms double-ticks and leftover
+ * phase after a long tick from emitting a &lt;20 ms unique interval.
+ */
+export const PRESENT_PACE_MIN_INTERVAL_MS = 20
 /** Max |WebCodecs timestamp − stored key| (µs) still treated as the same AU. */
 export const PTS_TIMESTAMP_MATCH_US = 32
 
@@ -99,6 +129,8 @@ export type PresentationReason =
   | 'min-clamp'
   | 'max-clamp'
   | 'repeat'
+  /** Pick wanted a new PTS; wall-clock pace refused the swap this tick. */
+  | 'pace-hold'
 
 export type PresentationPick = {
   pts90k: number
@@ -115,6 +147,11 @@ export type PresentationPolicyInput = {
   fixedLatencyMs?: number
   minLatencyMs?: number
   maxLatencyMs?: number
+  /**
+   * Currently displayed PTS (may be unshifted into `frames[0]`). When set,
+   * clamp fallbacks must not freeze on it if any candidate is strictly ahead.
+   */
+  shownPts90k?: number | null
 }
 
 export type DecodeCounters = {
@@ -126,6 +163,8 @@ export type DecodeCounters = {
   presentedPts90k: number | null
   presentedNtpMs: number | null
   latencyMs: number | null
+  /** PTS copies retained for pick after VideoFrame consume/close. */
+  retainedDepth: number
   degraded: boolean
   reason: PresentationReason | null
   waitingForKeyframe: boolean
@@ -146,6 +185,67 @@ export type VideoDecodePipelineOptions = {
   maxLatencyMs?: number
   queueCap?: number
   onOpsError?: (message: string) => void
+  /**
+   * Hybrid consume + paced display. Default **on**.
+   * `?presentPace=off` disables via the stream manager.
+   */
+  presentPace?: boolean
+  nowMs?: () => number
+  pacePeriodMs?: number
+  paceSlackMs?: number
+  /**
+   * Hybrid consume: called for every queued `VideoFrame` at the start of
+   * `present()`, while the frame is still open. Must finish a real GPU
+   * upload (e.g. `WebGLRenderer.initTexture`) before returning — the
+   * pipeline closes the frame immediately after this callback.
+   */
+  onConsumeFrame?: (
+    frame: VideoFrameLike,
+    pts90k: number | null,
+    timestampUs: number,
+  ) => void
+  /**
+   * Latest SRT/IPC ingest proxies for decode-error correlation (item a).
+   * `srtReader` does not expose libsrt packet-loss counters — callers pass
+   * bitrate / ipcDrop / ffmpeg drop_frames instead.
+   */
+  getIngestDiag?: () => {
+    bitrateKbps: number | null
+    ipcDropCount: number | null
+    ipcDropPerSec: number | null
+    ffmpegDropFrames: string | null
+  } | null
+}
+
+/**
+ * Default **on**. `?presentPace=off` (or 0/false/no) disables hybrid pace.
+ */
+export function parsePresentPace(search: string | URLSearchParams): boolean {
+  const params =
+    search instanceof URLSearchParams
+      ? search
+      : new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
+  const raw = (params.get('presentPace') ?? '').trim().toLowerCase()
+  if (raw === 'off' || raw === '0' || raw === 'false' || raw === 'no') {
+    return false
+  }
+  return true
+}
+
+function newestPts90kOf(frames: readonly { pts90k: number }[]): number {
+  let newest = frames[0]!.pts90k
+  for (const f of frames) {
+    if (ptsDiff33(newest, f.pts90k) > 0) newest = f.pts90k
+  }
+  return newest
+}
+
+function oldestPts90kOf(frames: readonly { pts90k: number }[]): number {
+  let oldest = frames[0]!.pts90k
+  for (const f of frames) {
+    if (ptsDiff33(f.pts90k, oldest) > 0) oldest = f.pts90k
+  }
+  return oldest
 }
 
 export type PresentResult = {
@@ -255,15 +355,44 @@ export function lookupPts90k(
   return bestPts
 }
 
-function latencyMsOf(
+/** Media-time gap newest − pts (ms), 33-bit safe. */
+export function ptsLatencyMs(pts90k: number, newestPts90k: number): number {
+  return ptsDiff33(pts90k, newestPts90k) / 90
+}
+
+/**
+ * Prefer NTP latency when it agrees with the PTS gap; otherwise PTS wins.
+ * Prevents flat/drifting LUT fits from reporting L≈0 while retained is ahead.
+ */
+export function latencyMsOf(
   pts90k: number,
   newestPts90k: number,
   toNtp: (pts: number) => number | null,
 ): number {
+  const ptsL = ptsLatencyMs(pts90k, newestPts90k)
   const ntp = toNtp(pts90k)
   const newestNtp = toNtp(newestPts90k)
-  if (ntp !== null && newestNtp !== null) return newestNtp - ntp
-  return (newestPts90k - pts90k) / 90
+  if (ntp === null || newestNtp === null) return ptsL
+  const ntpL = newestNtp - ntp
+  const agree = Math.max(LATENCY_NTP_AGREE_MS, LATENCY_NTP_AGREE_RATIO * Math.abs(ptsL))
+  if (Math.abs(ntpL - ptsL) > agree) return ptsL
+  return ntpL
+}
+
+function oldestAheadOf(
+  frames: readonly { pts90k: number }[],
+  shownPts90k: number,
+): { pts90k: number } | null {
+  let best: { pts90k: number } | null = null
+  let bestDelta = Infinity
+  for (const f of frames) {
+    const d = ptsDiff33(shownPts90k, f.pts90k)
+    if (d > 0 && d < bestDelta) {
+      best = f
+      bestDelta = d
+    }
+  }
+  return best
 }
 
 function frameAtLatency(
@@ -271,6 +400,7 @@ function frameAtLatency(
   newestPts90k: number,
   targetMs: number,
   toNtp: (pts: number) => number | null,
+  avoidPts90k?: number | null,
 ): { pts90k: number } {
   let best: { pts90k: number } | null = null
   let bestL = Infinity
@@ -282,6 +412,10 @@ function frameAtLatency(
     }
   }
   if (best) return best
+  if (avoidPts90k != null) {
+    const ahead = oldestAheadOf(frames, avoidPts90k)
+    if (ahead) return ahead
+  }
   return frames[0]!
 }
 
@@ -290,13 +424,17 @@ function frameAtLatency(
  * Empty LUT (`toNtp` all null) presents the newest decoded frame (`lut-miss-live`)
  * so the plate keeps moving. Telemetry stall (`newestPoseNtp === null`) with a
  * working LUT still pins at 400 ms and flags degraded.
+ *
+ * Latency uses PTS when NTP disagrees (flat/drifting fit). Clamp fallbacks never
+ * stick on `shownPts90k` while a strictly newer candidate exists.
  */
 export function pickPresentationPts(
   input: PresentationPolicyInput,
 ): PresentationPick | null {
   const frames = input.frames
   if (frames.length === 0) return null
-  const newestPts90k = frames[frames.length - 1]!.pts90k
+  const newestPts90k = newestPts90kOf(frames)
+  const avoid = input.shownPts90k ?? null
   const toNtp = input.toNtp
   const minL = input.minLatencyMs ?? MIN_PRESENT_LATENCY_MS
   const maxL = input.maxLatencyMs ?? MAX_PRESENT_LATENCY_MS
@@ -312,16 +450,15 @@ export function pickPresentationPts(
     reason,
   })
 
+  const atLatency = (targetMs: number) =>
+    frameAtLatency(frames, newestPts90k, targetMs, toNtp, avoid).pts90k
+
   if (input.mode === 'fixed') {
     const target = Math.min(
       maxL,
       Math.max(minL, input.fixedLatencyMs ?? 200),
     )
-    return finish(
-      frameAtLatency(frames, newestPts90k, target, toNtp).pts90k,
-      'fixed',
-      false,
-    )
+    return finish(atLatency(target), 'fixed', false)
   }
 
   let anyMapped = false
@@ -339,55 +476,64 @@ export function pickPresentationPts(
 
   const poseNtp = input.newestPoseNtp
   if (poseNtp === null) {
-    return finish(
-      frameAtLatency(frames, newestPts90k, maxL, toNtp).pts90k,
-      'stall-pin',
-      true,
-    )
+    return finish(atLatency(maxL), 'stall-pin', true)
   }
 
+  // Among pose-covered frames, keep the newest by PTS (not array order) so a
+  // flat NTP fit cannot leave "covered" stuck on an unshifted shown frame.
   let covered: { pts90k: number } | null = null
   for (const f of frames) {
     const ntp = toNtp(f.pts90k)
     if (ntp === null) continue
-    if (ntp <= poseNtp) covered = f
+    if (ntp > poseNtp) continue
+    if (
+      covered == null ||
+      ptsDiff33(covered.pts90k, f.pts90k) > 0
+    ) {
+      covered = f
+    }
   }
 
   // Pose has not covered any mapped frame: pin at max latency.
   if (covered === null) {
-    return finish(
-      frameAtLatency(frames, newestPts90k, maxL, toNtp).pts90k,
-      'stall-pin',
-      true,
-    )
+    return finish(atLatency(maxL), 'stall-pin', true)
   }
 
   const candidate = covered
   const L = latencyMsOf(candidate.pts90k, newestPts90k, toNtp)
   if (L < minL) {
-    return finish(
-      frameAtLatency(frames, newestPts90k, minL, toNtp).pts90k,
-      'min-clamp',
-      false,
-    )
+    return finish(atLatency(minL), 'min-clamp', false)
   }
   if (L > maxL) {
-    return finish(
-      frameAtLatency(frames, newestPts90k, maxL, toNtp).pts90k,
-      'max-clamp',
-      true,
-    )
+    return finish(atLatency(maxL), 'max-clamp', true)
   }
   return finish(candidate.pts90k, 'adaptive', false)
 }
 
 /** Catch-up reasons may jump/skip; steady playback must not hole PTS. */
-function allowsCatchUpSkip(reason: PresentationReason): boolean {
-  return (
-    reason === 'max-clamp' ||
-    reason === 'stall-pin' ||
-    reason === 'lut-miss-live'
-  )
+function allowsCatchUpSkip(
+  reason: PresentationReason,
+  presentPace: boolean,
+): boolean {
+  if (reason === 'max-clamp' || reason === 'stall-pin') return true
+  // LUT-empty + pace: play in order. Jump-to-newest re-triggers the L≈0 freeze.
+  if (reason === 'lut-miss-live') return !presentPace
+  return false
+}
+
+/**
+ * When paced present would stick on newest (or has no shown yet) while a
+ * backlog exists, land on the adaptive min-latency frame — not the oldest.
+ * Unstick-to-oldest left connect bursts parked at ~queueCap/30 s latency
+ * forever once produce≈unique rate (item a→jitter follow-up).
+ */
+export function unstickPaceTargetPts(
+  frames: readonly { pts90k: number }[],
+  newestPts90k: number,
+  toNtp: (pts: number) => number | null,
+  minLatencyMs: number,
+): number {
+  return frameAtLatency(frames, newestPts90k, minLatencyMs, toNtp, null).pts90k
 }
 
 function closeFrame(frame: VideoFrameLike, closed: WeakSet<object>): void {
@@ -411,11 +557,30 @@ export function createVideoDecodePipeline(
   const minLatencyMs = options.minLatencyMs ?? MIN_PRESENT_LATENCY_MS
   const maxLatencyMs = options.maxLatencyMs ?? MAX_PRESENT_LATENCY_MS
   const queueCap = options.queueCap ?? DEFAULT_QUEUE_CAP
+  const presentPace = options.presentPace !== false
+  const nowMs = options.nowMs ?? (() => performance.now())
+  const pacePeriodMs = options.pacePeriodMs ?? PRESENT_PACE_PERIOD_MS
+  const paceSlackMs = options.paceSlackMs ?? PRESENT_PACE_SLACK_MS
+  const paceThresholdMs = pacePeriodMs - paceSlackMs
+
+  type RetainedPts = {
+    pts90k: number
+    timestampUs: number
+    codedWidth: number
+    codedHeight: number
+    displayWidth?: number
+    displayHeight?: number
+  }
 
   const queue: QueuedDecodeFrame[] = []
+  const retained: RetainedPts[] = []
   let presented: QueuedDecodeFrame | null = null
+  let presentedMeta: RetainedPts | null = null
   let prevPresented: QueuedDecodeFrame | null = null
   let lastPick: PresentationPick | null = null
+  let lastAdvanceWallMs: number | null = null
+  let lastTickWallMs: number | null = null
+  let pacePhaseMs = 0
   let outstanding = 0
   let framesDecoded = 0
   let framesDropped = 0
@@ -429,6 +594,16 @@ export function createVideoDecodePipeline(
   let pendingAus: DemuxedAccessUnit[] = []
   let disposed = false
   let dropHevcUntilH264 = false
+  /** AUs fed to WebCodecs since the last keyframe feed (GOP position). */
+  let framesSinceKeyframe = 0
+  let lastFedPts90k: number | null = null
+  let lastFedAu: {
+    keyframe: boolean
+    pts90k: number
+    byteLength: number
+    nalTypes: number[]
+    ptsGap90k: number | null
+  } | null = null
 
   function toNtp(pts90k: number): number | null {
     return options.toNtp ? options.toNtp(pts90k) : null
@@ -453,6 +628,117 @@ export function createVideoDecodePipeline(
     }
   }
 
+  function viewOf(meta: RetainedPts): VideoFrameLike {
+    return {
+      timestamp: meta.timestampUs,
+      codedWidth: meta.codedWidth,
+      codedHeight: meta.codedHeight,
+      displayWidth: meta.displayWidth,
+      displayHeight: meta.displayHeight,
+      close() {
+        /* GPU already holds the copy; VideoFrame closed right after onConsumeFrame. */
+      },
+    }
+  }
+
+  function presentedView(): PresentResult | null {
+    if (presentPace) {
+      if (!presentedMeta || lastPick == null) return null
+      return {
+        frame: viewOf(presentedMeta),
+        pts90k: presentedMeta.pts90k,
+        timestampUs: presentedMeta.timestampUs,
+        pick: lastPick,
+      }
+    }
+    if (!presented || presented.pts90k === null || lastPick == null) return null
+    return {
+      frame: presented.frame,
+      pts90k: presented.pts90k,
+      timestampUs: presented.timestampUs,
+      pick: lastPick,
+    }
+  }
+
+  function trimRetained(): void {
+    while (retained.length > queueCap) {
+      const shown = presentedMeta?.pts90k
+      const idx = retained.findIndex((r) => r.pts90k !== shown)
+      if (idx < 0) break
+      retained.splice(idx, 1)
+    }
+    // Bound by presentation latency (NDI-style depth), not only slot count:
+    // keep frames within maxLatency of newest so produce≈unique cannot park
+    // shown at ~queueCap/30s after a connect burst.
+    if (retained.length === 0) return
+    const newest = newestPts90kOf(retained)
+    const shown = presentedMeta?.pts90k ?? null
+    const keep: RetainedPts[] = []
+    for (const r of retained) {
+      if (shown != null && r.pts90k === shown) {
+        keep.push(r)
+        continue
+      }
+      if (ptsLatencyMs(r.pts90k, newest) <= maxLatencyMs + 1e-9) keep.push(r)
+    }
+    retained.length = 0
+    retained.push(...keep)
+  }
+
+  function consumeQueuedArrivals(): void {
+    if (!presentPace) return
+    for (const q of queue) {
+      // Caller must GPU-upload before return (initTexture). Close immediately
+      // after — do not wait for a scene draw of an off-screen ring slot.
+      options.onConsumeFrame?.(q.frame, q.pts90k, q.timestampUs)
+      closeFrame(q.frame, closedFrames)
+      bumpOutstanding(-1)
+      if (q.pts90k !== null) {
+        retained.push({
+          pts90k: q.pts90k,
+          timestampUs: q.timestampUs,
+          codedWidth: q.frame.codedWidth,
+          codedHeight: q.frame.codedHeight,
+          displayWidth: q.frame.displayWidth,
+          displayHeight: q.frame.displayHeight,
+        })
+      }
+    }
+    queue.length = 0
+    trimRetained()
+  }
+
+  function noteTickWall(): number {
+    const now = nowMs()
+    if (presentPace && lastTickWallMs != null) {
+      pacePhaseMs += Math.max(0, now - lastTickWallMs)
+    }
+    lastTickWallMs = now
+    return now
+  }
+
+  function allowsDisplaySwap(now: number, rewind: boolean): boolean {
+    if (!presentPace || rewind) return true
+    if (lastAdvanceWallMs == null) return true
+    if (now - lastAdvanceWallMs < PRESENT_PACE_MIN_INTERVAL_MS) return false
+    return pacePhaseMs >= paceThresholdMs
+  }
+
+  function commitDisplaySwap(now: number): void {
+    lastAdvanceWallMs = now
+    if (!presentPace) return
+    pacePhaseMs -= pacePeriodMs
+    if (pacePhaseMs < 0) pacePhaseMs = 0
+  }
+
+  function retainAt(pts90k: number): RetainedPts | null {
+    for (const r of retained) {
+      if (r.pts90k === pts90k) return r
+    }
+    if (presentedMeta?.pts90k === pts90k) return presentedMeta
+    return null
+  }
+
   function onFrame(frame: VideoFrameLike): void {
     if (disposed) {
       closeFrame(frame, closedFrames)
@@ -471,11 +757,26 @@ export function createVideoDecodePipeline(
     decodeError = msg
     waitingForKeyframe = true
     options.onOpsError?.(msg)
+    const loss = demux.lossStats()
+    logDecodeErrorEvent({
+      message: msg,
+      codec,
+      framesSinceKeyframe,
+      lastFed: lastFedAu,
+      demux: loss,
+      ingest: options.getIngestDiag?.() ?? null,
+    })
     try {
       decoder?.reset()
     } catch {
       /* already closed */
     }
+    // Drop in-flight decode outputs — they are unreliable after reset.
+    for (const q of queue) dropQueued(q)
+    queue.length = 0
+    pendingAus = []
+    probing = null
+    ptsByTimestamp.clear()
   }
 
   function ensureDecoder(): VideoDecoderLike | null {
@@ -607,6 +908,22 @@ export function createVideoDecodePipeline(
         timestamp: timestampUs,
         data,
       })
+      const ptsGap90k =
+        lastFedPts90k == null ? null : ptsDiff33(lastFedPts90k, pesPts33)
+      lastFedAu = {
+        keyframe: au.keyframe,
+        pts90k: pesPts33,
+        byteLength: data.byteLength,
+        nalTypes: summarizeNalTypes(data, au.codec),
+        ptsGap90k,
+      }
+      lastFedPts90k = pesPts33
+      if (au.keyframe) {
+        framesSinceKeyframe = 0
+        decodeError = null
+      } else {
+        framesSinceKeyframe += 1
+      }
       waitingForKeyframe = false
     } catch (err) {
       onDecoderError(err)
@@ -624,33 +941,37 @@ export function createVideoDecodePipeline(
     },
     present(): PresentResult | null {
       if (disposed) return null
+      const now = noteTickWall()
+      consumeQueuedArrivals()
+
       const poseNtp = options.getNewestPoseNtp
         ? options.getNewestPoseNtp()
         : null
+      const shownPts = presentPace
+        ? presentedMeta?.pts90k ?? null
+        : presented?.pts90k ?? null
       const candidates: { pts90k: number }[] = []
-      for (const q of queue) {
-        if (q.pts90k !== null) candidates.push({ pts90k: q.pts90k })
+      if (presentPace) {
+        for (const r of retained) candidates.push({ pts90k: r.pts90k })
+      } else {
+        for (const q of queue) {
+          if (q.pts90k !== null) candidates.push({ pts90k: q.pts90k })
+        }
       }
-      if (presented && presented.pts90k !== null) {
-        const held = presented.pts90k
-        const already = candidates.some((c) => c.pts90k === held)
-        if (!already) candidates.unshift({ pts90k: held })
+      if (shownPts != null) {
+        const already = candidates.some((c) => c.pts90k === shownPts)
+        if (!already) candidates.unshift({ pts90k: shownPts })
       }
 
       if (candidates.length === 0) {
-        if (!presented || presented.pts90k === null) return null
+        if (shownPts == null) return null
         lastPick = {
-          pts90k: presented.pts90k,
+          pts90k: shownPts,
           latencyMs: lastPick?.latencyMs ?? 0,
           degraded: lastPick?.degraded ?? false,
           reason: 'repeat',
         }
-        return {
-          frame: presented.frame,
-          pts90k: presented.pts90k,
-          timestampUs: presented.timestampUs,
-          pick: lastPick,
-        }
+        return presentedView()
       }
 
       let pick = pickPresentationPts({
@@ -661,40 +982,79 @@ export function createVideoDecodePipeline(
         fixedLatencyMs,
         minLatencyMs,
         maxLatencyMs,
+        shownPts90k: shownPts,
       })
       if (!pick) {
-        if (!presented || presented.pts90k === null) return null
+        if (shownPts == null) return null
         lastPick = { ...lastPick!, reason: 'repeat' }
-        return {
-          frame: presented.frame,
-          pts90k: presented.pts90k,
-          timestampUs: presented.timestampUs,
-          pick: lastPick,
+        return presentedView()
+      }
+
+      const newestPts = newestPts90kOf(candidates)
+      const oldestPts = oldestPts90kOf(candidates)
+      if (
+        presentPace &&
+        pick.pts90k === newestPts &&
+        oldestPts !== newestPts &&
+        (shownPts == null || shownPts === newestPts)
+      ) {
+        const targetPts = unstickPaceTargetPts(
+          candidates,
+          newestPts,
+          toNtp,
+          minLatencyMs,
+        )
+        pick = {
+          pts90k: targetPts,
+          latencyMs: latencyMsOf(targetPts, newestPts, toNtp),
+          degraded: pick.degraded,
+          reason: 'min-clamp',
         }
       }
 
-      if (
-        presented &&
-        presented.pts90k !== null &&
-        !allowsCatchUpSkip(pick.reason)
-      ) {
-        let next: QueuedDecodeFrame | null = null
-        let nextDelta = Infinity
-        for (const q of queue) {
-          if (q.pts90k === null) continue
-          const d = ptsDiff33(presented.pts90k, q.pts90k)
-          if (d > 0 && d < nextDelta) {
-            nextDelta = d
-            next = q
+      // If shown itself is stuck beyond max latency (kept by trim), allow one
+      // catch-up jump to the max-clamp target. Hysteresis avoids fighting the
+      // pace gate every tick at the L≈maxL boundary (live: 57% ≥60ms intervals).
+      if (shownPts != null && presentPace) {
+        const shownL = latencyMsOf(shownPts, newestPts, toNtp)
+        if (shownL > maxLatencyMs + 50) {
+          const catchPts = frameAtLatency(
+            candidates,
+            newestPts,
+            maxLatencyMs,
+            toNtp,
+            shownPts,
+          ).pts90k
+          pick = {
+            pts90k: catchPts,
+            latencyMs: latencyMsOf(catchPts, newestPts, toNtp),
+            degraded: true,
+            reason: 'max-clamp',
           }
         }
-        if (next && next.pts90k !== pick.pts90k) {
-          const jump = ptsDiff33(presented.pts90k, pick.pts90k)
+      }
+
+      if (shownPts != null && !allowsCatchUpSkip(pick.reason, presentPace)) {
+        let nextPts: number | null = null
+        let nextDelta = Infinity
+        const snapSource = presentPace
+          ? retained
+          : queue.filter((q) => q.pts90k !== null)
+        for (const q of snapSource) {
+          const pts = q.pts90k
+          if (pts == null) continue
+          const d = ptsDiff33(shownPts, pts)
+          if (d > 0 && d < nextDelta) {
+            nextDelta = d
+            nextPts = pts
+          }
+        }
+        if (nextPts != null && nextPts !== pick.pts90k) {
+          const jump = ptsDiff33(shownPts, pick.pts90k)
           if (jump > nextDelta) {
-            const newestPts90k = candidates[candidates.length - 1]!.pts90k
             pick = {
-              pts90k: next.pts90k,
-              latencyMs: latencyMsOf(next.pts90k, newestPts90k, toNtp),
+              pts90k: nextPts,
+              latencyMs: latencyMsOf(nextPts, newestPts, toNtp),
               degraded: pick.degraded,
               reason: pick.reason,
             }
@@ -702,15 +1062,50 @@ export function createVideoDecodePipeline(
         }
       }
 
-      lastPick = pick
-      if (presented && presented.pts90k === pick.pts90k) {
-        const stillQueued = queue.some((q) => q.pts90k === pick.pts90k)
-        if (!stillQueued) lastPick = { ...pick, reason: 'repeat' }
+      if (shownPts === pick.pts90k) {
+        const stillQueued = presentPace
+          ? retained.some((r) => r.pts90k === pick.pts90k)
+          : queue.some((q) => q.pts90k === pick.pts90k)
+        lastPick = stillQueued ? pick : { ...pick, reason: 'repeat' }
+        return presentedView()
+      }
+
+      const rewind =
+        shownPts != null && ptsDiff33(pick.pts90k, shownPts) > 0
+      if (!allowsDisplaySwap(now, rewind)) {
+        lastPick = {
+          pts90k: shownPts!,
+          latencyMs: latencyMsOf(shownPts!, newestPts, toNtp),
+          degraded: lastPick?.degraded ?? pick.degraded,
+          reason: 'pace-hold',
+        }
+        return presentedView()
+      }
+
+      if (presentPace) {
+        const nextMeta = retainAt(pick.pts90k)
+        if (!nextMeta) {
+          if (shownPts == null) return null
+          lastPick = { ...pick, reason: 'repeat' }
+          return presentedView()
+        }
+        const keep: RetainedPts[] = []
+        for (const r of retained) {
+          if (ptsDiff33(r.pts90k, pick.pts90k) > 0) continue
+          if (r.pts90k === pick.pts90k) continue
+          keep.push(r)
+        }
+        retained.length = 0
+        retained.push(...keep)
+        if (rewind && presentedMeta) retained.push(presentedMeta)
+        presentedMeta = nextMeta
+        lastPick = pick
+        commitDisplaySwap(now)
         return {
-          frame: presented.frame,
-          pts90k: presented.pts90k,
-          timestampUs: presented.timestampUs,
-          pick: lastPick,
+          frame: viewOf(presentedMeta),
+          pts90k: pick.pts90k,
+          timestampUs: presentedMeta.timestampUs,
+          pick,
         }
       }
 
@@ -722,12 +1117,7 @@ export function createVideoDecodePipeline(
       if (!next) {
         if (!presented || presented.pts90k === null) return null
         lastPick = { ...pick, reason: 'repeat' }
-        return {
-          frame: presented.frame,
-          pts90k: presented.pts90k,
-          timestampUs: presented.timestampUs,
-          pick: lastPick,
-        }
+        return presentedView()
       }
 
       const skip: QueuedDecodeFrame[] = []
@@ -745,10 +1135,20 @@ export function createVideoDecodePipeline(
       queue.push(...keep)
 
       if (presented && presented !== next) {
-        if (prevPresented) dropQueued(prevPresented)
-        prevPresented = presented
+        const goingBack =
+          presented.pts90k != null &&
+          next.pts90k != null &&
+          ptsDiff33(next.pts90k, presented.pts90k) > 0
+        if (goingBack) {
+          queue.push(presented)
+        } else {
+          if (prevPresented) dropQueued(prevPresented)
+          prevPresented = presented
+        }
       }
       presented = next
+      lastPick = pick
+      commitDisplaySwap(now)
       return {
         frame: presented.frame,
         pts90k: pick.pts90k,
@@ -763,15 +1163,22 @@ export function createVideoDecodePipeline(
       }
     },
     getCounters(): DecodeCounters {
+      const shownPts = presentPace
+        ? presentedMeta?.pts90k ?? null
+        : presented?.pts90k ?? null
       return {
         codec,
         framesDecoded,
         framesDropped,
-        queueDepth: queue.length + (presented ? 1 : 0) + (prevPresented ? 1 : 0),
+        queueDepth: presentPace
+          ? queue.length
+          : queue.length + (presented ? 1 : 0) + (prevPresented ? 1 : 0),
         outstandingFrames: outstanding,
-        presentedPts90k: presented?.pts90k ?? null,
-        presentedNtpMs:
-          presented?.pts90k != null ? toNtp(presented.pts90k) : null,
+        retainedDepth: presentPace
+          ? retained.length + (presentedMeta ? 1 : 0)
+          : queue.length + (presented ? 1 : 0),
+        presentedPts90k: shownPts,
+        presentedNtpMs: shownPts != null ? toNtp(shownPts) : null,
         latencyMs: lastPick?.latencyMs ?? null,
         degraded: lastPick?.degraded ?? false,
         reason: lastPick?.reason ?? null,
@@ -792,6 +1199,10 @@ export function createVideoDecodePipeline(
       decodeError = null
       codec = null
       waitingForKeyframe = true
+      framesSinceKeyframe = 0
+      lastFedPts90k = null
+      lastFedAu = null
+      resetDecodeErrorDiagLossBaseline()
       pendingAus = []
       probing = null
       demux = createTsDemuxer()
@@ -803,6 +1214,8 @@ export function createVideoDecodePipeline(
       ptsByTimestamp.clear()
       for (const q of queue) dropQueued(q)
       queue.length = 0
+      retained.length = 0
+      presentedMeta = null
       if (prevPresented) {
         dropQueued(prevPresented)
         prevPresented = null
@@ -824,6 +1237,8 @@ export function createVideoDecodePipeline(
       pendingAus = []
       for (const q of queue) dropQueued(q)
       queue.length = 0
+      retained.length = 0
+      presentedMeta = null
       if (prevPresented) {
         dropQueued(prevPresented)
         prevPresented = null

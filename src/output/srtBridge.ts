@@ -20,6 +20,11 @@ export type SrtStatus = {
   state: SrtState
   bitrateKbps: number
   lastError: string | null
+  /** Main-process TS chunk drops when the IPC queue is full (not libsrt loss). */
+  ipcDropCount?: number
+  ipcDropPerSec?: number
+  ffmpegDropFrames?: string | null
+  ffmpegDupFrames?: string | null
 }
 
 export type SrtOpenRequest = {
@@ -188,7 +193,28 @@ export function normalizeSrtStatus(
   const bitrateKbps = Number.isFinite(n) ? Math.max(0, n) : 0
   const lastError =
     o.lastError == null || o.lastError === '' ? null : String(o.lastError)
-  return { povId, state, bitrateKbps, lastError }
+  const ipcDropCount = Number(o.ipcDropCount)
+  const ipcDropPerSec = Number(o.ipcDropPerSec)
+  return {
+    povId,
+    state,
+    bitrateKbps,
+    lastError,
+    ipcDropCount: Number.isFinite(ipcDropCount)
+      ? Math.max(0, Math.floor(ipcDropCount))
+      : undefined,
+    ipcDropPerSec: Number.isFinite(ipcDropPerSec)
+      ? Math.max(0, Math.floor(ipcDropPerSec))
+      : undefined,
+    ffmpegDropFrames:
+      o.ffmpegDropFrames == null || o.ffmpegDropFrames === ''
+        ? null
+        : String(o.ffmpegDropFrames),
+    ffmpegDupFrames:
+      o.ffmpegDupFrames == null || o.ffmpegDupFrames === ''
+        ? null
+        : String(o.ffmpegDupFrames),
+  }
 }
 
 type StudioWithSrt = {

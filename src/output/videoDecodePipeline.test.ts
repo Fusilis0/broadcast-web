@@ -5,9 +5,12 @@ import {
   HEVC_UNSUPPORTED_MESSAGE,
   MAX_PRESENT_LATENCY_MS,
   MIN_PRESENT_LATENCY_MS,
+  PRESENT_PACE_PERIOD_MS,
+  PRESENT_PACE_SLACK_MS,
   PTS_TIMESTAMP_MATCH_US,
   createVideoDecodePipeline,
   lookupPts90k,
+  parsePresentPace,
   pickPresentationPts,
   type DecoderConfigLike,
   type EncodedChunkLike,
@@ -226,6 +229,36 @@ describe('pickPresentationPts', () => {
     expect(pick!.degraded).toBe(true)
     expect(pick!.pts90k).toBe(frames[frames.length - 1]!.pts90k)
   })
+
+  it('collapsed NTP (flat toNtp) still min-clamps via PTS latency', () => {
+    const shown = pts(0)
+    const cand = [0, 100, 200, 300, 400, 500].map((ms) => ({ pts90k: pts(ms) }))
+    const pick = pickPresentationPts({
+      frames: cand,
+      toNtp: () => 9_000_000, // every PTS → same NTP (live lock signature)
+      newestPoseNtp: 9_000_100,
+      mode: 'adaptive',
+      shownPts90k: shown,
+    })
+    expect(pick!.reason).toBe('min-clamp')
+    expect(pick!.pts90k).not.toBe(shown)
+    expect(pick!.latencyMs).toBeGreaterThanOrEqual(MIN_PRESENT_LATENCY_MS - 1e-6)
+  })
+
+  it('min-clamp fallback never sticks on shown when newer frames exist', () => {
+    const shown = pts(0)
+    // Only shown + one frame <100ms ahead — PTS min-clamp target misses, fallback must advance
+    const cand = [{ pts90k: shown }, { pts90k: pts(50) }]
+    const pick = pickPresentationPts({
+      frames: cand,
+      toNtp: () => 1_000_000,
+      newestPoseNtp: 1_000_100,
+      mode: 'adaptive',
+      shownPts90k: shown,
+    })
+    expect(pick!.pts90k).toBe(pts(50))
+    expect(pick!.pts90k).not.toBe(shown)
+  })
 })
 
 describe('lookupPts90k', () => {
@@ -256,6 +289,7 @@ describe('createVideoDecodePipeline', () => {
   ) {
     const pipe = createVideoDecodePipeline({
       decoderFactory: fake.factory,
+      presentPace: false,
       ...extra,
     })
     pipes.push(pipe)
@@ -496,6 +530,7 @@ describe('present() unique PTS vs 30fps decode (min-clamp)', () => {
       getNewestPoseNtp: () => 1e12,
       minLatencyMs: MIN_PRESENT_LATENCY_MS,
       maxLatencyMs: MAX_PRESENT_LATENCY_MS,
+      presentPace: false,
     })
     pipes.push(pipe)
     return { pipe, fake, nextPts: { n: 0 } }
@@ -601,5 +636,274 @@ describe('present() unique PTS vs 30fps decode (min-clamp)', () => {
     expect(decoded).toBeGreaterThan(0)
     expect(unique / decoded).toBeGreaterThanOrEqual(0.95)
     assertBoundedPlayback(acc)
+  })
+})
+
+describe('parsePresentPace', () => {
+  it('defaults on; ?presentPace=off is the killswitch', () => {
+    expect(parsePresentPace('')).toBe(true)
+    expect(parsePresentPace('?race=demo')).toBe(true)
+    expect(parsePresentPace('?presentPace=off')).toBe(false)
+    expect(parsePresentPace('?presentPace=0')).toBe(false)
+    expect(parsePresentPace('?presentPace=on')).toBe(true)
+  })
+
+  it('slack is mean+1σ of measured studio:tick, not an arbitrary 4 ms', () => {
+    const tickMean = 17.41
+    const tickStd = 11.39
+    const derived = PRESENT_PACE_PERIOD_MS - (tickMean + tickStd)
+    expect(PRESENT_PACE_SLACK_MS).toBe(5)
+    expect(derived).toBeGreaterThan(4)
+    expect(derived).toBeLessThan(5)
+    expect(PRESENT_PACE_PERIOD_MS - PRESENT_PACE_SLACK_MS).toBeCloseTo(
+      tickMean + tickStd,
+      0,
+    )
+  })
+})
+
+describe('present() wall-clock pace (Option A)', () => {
+  const pipes: ReturnType<typeof createVideoDecodePipeline>[] = []
+  afterEach(() => {
+    while (pipes.length) pipes.pop()!.dispose()
+  })
+
+  function clock() {
+    let t = 0
+    return {
+      now: () => t,
+      add(ms: number) {
+        t += ms
+      },
+      set(ms: number) {
+        t = ms
+      },
+    }
+  }
+
+  async function pacedPipe(opts?: {
+    toNtp?: ((pts: number) => number | null) | null
+    presentPace?: boolean
+  }) {
+    const fake = createFakeFactory()
+    const clk = clock()
+    const toNtp =
+      opts?.toNtp === null
+        ? () => null
+        : (opts?.toNtp ?? ((pts: number) => pts / 90))
+    const pipe = createVideoDecodePipeline({
+      decoderFactory: fake.factory,
+      toNtp,
+      getNewestPoseNtp: () => 1e12,
+      presentPace: opts?.presentPace ?? true,
+      nowMs: () => clk.now(),
+    })
+    pipes.push(pipe)
+    return { pipe, fake, clk }
+  }
+
+  async function pushN(
+    pipe: ReturnType<typeof createVideoDecodePipeline>,
+    count: number,
+    startPts = 0,
+  ) {
+    pipe.pushAu(au(startPts, { key: true }))
+    await pipe.ready()
+    for (let i = 1; i < count; i++) {
+      pipe.pushAu(
+        au(startPts + i * TICKS_30FPS, { key: false }),
+      )
+    }
+    await pipe.ready()
+  }
+
+  it('steady 30fps on 16.7ms ticks clusters near 33ms (sanity; pass bar is 131s replay)', async () => {
+    const { pipe, clk } = await pacedPipe()
+    await pushN(pipe, 10)
+    const advances: number[] = []
+    let lastPts: number | null = null
+    let nextPts = 10 * TICKS_30FPS
+    for (let i = 0; i < 120; i++) {
+      if (i > 0 && i % 2 === 0) {
+        pipe.pushAu(au(nextPts, { key: false }))
+        nextPts += TICKS_30FPS
+        await pipe.ready()
+      }
+      const shown = pipe.present()
+      if (shown && shown.pts90k !== lastPts) {
+        advances.push(clk.now())
+        lastPts = shown.pts90k
+      }
+      clk.add(1000 / 60)
+    }
+    expect(advances.length).toBeGreaterThan(20)
+    const intervals = []
+    for (let i = 1; i < advances.length; i++) {
+      intervals.push(advances[i]! - advances[i - 1]!)
+    }
+    const n = intervals.length
+    const under20 = intervals.filter((d) => d < 20).length / n
+    const mid = intervals.filter((d) => d >= 20 && d < 40).length / n
+    const over60 = intervals.filter((d) => d >= 60).length / n
+    expect(under20).toBeLessThan(0.1)
+    expect(over60).toBeLessThan(0.05)
+    expect(mid).toBeGreaterThan(0.8)
+    const mean = intervals.reduce((a, b) => a + b, 0) / n
+    expect(mean).toBeGreaterThan(28)
+    expect(mean).toBeLessThan(40)
+  })
+
+  it('12-frame lut-miss backlog lands near min latency then paces, not unstick-oldest', async () => {
+    const { pipe, clk } = await pacedPipe({ toNtp: null })
+    await pushN(pipe, 12)
+    const uniqueAt: number[] = []
+    const latencies: number[] = []
+    let lastPts: number | null = null
+    for (let i = 0; i < 30; i++) {
+      const shown = pipe.present()
+      if (shown) {
+        if (shown.pts90k !== lastPts) {
+          uniqueAt.push(clk.now())
+          latencies.push(shown.pick.latencyMs)
+          lastPts = shown.pts90k
+        }
+      }
+      clk.add(1000 / 60)
+    }
+    // First unique should be ~100ms behind newest (3 frames), not frame 0.
+    expect(latencies[0]!).toBeGreaterThanOrEqual(90)
+    expect(latencies[0]!).toBeLessThanOrEqual(150)
+    expect(uniqueAt.length).toBeGreaterThanOrEqual(3)
+    expect(uniqueAt.length).toBeLessThanOrEqual(12)
+    for (let i = 1; i < uniqueAt.length; i++) {
+      expect(uniqueAt[i]! - uniqueAt[i - 1]!).toBeGreaterThan(20)
+    }
+    // Must not remain parked near queueCap latency (~400ms for 12 frames).
+    const lastLat = latencies[latencies.length - 1]!
+    expect(lastLat).toBeLessThanOrEqual(MAX_PRESENT_LATENCY_MS + 50)
+  })
+
+  it('shown latency above max triggers paced max-clamp catch-up', async () => {
+    const { pipe, clk } = await pacedPipe({ toNtp: null })
+    await pushN(pipe, 24)
+    // First present unsticks near minL; keep producing so backlog would grow.
+    let nextPts = 24 * TICKS_30FPS
+    const lats: number[] = []
+    for (let i = 0; i < 120; i++) {
+      if (i % 2 === 0) {
+        pipe.pushAu(au(nextPts, { key: false }))
+        nextPts += TICKS_30FPS
+        await pipe.ready()
+      }
+      const shown = pipe.present()
+      if (shown) lats.push(shown.pick.latencyMs)
+      clk.add(1000 / 60)
+    }
+    const late = lats.slice(30)
+    expect(late.length).toBeGreaterThan(10)
+    expect(Math.max(...late)).toBeLessThanOrEqual(MAX_PRESENT_LATENCY_MS + 80)
+    expect(late.reduce((a, b) => a + b, 0) / late.length).toBeLessThan(
+      MAX_PRESENT_LATENCY_MS + 40,
+    )
+  })
+
+  it('collapsed flat toNtp does not freeze on first shown while backlog grows', async () => {
+    const { pipe, clk } = await pacedPipe({
+      toNtp: () => 5_000_000,
+    })
+    await pushN(pipe, 8)
+    const uniques = new Set<number>()
+    let nextPts = 8 * TICKS_30FPS
+    for (let i = 0; i < 90; i++) {
+      if (i > 0 && i % 2 === 0) {
+        pipe.pushAu(au(nextPts, { key: false }))
+        nextPts += TICKS_30FPS
+        await pipe.ready()
+      }
+      const shown = pipe.present()
+      if (shown) uniques.add(shown.pts90k)
+      clk.add(1000 / 60)
+    }
+    // Pre-fix lock: unique stayed at 1 forever. Must keep advancing.
+    expect(uniques.size).toBeGreaterThan(10)
+  })
+
+  it('pace-hold is distinct from repeat in reasonCounts', async () => {
+    const { pipe, clk } = await pacedPipe({ toNtp: null })
+    await pushN(pipe, 12)
+    const counts = new Map<string, number>()
+    for (let i = 0; i < 24; i++) {
+      const shown = pipe.present()
+      if (shown) {
+        counts.set(shown.pick.reason, (counts.get(shown.pick.reason) ?? 0) + 1)
+      }
+      clk.add(1000 / 60)
+    }
+    // 60Hz ticks vs ~30 unique → non-unique reasons must appear; pace-hold is
+    // the gated hold (repeat is "pick equals shown with nothing queued").
+    expect(
+      (counts.get('pace-hold') ?? 0) + (counts.get('repeat') ?? 0),
+    ).toBeGreaterThan(5)
+    expect(counts.has('pace-hold') || counts.has('repeat')).toBe(true)
+  })
+
+  it('unstick lands near min latency then snap-to-next walks forward', async () => {
+    const { pipe, clk } = await pacedPipe({ toNtp: null })
+    await pushN(pipe, 12)
+    const pts: number[] = []
+    let last: number | null = null
+    for (let i = 0; i < 30; i++) {
+      const shown = pipe.present()
+      if (shown && shown.pts90k !== last) {
+        pts.push(shown.pts90k)
+        last = shown.pts90k
+      }
+      clk.add(1000 / 60)
+    }
+    // Newest = 11*TICKS; minL≈100ms ≈ 3 frames → first ≈ 8*TICKS (not 0).
+    expect(pts[0]!).toBeGreaterThanOrEqual(7 * TICKS_30FPS)
+    expect(pts[0]!).toBeLessThanOrEqual(9 * TICKS_30FPS)
+    expect(pts[pts.length - 1]).toBe(11 * TICKS_30FPS)
+    for (let i = 1; i < pts.length; i++) {
+      expect(pts[i]).toBe(pts[i - 1]! + TICKS_30FPS)
+    }
+  })
+
+  it('long stall leaves the gate open (no lastAdvance reset needed)', async () => {
+    const { pipe, clk } = await pacedPipe()
+    await pushN(pipe, 8)
+    const first = pipe.present()
+    expect(first).not.toBeNull()
+    clk.add(5000)
+    for (let i = 8; i < 16; i++) {
+      pipe.pushAu(au(i * TICKS_30FPS, { key: false }))
+    }
+    await pipe.ready()
+    const after = pipe.present()
+    expect(after?.pts90k).not.toBe(first!.pts90k)
+    expect(after?.pick.reason).not.toBe('pace-hold')
+  })
+
+  it('?presentPace=off keeps lut-miss jump-to-newest', async () => {
+    const { pipe } = await pacedPipe({ toNtp: null, presentPace: false })
+    await pushN(pipe, 12)
+    const shown = pipe.present()
+    expect(shown?.pick.reason).toBe('lut-miss-live')
+    expect(shown?.pts90k).toBe(11 * TICKS_30FPS)
+  })
+
+  it('pace-hold still consumes and closes decoded frames immediately (not only unique swaps)', async () => {
+    const { pipe, fake, clk } = await pacedPipe({ toNtp: null })
+    await pushN(pipe, 12)
+    const first = pipe.present()
+    expect(first).not.toBeNull()
+    // Force-upload path closes on consume, not on the next tick.
+    expect(fake.closeCount()).toBe(12)
+    expect(pipe.getCounters().outstandingFrames).toBe(0)
+    expect(pipe.getCounters().queueDepth).toBe(0)
+    clk.add(1000 / 60)
+    pipe.present()
+    expect(pipe.getCounters().reason).toBe('pace-hold')
+    expect(pipe.getCounters().presentedPts90k).toBe(first!.pts90k)
   })
 })

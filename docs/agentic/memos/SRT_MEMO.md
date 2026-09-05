@@ -1,7 +1,537 @@
 # SRT_MEMO
 
-**Last updated:** 2026-09-03  
-**Status:** Depth-2 ordered deferred-send queue shipped for AR and 3D. `?ndiQueueDepth=1` restores single-slot latest-wins. B (`?ndiDefer=microtask`) stays diag-only. C (cut rAF/tick load) is OUT/PRF, not started. No depth 3.
+**Last updated:** 2026-09-04  
+**Status:** **(a) decode-error fixed**; **post-a jitter** fixed; **(b) present-lock** verified; **round-4 AR frame-identity** fixed (OUT freshness gate); **round-5 2dGrab scheduling** live-verified (sendNewPts **30.20** ≥30).
+
+## Round 5 — 2dGrab off critical path 2026-09-04
+
+**Phase 1 (code):** Happy path is a **real Worker + OffscreenCanvas** (`ndi2dCapture.worker.ts`); `createImageBitmap` stays on main; `defer` is `setTimeout(0)`. Sync fallback existed and **reappeared on per-grab worker errors** via `failClosedToSync`. Round-4 `2dGrab` wall marks wrap the whole await (mostly worker wait) — overlap % is wall occupancy, not proven main-thread `getImageData`.
+
+**Phase 2 mechanism (falsifiable, postfix-like log windows n=519):** With freshness on, `uniquePresent` mean **30.01**/s but `sendNewPts` mean **26.31**/s; AR `busy` mean **6.46**/s covers ≥70% of that gap. High `2dGrab` wall (~100 ms) windows → sendNew~22–24 / busy~14–20; low wall (~50 ms) → sendNew~27–28 / busy~0. **H1 rejected** (worker path). **H2 weak** (transferable UYVY already). **H3 + FBO/GPU contention** primary for the fps gap via busy skips.
+
+**Phase 3 fix (OUT-owned, keep freshness):** (1) 2D on independent `setInterval`, not `studio:tick`. (2) Yield 2D when AR/3D `!canBegin()`. (3) Never fail-closed to sync on per-grab errors; refuse sync while FBO probes live. (4) AR content-priority `forceAdmit` when a new present PTS is waiting so rate phase cannot drop unique Send. Fixture: `grabContentionReplay20260904.json`. Diag: `[diag:ar-send-fps]`, `[diag:2d-contention]`.
+
+**Live before / after (2D+3D on, healthy decode-present, skip connect):**
+
+| | postfix freshness (pre-r5) | **r5 schedule+yield** | **+ content forceAdmit** |
+| --- | --- | --- | --- |
+| sendNewPts mean | **26.31** | 29.31 | **30.20** |
+| uniquePresent mean | 30.01 | 30.25 | 30.28 |
+| AR busy/s | **6.46** | 0.02 | **0.04** |
+| AR rateCap/s | ~4 | 3.76 | **0** |
+| sendSamePts | 0 | 0 | **0** |
+| 2dGrab meanMs | ~95 | ~42 | ~42 |
+
+Acceptance **met**: sustained unique-PTS AR Send **30.20** ≥ 30. Four prior fixtures still pass.
+
+## Round 4 — AR frame identity / duplicate PTS 2026-09-04
+
+**Phase 0 methodology:** frame-identity tracing via extended `diagNdiContent` (not a parallel system). Ruled out again: IPC TS drops, IPC bufferbloat, present unstick-to-oldest, RF/SPS as primary.
+
+**Mechanism (falsifiable, live A/B):**
+- Baseline 2D+3D (~152 s healthy): capture dup-runs **6.66/s** (maxLen **2**), **71%** time-overlap a `2dGrab` wall; sendSamePts **19.4%**; capture ~31.9/s vs uniquePresent ~28.8/s.
+- **2D off** (`?ndi2d=off`, ~117 s): capture dup-runs **5.26/s** (−21%), overlap **0%**, sendSame **16.8%** — 2dGrab amplifies but is **not** primary.
+- **3D off** (`?ndi3d=off`, ~115 s): capture dup-runs **5.18/s**, overlap still **81%**, maxLen **24** — similar rate cut, not a cure.
+
+**Fix (OUT-owned, separable):** AR freshness gate in `ndiFramePump.ts` — skip capture when `present()` PTS unchanged since last AR capture (`noteNdiSkip('ar','freshness')`). SRT present path untouched. No `ndiSender.cjs`.
+
+**Before / after (healthy decode-present, 2D+3D on):**
+
+| | baseline | **postfix freshness** |
+| --- | --- | --- |
+| capture dup-runs/s | 6.66 | **0** |
+| max runLen | 2 | **0** |
+| sendSamePts % | 19.4 | **0** |
+| capture/s | 31.9 | **29.2** |
+| uniquePresent/s | 28.8 | **30.3** |
+| freshness skips/s | — | **25.8** |
+
+Fixture: `src/output/fixtures/frameIdentityReplay20260904.json`. Diag: `[diag:frame-id]` + content.duplicateRuns. Killswitches: `?ndi2d=off`, `?ndi3d=off`, `?ndiFrameDump=1`.
+
+## Post-a jitter / connect latency park 2026-09-04
+
+**MAX_QUEUED_CHUNKS=1 origin (`48eca0b`):** deliberate **main-process memory bound** (“one in-flight + one queued”), not a tuned low-latency knob. Raising to 32 for (a) was correct for drops; it did **not** cause IPC bufferbloat.
+
+**Mechanism (falsifiable, live `diag-jitter-session1` ~301 s):**
+- **H1 IPC bufferbloat rejected:** `queuedHighWater` max **3** / p90 **2** (cap 32); ipc-drops **0**.
+- **Connect + steady are the same present-side mechanism:** first ~5 s `retainedDepth` 9→25 and `latencyMs` 267→800; then both stay parked (`lat` mean **686**, `ret` mean **21.6**) while `uniquePresent≈30`. Unstick-to-**oldest** + `lut-miss` catch-up disabled under pace left produce≈unique unable to recover.
+- **H3 rejected as primary:** `auArrivalMean≈33.5 ms`; stdout gaps p90 ~121 ms — not an 800 ms park.
+
+**Fix shape (NDI depth-bound analogy, present retained — not SRT IPC):**
+1. Unstick paced newest/backlog → **min-latency** frame (100 ms), not oldest.
+2. `trimRetained` also drops non-shown frames with PTS latency **> maxLatency (400 ms)**.
+3. Soft max-clamp catch-up only if shownL **> maxL+50** (hysteresis). Aggressive every-tick max-clamp was tried live and **ruined** intervals (`gte60` 5.8%→57%) — reverted that shape.
+4. **`MAX_QUEUED_CHUNKS=32` survives** — IPC was not the depth curve that mattered.
+
+**Before / after (healthy decode-present secs):**
+
+| | pre (session1) | bad every-tick max-clamp | **trim+unstick** |
+| --- | --- | --- | --- |
+| lat mean | 686.6 | 397 | **300.7** |
+| retained mean | 21.6 | 12.9 | **10.0** |
+| adv ≥60% | 5.8 | 57.3 | **3.7** |
+| advMax≥100 count | 0 | 248 | **0** |
+| ipc HW max | 3 | 3 | **3** |
+| decode-error | 0 | 0 | **0** |
+
+131 s present-pace replay still passes (mean ~36.3 ms, gte60 4.9%<8). Fixture: `ingestJitterReplay20260904.json`. Logs: `diag-jitter-session1-20260904.log`, `diag-jitter-postfix2-20260904.log`.
+
+## (a) fix 2026-09-04 — IPC TS drops → Decoding error → KF wait
+
+**Mechanism (falsifiable):** Across 2 live sessions (**14** `Decoding error.` events), **14/14** occurred within 1.5 s of an `srtReader` IPC chunk drop; **13/14** also showed MPEG-TS continuity-counter gaps and/or sync resyncs in the demux delta; `ffmpeg drop_frames` stayed **0** and PTS gaps stayed exactly **3000** (no missing AU timestamps) — therefore the corrupt NAL is from **application-level TS byte drops** (`MAX_QUEUED_CHUNKS = 1`), not RF SRT loss or SPS-unescape (H3). The visible hitch is the subsequent `waitingForKeyframe` until the next IDR.
+
+**Fixability:** H1 app-level (IPC pipe) — fixable in `desktop/srtHelpers.cjs` / `srtReader.cjs`. Not a drone GOP ops change (H2 amplifies duration only). Not H3.
+
+**Fix:** `MAX_QUEUED_CHUNKS` **1 → 32** (bound ~8 MB at 256 KB/chunk; absorbs ffmpeg stdout bursts across one IPC round-trip without splicing the bitstream).
+
+**Instrumentation retained for regression:** demux `lossStats()` (ccGaps/syncResyncs); `[diag:decode-error]` events; ipc-drop stage logs; fixture `src/output/fixtures/decodeErrorReplay20260904.json`.
+
+**Before / after (live):**
+
+| | session1 | session2 | **post-fix** |
+| --- | --- | --- | --- |
+| present secs | 233 | 166 | **368** |
+| decode-error events | 8 | 6 | **0** |
+| ipc-drop events | 8 | 6 | **0** |
+| errors/min | 2.06 | 2.17 | **0** |
+
+131 s present-pace replay unchanged (mean 34.94 ms). Raw logs: `diag-decode-a-session{1,2}-20260904.log`, `diag-decode-a-postfix-20260904.log`.
+
+**Assumption wrong in brief:** `srtReader` did **not** expose libsrt packet-loss/retransmit counters — only IPC `dropCount` + ffmpeg `drop_frames` (always 0 on copy path). CC gaps in demux are the bitstream-level loss signal.
+
+## Live post-fix 2026-09-04 (b)
+
+Last ~180 s with `retainedDepth` in diag:
+- `unique==0`: **0** secs (was ~129/131)
+- `advN==0`: **0**; `advMax≥1s`: **0** (was ~1.4/min)
+- `unique>15`: **178/180**; reasons dominated by `pace-hold` / `min-clamp` / `lut-miss-live`
+- Agent B snapshots: **3** brief (ahead≈3, L≈100, **shownPts advancing**) vs **101** stuck on one shownPts pre-fix
+- 2× `onDecoderError` in agent log — recovered without multi-second freeze
+
+## (b) fix 2026-09-04 (L≈0 / min-clamp → shown lock)
+
+**Pin:** retained not inverted (`arrLastIsNewest`, ahead=24); NTP latency collapsed (`toNtp`≈flat); `min-clamp` → `frameAtLatency` → `frames[0]`=shown → forced `repeat`.
+
+**Changes:**
+1. `latencyMsOf` — if |NTP L − PTS L| > max(50ms, 0.25×|PTS L|), use PTS latency.
+2. `frameAtLatency` — optional `avoidPts90k` (shown); fallback is oldest-ahead, never sticky shown.
+3. `pickPresentationPts` — `newestPts90kOf`; pose-covered picks newest-by-PTS; passes `shownPts90k`.
+4. `ptsNtpMap.toNtp` — slope outside [0.5, 2.0] → unavailable (lut-miss path).
+5. `onDecoderError` — reset + drop queue/pending + clear PTS map; clear `decodeError` on next keyframe decode.
+
+**Tests:** collapsed flat toNtp pick + paced no-freeze; flat-slope LUT unavailable; 131s replay unchanged.
+
+## freeze-b2 lock pin 2026-09-04
+
+101× `repeat lock snapshot` after connect KF-skip only (A idle). Stable pattern:
+- `shownPts` frozen (e.g. 137250000) while `trueNewest` keeps rising; `ahead=24`, `behind=0`, `uniqPts=24`.
+- `arrLastIsNewest=true` — array-order newest is fine; not the frames[last] bug this run.
+- `rawReason=min-clamp`, `stillQueued=false` → reason forced to `repeat`.
+- `shownNtp≈newestNtp` (often sub-ms / few-ms) despite large PTS gaps → latency collapse; `frameAtLatency(100)` finds nothing → returns `frames[0]` (unshifted shown).
+- `shownNtp` for a **fixed** shownPts still drifts upward over wall time — LUT/`toNtp` not a stable PTS→NTP map during the lock.
+
+## Live reproduce 2026-09-04 (retainedDepth session) — (b) lock
+
+- First ~2 s: unique advances (≈12 then ≈5), then **unique=0 / advN=0 for ~129/131 s**.
+- Every locked second: `decodedFps≈30`, `auFps≈30`, `q=0`, `out=0`, **`retainedDepth=25`**, `decodeError=null`, `kf=false`, reasons **~100% `repeat`**.
+- `latencyMs` often **near 0 or negative** (−100..+100) — not a 400 ms backlog; matches known “L≈0 freeze” comment in `allowsCatchUpSkip` (lut-miss→newest).
+- Agent ingest only saw connect KF-skip (hypothesis A); no `onDecoderError`. Hypothesis **A rejected for this run**. Prior 13 min log’s recurring ≥1 s events remain (a)-correlated; this lock is the (b) class in extreme form.
+
+## (a) vs (b) from same log (byte 1067879038) — 2026-09-04
+
+Deciding metric: per-second `decodedFps` (VideoDecoder outputs) vs `auFps` (demux AUs) on freeze windows.
+
+### Recurring ≥1 s freezes → **(a)**
+
+- Of **18** `advMax≥1000` events, **16/18** have `decodeError='Decoding error.'` within ±2 s.
+- Typical pattern: `waitingForKeyframe=true`, `decodedFps` drops to ~0–15 while `auFps` stays ~27–31 (AUs still counted, then skipped in `feedAu` until keyframe after `onDecoderError` → `decoder.reset()`).
+- Errors are **not** swallowed invisibly: 1 Hz rows show sticky `decodeError` + `kf=true` on freeze seconds (8/40 freeze-related secs).
+
+### Connect multi-second freeze → **(b)** (separate class)
+
+- `advanceN==0` rows 19–23 (~5 s): `dec≈28–32`, `au≈29–31`, `q=0`, `out=0`, **no** decodeError, reasons all `repeat`, **latency 263→831 ms**.
+- Latency climb ⇒ newer PTS exist in pick candidates / retained; pick keeps selecting shown → `repeat`. Not empty decode, not pace-hold.
+- Ring/consume starving the pick queue is **rejected for this window**: consume→retained is ahead of shown (latency proves it). Two paths exist (`queue`→consume→`retained` for pick), but consume is not leaving pick with nothing.
+
+### Classification over freeze-related seconds
+
+| class | count | meaning |
+| --- | --- | --- |
+| (a) dec~0 & au~30 | 3 | decoder output stopped |
+| (b) dec~30 & au~30 | 20 | decode OK, present stuck |
+| mixed (often err+partial dec) | 10 | recovery / error seconds |
+
+Many of the “(b)” seconds in that table are **connect-cluster** or interspersed; the **≥1 s advMax events that match subjective recurring freezes** align with **(a)**.
+
+## Hold-streak distribution 2026-09-04 (same live log, ~788 s)
+
+Definition: wall-clock gap between consecutive **unique PTS advances** (repeat + pace-hold both count as hold). Source: `ndi.pace` advIntervals + advMax (lastAdvAt persists across 1 Hz windows so a multi-second freeze becomes one large gap on resume). Also stitched `advanceN==0` whole seconds.
+
+### Distribution (17352 unique-advance gaps)
+
+| hold duration | count | share |
+| --- | --- | --- |
+| &lt;100 ms (normal pace) | 17280 | **99.59%** |
+| 100–500 ms | 24 | 0.14% |
+| 500 ms–1 s | 30 | 0.17% |
+| **1–3 s** | **15** | **0.09%** |
+| **≥3 s** | **3** | **0.02%** |
+
+- mean gap 39.0 ms / median 31.6 / p90 55 / **max 11.3 s**
+- **≥1 s freezes: 18 ≈ 1.37 per minute** (systemic enough to match “keeps freezing”)
+- **≥3 s: 3 ≈ 0.23 per minute** (connect cluster: 11.3 s, 5.7 s, 3.7 s)
+
+Whole-second `advanceN==0` streaks: **14 s**, **5 s**, **3 s** at connect (all-repeat, q=0, out=0, au≈30).
+
+### During holds ≥1 s (resume-second context)
+
+- **queueDepth=0, outstanding=0** every time — not a full queue sitting unused; consume is emptying, present is not advancing PTS.
+- Reasons on those seconds: **repeat 57%**, min-clamp 24%, pace-hold 19% (freeze itself is mostly **repeat**, not pace-hold).
+- Decode: auFps often still ~29–31; decodedFps sometimes dips on the resume second. Frozen whole-seconds: decode continued (dec~21–30, au~30) while unique=0.
+
+### Burst after ≥1 s hold
+
+Following advances are mostly **~20–45 ms** (mean often ~31–35). Some &lt;29 ms (min interval floor is 20 ms) but **not** a gate-failed dump of many &lt;20 ms uniques. Subjective “burst” ≈ paced catch-up after stillness; a few post samples still contain another ~1 s gap (recurring ~1 Hz-ish long holds later in session).
+
+### vs AR busy (~60%)
+
+**Uncorrelated / anti-correlated.** Long-hold seconds: busy mean **44.5%**; normal seconds: **56.6%**. Of busy≥70% seconds, only 3.5% are long-hold seconds. Canvas+NDI same pattern + this split ⇒ chase **`present()` / pick / retained / LUT**, not NDI capture, for the freeze/burst.
+
+## Live force-upload verify 2026-09-04 (~6 min counters; then longer log for streaks)
+
+URL: auto-connect as before. Log from byte 1067879038. DevTools: **no** insufficient-resources over multi-minute run. Healthy-window hist ~36 ms / 69% in 20–40; outstanding **0**. Prior note that connect max unique=0 streak was “≈5 s” understated the **14 s / 5 s / 3 s** `advanceN==0` clusters and the recurring ~1 s gaps (~1.4/min) — see streak section above.
+
+## Force-upload fix 2026-09-03 (A chosen; default pacing on)
+
+## Force-upload fix 2026-09-03 (A chosen; default pacing on)
+
+### A vs B
+
+| | A: force GPU upload at consume | B: defer `close()` until slot drawn |
+| --- | --- | --- |
+| API | **`WebGLRenderer.initTexture(tex)`** → public; calls `WebGLTextures.setTexture2D` → `texImage2D(VideoFrame)` / CopyTextureCHROMIUM — **same GPU-GPU path as 0e1838e**, no scene draw, no CPU `copyTo` | Need per-slot “drawn” flag after a render that bound that slot |
+| VideoFrame lifetime | Close **immediately** after `initTexture` + seal | Hold until first draw; warm/inactive POVs may **never** draw ring slots → open frames pile up → decoder backpressure returns |
+| Risk | Must wire `forceUploadTexture` in main (throws if missing) | Reopens the stall we already fixed |
+
+**Chose A** — shorter VideoFrame lifetime, uses an existing Three.js API, no warm-POV leak.
+
+### Implementation
+
+1. `consumeToRing`: `uploadFrame` → `forceUploadTexture` (`renderer.initTexture`) → `sealUploadedVideoTexture` (replace `.image` with dimension stub, `needsUpdate=false`) → mark `gpuReady`.
+2. Pipeline closes the `VideoFrame` **immediately** after `onConsumeFrame` returns (no one-tick `gpuPending` deferral — that assumed a draw of off-screen slots).
+3. `bindRing` only accepts `gpuReady` + `textureHasImage`.
+4. main: `forceUploadTexture: (tex) => renderer.initTexture(tex)`.
+
+### Ring depth = **8** (not 24)
+
+- 1 displayed slot (never overwritten while bound).
+- Live AU-per-tick is 0/2/3; paced uniques are mostly **ticksBetween gap-2** → ≤2 studio ticks between swaps.
+- Worst two ticks ≈ 3+3 = 6 arrivals while holding display → **1+6+1 spare = 8**.
+- Old 24 was `DEFAULT_QUEUE_CAP`, yielding up to 96×1080p textures across warm POVs (“insufficient resources”). Max live textures now **8 × active warm POVs** (≤32 at cap 4).
+
+### Tests / replay
+
+- Invariant: over a paced tick sequence the bound texture’s `.image` is never a closed `VideoFrame` (sealed stub after force-upload).
+- Resource: 2 warm POVs → exactly `2 * PRESENT_DISPLAY_RING_SLOTS` (16), not 48.
+- 131 s replay: mean **34.94 ms**, **74.2%** in 20–40, 22.3% in 40–60, 3.4% ≥60 — unchanged vs pre-fix replay (interval design was fine). outstanding max **0** after immediate close.
+
+Killswitch remains `?presentPace=off`. Live verify next (eye + DevTools).
+
+## Black-screen between paced frames 2026-09-03 (root cause; fixed above)
+
+Manual killswitch: `?presentPace=off` played imperfect but functional video. Pacing ON: one frame → extended **black** → one frame. Not a stale hold — `material.map` pointed at a ring slot whose GPU upload never happened (closed `VideoFrame`).
+
+### Exact mechanism (was)
+
+1. **Consume** set `tex.image = VideoFrame` + `needsUpdate` on a **non-displayed** ring slot — no GL call.
+2. Three.js only uploads in `setTexture2D` when that texture is in a **drawn** material.
+3. Next `present()` closed those VideoFrames.
+4. Later paced bind → `texImage2D(closed VideoFrame)` → black.
+5. Displayed-slot stomp was **not** primary (`consumeToRing` skips `displayIndex` once `hasFrame`).
+
+## Live hybrid verify 2026-09-03 (auto-connect, working-tree Vite `--dev`)
+
+URL: `?race=demo-istanbul&outputMode=transparent&arBackground=video&autoConnectLive=1&livePov=1&autoConnectSrt=1&srtPov=1`. Killswitch not off (`pace-hold` in 1 Hz `reasonCounts`). Electron + Vite started this session; log appended after byte 576153040.
+
+Healthy filter (same family as the 131 s replay window): `decodedFps` 20–40, `advanceN≥15`, `advMean<200`, **101 s**.
+
+### 1. Unique-present interval histogram
+
+| | pre-gate | broken gate (live) | replay prediction | **this live** |
+| --- | --- | --- | --- | --- |
+| mean | 33.5 ms | 43.4 ms | 34.94 ms | **34.21 ms** |
+| &lt;20 | 43% | 0% | 0% | **0.3%** |
+| 20–40 | 27% | 47% | 74.2% | **76.0%** |
+| 40–60 | 13% | 44% | 22.3% | **21.8%** |
+| ≥60 | 18% | 8.9% | 3.4% | **1.9%** |
+| unique fps | ~30 | ~23 | ~30 | **29.44** |
+
+`ticksBetween`: gap1 932, **gap2 1459**, gap3 514, gap4+ 106 (mostly gap2). Last-1s example: `29.5, 43.1, 44.5, 40.4, 38.6, 27.9, 42.3, 25, 26.9, 37.7, 35.7, 24.2, 27.5, 32.6, 40.6, 23.9, 44.3, 39.9, 43.4, 37.1`.
+
+### 2. queueDepth / outstandingFrames
+
+Healthy: mean **0.47**, max **3**, never ≥10 (0 / 101). Matches replay max ~4. Unclosed VideoFrames are not parking at ~10.
+
+### 3. decodedFps vs auFps
+
+Healthy: decoded **29.53** (21.8–33.1), au **29.86** (25.6–33.0). They track ~30. Not the broken-gate **decoded ~23 / au ~30** throttle.
+
+### 4. AR readback / busy / Send
+
+| | contended texSubImage | `0e1838e` 15 s | **this live 101 s** |
+| --- | --- | --- | --- |
+| arReadbackBegin mean | ~15 ms | 2.62 ms | **2.02 ms** (1.04–2.97) |
+| p90 | ~23 | ~4 | **4.24** |
+| ms/s | ~410 | ~84 | **~65** |
+| busy share | 70–93% | ~1% | **3.75% mean** (max 30.8% in a 1 s row, p90 10.3%) |
+| AR Send | 12–15 | 22–26 | **31.52** (28–34) |
+
+Consume ~30/s GPU-GPU uploads did **not** restore the 15 ms / 70%+ busy stall. Busy is a bit noisier than the 1% snapshot; Send is at the 32 fps capture gate, not the old 22–26 keep-newest drop.
+
+### 5. reasonCounts (per-second means over 101 s)
+
+`min-clamp` **29.8**, `pace-hold` **24.5**, `repeat` **4.0**. Uniques are almost all `min-clamp` (100 ms policy), not `lut-miss-live`. `pace-hold` + `repeat` ≈ the 60 Hz ticks that do not unique. Gate is loaded.
+
+### 6. Connect-time — not a smooth 12-frame drain
+
+First second: 8 `min-clamp` uniques (PTS +3000 walk) + 4 `pace-hold`, then **~35 s of unique=0 / 100% `repeat`** while `decodedFps`/`auFps` stay ~30 and `queueDepth` stays 0–2. Latency of the frozen shown PTS climbs ~0 → ~114 ms. One jump at ~14 s (`294927000` → `296220000`, ~14.4 s of PTS in a single min-clamp). Unique returns at s39–42 (`unique` 33–34, latency **712 → 133**). That is freeze-then-catch-up, not unstick+consume drain. After that, the 101 s healthy window above.
+
+**Verdict (counters):** steady-state matches the replay; decoder is not throttled; AR begin stays cheap; connect-time still freezes. **Smoothness is the user's eye**, not this table.
+
+## Hybrid consume + paced display 2026-09-03 (design recap)
+
+Approved mechanism: every `studio:tick` **consumes** queued `VideoFrame`s (GPU copy into a non-displayed ring slot, then `close` on the following tick after one `renderer.render()`). The wall-clock gate only **binds** which ring slot is shown and updates `presentedPts90k` in that same step. Overlay stays `sampleAt(toNtp(shownPts)+trim)` at display commit — never newest-at-consume (Option B). Pose-lock test `delayed draw uses pose for shown PTS, not newest-at-draw` is unchanged and still passes.
+
+### 1. Upload frequency vs `0e1838e` cost
+
+`0e1838e` changed **cost**, not frequency. Production `createVideoStreamTexture()` sets `isVideoTexture` so Three.js uses **`texImage2D(VideoFrame)` → Chromium `CopyTextureCHROMIUM`** (GPU-GPU). It is **not** `VideoFrame.copyTo()` / CPU readback / PBO `readPixels`.
+
+Measured **after** `0e1838e` under sustained healthy HEVC (~30 decoded/s, unique present in the low–mid 20s with Send 22–26): `arReadbackBegin` mean **2.62 ms** / p90 **~4** / **~84 ms/s** vs the old texSubImage stall **15 / 23 / 410**. Consume-every-arrival uploads at **decode rate (~30/s)** — the same upload *frequency* as pre-pacing unique present, not a new class of work. The 15 ms stall was per-upload *cost* on `texSubImage2D`; going back to ~30 GPU-GPU uploads/s does not reintroduce that stall. Live confirmation of `arReadbackBegin` under hybrid is still the next session.
+
+### 2. Replay fixture (not a perfect 16.7 ms clock)
+
+Source: `diag-srt-fps.log` healthy **131 s** after first `pace-hold` (decoded 20–40, advanceN≥20, advMax<200). Per-second `tickHist` / `tickMean` / `tickMin` / `auDeltaPerPresent` reconstructed into 7701 ticks (0/1/2/3 AU bursts, 0 ms doubles). `liveUniqueIntervalsMs` is the concatenated recorded unique-present intervals from that window.
+
+Display gate is a **phase accumulator** (`pacePhaseMs += tickDt`, swap when phase ≥ period−slack and unique gap ≥ 20 ms, then `phase -= period`). Resetting `lastAdvanceWallMs = now` on a late tick was compounding 3-tick holds (~43 ms mean). `pace-hold` remains its own reason.
+
+### 3. Replay before / after (pass bar)
+
+| | live with old gate (before) | hybrid replay (after) | design |
+| --- | --- | --- | --- |
+| n unique intervals | 3024 | 3725 | ~30/s |
+| mean | **43.31 ms** | **34.94 ms** | ~33 ms |
+| &lt;20 | 0% | **0%** | ~0% |
+| 20–40 | 46.8% | **74.2%** | ~100% |
+| 40–60 | 44.1% | **22.3%** | ~0% |
+| ≥60 | 9.1% | **3.4%** | ~0% |
+| queueDepth | mean **10.08**, max **12** | max **4**, mean **0.51**, never ≥10 | not parked at 10 |
+| outstandingFrames | (unclosed JS queue) | max **4** | decoder keeps pace |
+
+Remaining 40–60 / ≥60 buckets are mostly recorded long `studio:tick` intervals (cannot invent a unique with no tick). Not live-verified.
+
+`?presentPace=on` opts into consume-close + gate + unstick. Default is the legacy hold-`VideoFrame`-until-swap path (safe).
+
+## VideoFrame close vs WebCodecs stall 2026-09-03 (code + docs, no new live)
+
+**Close is not “every tick.”** `closeFrame` only via `dropQueued` from: (1) swap `skip` (older than pick), (2) `prevPresented` rotate on forward swap, (3) `trimQueue` when `queue.length > 24`, (4) dispose/reset, (5) `onFrame` if already disposed. **`pace-hold` / `repeat` return before any of that.** With snap-to-next +1, skip is usually empty, so close rate ≈ unique display swaps. Cap 24 is not the live limiter (q was ~10).
+
+**Not “picked-over then abandoned.”** Held frames are *future* PTS waiting for the next allowed swap. They stay outstanding until their turn (or cap). Texture `tex.image = VideoFrame` also requires `prevPresented` to stay unclosed one swap so GL can upload.
+
+**Backpressure:** W3C WebCodecs: failing to `close()` output frames “can cause decoding to stall.” Chrome WebCodecs collaborator (w3c/webcodecs#680): HW decoders have an **output-buffer limit**; software does not; dropping JS refs without `close()` is the usual stall. w3c/webcodecs#753: “outstanding (non-closed) outputs exceeds the decoder's limit… stall. This limit varies / isn’t known in general.” That is **output** stall, not `decodeQueueSize` (input chunks). This repo never reads `decodeQueueSize` / `ondequeue`. Config prefers `hardwareAcceleration: 'prefer-hardware'`. Exact HW surface count is implementation-defined — **no new live SRT needed** to establish the mechanism; the prior session’s q≈10 / decoded≈23 / au≈30 is consistent with it but is not a Chromium constant.
+
+**Hybrid (implemented 2026-09-03):** every tick **consumes** (GPU copy then `close` next tick). **Display** still atomic: bind the shown ring slot + `presentedPts90k` together on the pace gate. Do not publish PTS at copy time (that was Option B). Ring of 24 GPU textures so the displayed slot is never the one being overwritten. Pose stays `sampleAt(toNtp(shownPts))`. Replay numbers are in the section above; live SRT is next.
+
+## Live pacing re-verify 2026-09-03 (visual: not smooth)
+
+Deploy: HEAD is still `06e63ad` (pacing **uncommitted**). Session served working-tree via Vite `--dev`. Killswitch **not** off: 1 Hz `reasonCounts` show `pace-hold` (e.g. 34/s vs min-clamp 21). Electron was down when this note was written; log mtime 16:56.
+
+Healthy window after first `pace-hold` (decoded 20–40, advanceN≥20, advMax<200, **131 s**):
+
+| | old (pre-gate) | live with gate | design |
+| --- | --- | --- | --- |
+| advHist <20 | **43%** | **0%** | ~0% |
+| 20–40 | 27% | **47%** | **~100%** |
+| 40–60 | 13% | **44%** | ~0% |
+| ≥60 | **18%** | **8.9%** | ~0% |
+| adv mean | 33.5 ms | **43.4 ms** | ~33 ms |
+| unique fps | ~30 | **~23** | 30 |
+| ticksBetween | 66% gap1 | 18% gap1, **35% gap2, 31% gap3, 17% gap4+** | mostly gap2 |
+
+Example last 1 s intervals (ms): `44.5, 38.3, 48.1, 34.2, 36.6, 44.1, 35.8, 28.4, 65.4, 29.2, 65.8, 43.6, 47.8, 70.7, 30.8, 52.6, 45.3, 110, 67.1, 31.6, 61.5`
+
+Why vs unit tests: live `latencyMs` sits at **~270 ms** (q≈10), `auFps`~30 but `decodedFps`~23 (WebCodecs backpressure from unclosed frames). Unstick-to-oldest + 28 ms wall gate + ~0 ms double-ticks ⇒ many **3-tick** holds (40–60 ms). Tests drained a static 12-frame queue with a fake decoder and a perfect 16.7 ms clock.
+
+Downstream: canvas still rAF vs `studio:tick` present — but present cadence itself is already irregular at ~23 fps, so rAF cannot make it look 30. AR Send ~25, `sendNewPts`~18, busy skips ~21/s. **2dGrab** mean **~94–108 ms**, Send ~5 fps — real, but 2D map only; not the AR canvas plate.
+
+Verdict: **(b)** gate active, live behavior ≠ design. Not (a) “present is clean.” 2dGrab is a separate 2D-NDI hitch, not the AR/canvas miss.
+
+## Option A pacing (implemented 2026-09-03)
+
+Clock: still only `studio:tick`. Gate = wall-clock since last unique advance. Not a second timer.
+
+Slack from measured tick intervals (mean **17.41 ms**, std **11.39 ms**):
+- θ = mean+1σ = **28.80 ms** (a +1σ single tick is still one 60 Hz slot, not a 30 fps period)
+- slack = 1000/30 − 28.80 = **4.53 → 5 ms** (`PRESENT_PACE_SLACK_MS`)
+- 4 ms was the unrounded estimate of the same quantity; 5 matches mean+σ as the threshold (θ ≈ 28.3 ms)
+
+Order inside `present()` (texture + `presentedPts90k` still one step):
+
+1. `pickPresentationPts`
+2. Unstick if pick is newest and backlog exists (presented null or already newest) → oldest queued PTS, reason `min-clamp`. Re-queue the old newest on rewind so it is not closed via `prevPresented`.
+3. bdb4c73 snap-to-next. With pace on, `lut-miss-live` is **not** a catch-up skip (would jump back to newest and oscillate). `max-clamp` / `stall-pin` still skip.
+4. pick PTS == presented → `repeat`
+5. else if elapsed < θ and swap is not a rewind → `pace-hold`
+6. else atomic swap; `lastAdvanceWallMs = now`
+
+`lastAdvanceWallMs` is **not** reset on stall/reconnect. Huge elapsed ⇒ gate open (first swap immediate). Short stall < period: rewind bypasses the gate so we do not sit on newest; forward drain is still paced.
+
+Killswitch: `?presentPace=off` (manager → pipeline). Overlay still `sampleAt(toNtp(shownPts))`.
+
+## Option A pacing gate design 2026-09-03 (review, not implemented)
+
+Clock: **not** a second timer. Still invoked only on `studio:tick`. Gate = wall-clock since last *unique* advance.
+
+```
+PACE_PERIOD_MS = 1000/30          // 33.333
+PACE_SLACK_MS  = 4                // first tick with elapsed >= ~29.3 ms may advance
+// so a 32 ms tick is not deferred to ~48 ms
+```
+
+Order inside `present()` (same atomic swap as today):
+
+1. `pickPresentationPts` (unchanged)
+2. bdb4c73 snap-to-next (unchanged; min-clamp/adaptive/fixed only)
+3. if pick PTS == presented PTS → `repeat` (pick), no swap
+4. else if `now - lastAdvanceWallMs < PACE_PERIOD_MS - PACE_SLACK_MS` → **`pace-hold`**, no swap, `presentedPts90k` unchanged
+5. else swap texture + `presentedPts90k` together; `lastAdvanceWallMs = now`
+
+`pace-hold` is a new `PresentationReason` — do **not** reuse `repeat` (diag must tell healthy 60 Hz holds from stuck pick). Catch-up skip still allowed on a paced swap (one jump per ~33 ms, not 26 gap-1 bursts).
+
+Connect freeze: pacing is a **hold** gate, not a force-advance. L≈0 / 100% repeat / q=12 **still needs a pick unstick** (rewind to min-clamp candidate or play next queued PTS; keep newer frames, don’t `dropQueued` the backlog). Decoder stall is because stuck present never closes frames.
+
+Steady 1 s: ~30 unique advances, intervals clustered 29–45 ms (tick quantization), not 43% <20 / 18% ≥60. Min-clamp still chooses *which* PTS; pace chooses *when*. Snap-to-next still prevents 2-PTS holes on the allowed swap.
+
+## Pose vs present vs composite (pacing desync risk) 2026-09-03
+
+User worry: a post-`present()` pacing buffer would show delayed video while overlay reads freshest pose. **That is not how overlay is sampled today.**
+
+| Consumer | When | What it reads |
+| --- | --- | --- |
+| `pickPresentationPts` | `present()` on `studio:tick` | `getNewestPoseNtp()` = newest **drone history NTP** — **gate only** (is this PTS covered?). Not the overlay sample. |
+| Texture | same `present()` call | `uploadFrame` of picked `VideoFrame`; `presentedPts90k` updates in the same call |
+| Overlay (boats/drone/buoys) | pose pipeline **own rAF** | `sampleAt(toNtp(presentedPts90k)+syncTrimMs)` when `arBackground==='video'` |
+| Composite | `renderer.render` wrap | current video texture, then current mesh poses. **Does not call `getNewestPoseNtp`.** |
+
+`getNewestPoseNtp` is **not** called at render. Re-matching already happens: pose re-reads `getPresentedPts90k` each pose tick and samples history at that PTS’s NTP. Wind/OpenMeteo is **not** PTS-matched (already true).
+
+**Option A** (pace *when* `present()` advances; atomic texture + `presentedPts90k`): preserves the lock. Pose follows the PTS that is actually on the plate.
+
+**Option B** (pick now, show later): desync **if** `presentedPts90k` updates at pick while pixels stay old. Safe only if unpublished PTS until release — which is Option A with extra machinery.
+
+Test (not written): at composite, overlay NTP = `toNtp(shownPts)+trim`, not `newestPoseNtp` at draw and not newest-at-pick. Do not lock overlay to the pick-gate pose (that is ahead of the plate by design, 100–400 ms).
+
+## Present/tick interval regularity 2026-09-03
+
+Raw SRT outside broadcast-web is smooth 30. Same feed in **canvas preview** and **NDI Studio Monitor** is choppy → inside broadcast-web, at or before canvas. Throughput (~30 unique/s) was the wrong metric.
+
+**Canvas vs present clock (code, Electron):** preview `renderer.render` is **rAF** (`previewFrameClock.subscribePreview` when visible). `present()` / texture swap is **`studio:tick` only** (`subscribeTick: studioBridge.onStudioTick`). Canvas paints ~60 Hz; new video texture arrives on the jittery tick.
+
+Diag: `diagPresentPace.ts` — wall-clock gaps between consecutive `present()` calls (tick) and consecutive unique-PTS advances (min-clamp; they match). Logged `ndi.pace`.
+
+### Healthy window (decoded 20–40, advanceN≥20, advMax&lt;200, 61 s)
+
+| | tick (studio:tick) | unique present advance / min-clamp |
+| --- | --- | --- |
+| **mean** | **17.41 ms** (~57 Hz) | **33.45 ms** (~30 Hz average) |
+| **std** | **11.39 ms** | **27.12 ms** |
+| **min** | **~0 ms** (60/61 s had tickMin&lt;1) | **~1.7 ms** typical |
+| **max** | **~45 ms** typical (peak 58) | **~108 ms** typical (peak 193) |
+
+Histogram (requested buckets):
+
+| bucket | tick | unique advance | clean 33 ms ref |
+| --- | --- | --- | --- |
+| &lt;20 ms | **62.4%** | **42.6%** | ~0% |
+| 20–40 ms | 33.8% | **27.0%** | **~100%** |
+| 40–60 ms | 3.8% | 12.6% | ~0% |
+| ≥60 ms | 0% | **17.8%** | ~0% |
+
+Tick &gt;20 ms = **37.6%** — matches the old 10 s `over20ms` ~37%.
+
+**Ticks between unique advances:** **65.5% gap 1** (consecutive ticks), 7.8% gap 2 (the “every other 60 Hz tick → 33 ms” pattern), 8.6% gap 3, **18.0% gap 4+**. present() is **not** tick-jitter passed through a regular 2-tick hold. It often double-advances, then stalls.
+
+Example 1 s advance intervals (ms): `20, 6.2, 86.8, 7.7, 14.3, 38.7, 29.3, 76.5, 10.6, 44.7, 3.6, 21.6, 17.1, 31.2, 69.5, 30.3, 40.8, 29.8, 22.5, 21.2, 13.6, 120.5, 23.7, 72.1`
+
+No pacing-buffer / decouple-from-tick change this pass.
+
+## Connect freeze → burst → jitter 2026-09-03
+
+Same mechanism as steady jitter, **exaggerated**. Not a separate keyframe-wait bug.
+
+`latencyMs` is PTS-vs-newest (not wall clock). `queueDepth` = queued + presented + prevPresented. Cap is 24; connect peak observed is **12**. No new instrumentation — 1 Hz `decode-present` + `ndi.pace` from the present-pace live run.
+
+### Timeline (marker `present-pace-2026-09-03`)
+
+| phase | duration | queueDepth | outstanding | decodedFps | uniquePresent | reason | latencyMs | waitingForKeyframe |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| empty | 1 s | 0 | 0 | 0 | 0 | null | null | false |
+| brief start | 1 s | **12** | 12 | 22 | 12 | mixed | ~0 | **false** |
+| **FREEZE** | **~107 s** | **12 pinned** | **12** | **0** (`framesDecoded` stuck 23) | **0** | **100% repeat** | **~0** | **false** |
+| unstick / catch-up | 1 s | 12→10 | 10 | 23.5 | 26 | 27 min-clamp / 33 repeat | **0→266** | false |
+| drain | 1–2 s | 10→6 | 6 | 30 | 35 | min-clamp | 266→133 | false |
+| steady jitter | rest | **5–7** | 5–7 | ~30 | ~30 | ~50/50 | **100–167** | false |
+
+Retry run (`ndi-content-unique-retry`): freeze ~q=12, then **~25 s burst** decoded/unique **~52–61 fps**, q 8→6, then steady ~30. Peak **q=12**. `waitingForKeyframe` false on freeze/burst rows (kf-true exists elsewhere, not this freeze).
+
+Catch-up second (ln 185478): `ticksBetween` **26× gap 1**, `advMax` 24397 ms (the freeze hole). present() ripped unique PTS on consecutive ticks. `droppedFps` 25–34 then ~50 in the burst run — queue skip-drain (`dropQueued`), not a paced 33 ms cadence.
+
+### vs the user’s hypothesized story
+
+| guess | measured |
+| --- | --- |
+| freeze = starved queue waiting for first min-clamp candidate | **Opposite:** queue **full** (12), presenting **newest** (`latencyMs≈0`), repeating it |
+| freeze = `waitingForKeyframe` | **No.** false for the whole freeze |
+| burst = drain of backlog once min-clamp finds candidates | **Yes.** q 12→5, L 0→266→100, uniquePresent 26–57/s, almost all advances gap-1 |
+| same root as steady bunch/gap | **Yes.** present() is not a wall-clock pacer. Connect = long hold + dump; steady = small holds (`≥60 ms`) + bunches (`<20 ms`) |
+
+Decoder freeze is coupled: `outstandingFrames=12` stuck with `framesDecoded` frozen — VideoFrames not closed while present() repeats, so WebCodecs stops emitting until the drain.
+
+Per-advance `pts90k` list was not logged this pass (1 Hz snapshots only). Not needed to identify the connect mechanism.
+
+Fix implication (not implemented): a **pacing/smoothing buffer** would cover connect burst and steady judder; a **narrow keyframe-wait fix would not** (kf is not the freeze). A pick-logic tweak (don’t stick on newest at L≈0 while 12 frames sit) might shorten connect freeze but would not by itself make intervals regular.
+
+## Unique content vs Send count 2026-09-03
+
+Hypothesis: AR’s 32 fps gate samples `present()` **repeat** ticks, so NDI transmits ~30/s but only ~15 unique PTS. Duplicate NDI content = two sends with the same PTS (a `repeat` capture is same as previous *present*, not automatically previous *NDI send*).
+
+Diag: `diagNdiContent.ts` stamps AR `begin` with that tick’s active-POV present PTS/reason (present runs first), FIFO through PBO/pack, counted at `sendStudioNdiFrame`. Log: `ndi.content` on `stage:decode-present`.
+
+### Healthy window (retry, 20&lt;decodedFps&lt;40, sendN≥20, n=24 s)
+
+| | mean (med) |
+| --- | --- |
+| decodedFps | 30.3 |
+| uniquePresentFps | **30.5** (med 30.3) |
+| present min-clamp / repeat | **31.0 / 27.9** (~50/50) |
+| AR Send / sendN | **26.5** (24–28) |
+| **sendNewPts (unique-content-sent)** | **22.2** (med 22, min 11, max 26) |
+| sendSamePts (consecutive same PTS) | **4.4** (med 4, max 17) |
+| distinctPts | **22.3** |
+| capture on min-clamp / repeat | **19.2 / 8.0** |
+
+**Hypothesis as stated is not confirmed.** Unique-content-sent is ~22, not ~15. Captures are biased toward **min-clamp** (19 vs 8), not systematically oversampling repeats. present() is healthy (~30 unique).
+
+Direct 1 s PTS list (ln 181766, Send 28, 24 new / 4 same):
+
+`228030000, 228033000, 228039000, 228042000, 228045000, 228045000, 228048000, 228051000, 228054000, 228057000, 228063000, 228066000, 228066000, 228069000, 228072000, 228075000, 228078000, 228084000, 228087000, 228087000, 228090000, 228099000, 228102000, 228102000, 228108000, 228111000, 228114000, 228117000`
+
+2 s concat: 53 sends, 44 distinct; run lengths mostly 1, **7× double**, 1× triple. Cadence is “mostly new frame, occasional hold”, not every-other-frame 15 fps.
+
+If it still “looks like 15”, that is not unique-PTS-sent≈15 here. Ask what surface (studio preview vs NDI/vMix). No skip-send-on-repeat implemented.
+
+### Cold start on the same run (before decode woke)
+
+ffmpeg ~29.6 copy, `auFps` ~30, `decodedFps` ~0, present 100% repeat, Send ~32, **distinctPts 1**. Frozen plate — ignore for the aliasing test.
 
 ## Depth-2 keep-newest-of-2 queue 2026-09-03
 

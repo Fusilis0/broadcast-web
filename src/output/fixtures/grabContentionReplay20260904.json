@@ -1,0 +1,24 @@
+{
+  "source": "diag-srt-fps.log postfix-like windows (sendSamePts≤1, freshness≥10) after round-4 freshness gate, 2D+3D on",
+  "mechanism": "With worker-path 2D already off-main for getImageData, AR unique Send stays below 30 because AR busy (PBO canBegin false) averages ~6.5/s while uniquePresent≈30; busy and the send gap track 2dGrab wall meanMs (~100ms → busy high / sendNew~23; ~50ms → busy≈0 / sendNew~28). H1 (no worker) rejected; H2 (clone handoff) weak (transferables); H3+GPU contention primary.",
+  "date": "2026-09-04",
+  "acceptanceSendNewPtsMin": 30,
+  "baseline": {
+    "healthySecs": 519,
+    "meanSendNewPts": 26.31,
+    "meanUniquePresentN": 30.01,
+    "meanArBusy": 6.46,
+    "meanGrab2dMeanMs": 95.0,
+    "windows": [
+      { "sendNewPts": 24, "uniquePresentN": 29, "arBusy": 14, "arFreshness": 15, "grab2dN": 5, "grab2dMeanMs": 92.98 },
+      { "sendNewPts": 22, "uniquePresentN": 30, "arBusy": 20, "arFreshness": 9, "grab2dN": 4, "grab2dMeanMs": 114.68 },
+      { "sendNewPts": 24, "uniquePresentN": 30, "arBusy": 14, "arFreshness": 16, "grab2dN": 5, "grab2dMeanMs": 107.08 },
+      { "sendNewPts": 22, "uniquePresentN": 30, "arBusy": 19, "arFreshness": 12, "grab2dN": 4, "grab2dMeanMs": 101.8 },
+      { "sendNewPts": 22, "uniquePresentN": 30, "arBusy": 20, "arFreshness": 10, "grab2dN": 4, "grab2dMeanMs": 116.1 },
+      { "sendNewPts": 28, "uniquePresentN": 31, "arBusy": 3, "arFreshness": 28, "grab2dN": 8, "grab2dMeanMs": 63.19 },
+      { "sendNewPts": 27, "uniquePresentN": 28, "arBusy": 0, "arFreshness": 24, "grab2dN": 9, "grab2dMeanMs": 48.46 },
+      { "sendNewPts": 28, "uniquePresentN": 30, "arBusy": 0, "arFreshness": 27, "grab2dN": 9, "grab2dMeanMs": 52.13 },
+      { "sendNewPts": 27, "uniquePresentN": 30, "arBusy": 6, "arFreshness": 21, "grab2dN": 5, "grab2dMeanMs": 83.08 }
+    ]
+  }
+}

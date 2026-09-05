@@ -4,6 +4,7 @@ import type { Camera, Object3D, WebGLRenderer } from 'three'
 import { Color, WebGLRenderTarget } from 'three'
 import { createNdiGpuUyvyPack } from './ndiGpuUyvy.ts'
 import { createNdiAsyncReadback } from './ndiAsyncReadback.ts'
+import { registerNdiFboCanBeginProbe } from './ndiFboReadbackPressure.ts'
 import { createNdiCaptureGate } from './ndiCaptureClock.ts'
 import { applyNdiCaptureColorSpace } from './ndiCaptureColorSpace.ts'
 import { NDI_CAPTURE_FLIPPED_BOTTOM_UP } from './ndiCaptureFlip.ts'
@@ -126,6 +127,7 @@ export function startNdi3dChannelPump(
   let targetW = 0
   let targetH = 0
   const readback = createNdiAsyncReadback({ renderer })
+  const unregFboPressure = registerNdiFboCanBeginProbe(() => readback.canBegin())
   const gpuPack = createNdiGpuUyvyPack(renderer)
   let lastPackSrcW = 0
   let lastPackSrcH = 0
@@ -411,6 +413,7 @@ export function startNdi3dChannelPump(
       if (stopped) return
       stopped = true
       unregSendFps()
+      unregFboPressure()
       unsubTick()
       ipc.dispose()
       delayBuffer.clear()

@@ -17,9 +17,20 @@ import {
   type NdiSkipCounts,
 } from './ndiStageTiming.ts'
 import { diagPeekNdiSendFps } from './diagNdiPeek.ts'
+import {
+  diagNotePresentTick,
+  takeDiagNdiContentWindow,
+} from './diagNdiContent.ts'
+import {
+  diagNotePaceAdvance,
+  diagNotePaceTick,
+  diagNoteAuArrival,
+  takeDiagPresentPaceWindow,
+} from './diagPresentPace.ts'
 import { getSrtBridge, type SrtBridge } from './srtBridge.ts'
 import {
   createVideoDecodePipeline,
+  parsePresentPace,
   type DecodeCounters,
   type VideoDecoderFactory,
   type VideoDecodePipeline,
@@ -27,6 +38,22 @@ import {
 } from './videoDecodePipeline.ts'
 
 export const WARM_STREAM_CAP = 4
+/**
+ * GPU ring depth for hybrid consume → paced display.
+ *
+ * Justification (not DEFAULT_QUEUE_CAP=24):
+ * - Display keeps 1 slot bound.
+ * - Steady 30 fps decode / ~33 ms pace: unique advances are mostly
+ *   ticksBetween gap-2 (~2 studio ticks).
+ * - Live AU-per-tick burstiness is 0 / 2 / 3 (rarely 4+). Worst two ticks
+ *   between swaps ≈ 3+3 = 6 arrivals while one slot stays displayed.
+ * - +1 spare for phase jitter / 0 ms double-ticks → **8**.
+ *
+ * Was 24 (= queue cap) and exhausted WebGL (up to 96×1080p across warm
+ * POVs). Overwriting the oldest non-display slot drops that PTS from the
+ * ring; pick skips missing GPU copies via bindRing failure → hold.
+ */
+export const PRESENT_DISPLAY_RING_SLOTS = 8
 
 export type VideoStreamCounters = DecodeCounters & {
   povId: string
@@ -55,9 +82,27 @@ export type VideoStreamManagerOptions = {
   decoderFactory?: VideoDecoderFactory
   createTexture?: () => StreamTextureLike
   uploadFrame?: (tex: StreamTextureLike, frame: VideoFrameLike) => void
+  /**
+   * Force a real GPU upload for a texture that may not be in any drawn
+   * material. Production: `renderer.initTexture(tex)` → Three.js
+   * `WebGLTextures.setTexture2D` → `texImage2D(VideoFrame)` /
+   * CopyTextureCHROMIUM. Required when presentPace is on.
+   */
+  forceUploadTexture?: (tex: StreamTextureLike) => void
   warmCap?: number
   onOpsError?: (povId: string, message: string) => void
   nowMs?: () => number
+  /**
+   * Default on. `?presentPace=off` disables the wall-clock gate + unstick.
+   */
+  presentPace?: boolean
+  /** Latest SRT/IPC ingest proxies for decode-error events (item a). */
+  getIngestDiag?: (povId: string) => {
+    bitrateKbps: number | null
+    ipcDropCount: number | null
+    ipcDropPerSec: number | null
+    ffmpegDropFrames: string | null
+  } | null
 }
 
 export type VideoStreamManager = {
@@ -89,6 +134,13 @@ type StreamSlot = {
   povId: string
   pipe: VideoDecodePipeline
   texture: StreamTextureLike
+  ring: Array<{
+    tex: StreamTextureLike
+    pts90k: number | null
+    /** True after forceUploadTexture + seal; safe to bind after VideoFrame.close. */
+    gpuReady: boolean
+  }> | null
+  displayIndex: number
   lastUsedAt: number
   hasFrame: boolean
 }
@@ -181,9 +233,33 @@ export function uploadVideoFrameToTexture(
   } catch {
     /* VideoFrame host objects may reject expandos */
   }
+  // GPU-GPU: Three.js `isVideoTexture` → `texImage2D(VideoFrame)` →
+  // Chromium CopyTextureCHROMIUM. Not `VideoFrame.copyTo()` / CPU readback.
+  // For off-screen ring slots, caller must also `forceUploadTexture`
+  // (`renderer.initTexture`) before `VideoFrame.close()`.
   tex.image = img
   if ('colorSpace' in tex) tex.colorSpace = THREE.SRGBColorSpace
   tex.needsUpdate = true
+}
+
+/**
+ * After a successful force GPU upload, drop the VideoFrame reference so
+ * `close()` cannot leave a closed source on a later bind. Keep dimensions
+ * for `textureHasImage` / layout. Does not bump `needsUpdate`.
+ */
+export function sealUploadedVideoTexture(
+  tex: StreamTextureLike,
+  frame: VideoFrameLike,
+): void {
+  const w = frame.displayWidth ?? frame.codedWidth
+  const h = frame.displayHeight ?? frame.codedHeight
+  tex.image = {
+    width: w,
+    height: h,
+    videoWidth: w,
+    videoHeight: h,
+  }
+  tex.needsUpdate = false
 }
 
 function textureHasImage(tex: StreamTextureLike): boolean {
@@ -209,7 +285,18 @@ export function startVideoStreamManager(
   const nowMs = options.nowMs ?? (() => performance.now())
   const createTexture = options.createTexture ?? createVideoStreamTexture
   const uploadFrame = options.uploadFrame ?? uploadVideoFrameToTexture
+  const forceUploadTexture = options.forceUploadTexture
   const getLutStreamId = options.getLutStreamId ?? ((povId: string) => povId)
+  let presentPace = options.presentPace !== false
+  if (options.presentPace == null) {
+    try {
+      if (typeof window !== 'undefined' && window.location?.search != null) {
+        presentPace = parsePresentPace(window.location.search)
+      }
+    } catch {
+      presentPace = true
+    }
+  }
 
   const streams = new Map<string, StreamSlot>()
   const newestPose = new Map<string, number>()
@@ -302,6 +389,7 @@ export function startVideoStreamManager(
         latencyMs: c.latencyMs,
         queueDepth: c.queueDepth,
         outstandingFrames: c.outstandingFrames,
+        retainedDepth: c.retainedDepth,
         decodeError: c.decodeError,
         framesDecoded: c.framesDecoded,
         framesDropped: c.framesDropped,
@@ -313,6 +401,21 @@ export function startVideoStreamManager(
         accessUnits: c.accessUnits,
         bytesPushed: c.bytesPushed,
       })
+    }
+    /* Skip empty managers (HMR orphans) — they steal pace window samples. */
+    if (rows.length === 0) {
+      diag.t0 = now
+      diag.presentCalls = 0
+      diag.bytesIn = 0
+      diag.sameFrameUpload = 0
+      diag.uniquePts.clear()
+      diag.repeatPts.clear()
+      diag.kfTrue.clear()
+      diag.kfRise.clear()
+      diag.auDeltaHist.clear()
+      diag.reasonCounts.clear()
+      diag.traces.length = 0
+      return
     }
     const auHist: Record<string, number> = {}
     for (const [k, v] of diag.auDeltaHist) auHist[k] = v
@@ -335,19 +438,25 @@ export function startVideoStreamManager(
       }
     }
     const skipShares = (s: NdiSkipCounts) => {
-      const total = s.rateCap + s.stagger + s.busy
+      const total = s.rateCap + s.stagger + s.busy + s.freshness
       const share = (n: number) =>
         total === 0 ? 0 : Math.round((n / total) * 1000) / 10
       return {
         rateCap: s.rateCap,
         stagger: s.stagger,
         busy: s.busy,
+        freshness: s.freshness,
         total,
         rateCapShare: share(s.rateCap),
         staggerShare: share(s.stagger),
         busyShare: share(s.busy),
+        freshnessShare: share(s.freshness),
       }
     }
+    const content = takeDiagNdiContentWindow()
+    const grab2d = ndiStages['2dGrab'] as
+      | { n?: number; meanMs?: number }
+      | undefined
     console.info(
       `[diag:srt-fps] ${JSON.stringify({
         stage: 'decode-present',
@@ -358,6 +467,8 @@ export function startVideoStreamManager(
         auDeltaPerPresent: auHist,
         traces: diag.traces.slice(-8),
         streams: rows,
+        /* Top-level copy for jitter correlation (also nested under ndi.pace). */
+        pace: takeDiagPresentPaceWindow(),
         ndi: {
           sendFps: diagPeekNdiSendFps(),
           windowMs: round2(ndiSnap.windowMs),
@@ -370,7 +481,27 @@ export function startVideoStreamManager(
           stages: ndiStages,
           tickInterval: ndiSnap.tickInterval,
           captureTicks: ndiSnap.captureTicks,
+          deferredSend: ndiSnap.deferredSend ?? null,
+          content,
         },
+      })}`,
+    )
+    /* Rolling AR unique-PTS Send fps (SRT round 5 acceptance metric). */
+    console.info(
+      `[diag:ar-send-fps] ${JSON.stringify({
+        stage: 'ar-unique-send',
+        sendNewPts: content.sendNewPts,
+        sendSamePts: content.sendSamePts,
+        uniquePresentN: content.uniquePresentN,
+        captureN: content.captureN,
+        freshness: ndiSnap.skips.ar.freshness,
+        busy: ndiSnap.skips.ar.busy,
+        rateCap: ndiSnap.skips.ar.rateCap,
+        grab2dN: grab2d?.n ?? 0,
+        grab2dMeanMs: grab2d?.meanMs ?? null,
+        grab2dStartN: content.grab2dStartN,
+        overlapHint:
+          content.captureDupRunOverlap2dN > 0 || content.grab2dStartN > 0,
       })}`,
     )
     const winDt = (now - diag.windowT0) / 1000
@@ -444,12 +575,85 @@ export function startVideoStreamManager(
 
   function disposeSlot(slot: StreamSlot): void {
     slot.pipe.dispose()
-    try {
-      slot.texture.dispose()
-    } catch {
-      /* fake textures */
+    const textures = slot.ring ? slot.ring.map((e) => e.tex) : [slot.texture]
+    for (const tex of textures) {
+      try {
+        tex.dispose()
+      } catch {
+        /* fake textures */
+      }
+      if (boundTexture === tex) boundTexture = null
     }
-    if (boundTexture === slot.texture) boundTexture = null
+  }
+
+  function consumeToRing(
+    slot: StreamSlot,
+    frame: VideoFrameLike,
+    pts90k: number | null,
+  ): void {
+    const ring = slot.ring
+    if (!ring) {
+      uploadFrame(slot.texture, frame)
+      if (!forceUploadTexture) {
+        throw new Error(
+          'presentPace requires forceUploadTexture (WebGLRenderer.initTexture)',
+        )
+      }
+      forceUploadTexture(slot.texture)
+      sealUploadedVideoTexture(slot.texture, frame)
+      return
+    }
+    let write = -1
+    for (let i = 0; i < ring.length; i++) {
+      if (slot.hasFrame && i === slot.displayIndex) continue
+      if (ring[i]!.pts90k == null) {
+        write = i
+        break
+      }
+    }
+    if (write < 0) {
+      write = (slot.displayIndex + 1) % ring.length
+      let oldestPts = ring[write]!.pts90k
+      for (let i = 0; i < ring.length; i++) {
+        if (slot.hasFrame && i === slot.displayIndex) continue
+        const p = ring[i]!.pts90k
+        if (p == null) {
+          write = i
+          break
+        }
+        if (oldestPts == null || p < oldestPts) {
+          oldestPts = p
+          write = i
+        }
+      }
+    }
+    const entry = ring[write]!
+    entry.gpuReady = false
+    uploadFrame(entry.tex, frame)
+    // Must run before VideoFrame.close() in the pipeline. Three.js only
+    // uploads drawn materials unless initTexture forces setTexture2D.
+    if (!forceUploadTexture) {
+      throw new Error(
+        'presentPace requires forceUploadTexture (WebGLRenderer.initTexture)',
+      )
+    }
+    forceUploadTexture(entry.tex)
+    sealUploadedVideoTexture(entry.tex, frame)
+    entry.pts90k = pts90k
+    entry.gpuReady = true
+  }
+
+  function bindRing(slot: StreamSlot, pts90k: number): boolean {
+    const ring = slot.ring
+    if (!ring) return false
+    const i = ring.findIndex(
+      (e) => e.pts90k === pts90k && e.gpuReady && textureHasImage(e.tex),
+    )
+    if (i < 0) return false
+    slot.displayIndex = i
+    slot.texture = ring[i]!.tex
+    slot.hasFrame = true
+    return true
   }
 
   function ensure(povId: string): StreamSlot | null {
@@ -461,9 +665,18 @@ export function startVideoStreamManager(
     }
     while (streams.size >= cap) evictLru()
     if (streams.size >= cap) return null
+    const ring = presentPace
+      ? Array.from({ length: PRESENT_DISPLAY_RING_SLOTS }, () => ({
+          tex: createTexture(),
+          pts90k: null as number | null,
+          gpuReady: false,
+        }))
+      : null
     const slot: StreamSlot = {
       povId,
-      texture: createTexture(),
+      texture: ring ? ring[0]!.tex : createTexture(),
+      ring,
+      displayIndex: 0,
       lastUsedAt: nowMs(),
       hasFrame: false,
       pipe: createVideoDecodePipeline({
@@ -471,6 +684,15 @@ export function startVideoStreamManager(
         toNtp: (pts) => toNtp(povId, pts),
         getNewestPoseNtp: () => newestPoseNtp(povId),
         onOpsError: (message) => options.onOpsError?.(povId, message),
+        getIngestDiag: () => options.getIngestDiag?.(povId) ?? null,
+        presentPace,
+        nowMs,
+        onConsumeFrame: presentPace
+          ? (frame, pts) => {
+              const current = streams.get(povId)
+              if (current) consumeToRing(current, frame, pts)
+            }
+          : undefined,
       }),
     }
     streams.set(povId, slot)
@@ -493,7 +715,13 @@ export function startVideoStreamManager(
       if (!slot) return
       /* DIAG:srt-fps */
       diag.bytesIn += chunk.byteLength
+      const beforeAu = slot.pipe.getCounters().accessUnits
       slot.pipe.pushBytes(Uint8Array.from(chunk))
+      if (povId === activePov) {
+        const afterAu = slot.pipe.getCounters().accessUnits
+        const now = performance.now()
+        for (let i = beforeAu; i < afterAu; i++) diagNoteAuArrival(now)
+      }
     },
     setActivePov(povId: string | null): void {
       if (disposed) return
@@ -512,6 +740,7 @@ export function startVideoStreamManager(
     present(): void {
       timeNdiStage('present', () => {
         if (disposed) return
+        diagNotePaceTick(performance.now())
         const polled = options.getActivePovId?.() ?? null
         if (polled && polled !== activePov) handle.setActivePov(polled)
         /* DIAG:srt-fps */
@@ -535,10 +764,25 @@ export function startVideoStreamManager(
             diag.lastReason.set(slot.povId, shown.pick.reason)
             diagBumpReason(slot.povId, shown.pick.reason)
             const prevPts = diag.lastPts.get(slot.povId)
-            if (prevPts !== shown.pts90k) {
+            const uniqueAdvance = prevPts !== shown.pts90k
+            if (slot.povId === activePov) {
+              diagNotePresentTick(
+                {
+                  pts90k: shown.pts90k,
+                  reason: shown.pick.reason,
+                  povId: slot.povId,
+                  wallMs: performance.now(),
+                },
+                { unique: uniqueAdvance },
+              )
+            }
+            if (uniqueAdvance) {
               diagBump(diag.uniquePts, slot.povId)
               diag.window.unique += 1
               diag.lastPts.set(slot.povId, shown.pts90k)
+              if (slot.povId === activePov) {
+                diagNotePaceAdvance(performance.now(), shown.pick.reason)
+              }
               const frameFormat = videoFramePixelFormat(shown.frame)
               if (!diag.loggedFrameFormat) {
                 diag.loggedFrameFormat = true
@@ -571,10 +815,15 @@ export function startVideoStreamManager(
               diag.window.repeat += 1
             }
             if (slot.texture.image === shown.frame) diag.sameFrameUpload += 1
+            if (presentPace) {
+              if (prevPts !== shown.pts90k || !slot.hasFrame) {
+                bindRing(slot, shown.pts90k)
+              }
+            } else {
+              uploadFrame(slot.texture, shown.frame)
+              slot.hasFrame = true
+            }
           }
-          if (!shown) continue
-          uploadFrame(slot.texture, shown.frame)
-          slot.hasFrame = true
         }
         bindActiveTexture()
         diagFlushIfDue()

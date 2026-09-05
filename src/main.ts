@@ -124,6 +124,14 @@ import {
   diagAutoConnectIsNoop,
   parseDiagAutoConnect,
 } from './output/diagAutoConnect.ts'
+import {
+  parseNdi2dEnabled,
+  parseNdi3dEnabled,
+} from './output/diagNdiChannelFlags.ts'
+import {
+  configureDiagNdiFrameId,
+  isNdiFrameDumpEnabled,
+} from './output/diagNdiContent.ts'
 import { parseNdiUploadProbe } from './output/diagVideoUploadProbe.ts'
 import {
   startPosePipeline,
@@ -2141,6 +2149,32 @@ void (async () => {
   /* DIAG:auto-connect — query wins over config.json; default URL is a no-op. */
   const diagAutoConnect = parseDiagAutoConnect(window.location.search)
   const ndiUploadProbe = parseNdiUploadProbe(window.location.search)
+  const ndi2dEnabled = parseNdi2dEnabled(window.location.search)
+  const ndi3dEnabled = parseNdi3dEnabled(window.location.search)
+  streamMapNdiWanted = ndi2dEnabled
+  configureDiagNdiFrameId({
+    search: window.location.search,
+    onDump: (ev) => {
+      console.info(
+        `[diag:frame-id] ${JSON.stringify({
+          stage: 'frame-dump',
+          note: isNdiFrameDumpEnabled()
+            ? 'duplicate-run met PNG threshold (pixels via AR capture hook)'
+            : 'dump disabled',
+          ...ev,
+        })}`,
+      )
+    },
+  })
+  if (!ndi2dEnabled || !ndi3dEnabled) {
+    console.info(
+      `[diag:frame-id] ${JSON.stringify({
+        stage: 'channel-flags',
+        ndi2d: ndi2dEnabled,
+        ndi3d: ndi3dEnabled,
+      })}`,
+    )
+  }
   if (diagAutoConnect.arBackground) {
     arBackgroundMode = diagAutoConnect.arBackground
   }
@@ -2359,10 +2393,25 @@ void (async () => {
         ndiUploadProbe === 'texSubImage'
           ? createLegacyTexSubImageVideoStreamTexture
           : undefined,
+      forceUploadTexture: (tex) => {
+        sceneHandle.renderer.initTexture(
+          tex as Parameters<typeof sceneHandle.renderer.initTexture>[0],
+        )
+      },
       getActivePovId: () => sceneHandle.getActivePovId(),
       getLutStreamId: lutStreamIdForPov,
       getNewestPoseNtp: (povId) =>
         telemetryHistory.stats().drones[povId]?.newestNtpMs ?? null,
+      getIngestDiag: (povId) => {
+        const st = srtStatusByPov.get(povId)
+        if (!st) return null
+        return {
+          bitrateKbps: st.bitrateKbps ?? null,
+          ipcDropCount: st.ipcDropCount ?? null,
+          ipcDropPerSec: st.ipcDropPerSec ?? null,
+          ffmpegDropFrames: st.ffmpegDropFrames ?? null,
+        }
+      },
       subscribeTick: studioBridge
         ? (cb) => studioBridge.onStudioTick(cb)
         : (cb) => previewClock!.subscribePreview(cb),
@@ -2421,21 +2470,26 @@ void (async () => {
     fps: 30,
     delayMs: ndiDelayMs.ar,
   })
-  ndi3dPump = startNdi3dChannelPump({
-    renderer: scene.renderer,
-    scene: scene.scene,
-    getAirCamera: () => scene?.getActivePovCamera() ?? null,
-    prepareCameraPass: (camera) => {
-      scene?.orientOpsBillboards(camera)
-    },
-    setEnvironmentOpaqueClearSafe: (safe) => {
-      scene?.setEnvironmentOpaqueClearSafe(safe)
-    },
-    getEnvironmentOpaqueClearSafe: () =>
-      scene?.getEnvironmentOpaqueClearSafe() ?? false,
-    fps: 30,
-    delayMs: ndiDelayMs['3d'],
-  })
+  ndi3dPump = ndi3dEnabled
+    ? startNdi3dChannelPump({
+        renderer: scene.renderer,
+        scene: scene.scene,
+        getAirCamera: () => scene?.getActivePovCamera() ?? null,
+        prepareCameraPass: (camera) => {
+          scene?.orientOpsBillboards(camera)
+        },
+        setEnvironmentOpaqueClearSafe: (safe) => {
+          scene?.setEnvironmentOpaqueClearSafe(safe)
+        },
+        getEnvironmentOpaqueClearSafe: () =>
+          scene?.getEnvironmentOpaqueClearSafe() ?? false,
+        fps: 30,
+        delayMs: ndiDelayMs['3d'],
+      })
+    : null
+  if (!ndi3dEnabled) {
+    console.info('[diag:frame-id] ndi3d=off — 3D NDI pump not started')
+  }
 
   // 2D stream-map NDI (channel `'2d'`) — letterbox into 1920×1080; independent
   // of PiP visibility / sidebar. Default on @ 30; NDI tab toggle starts/stops

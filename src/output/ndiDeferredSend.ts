@@ -13,6 +13,7 @@
  * than the newest held slot. Killswitch: `?ndiQueueDepth=1`.
  */
 
+import { diagNote2dGrabWallWindow } from './diagNdiContent.ts'
 import { debugSessionLog, type NdiChannelId } from './studioBridge.ts'
 
 export type NdiDeferredFrame = {
@@ -21,6 +22,9 @@ export type NdiDeferredFrame = {
   data: ArrayBuffer
   bottomUp: boolean
   pixelFormat?: 'rgba' | 'uyvy' | 'uyva'
+  /** DIAG:srt-fps — present() PTS/reason from the capture tick. */
+  contentPts90k?: number | null
+  contentReason?: string | null
 }
 
 export type NdiDeferredSend = {
@@ -405,6 +409,7 @@ export function diagMark2dGrabWall(active: boolean): void {
       grabWallOpen = true
       grabWallOpenAt = now
       grabWallEnterN += 1
+      diagNote2dGrabWallWindow(true, now)
     }
     return
   }
@@ -413,6 +418,7 @@ export function diagMark2dGrabWall(active: boolean): void {
     grabWallOpen = false
     lastGrabWallEnd = now
     lastGrabWallEndSet = true
+    diagNote2dGrabWallWindow(false, now)
   }
 }
 

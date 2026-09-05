@@ -17,6 +17,7 @@ import {
   type VideoFrameLike,
 } from './videoDecodePipeline.ts'
 import {
+  PRESENT_DISPLAY_RING_SLOTS,
   WARM_STREAM_CAP,
   startVideoStreamManager,
   type StreamTextureLike,
@@ -183,6 +184,7 @@ describe('startVideoStreamManager', () => {
       },
       getNewestPoseNtp: () => null,
       warmCap: 4,
+      presentPace: false,
     })
     managers.push(mgr)
 
@@ -218,6 +220,7 @@ describe('startVideoStreamManager', () => {
       decoderFactory: fake.factory,
       createTexture: fakeTexture,
       warmCap: WARM_STREAM_CAP,
+      presentPace: false,
       nowMs: (() => {
         let t = 0
         return () => {
@@ -249,6 +252,7 @@ describe('startVideoStreamManager', () => {
       setTexture: () => {},
       decoderFactory: fake.factory,
       createTexture: fakeTexture,
+      presentPace: false,
       onOpsError: (povId, message) => errors.push({ povId, message }),
     })
     managers.push(mgr)
@@ -266,6 +270,7 @@ describe('startVideoStreamManager', () => {
       setTexture: () => {},
       decoderFactory: fake.factory,
       createTexture: fakeTexture,
+      presentPace: false,
     })
     mgr.pushBytes('x', oneFrameTs(0, true))
     await mgr.ready()
@@ -290,6 +295,7 @@ describe('startVideoStreamManager', () => {
       },
       decoderFactory: fake.factory,
       createTexture: fakeTexture,
+      presentPace: false,
     })
     managers.push(mgr)
     mgr.pushBytes('cam', oneFrameTs(0, true))
@@ -319,6 +325,7 @@ describe('startVideoStreamManager', () => {
       setTexture: () => {},
       decoderFactory: fake.factory,
       createTexture: fakeTexture,
+      presentPace: false,
     })
     managers.push(mgr)
     mgr.pushBytes('a', oneFrameTs(0, true))
@@ -331,6 +338,96 @@ describe('startVideoStreamManager', () => {
     expect(stillBound).toBe(true)
     expect(mgr.dropPov('a')).toBe(false)
     expect(mgr.listPovIds()).toEqual([])
+  })
+
+  it('consume force-uploads then seals; bind never references a closed VideoFrame', async () => {
+    const fake = fakeFactory()
+    const textures: StreamTextureLike[] = []
+    const bound: StreamTextureLike[] = []
+    let now = 0
+    const forceUploads: StreamTextureLike[] = []
+    const mgr = startVideoStreamManager({
+      setTexture: (tex) => {
+        if (tex) bound.push(tex)
+      },
+      decoderFactory: fake.factory,
+      createTexture: () => {
+        const t = fakeTexture()
+        textures.push(t)
+        return t
+      },
+      uploadFrame: (tex, frame) => {
+        tex.image = frame
+        tex.needsUpdate = true
+      },
+      forceUploadTexture: (tex) => {
+        // Stand-in for renderer.initTexture → setTexture2D → texImage2D.
+        forceUploads.push(tex)
+        tex.needsUpdate = false
+      },
+      presentPace: true,
+      nowMs: () => now,
+      getNewestPoseNtp: () => 1e12,
+      toNtp: (_pov, pts) => pts / 90,
+    })
+    managers.push(mgr)
+
+    mgr.setActivePov('cam')
+    for (let i = 0; i < 10; i++) {
+      mgr.pushBytes('cam', oneFrameTs(i * 3000, true))
+    }
+    await mgr.ready()
+    for (let i = 0; i < 24; i++) {
+      mgr.present()
+      const tex = bound.at(-1)
+      if (tex?.image && typeof (tex.image as { close?: unknown }).close === 'function') {
+        expect((tex.image as { closed?: boolean }).closed).not.toBe(true)
+      }
+      // Sealed stub after force upload — never the live/closed VideoFrame.
+      if (tex) {
+        expect(typeof (tex.image as { close?: unknown })?.close).not.toBe(
+          'function',
+        )
+      }
+      now += 1000 / 60
+    }
+    expect(textures.length).toBe(PRESENT_DISPLAY_RING_SLOTS)
+    expect(forceUploads.length).toBeGreaterThan(0)
+    expect(fake.frames.every((f) => (f as { closed?: boolean }).closed)).toBe(
+      true,
+    )
+    expect(mgr.getCounters('cam')?.outstandingFrames).toBe(0)
+    expect(mgr.getCounters('cam')?.presentedPts90k).not.toBeNull()
+  })
+
+  it('ring texture count stays at PRESENT_DISPLAY_RING_SLOTS per POV (not 24×N)', async () => {
+    const fake = fakeFactory()
+    const textures: StreamTextureLike[] = []
+    const mgr = startVideoStreamManager({
+      setTexture: () => {},
+      decoderFactory: fake.factory,
+      createTexture: () => {
+        const t = fakeTexture()
+        textures.push(t)
+        return t
+      },
+      forceUploadTexture: (tex) => {
+        tex.needsUpdate = false
+      },
+      presentPace: true,
+      warmCap: 2,
+      nowMs: () => 0,
+      getNewestPoseNtp: () => 1e12,
+      toNtp: (_pov, pts) => pts / 90,
+    })
+    managers.push(mgr)
+    mgr.pushBytes('a', oneFrameTs(0, true))
+    mgr.pushBytes('b', oneFrameTs(0, true))
+    await mgr.ready()
+    expect(PRESENT_DISPLAY_RING_SLOTS).toBe(8)
+    expect(PRESENT_DISPLAY_RING_SLOTS).toBeLessThan(24)
+    expect(textures.length).toBe(2 * PRESENT_DISPLAY_RING_SLOTS)
+    expect(textures.length).toBeLessThan(24 * 2)
   })
 })
 
@@ -352,5 +449,18 @@ describe('main.ts wiring (DSP-OUT-06)', () => {
     expect(main).toContain('beginFfmpegH264Fallback')
     expect(main).toContain('getPtsNtpMap(lutId).reset()')
     expect(main).toContain('getPtsNtpMap(povId).reset()')
+  })
+
+  it('wires parsePresentPace killswitch + initTexture force-upload into the decode path', () => {
+    const here = dirname(fileURLToPath(import.meta.url))
+    const src = readFileSync(join(here, 'videoStreamManager.ts'), 'utf8')
+    const main = readFileSync(join(here, '../main.ts'), 'utf8')
+    expect(src).toMatch(/parsePresentPace/)
+    expect(src).toMatch(/presentPace/)
+    expect(src).toMatch(/\?presentPace=off/)
+    expect(src).toMatch(/forceUploadTexture/)
+    expect(src).toMatch(/sealUploadedVideoTexture/)
+    expect(main).toMatch(/forceUploadTexture/)
+    expect(main).toMatch(/initTexture/)
   })
 })

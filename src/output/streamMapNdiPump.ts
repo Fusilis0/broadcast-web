@@ -11,11 +11,13 @@
  * of PiP / sidebar visibility (canvas 2D redraw still fills the bitmap when
  * `root.hidden`).
  *
- * **Tick (DSP-OUT-20260828-07 / DSP-OUT-20260829-04):** `onStudioTick` only
- * *schedules* capture. Gate and send are independent of AR/3D. `ensureDrawn` /
- * grab run after the FBO pumps (`setTimeout(0)`). Happy path: worker +
- * transferable buffer. Fail closed to sync `getImageData`. 2D does **not**
- * occupy the FBO stagger slot. Do not rewrite the grab helper here.
+ * **Tick (SRT round 5):** capture runs on an **independent** `setInterval` at
+ * the 2D fps — not `studio:tick` — so ensureDrawn/createImageBitmap do not
+ * share the AR FBO+PBO turn by construction. Gate and send stay independent
+ * of AR/3D stagger. When AR/3D readback cannot `canBegin()`, 2D yields
+ * (`busy`) rather than adding GPU/main pressure. Happy path: worker +
+ * transferable buffer. Per-grab worker errors do **not** fail-closed to sync
+ * getImageData under load. Do not rewrite the grab helper here.
  *
  * No-ops when `window.broadcastStudio` is missing (Chrome path).
  */
@@ -25,12 +27,14 @@ import {
   type CreateNdi2dAsyncCaptureOptions,
 } from './ndi2dAsyncCapture.ts'
 import { createNdiCaptureGate } from './ndiCaptureClock.ts'
+import { diagNote2dGrabSeq } from './diagNdiContent.ts'
 import {
   createNdiDeferredSend,
   diagMark2dGrabWall,
   diagMarkMacrotask,
 } from './ndiDeferredSend.ts'
 import { NdiDelayBuffer } from './ndiDelayBuffer.ts'
+import { isNdiFboReadbackPressured } from './ndiFboReadbackPressure.ts'
 import { createSendFpsCounter } from './perfCounters.ts'
 import { diagRegisterNdiSendFps } from './diagNdiPeek.ts'
 import {
@@ -167,9 +171,11 @@ export function startStreamMapNdiPump(
   let grabbing = false
   let queued = false
   let starting = false
-  let unsubTick: (() => void) | null = null
+  let timer: ReturnType<typeof setInterval> | null = null
+  let scheduleQueuedAt = 0
   const capture = createNdi2dAsyncCapture(options.ndi2dCapture)
   const packPool = createNdiPackPool('uyvy')
+  const periodMs = Math.max(1, Math.round(1000 / fps))
 
   function clearStatus(): void {
     sourceName = null
@@ -311,6 +317,10 @@ export function startStreamMapNdiPump(
       noteNdiSkip('2d', 'busy')
       return
     }
+    if (isNdiFboReadbackPressured()) {
+      noteNdiSkip('2d', 'busy')
+      return
+    }
     if (!sourceName) return
     const now = performance.now()
     if (!captureGate.isDue(now)) {
@@ -327,14 +337,50 @@ export function startStreamMapNdiPump(
     const src = options.getSourceCanvas()
     if (!src || src.width < 1 || src.height < 1) return
 
+    // Re-check after ensureDrawn — AR may have filled PBO slots.
+    if (isNdiFboReadbackPressured()) {
+      noteNdiSkip('2d', 'busy')
+      return
+    }
+
     const box = letterboxRect(src.width, src.height, outW, outH)
     grabbing = true
     try {
       const t0 = performance.now()
+      const queueWaitMs =
+        scheduleQueuedAt > 0 ? Math.max(0, t0 - scheduleQueuedAt) : 0
+      scheduleQueuedAt = 0
+      diagNote2dGrabSeq('start', t0)
       diagMark2dGrabWall(true)
       try {
         const data = await capture.grab({ source: src, outW, outH, box })
-        recordNdiStage('2dGrab', performance.now() - t0)
+        const wallMs = performance.now() - t0
+        recordNdiStage('2dGrab', wallMs)
+        const bitmapMs =
+          (globalThis as { __ndi2dBitMs?: number }).__ndi2dBitMs ?? -1
+        if (
+          !(globalThis as { __ndi2dContentionAt?: number }).__ndi2dContentionAt ||
+          performance.now() -
+            ((globalThis as { __ndi2dContentionAt?: number })
+              .__ndi2dContentionAt ?? 0) >
+            1000
+        ) {
+          ;(globalThis as { __ndi2dContentionAt?: number }).__ndi2dContentionAt =
+            performance.now()
+          console.info(
+            `[diag:2d-contention] ${JSON.stringify({
+              stage: '2d-grab',
+              mode: capture.mode,
+              wallMs: Math.round(wallMs * 100) / 100,
+              bitmapMs:
+                typeof bitmapMs === 'number'
+                  ? Math.round(bitmapMs * 100) / 100
+                  : bitmapMs,
+              queueWaitMs: Math.round(queueWaitMs * 100) / 100,
+              fboPressured: isNdiFboReadbackPressured(),
+            })}`,
+          )
+        }
         if (disposed || !enabled) return
         deliverPixels(data, performance.now())
       } catch (err) {
@@ -344,6 +390,7 @@ export function startStreamMapNdiPump(
         }
       } finally {
         diagMark2dGrabWall(false)
+        diagNote2dGrabSeq('end')
       }
     } finally {
       grabbing = false
@@ -357,6 +404,10 @@ export function startStreamMapNdiPump(
         noteNdiSkip('2d', 'busy')
         return
       }
+      if (isNdiFboReadbackPressured()) {
+        noteNdiSkip('2d', 'busy')
+        return
+      }
       if (!sourceName) return
       const now = performance.now()
       flushDelay(now)
@@ -365,6 +416,7 @@ export function startStreamMapNdiPump(
         return
       }
       queued = true
+      scheduleQueuedAt = now
       capture.defer(() => {
         diagMarkMacrotask('2dDefer')
         queued = false
@@ -374,15 +426,17 @@ export function startStreamMapNdiPump(
   }
 
   function ensureTick(): void {
-    if (disposed || !enabled || unsubTick) return
-    unsubTick = bridge.onStudioTick(() => {
+    if (disposed || !enabled || timer) return
+    timer = setInterval(() => {
       scheduleCapture()
-    })
+    }, periodMs)
   }
 
   function clearTick(): void {
-    unsubTick?.()
-    unsubTick = null
+    if (timer) {
+      clearInterval(timer)
+      timer = null
+    }
   }
 
   function setEnabled(on: boolean): void {

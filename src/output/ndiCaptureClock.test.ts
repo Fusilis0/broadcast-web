@@ -82,6 +82,16 @@ describe('createNdiCaptureGate', () => {
     expect(gate.tryAdmit(200 + 1)).toBe(false)
   })
 
+  it('forceAdmit resyncs phase so a fresh present PTS is not rate-dropped', () => {
+    const gate = createNdiCaptureGate(30)
+    expect(gate.tryAdmit(0)).toBe(true)
+    expect(gate.tryAdmit(TICK_MS)).toBe(false)
+    gate.forceAdmit(TICK_MS)
+    // Immediately after force, still not due (next interval from TICK_MS).
+    expect(gate.tryAdmit(TICK_MS + 1)).toBe(false)
+    expect(gate.tryAdmit(TICK_MS + gate.intervalMs)).toBe(true)
+  })
+
   it('on a jittery 60 Hz tick stays at target instead of falling to 20', () => {
     const ticks = jitteryTicks(1)
     const knife = knifeEdgeCaptures(ticks)

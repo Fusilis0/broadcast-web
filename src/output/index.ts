@@ -799,6 +799,14 @@ export {
 
   MIN_PRESENT_LATENCY_MS,
 
+  PRESENT_PACE_FPS,
+
+  PRESENT_PACE_PERIOD_MS,
+
+  PRESENT_PACE_SLACK_MS,
+
+  PRESENT_PACE_MIN_INTERVAL_MS,
+
   PTS_TIMESTAMP_MATCH_US,
 
   createNativeDecoderFactory,
@@ -806,6 +814,8 @@ export {
   createVideoDecodePipeline,
 
   lookupPts90k,
+
+  parsePresentPace,
 
   pickPresentationPts,
 
@@ -831,6 +841,8 @@ export {
 
   WARM_STREAM_CAP,
 
+  PRESENT_DISPLAY_RING_SLOTS,
+
   applyVideoFrameTexImage2DUpload,
 
   createLegacyTexSubImageVideoStreamTexture,
@@ -842,6 +854,8 @@ export {
   startVideoStreamManager,
 
   uploadVideoFrameToTexture,
+
+  sealUploadedVideoTexture,
 
   VIDEO_FRAME_TEXIMAGE_GL_INTERNAL_FORMAT,
 

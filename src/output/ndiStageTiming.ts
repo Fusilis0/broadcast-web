@@ -17,11 +17,18 @@ import {
   type NdiChannelId,
   type NdiMainPerfSummary,
 } from './studioBridge.ts'
+import {
+  formatDeferredSendDiag,
+  resetDeferredSendDiag,
+  takeDeferredSendDiagWindow,
+  diagMarkMacrotask,
+} from './ndiDeferredSend.ts'
 
 export const NDI_STAGE_NAMES = [
   'present',
   'arFboRender',
   'arReadbackBegin',
+  'arIdleReadbackBegin',
   'arReadbackDrain',
   'arEnqueueIpc',
   '3dFboRender',
@@ -36,7 +43,7 @@ export const NDI_STAGE_NAMES = [
 
 export type NdiStageName = (typeof NDI_STAGE_NAMES)[number]
 
-export type NdiSkipCause = 'rateCap' | 'stagger' | 'busy'
+export type NdiSkipCause = 'rateCap' | 'stagger' | 'busy' | 'freshness'
 
 export type NdiSkipCounts = Record<NdiSkipCause, number>
 
@@ -50,12 +57,19 @@ export type NdiStageSnapshot = {
   fallbacks: { syncReadback: boolean; sync2dCapture: boolean }
   main: NdiMainPerfSummary | null
   instrumentOverhead: { meanMs: number; maxMs: number; count: number }
+  /** DIAG:srt-fps — keep-newest eviction / 2dGrab occupancy for this 1 s. */
+  deferredSend?: Record<string, unknown>
 }
 
 const HZ_MS = 1000
 const DUMP_WINDOW_MS = 10000
 const CHANNELS: readonly NdiChannelId[] = ['ar', '3d', '2d']
-const EMPTY_SKIPS = (): NdiSkipCounts => ({ rateCap: 0, stagger: 0, busy: 0 })
+const EMPTY_SKIPS = (): NdiSkipCounts => ({
+  rateCap: 0,
+  stagger: 0,
+  busy: 0,
+  freshness: 0,
+})
 
 type StampMs = { at: number; ms: number }
 type CaptureStamp = { at: number; channel: NdiChannelId; ticks: number }
@@ -238,6 +252,7 @@ function rotateHz(now: number): void {
       maxMs: overheadMax,
       count: overheadCount,
     },
+    deferredSend: formatDeferredSendDiag(takeDeferredSendDiagWindow(now)),
   }
   hzRing.push(snap)
   while (hzRing.length > 10) hzRing.shift()
@@ -272,9 +287,19 @@ function rotateHz(now: number): void {
       present: pick('present'),
       totalTick: pick('totalTick'),
       skips: snap.skips,
+      deferredSend: snap.deferredSend,
     },
   })
   // #endregion
+  /* DIAG:srt-fps */
+  if (snap.deferredSend) {
+    console.info(
+      `[diag:srt-fps] ${JSON.stringify({
+        stage: 'deferred-send',
+        ...snap.deferredSend,
+      })}`,
+    )
+  }
   resetStagesAndSkips()
   lastHzMs = now
 }
@@ -317,7 +342,7 @@ function formatStageBlock(snap: NdiStageSnapshot): string {
 function formatSkipLine(skips: Record<NdiChannelId, NdiSkipCounts>): string {
   return CHANNELS.map((ch) => {
     const s = skips[ch]
-    return `${ch} rateCap=${s.rateCap} stagger=${s.stagger} busy=${s.busy}`
+    return `${ch} rateCap=${s.rateCap} stagger=${s.stagger} busy=${s.busy} freshness=${s.freshness}`
   }).join('  ')
 }
 
@@ -363,10 +388,12 @@ export function beginStudioTickTiming(nowMs?: number): void {
   if (!tickOpen) {
     tickOpen = true
     tickStartMs = now
+    diagMarkMacrotask('studio:tick')
     queueMicrotask(() => {
       const elapsed = performance.now() - tickStartMs
       stages.totalTick.add(elapsed)
       tickOpen = false
+      diagMarkMacrotask('studio:tick:end')
     })
   }
 
@@ -543,6 +570,7 @@ export function fallbackHudFlags(): {
 /** Test helper — clears accumulators, histograms, and fallback flags. */
 export function resetNdiStageTiming(): void {
   resetStagesAndSkips()
+  resetDeferredSendDiag()
   hzRing.length = 0
   lastHzMs = 0
   /* DIAG:srt-fps */
