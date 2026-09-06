@@ -350,6 +350,10 @@ export {
 
   NDI_ASYNC_READBACK_LATENCY_FRAMES,
 
+  NDI_ASYNC_READBACK_PBO_COUNT,
+
+  NDI_PBO_DEPTH_MATCH_DELAY_MS,
+
   NDI_PIXEL_RING_CAPACITY,
 
   NDI_SYNC_READBACK_NOTE,
@@ -483,6 +487,8 @@ export {
   STREAM_MAP_NDI_DEFAULT_NAME,
 
   STREAM_MAP_NDI_DEFAULT_FPS,
+
+  NDI_2D_ENSURE_DRAWN_MIN_MS,
 
   type LetterboxRect,
 
@@ -848,6 +854,8 @@ export {
   WARM_STREAM_CAP,
 
   createVideoStreamTexture,
+
+  applyVideoFrameTexImage2DUpload,
 
   startVideoStreamManager,
 

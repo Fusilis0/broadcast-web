@@ -2,6 +2,7 @@ import { createSendFpsCounter } from './perfCounters.ts'
 import type { Camera, Object3D, WebGLRenderer } from 'three'
 import { Color, WebGLRenderTarget } from 'three'
 import { createNdiAsyncReadback } from './ndiAsyncReadback.ts'
+import { createNdiAirTargetPingPong } from './ndiAirTargetPingPong.ts'
 import { createNdiCaptureGate } from './ndiCaptureClock.ts'
 import { applyNdiCaptureColorSpace } from './ndiCaptureColorSpace.ts'
 import { NDI_CAPTURE_FLIPPED_BOTTOM_UP } from './ndiCaptureFlip.ts'
@@ -27,7 +28,7 @@ import {
   tryClaimNdiHeavyCapture,
 } from './ndiCaptureStagger.ts'
 import type { NdiFramePumpHandle } from './ndiFramePump.ts'
-import { debugSessionLog, getStudioBridge, sendStudioNdiFrame } from './studioBridge.ts'
+import { getStudioBridge, sendStudioNdiFrame } from './studioBridge.ts'
 
 export type Ndi3dChannelPumpOptions = {
   renderer: WebGLRenderer
@@ -150,10 +151,20 @@ export function startNdi3dChannelPump(
   let sourceName: string | null = null
   let sdkVersion: string | null = null
   let error: string | null = null
-  let target: WebGLRenderTarget | null = null
-  let targetW = 0
-  let targetH = 0
-  const readback = createNdiAsyncReadback({ renderer })
+  const sceneTargets = createNdiAirTargetPingPong({
+    create(w, h) {
+      const target = new WebGLRenderTarget(w, h, {
+        depthBuffer: true,
+        stencilBuffer: false,
+      })
+      applyNdiCaptureColorSpace(target)
+      return target
+    },
+    dispose: (target) => {
+      target.dispose()
+    },
+  })
+  const readback = createNdiAsyncReadback({ renderer, flushAfterPack: false })
 
   const clearReader = {
     getClearColorHex: () => {
@@ -181,20 +192,6 @@ export function startNdi3dChannelPump(
     }
   }
 
-  function ensureTarget(w: number, h: number): WebGLRenderTarget {
-    if (!target || targetW !== w || targetH !== h) {
-      target?.dispose()
-      target = new WebGLRenderTarget(w, h, {
-        depthBuffer: true,
-        stencilBuffer: false,
-      })
-      applyNdiCaptureColorSpace(target)
-      targetW = w
-      targetH = h
-    }
-    return target
-  }
-
   function sendFrameData(width: number, height: number, data: ArrayBuffer): void {
     try {
       timeNdiStage('3dEnqueueIpc', () => {
@@ -216,6 +213,7 @@ export function startNdi3dChannelPump(
   const packPool = createNdiPackPool('uyvy')
   const uyvyWorker = createNdiUyvyWorker()
   const ipc = createNdiDeferredSend({
+    maxPending: 2,
     send: (frame) => {
       sendFrameData(frame.width, frame.height, frame.data)
     },
@@ -280,9 +278,7 @@ export function startNdi3dChannelPump(
     ) {
       return
     }
-    const __flipT0 = performance.now()
     const rgba = flipOwnedRgbaFrame(takeNdiArrayBuffer(buf), w, h)
-    const __flipMs = performance.now() - __flipT0
     if (uyvyWorker) {
       void uyvyWorker
         .pack(rgba, w, h, 'uyvy')
@@ -291,18 +287,6 @@ export function startNdi3dChannelPump(
             packPool.release(owned)
             return
           }
-          // #region agent log
-          if (!(globalThis as { __ndi3dWorkerAt?: number }).__ndi3dWorkerAt ||
-            performance.now() - ((globalThis as { __ndi3dWorkerAt?: number }).__ndi3dWorkerAt ?? 0) > 1000) {
-            ;(globalThis as { __ndi3dWorkerAt?: number }).__ndi3dWorkerAt = performance.now()
-            debugSessionLog({
-              hypothesisId: 'H13',
-              location: 'ndi3dChannelPump.ts:enqueueRgba',
-              message: '3D worker UYVY pack',
-              data: { w, h, flipMs: __flipMs, bytes: owned.byteLength },
-            })
-          }
-          // #endregion
           queueOwnedFrame(w, h, owned, performance.now())
         })
         .catch(() => {})
@@ -311,18 +295,6 @@ export function startNdi3dChannelPump(
     const owned = packPool.pack(rgba, w, h)
     readback.release(rgba)
     if (!owned) return
-    // #region agent log
-    if (!(globalThis as { __ndi3dFlipAt?: number }).__ndi3dFlipAt ||
-      performance.now() - ((globalThis as { __ndi3dFlipAt?: number }).__ndi3dFlipAt ?? 0) > 1000) {
-      ;(globalThis as { __ndi3dFlipAt?: number }).__ndi3dFlipAt = performance.now()
-      debugSessionLog({
-        hypothesisId: 'H9',
-        location: 'ndi3dChannelPump.ts:enqueueRgba',
-        message: '3D row-flip',
-        data: { w, h, flipMs: __flipMs, bytes: owned.byteLength },
-      })
-    }
-    // #endregion
     queueOwnedFrame(w, h, owned, nowMs)
   }
 
@@ -335,16 +307,33 @@ export function startNdi3dChannelPump(
     enqueueRgba(pixels.width, pixels.height, pixels.data, nowMs)
   }
 
+  function capture3dTarget(
+    target: WebGLRenderTarget,
+    w: number,
+    h: number,
+    nowMs: number,
+    syncClaim: boolean,
+  ): boolean {
+    if (stopped || !enabled) return false
+    const t0 = performance.now()
+    const ok = readback.begin(target, w, h, nowMs)
+    recordNdiStage('3dReadbackBegin', performance.now() - t0)
+    if (!ok) {
+      if (syncClaim) releaseNdiHeavyCapture('3d', nowMs)
+      noteNdiSkip('3d', 'busy')
+      return false
+    }
+    recordNdiCapture('3d', nowMs)
+    drainReadback(nowMs)
+    return true
+  }
+
   function captureFrame(): void {
     if (stopped || !enabled) return
     const now = performance.now()
     flushDelay(now)
     drainReadback(now)
     if (stopped || !enabled) return
-    if (!captureGate.isDue(now)) {
-      noteNdiSkip('3d', 'rateCap')
-      return
-    }
 
     const airCamera = getAirCamera() ?? null
     if (!airCamera) return
@@ -362,7 +351,9 @@ export function startNdi3dChannelPump(
       }
     }
     if (!readback.canBegin()) {
+      // Experiment B: no 1080 FBO when every PBO slot is in flight.
       if (syncClaim) releaseNdiHeavyCapture('3d', now)
+      noteNdiSkip('3d', 'busy')
       return
     }
     if (!captureGate.tryAdmit(now)) {
@@ -374,28 +365,20 @@ export function startNdi3dChannelPump(
     const snapshot = snapshotClearPass(clearReader)
     applyOpaque3dPassState(clearWriter, NDI_3D_OPAQUE_CLEAR_COLOR)
 
-    const fbo = ensureTarget(w, h)
     const prevTarget = renderer.getRenderTarget()
     const prevXrEnabled = renderer.xr.enabled
     renderer.xr.enabled = false
     try {
       preparePass(airCamera)
-      renderer.setRenderTarget(fbo)
+      const { render, pack } = sceneTargets.acquire(w, h)
+      renderer.setRenderTarget(render)
       timeNdiStage('3dFboRender', () => {
         directRender(sceneRoot, airCamera)
       })
-      // Full-size scene FBO (same RT just rendered). Do not GPU-pack then read
-      // a half-width dest — READ often stays on the scene → stripes.
-      const t0 = performance.now()
-      const ok = readback.begin(fbo, w, h, now)
-      recordNdiStage('3dReadbackBegin', performance.now() - t0)
-      if (!ok) {
-        if (syncClaim) releaseNdiHeavyCapture('3d', now)
-        noteNdiSkip('3d', 'busy')
-        return
-      }
-      recordNdiCapture('3d', now)
-      drainReadback(now)
+      sceneTargets.advance()
+      // Full-size previous-tick scene FBO. Do not GPU-pack then read a
+      // half-width dest — READ often stays on the scene → stripes.
+      if (pack) capture3dTarget(pack, w, h, now, syncClaim)
     } finally {
       renderer.setRenderTarget(prevTarget)
       renderer.xr.enabled = prevXrEnabled
@@ -499,8 +482,7 @@ export function startNdi3dChannelPump(
       delayBuffer.clear()
       uyvyWorker?.dispose()
       readback.dispose()
-      target?.dispose()
-      target = null
+      sceneTargets.dispose()
       stopSender()
     },
   }

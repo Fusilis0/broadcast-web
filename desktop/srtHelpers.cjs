@@ -13,10 +13,10 @@ const MAX_SESSIONS = 4
 const BACKOFF_MS = [1000, 2000, 4000, 8000, 15000, 30000]
 
 /**
- * One in-flight IPC chunk + one queued. At ~8 Mbps a typical stdout read is 64–256 KB;
- * this bounds main-process memory regardless of renderer speed.
+ * One in-flight IPC chunk + a short queue. At ~8 Mbps a typical stdout read is
+ * 64–256 KB; depth 32 absorbs renderer hitch without unbounded main memory.
  */
-const MAX_QUEUED_CHUNKS = 1
+const MAX_QUEUED_CHUNKS = 32
 
 /**
  * Serialize an srt:// URL without percent-encoding `streamid` colons.

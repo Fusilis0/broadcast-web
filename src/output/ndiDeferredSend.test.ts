@@ -55,6 +55,32 @@ describe('createNdiDeferredSend', () => {
     q.dispose()
   })
 
+  it('depth 2 drains both frames in arrival order and overflow drops oldest', () => {
+    vi.useFakeTimers()
+    const sent: ArrayBuffer[] = []
+    const released: ArrayBuffer[] = []
+    const q = createNdiDeferredSend({
+      maxPending: 2,
+      send: (frame) => {
+        sent.push(frame.data)
+      },
+      release: (data) => {
+        released.push(data)
+      },
+    })
+    const a = new ArrayBuffer(8)
+    const b = new ArrayBuffer(8)
+    const c = new ArrayBuffer(8)
+    q.enqueue({ width: 1, height: 1, data: a, bottomUp: true })
+    q.enqueue({ width: 1, height: 1, data: b, bottomUp: true })
+    q.enqueue({ width: 1, height: 1, data: c, bottomUp: true })
+    expect(released).toEqual([a])
+    vi.runAllTimers()
+    expect(sent).toEqual([b, c])
+    expect(released).toEqual([a, b, c])
+    q.dispose()
+  })
+
   it('reuses the pooled buffer after send returns', () => {
     vi.useFakeTimers()
     const pool: ArrayBuffer[] = []

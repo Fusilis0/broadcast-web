@@ -274,7 +274,7 @@ describe('independent AR/3D/2D clocks (DSP-OUT-20260829-04)', () => {
     await vi.waitFor(() => {
       expect(map?.getSourceName()).toContain('broadcast-web-2d')
     })
-    expect(tickCbs.size).toBe(3)
+    expect(tickCbs.size).toBe(2)
     ar?.stop()
     d3?.stop()
     map?.stop()
@@ -291,10 +291,21 @@ describe('independent AR/3D/2D clocks (DSP-OUT-20260829-04)', () => {
     expect(ar).toMatch(/createNdiDeferredSend/)
     expect(d3).toMatch(/createNdiDeferredSend/)
     expect(map).toMatch(/createNdiDeferredSend/)
+    expect(ar).toMatch(/maxPending:\s*2/)
+    expect(d3).toMatch(/maxPending:\s*2/)
+    expect(map).toMatch(/maxPending:\s*2/)
+    expect(map).toMatch(/setInterval/)
+    expect(map).not.toMatch(/onStudioTick/)
     expect(ar).toMatch(/takeNdiArrayBuffer/)
     expect(d3).toMatch(/takeNdiArrayBuffer/)
     expect(ar).toMatch(/readback\.canBegin/)
     expect(d3).toMatch(/readback\.canBegin/)
+    expect(ar.indexOf('readback.canBegin')).toBeLessThan(
+      ar.indexOf("timeNdiStage('arFboRender'"),
+    )
+    expect(d3.indexOf('readback.canBegin')).toBeLessThan(
+      d3.indexOf("timeNdiStage('3dFboRender'"),
+    )
     expect(ar).not.toMatch(/\.slice\(/)
     expect(d3).not.toMatch(/\.slice\(/)
     expect(ar).toMatch(/readback\.mode === ['"]sync['"]/)

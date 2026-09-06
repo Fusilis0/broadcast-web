@@ -69,7 +69,8 @@ export type StudioNdiBridge = {
   ) => Promise<void>
   /**
    * Push one packed frame. Default `pixelFormat` is RGBA; pumps send
-   * `uyvy` (3D/2D) or `uyva` (AR alpha plate) to cut the IPC clone.
+   * `uyvy` (AR/3D/2D). `uyva` remains valid on the wire but AR no longer
+   * sends an alpha plane (in-app SRT + sim composite).
    * `data` is transferred when possible; do not reuse after send.
    */
   sendFrame: (frame: StudioNdiFrame) => void

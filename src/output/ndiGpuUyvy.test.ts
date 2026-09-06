@@ -39,19 +39,20 @@ describe('ndiGpuUyvy', () => {
     const d3 = readFileSync(join(here, 'ndi3dChannelPump.ts'), 'utf8')
     expect(d3).not.toMatch(/createNdiGpuUyvyPack/)
     expect(d3).not.toMatch(/gpuPack\.pack/)
-    expect(d3).toMatch(/readback\.begin\(fbo/)
+    expect(d3).toMatch(/readback\.begin\(target/)
     expect(d3).toMatch(/createNdiPackPool\('uyvy'\)/)
     expect(d3).toMatch(/createNdiUyvyWorker/)
     expect(d3).toMatch(/pixelFormat:\s*['"]uyvy['"]/)
   })
 
-  it('AR packs UYVA on a worker; 3D packs UYVY on the same worker; 2D worker packs UYVY', () => {
+  it('AR, 3D, and 2D pack UYVY on the worker (no AR alpha plane)', () => {
     const ar = readFileSync(join(here, 'ndiFramePump.ts'), 'utf8')
     const d3 = readFileSync(join(here, 'ndi3dChannelPump.ts'), 'utf8')
     const map = readFileSync(join(here, 'streamMapNdiPump.ts'), 'utf8')
     const worker = readFileSync(join(here, 'ndi2dCapture.worker.ts'), 'utf8')
     expect(ar).toMatch(/createNdiUyvyWorker/)
-    expect(ar).toMatch(/pixelFormat:\s*['"]uyva['"]/)
+    expect(ar).toMatch(/pixelFormat:\s*['"]uyvy['"]/)
+    expect(ar).not.toMatch(/pixelFormat:\s*['"]uyva['"]/)
     expect(d3).toMatch(/createNdiUyvyWorker/)
     expect(d3).toMatch(/pixelFormat:\s*['"]uyvy['"]/)
     expect(map).toMatch(/packedFrameBytes\('uyvy'/)

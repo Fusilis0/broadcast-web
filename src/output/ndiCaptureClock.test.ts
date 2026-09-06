@@ -105,4 +105,12 @@ describe('createNdiCaptureGate', () => {
     expect(ar).toBe(d3)
     expect(d3).toBe(d2)
   })
+
+  it('forceAdmit resyncs phase so the next tryAdmit waits a full interval', () => {
+    const gate = createNdiCaptureGate(30)
+    expect(gate.tryAdmit(0)).toBe(true)
+    gate.forceAdmit(10)
+    expect(gate.tryAdmit(10 + 1)).toBe(false)
+    expect(gate.tryAdmit(10 + gate.intervalMs)).toBe(true)
+  })
 })

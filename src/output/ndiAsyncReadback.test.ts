@@ -8,6 +8,7 @@ import {
   NDI_ASYNC_READBACK_FENCE_MAX_MS,
   NDI_ASYNC_READBACK_LATENCY_FRAMES,
   NDI_ASYNC_READBACK_PBO_COUNT,
+  NDI_PBO_DEPTH_MATCH_DELAY_MS,
   NDI_PIXEL_RING_CAPACITY,
   NDI_PUBLIC_FBO_MISSING_NOTE,
   NDI_SYNC_READBACK_NOTE,
@@ -304,8 +305,9 @@ describe('createNdiAsyncReadback PBO path', () => {
     })
     expect(rb.mode).toBe('pbo')
     expect(notes).toEqual([])
-    expect(NDI_ASYNC_READBACK_LATENCY_FRAMES).toBe(1)
-    expect(NDI_ASYNC_READBACK_PBO_COUNT).toBe(2)
+    expect(NDI_ASYNC_READBACK_LATENCY_FRAMES).toBe(2)
+    expect(NDI_ASYNC_READBACK_PBO_COUNT).toBe(3)
+    expect(NDI_PBO_DEPTH_MATCH_DELAY_MS).toBe(31)
 
     expect(rb.begin(dummyTarget, 2, 2)).toBe(true)
     expect(stub.boundTarget).toBe(dummyTarget)
@@ -326,7 +328,7 @@ describe('createNdiAsyncReadback PBO path', () => {
     rb.dispose()
   })
 
-  it('double-buffers two in-flight packs and drops a third', () => {
+  it('triple-buffers three in-flight packs and drops a fourth', () => {
     const fake = makeFakeGl2({ fenceReady: false, fill: 7 })
     const stub = stubRenderer({ gl: fake.gl })
     const rb = createNdiAsyncReadback({
@@ -334,14 +336,15 @@ describe('createNdiAsyncReadback PBO path', () => {
       gl: fake.gl,
       onFallbackNote: () => {},
     })
+    expect(rb.begin(dummyTarget, 1, 1)).toBe(true)
     expect(rb.begin(dummyTarget, 1, 1)).toBe(true)
     expect(rb.begin(dummyTarget, 1, 1)).toBe(true)
     expect(rb.begin(dummyTarget, 1, 1)).toBe(false)
-    expect(fake.readPixelCount()).toBe(2)
+    expect(fake.readPixelCount()).toBe(3)
     rb.dispose()
   })
 
-  it('canBegin is false when both PBO slots are in flight', () => {
+  it('canBegin is false when all PBO slots are in flight', () => {
     const fake = makeFakeGl2({ fenceReady: false, fill: 7 })
     const stub = stubRenderer({ gl: fake.gl })
     const rb = createNdiAsyncReadback({
@@ -349,7 +352,9 @@ describe('createNdiAsyncReadback PBO path', () => {
       gl: fake.gl,
       onFallbackNote: () => {},
     })
-    expect(NDI_PIXEL_RING_CAPACITY).toBe(4)
+    expect(NDI_PIXEL_RING_CAPACITY).toBe(6)
+    expect(rb.canBegin()).toBe(true)
+    expect(rb.begin(dummyTarget, 1, 1)).toBe(true)
     expect(rb.canBegin()).toBe(true)
     expect(rb.begin(dummyTarget, 1, 1)).toBe(true)
     expect(rb.canBegin()).toBe(true)
@@ -963,6 +968,7 @@ describe('NDI caps stay 30/30/30 and STUDIO_TICK_FPS 60 (source)', () => {
     expect(spa).toMatch(/ndiChannelWanted/)
     expect(spa).toMatch(/loadNdiChannelWanted/)
     expect(spa).toMatch(/enabled:\s*ndiChannelWanted/)
+    expect(spa).toMatch(/NDI_PBO_DEPTH_MATCH_DELAY_MS/)
     expect(ar).toMatch(/tryClaimNdiHeavyCapture/)
     expect(d3).toMatch(/tryClaimNdiHeavyCapture/)
   })
@@ -976,7 +982,7 @@ describe('NDI caps stay 30/30/30 and STUDIO_TICK_FPS 60 (source)', () => {
     const readme = readFileSync(join(here, 'README.md'), 'utf8')
     expect(ar).toMatch(/createNdiAsyncReadback/)
     expect(d3).toMatch(/createNdiAsyncReadback/)
-    expect(d3).toMatch(/readback\.begin\(fbo/)
+    expect(d3).toMatch(/readback\.begin\(target/)
     expect(map).toMatch(/createNdi2dAsyncCapture/)
     expect(map).not.toMatch(/createNdiAsyncReadback/)
     expect(twoD).not.toMatch(/createNdiAsyncReadback/)

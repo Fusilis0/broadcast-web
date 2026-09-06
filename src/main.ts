@@ -88,6 +88,7 @@ import {
   startVisualTimecode,
   startWhepUnderlay,
   readWebGlGpuInfo,
+  NDI_PBO_DEPTH_MATCH_DELAY_MS,
   STUDIO_OUTPUT_HEIGHT,
   STUDIO_OUTPUT_WIDTH,
   SRT_WARM_POV_CAP,
@@ -2472,6 +2473,9 @@ void (async () => {
           >,
         )
       },
+      forceUploadTexture: (tex) => {
+        scene.renderer.initTexture(tex as never)
+      },
       getActivePovId: () => sceneHandle.getActivePovId(),
       getLutStreamId: lutStreamIdForPov,
       getNewestPoseNtp: (povId) =>
@@ -2561,9 +2565,10 @@ void (async () => {
     ensureDrawn: () => {
       hud.getStreamMap().redraw()
     },
+    getPaintGeneration: () => hud.getStreamMap().getPaintGeneration(),
     enabled: ndiChannelWanted['2d'],
     fps: 30,
-    delayMs: ndiDelayMs['2d'],
+    delayMs: ndiDelayMs['2d'] + NDI_PBO_DEPTH_MATCH_DELAY_MS,
   })
 
   hud.setBootMessage(

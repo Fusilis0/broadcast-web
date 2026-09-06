@@ -254,6 +254,11 @@ export type Map2dHandle = {
    * `hidden` — redraw still updates pixels (OUT 2D NDI pump).
    */
   getCanvas: () => HTMLCanvasElement
+  /**
+   * Increments on each `redraw()`. 2D NDI skips grab+IPC when this is
+   * unchanged (NDI holds the last unique frame).
+   */
+  getPaintGeneration: () => number
   updatePose: (pose: PoseEvent) => void
   /** @deprecated Prefer `setLayoutFeatures` for gates/sponsors/flags. */
   setCourseMarks: (marks: readonly MapCourseMark[]) => void
@@ -512,6 +517,7 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
   let boatSprite: HTMLImageElement | null = null
   let sailSprite: HTMLImageElement | null = null
   let disposed = false
+  let paintGeneration = 0
   let windFrame: WindFrame | null = windBus.getSnapshot()
   let boatIconScale = isStream
     ? readStreamBoatIconScale()
@@ -583,6 +589,7 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
   }
 
   function redraw(): void {
+    paintGeneration += 1
     if (!ctx) return
     const w = canvas.width
     const h = canvas.height
@@ -941,6 +948,9 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
     root,
     getCanvas(): HTMLCanvasElement {
       return canvas
+    },
+    getPaintGeneration(): number {
+      return paintGeneration
     },
     updatePose(pose: PoseEvent): void {
       points.set(poseStoreKey(pose.kind, pose.id), toMapPoint(pose))

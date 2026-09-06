@@ -1,16 +1,14 @@
 /**
  * Off-tick NDI `sendFrame` (DSP-OUT-20260829-04).
  *
- * `ipcRenderer.send` of an 8 MB RGBA frame is a synchronous structured clone.
- * Running it inside the `studio:tick` subscriber is why `totalTick` max was
- * 80 ms and the clock collapsed to ~50 Hz. Copy/steal pixels on the tick,
- * then `setTimeout(0)` the send so the tick returns after FBO + PBO begin/poll.
+ * `ipcRenderer.send` of a packed frame is a synchronous structured clone.
+ * Running it inside the `studio:tick` subscriber stalls the clock.
+ * Copy/steal pixels on the tick, then `setTimeout(0)` the send.
  *
- * Keep-newest: if a second frame is ready before the deferred send runs, the
- * older pending buffer is released and dropped.
+ * Hold up to `maxPending` frames in arrival order. Overflow drops the oldest.
+ * When the deferred timer fires, drain the short queue oldest-first.
+ * Default N=1 (legacy latest-wins). AR/3D/2D live pumps use N=2.
  */
-
-import { debugSessionLog } from './studioBridge.ts'
 
 export type NdiDeferredFrame = {
   width: number
@@ -30,7 +28,7 @@ export type NdiDeferredSend = {
 
 export type CreateNdiDeferredSendOptions = {
   send: (frame: NdiDeferredFrame) => void
-  /** Recycle the buffer after send, or when a newer frame replaces it. */
+  /** Recycle the buffer after send, or when overflow drops the oldest. */
   release?: (data: ArrayBuffer) => void
   /**
    * How to leave the studio-tick stack. Default `setTimeout(0)` (macrotask)
@@ -38,10 +36,19 @@ export type CreateNdiDeferredSendOptions = {
    * next tick.
    */
   defer?: (fn: () => void) => void
+  /**
+   * Pending frames before overflow drops the oldest. Clamped to 1 or 2.
+   * Default 1.
+   */
+  maxPending?: number
 }
 
 export function deferNdiSendOffTick(fn: () => void): void {
   setTimeout(fn, 0)
+}
+
+function resolveMaxPending(requested: number | undefined): 1 | 2 {
+  return requested != null && requested >= 2 ? 2 : 1
 }
 
 /**
@@ -66,7 +73,8 @@ export function createNdiDeferredSend(
   options: CreateNdiDeferredSendOptions,
 ): NdiDeferredSend {
   const defer = options.defer ?? deferNdiSendOffTick
-  let pending: NdiDeferredFrame | null = null
+  const maxPending = resolveMaxPending(options.maxPending)
+  const pending: NdiDeferredFrame[] = []
   let scheduled = false
   let disposed = false
 
@@ -81,44 +89,19 @@ export function createNdiDeferredSend(
   function flush(): void {
     scheduled = false
     if (disposed) {
-      if (pending) {
-        recycle(pending.data)
-        pending = null
+      while (pending.length > 0) {
+        const dropped = pending.shift()
+        if (dropped) recycle(dropped.data)
       }
       return
     }
-    const frame = pending
-    pending = null
-    if (!frame) return
-    try {
-      // #region agent log
-      const __sendT0 = performance.now()
-      // #endregion
-      options.send(frame)
-      // #region agent log
-      const __sendMs = performance.now() - __sendT0
-      if (!(globalThis as { __ndiIpcLogAt?: number }).__ndiIpcLogAt ||
-        performance.now() - ((globalThis as { __ndiIpcLogAt?: number }).__ndiIpcLogAt ?? 0) > 1000) {
-        ;(globalThis as { __ndiIpcLogAt?: number }).__ndiIpcLogAt = performance.now()
-        fetch('http://127.0.0.1:7438/ingest/7196fb84-148e-4d0c-af68-4fcb53313232',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'173fbb'},body:JSON.stringify({sessionId:'173fbb',runId:'pre-fix',hypothesisId:'H4',location:'ndiDeferredSend.ts:flush',message:'deferred sendFrame',data:{sendMs:__sendMs,bytes:frame.data.byteLength,w:frame.width,h:frame.height,bottomUp:frame.bottomUp},timestamp:Date.now()})}).catch(()=>{});
-        // #region agent log
-        debugSessionLog({
-          hypothesisId: 'H4',
-          location: 'ndiDeferredSend.ts:flush',
-          message: 'deferred sendFrame',
-          data: {
-            sendMs: __sendMs,
-            bytes: frame.data.byteLength,
-            w: frame.width,
-            h: frame.height,
-            bottomUp: frame.bottomUp,
-          },
-        })
-        // #endregion
+    const batch = pending.splice(0, pending.length)
+    for (const frame of batch) {
+      try {
+        options.send(frame)
+      } finally {
+        recycle(frame.data)
       }
-      // #endregion
-    } finally {
-      recycle(frame.data)
     }
   }
 
@@ -128,8 +111,11 @@ export function createNdiDeferredSend(
         recycle(frame.data)
         return
       }
-      if (pending) recycle(pending.data)
-      pending = frame
+      pending.push(frame)
+      while (pending.length > maxPending) {
+        const dropped = pending.shift()
+        if (dropped) recycle(dropped.data)
+      }
       if (scheduled) return
       scheduled = true
       defer(flush)
@@ -139,9 +125,9 @@ export function createNdiDeferredSend(
     },
     dispose(): void {
       disposed = true
-      if (pending) {
-        recycle(pending.data)
-        pending = null
+      while (pending.length > 0) {
+        const dropped = pending.shift()
+        if (dropped) recycle(dropped.data)
       }
     },
   }

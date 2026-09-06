@@ -1,9 +1,10 @@
 /**
  * Main-process multi-sender NDI bridge (grandi / NDI SDK 6).
  * Map of channelId → independent grandi sender.
- * Receives packed frames from the renderer. Hot path is UYVY (3D/2D,
- * 2 bytes/px) or UYVA (AR alpha plate, 3 bytes/px). RGBA/BGRA remain
- * as fallbacks. Copies into a pooled buffer (no per-pixel loop).
+ * Receives packed frames from the renderer. Hot path is UYVY
+ * (AR/3D/2D, 2 bytes/px). UYVA (alpha plane) is still accepted if a
+ * pump sends it. RGBA/BGRA remain as fallbacks. Copies into a pooled
+ * buffer (no per-pixel loop).
  *
  * Channel ids: 'ar' | '3d' | '2d' (string enum).
  * Omitting channel in IPC/SPA defaults to 'ar' (today's air plate).
@@ -194,7 +195,7 @@ function probeFourCCOnce() {
     if (typeof grandi.FourCC?.UYVA !== 'number' && typeof grandi.FOURCC_UYVA !== 'number') {
       nativeUyvaPreferred = false
       console.warn(
-        '[output] NDI send: FourCC.UYVA missing — AR UYVA frames dropped (no RGBA fallback)',
+        '[output] NDI send: FourCC.UYVA missing — UYVA frames dropped (no RGBA fallback)',
       )
     }
   } catch (err) {

@@ -2,11 +2,12 @@
  * Native-size 2D NDI grab worker (DSP-OUT-20260830-01 / pack-native).
  *
  * Receives a transferred ImageBitmap of the stream-map source at native size,
- * reads those pixels only, packs Rec.709 UYVY at native size, then nearest-
- * neighbour letterboxes into a 1920×1080 UYVY frame (matte bars, not a 1080p
- * RGBA convert).
+ * reads those pixels only, packs Rec.709 UYVY. Identity 1920×1080 sources
+ * pack once into the output buffer. Non-identity frames still fill a matte
+ * then nearest-neighbour blit into 1920×1080 UYVY.
  */
 
+import { isIdentityNdi2dLetterbox } from './letterboxRect.ts'
 import {
   blitUyvyNearest,
   fillUyvyFromCssHex,
@@ -71,6 +72,23 @@ scope.addEventListener('message', (event: MessageEvent<Ndi2dWorkerRequest>) => {
     context.drawImage(msg.bitmap, 0, 0)
     msg.bitmap.close()
     const imageData = context.getImageData(0, 0, srcW, srcH)
+    const identity = isIdentityNdi2dLetterbox(srcW, srcH, msg.outW, msg.outH, {
+      dx: msg.dx,
+      dy: msg.dy,
+      dw: msg.dw,
+      dh: msg.dh,
+    })
+    if (identity) {
+      const uyvyBytes = packedFrameBytes('uyvy', msg.outW, msg.outH)
+      const uyvy = new Uint8Array(uyvyBytes)
+      const wrote = rgbaToUyvy(imageData.data, srcW, srcH, uyvy)
+      if (wrote !== uyvyBytes) {
+        throw new Error('2D native UYVY pack failed')
+      }
+      const data = uyvy.buffer
+      scope.postMessage({ id: msg.id, data } satisfies Ndi2dWorkerOk, [data])
+      return
+    }
     const nativeBytes = packedFrameBytes('uyvy', srcW, srcH)
     if (!nativeUyvy || nativeUyvy.byteLength !== nativeBytes) {
       nativeUyvy = new Uint8Array(nativeBytes)

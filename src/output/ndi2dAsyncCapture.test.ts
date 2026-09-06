@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   blitRgbaLetterbox,
   fillRgbaBuffer,
+  isIdentityNdi2dLetterbox,
   letterboxRect,
   parseCssHexRgba,
   transferableRgbaBuffer,
@@ -184,6 +185,14 @@ describe('letterboxRect extract', () => {
         pumpLetterboxRect(sw, sh, dw, dh),
       )
     }
+  })
+
+  it('treats matching 1080 source as identity (skip letterbox blit)', () => {
+    const box = letterboxRect(1920, 1080, 1920, 1080)
+    expect(isIdentityNdi2dLetterbox(1920, 1080, 1920, 1080, box)).toBe(true)
+    expect(
+      isIdentityNdi2dLetterbox(8, 4, 16, 8, letterboxRect(8, 4, 16, 8)),
+    ).toBe(false)
   })
 })
 
@@ -464,6 +473,7 @@ describe('ndi2dAsyncCapture source invariants', () => {
     expect(worker).toMatch(/fillUyvyFromCssHex/)
     expect(worker).toMatch(/rgbaToUyvy/)
     expect(worker).toMatch(/packedFrameBytes/)
+    expect(worker).toMatch(/isIdentityNdi2dLetterbox/)
     expect(worker).not.toMatch(/blitRgbaLetterbox/)
   })
 })

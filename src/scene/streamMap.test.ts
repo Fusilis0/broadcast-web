@@ -54,6 +54,10 @@ describe('createStreamMap2d canvas', () => {
       expect(canvas.height).toBe(STREAM_MAP_HEIGHT_PX)
       expect(canvas.width).toBe(1920)
       expect(canvas.height).toBe(1080)
+      const gen = map.getPaintGeneration()
+      expect(gen).toBeGreaterThan(0)
+      map.redraw()
+      expect(map.getPaintGeneration()).toBeGreaterThan(gen)
     } finally {
       map.dispose()
     }

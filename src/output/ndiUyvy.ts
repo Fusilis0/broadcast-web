@@ -4,7 +4,8 @@ import { parseCssHexRgba, type LetterboxRect } from './letterboxRect.ts'
  * RGBA8 → NDI UYVY / UYVA (4:2:2). Pack *before* IPC so the Electron
  * structured clone is 4 MB (UYVY) or 6 MB (UYVA) instead of 8 MB RGBA.
  *
- * Rec. 709 limited range (HD). UYVY has no alpha — use UYVA on the AR plate.
+ * Rec. 709 limited range (HD). Live AR/3D/2D send UYVY. UYVA stays for
+ * keyed plates if a pump asks for it.
  */
 
 export type NdiPackedFormat = 'uyvy' | 'uyva'

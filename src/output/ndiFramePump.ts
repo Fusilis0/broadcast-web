@@ -4,6 +4,8 @@ import { Color, WebGLRenderTarget } from 'three'
 import { createNdiCaptureGate } from './ndiCaptureClock.ts'
 import { createNdiDeferredSend, takeNdiArrayBuffer } from './ndiDeferredSend.ts'
 import { createNdiAsyncReadback } from './ndiAsyncReadback.ts'
+import { createNdiAirTargetPingPong } from './ndiAirTargetPingPong.ts'
+import { peekLastPresentedPts90k } from './ndiPresentPts.ts'
 import { applyNdiCaptureColorSpace } from './ndiCaptureColorSpace.ts'
 import { NDI_CAPTURE_FLIPPED_BOTTOM_UP } from './ndiCaptureFlip.ts'
 import { flipOwnedRgbaFrame } from './ndiFlipRows.ts'
@@ -27,7 +29,6 @@ import {
 } from './ndiOpaquePass.ts'
 import {
   DEFAULT_NDI_CHANNEL,
-  debugSessionLog,
   getStudioBridge,
   sendStudioNdiFrame,
   type NdiChannelId,
@@ -120,7 +121,8 @@ const DEFAULT_NAME = 'broadcast-web'
  * Does **not** monkey-patch `renderer.render` and does **not** subscribe to
  * rAF — ops preview stays rAF. On the PBO path AR and 3D may both capture in
  * the same tick. `tryClaimNdiHeavyCapture` is **sync-fallback only**. IPC
- * `sendFrame` is deferred off this tick (`createNdiDeferredSend`).
+ * `sendFrame` is deferred off this tick (`createNdiDeferredSend`, depth 2).
+ * Air FBO ping-pongs so PBO packs the previous plate (`flushAfterPack: false`).
  *
  * **Air lock:** capture is always the active POV (`getAirCamera`). Optional
  * `prepareCameraPass` re-orients SCN billboard scales for that camera.
@@ -172,10 +174,21 @@ export function startNdiFramePump(
   let sourceName: string | null = null
   let sdkVersion: string | null = null
   let error: string | null = null
-  let airTarget: WebGLRenderTarget | null = null
-  let airTargetW = 0
-  let airTargetH = 0
-  const readback = createNdiAsyncReadback({ renderer })
+  const airTargets = createNdiAirTargetPingPong({
+    create(w, h) {
+      const target = new WebGLRenderTarget(w, h, {
+        depthBuffer: true,
+        stencilBuffer: false,
+      })
+      applyNdiCaptureColorSpace(target)
+      return target
+    },
+    dispose: (target) => {
+      target.dispose()
+    },
+  })
+  const readback = createNdiAsyncReadback({ renderer, flushAfterPack: false })
+  let lastCapturedContentPts: number | null = null
 
   const _clearColor = new Color()
 
@@ -229,20 +242,6 @@ export function startNdiFramePump(
     restoreClearPass(clearWriter, snapshot)
   }
 
-  function ensureAirTarget(w: number, h: number): WebGLRenderTarget {
-    if (!airTarget || airTargetW !== w || airTargetH !== h) {
-      airTarget?.dispose()
-      airTarget = new WebGLRenderTarget(w, h, {
-        depthBuffer: true,
-        stencilBuffer: false,
-      })
-      applyNdiCaptureColorSpace(airTarget)
-      airTargetW = w
-      airTargetH = h
-    }
-    return airTarget
-  }
-
   function sendFrameData(
     width: number,
     height: number,
@@ -257,7 +256,7 @@ export function startNdiFramePump(
           height,
           data,
           bottomUp,
-          pixelFormat: 'uyva',
+          pixelFormat: 'uyvy',
         })
       })
       sendFps.record(performance.now())
@@ -266,9 +265,10 @@ export function startNdiFramePump(
     }
   }
 
-  const packPool = createNdiPackPool('uyva')
+  const packPool = createNdiPackPool('uyvy')
   const uyvyWorker = createNdiUyvyWorker()
   const ipc = createNdiDeferredSend({
+    maxPending: 2,
     send: (frame) => {
       sendFrameData(frame.width, frame.height, frame.data, frame.bottomUp)
     },
@@ -328,29 +328,15 @@ export function startNdiFramePump(
       readback.release(takeNdiArrayBuffer(buf))
       return
     }
-    const __flipT0 = performance.now()
     const rgba = flipOwnedRgbaFrame(takeNdiArrayBuffer(buf), w, h)
-    const __flipMs = performance.now() - __flipT0
     if (uyvyWorker) {
       void uyvyWorker
-        .pack(rgba, w, h, 'uyva')
+        .pack(rgba, w, h, 'uyvy')
         .then((owned) => {
           if (stopped || !enabled) {
             packPool.release(owned)
             return
           }
-          // #region agent log
-          if (!(globalThis as { __ndiArWorkerAt?: number }).__ndiArWorkerAt ||
-            performance.now() - ((globalThis as { __ndiArWorkerAt?: number }).__ndiArWorkerAt ?? 0) > 1000) {
-            ;(globalThis as { __ndiArWorkerAt?: number }).__ndiArWorkerAt = performance.now()
-            debugSessionLog({
-              hypothesisId: 'H13',
-              location: 'ndiFramePump.ts:enqueueRgba',
-              message: 'AR worker UYVA pack',
-              data: { w, h, flipMs: __flipMs, bytes: owned.byteLength, bottomUp },
-            })
-          }
-          // #endregion
           queueOwnedFrame(w, h, owned, bottomUp, nowMs, performance.now())
         })
         .catch(() => {})
@@ -359,19 +345,6 @@ export function startNdiFramePump(
     const owned = packPool.pack(rgba, w, h)
     readback.release(rgba)
     if (!owned) return
-    // #region agent log
-    if (!(globalThis as { __ndiRowFlipAt?: number }).__ndiRowFlipAt ||
-      performance.now() - ((globalThis as { __ndiRowFlipAt?: number }).__ndiRowFlipAt ?? 0) > 1000) {
-      ;(globalThis as { __ndiRowFlipAt?: number }).__ndiRowFlipAt = performance.now()
-      fetch('http://127.0.0.1:7438/ingest/7196fb84-148e-4d0c-af68-4fcb53313232',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'173fbb'},body:JSON.stringify({sessionId:'173fbb',runId:'post-fix',hypothesisId:'H1',location:'ndiFramePump.ts:enqueueRgba',message:'AR row-flip after PBO (no GPU blit)',data:{w,h,bytes:owned.byteLength,bottomUp},timestamp:Date.now()})}).catch(()=>{});
-      debugSessionLog({
-        hypothesisId: 'H9',
-        location: 'ndiFramePump.ts:enqueueRgba',
-        message: 'AR row-flip',
-        data: { w, h, flipMs: __flipMs, bytes: owned.byteLength, bottomUp },
-      })
-    }
-    // #endregion
     queueOwnedFrame(w, h, owned, bottomUp, nowMs, nowMs)
   }
 
@@ -398,7 +371,6 @@ export function startNdiFramePump(
     syncClaim: boolean,
   ): boolean {
     if (stopped || !enabled) return false
-    renderer.setRenderTarget(target)
     const t0 = performance.now()
     const ok = readback.begin(target, w, h, nowMs)
     recordNdiStage('arReadbackBegin', performance.now() - t0)
@@ -407,6 +379,8 @@ export function startNdiFramePump(
       noteNdiSkip('ar', 'busy')
       return false
     }
+    const pts = peekLastPresentedPts90k()
+    if (pts != null) lastCapturedContentPts = pts
     recordNdiCapture('ar', nowMs)
     drainReadback(nowMs)
     return true
@@ -418,8 +392,13 @@ export function startNdiFramePump(
     flushDelay(now)
     drainReadback(now)
     if (stopped || !enabled) return
-    if (!captureGate.isDue(now)) {
-      noteNdiSkip('ar', 'rateCap')
+    const pts = peekLastPresentedPts90k()
+    if (
+      pts != null &&
+      lastCapturedContentPts != null &&
+      pts === lastCapturedContentPts
+    ) {
+      noteNdiSkip('ar', 'busy')
       return
     }
 
@@ -439,13 +418,19 @@ export function startNdiFramePump(
       }
     }
     if (!readback.canBegin()) {
+      // Experiment B: no 1080 FBO when every PBO slot is in flight.
       if (syncClaim) releaseNdiHeavyCapture('ar', now)
+      noteNdiSkip('ar', 'busy')
       return
     }
     if (!captureGate.tryAdmit(now)) {
-      if (syncClaim) releaseNdiHeavyCapture('ar', now)
-      noteNdiSkip('ar', 'rateCap')
-      return
+      if (pts != null) {
+        captureGate.forceAdmit(now)
+      } else {
+        if (syncClaim) releaseNdiHeavyCapture('ar', now)
+        noteNdiSkip('ar', 'rateCap')
+        return
+      }
     }
 
     const plateSnap = beginAirPlateClear()
@@ -454,12 +439,13 @@ export function startNdiFramePump(
     renderer.xr.enabled = false
     try {
       preparePass(airCamera)
-      const target = ensureAirTarget(w, h)
-      renderer.setRenderTarget(target)
+      const { render, pack } = airTargets.acquire(w, h)
+      renderer.setRenderTarget(render)
       timeNdiStage('arFboRender', () => {
         tickRender(sceneRoot, airCamera)
       })
-      captureAirTarget(target, w, h, now, syncClaim)
+      airTargets.advance()
+      if (pack) captureAirTarget(pack, w, h, now, syncClaim)
     } finally {
       renderer.setRenderTarget(prevTarget)
       renderer.xr.enabled = prevXrEnabled
@@ -563,8 +549,7 @@ export function startNdiFramePump(
       delayBuffer.clear()
       uyvyWorker?.dispose()
       readback.dispose()
-      airTarget?.dispose()
-      airTarget = null
+      airTargets.dispose()
       stopSender()
     },
   }

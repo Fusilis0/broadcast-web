@@ -334,6 +334,18 @@ describe('startVideoStreamManager', () => {
   })
 })
 
+describe('video stream texture upload (source)', () => {
+  it('uses VideoTexture texImage2D and notes present PTS for AR freshness', () => {
+    const here = dirname(fileURLToPath(import.meta.url))
+    const src = readFileSync(join(here, 'videoStreamManager.ts'), 'utf8')
+    expect(src).toMatch(/applyVideoFrameTexImage2DUpload/)
+    expect(src).toMatch(/isVideoTexture = true/)
+    expect(src).toMatch(/notePresentedPts90k/)
+    expect(src).not.toMatch(/ndiUploadProbe/)
+    expect(src).not.toMatch(/debug-173fbb/)
+  })
+})
+
 describe('main.ts wiring (DSP-OUT-06)', () => {
   it('starts the stream manager below startVideoBackground and tears it down first', () => {
     const here = dirname(fileURLToPath(import.meta.url))
@@ -352,5 +364,7 @@ describe('main.ts wiring (DSP-OUT-06)', () => {
     expect(main).toContain('beginFfmpegH264Fallback')
     expect(main).toContain('getPtsNtpMap(lutId).reset()')
     expect(main).toContain('getPtsNtpMap(povId).reset()')
+    expect(main).toContain('forceUploadTexture')
+    expect(main).toContain('initTexture')
   })
 })

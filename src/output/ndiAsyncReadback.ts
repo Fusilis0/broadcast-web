@@ -23,11 +23,18 @@ import { markNdiSyncReadback } from './ndiStageTiming.ts'
 
 export type NdiReadbackMode = 'pbo' | 'sync'
 
-/** Documented PBO pipeline depth — one studio tick of capture latency. */
-export const NDI_ASYNC_READBACK_LATENCY_FRAMES = 1
+/** Documented PBO pipeline depth — extra in-flight packs add capture latency. */
+export const NDI_ASYNC_READBACK_PBO_COUNT = 3
 
-/** Double-buffer so a new pack can start while the previous fence is polled. */
-export const NDI_ASYNC_READBACK_PBO_COUNT = 2
+/** Worst-case GPU frames in flight (`PBO_COUNT - 1`). */
+export const NDI_ASYNC_READBACK_LATENCY_FRAMES =
+  NDI_ASYNC_READBACK_PBO_COUNT - 1
+
+/**
+ * Extra 2D `delayMs` so channel `'2d'` matches the extra GPU frame vs
+ * double-buffer PBO (operator: delay OK if AR/3D/2D share it).
+ */
+export const NDI_PBO_DEPTH_MATCH_DELAY_MS = 31
 
 /** Drop a stuck fence rather than `clientWaitSync` with a real timeout. */
 export const NDI_ASYNC_READBACK_FENCE_MAX_MS = 250
@@ -84,10 +91,15 @@ export type CreateNdiAsyncReadbackOptions = {
   forceSync?: boolean
   /** Test seam: capture the fallback note instead of `console.warn`. */
   onFallbackNote?: (message: string) => void
+  /**
+   * When false, skip `gl.flush()` after `fenceSync` so the just-rendered FBO
+   * is not GPU-synced on this tick. Default true.
+   */
+  flushAfterPack?: boolean
 }
 
 /** Recycled RGBA CPU buffers — in-flight PBO + deferred IPC, no `slice`. */
-export const NDI_PIXEL_RING_CAPACITY = 4
+export const NDI_PIXEL_RING_CAPACITY = 6
 
 export type NdiAsyncReadback = {
   readonly mode: NdiReadbackMode
@@ -107,7 +119,7 @@ export type NdiAsyncReadback = {
    * fence / bad size / spy+texture missing this tick — not skip-forever.
    * Does not `readRenderTargetPixels`, does not leave PBO mode.
    * Never pack the default canvas FB as UYVY.
-   * Returns false when both PBO slots are in flight (drop this capture).
+   * Returns false when all PBO slots are in flight (drop this capture).
    *
    * Sync (`forceSync` / no WebGL2): pixels ready for `poll()` on **this** tick.
    * PBO: `poll()` on a later tick.
@@ -323,6 +335,7 @@ export function createNdiAsyncReadback(
     options.gl !== undefined ? options.gl : renderer.getContext()
   const probed = !options.forceSync && probeNdiPboReadback(glRaw)
   const gl: Gl2Like | null = probed ? glRaw : null
+  const flushAfterPack = options.flushAfterPack !== false
 
   let mode: NdiReadbackMode = gl ? 'pbo' : 'sync'
   let disposed = false
@@ -346,6 +359,7 @@ export function createNdiAsyncReadback(
   let drawSpyOrig: BindFramebufferFn | null = null
   let drawSpyWrapped: BindFramebufferFn | null = null
   let drawSpyInstalled = false
+  let cachedPackAlign: number | null = null
 
   function installDrawBindSpy(): void {
     if (!gl || typeof gl.bindFramebuffer !== 'function' || drawSpyInstalled) {
@@ -734,14 +748,12 @@ export function createNdiAsyncReadback(
     const g = gl
     return withPackedReadFramebuffer(target, () => {
       const bytes = byteLengthFor(w, h)
-      const prevPack =
-        typeof g.PIXEL_PACK_BUFFER_BINDING === 'number'
-          ? g.getParameter(g.PIXEL_PACK_BUFFER_BINDING)
-          : null
       const prevAlign =
-        typeof g.PACK_ALIGNMENT === 'number'
+        cachedPackAlign ??
+        (typeof g.PACK_ALIGNMENT === 'number'
           ? g.getParameter(g.PACK_ALIGNMENT)
-          : 4
+          : 4)
+      if (typeof prevAlign === 'number') cachedPackAlign = prevAlign
 
       if (
         !webgl2HasSeparateReadFb() &&
@@ -770,7 +782,7 @@ export function createNdiAsyncReadback(
         }
         g.readPixels(0, 0, w, h, g.RGBA, g.UNSIGNED_BYTE, 0)
         const fence = g.fenceSync(g.SYNC_GPU_COMMANDS_COMPLETE, 0)
-        g.flush()
+        if (flushAfterPack) g.flush()
         if (!fence) return false
         slot.fence = fence
         slot.width = w
@@ -779,7 +791,7 @@ export function createNdiAsyncReadback(
         slot.inFlight = true
         return true
       } finally {
-        g.bindBuffer(g.PIXEL_PACK_BUFFER, prevPack ?? null)
+        g.bindBuffer(g.PIXEL_PACK_BUFFER, null)
         if (typeof g.PACK_ALIGNMENT === 'number' && typeof prevAlign === 'number') {
           g.pixelStorei(g.PACK_ALIGNMENT, prevAlign)
         }
@@ -861,9 +873,13 @@ export function createNdiAsyncReadback(
       if (!free) return false
 
       try {
-        tickSpiedDrawFramebuffer = spyDrawBindsDuring(() => {
-          renderer.setRenderTarget?.(target)
-        })
+        renderer.setRenderTarget?.(target)
+        tickSpiedDrawFramebuffer = lastNonNullDrawFramebuffer
+        if (tickSpiedDrawFramebuffer == null) {
+          tickSpiedDrawFramebuffer = spyDrawBindsDuring(() => {
+            renderer.setRenderTarget?.(target)
+          })
+        }
         const packed = packPbo(free, target, w, h, nowMs(capturedAt))
         if (packed === 'ok') return true
         abandon(free)

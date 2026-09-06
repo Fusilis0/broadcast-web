@@ -35,6 +35,11 @@ export type NdiCaptureGate = {
    * If more than one interval behind, resyncs to `now + interval` (no burst).
    */
   tryAdmit(nowMs: number): boolean
+  /**
+   * Admit now and resync phase from `now`, even if early. Prefer when a new
+   * present() PTS is waiting so unique content is not rateCap-dropped.
+   */
+  forceAdmit(nowMs: number): void
   reset(): void
 }
 
@@ -73,11 +78,17 @@ export function createNdiCaptureGate(declaredFps: number): NdiCaptureGate {
     return true
   }
 
+  function forceAdmit(nowMs: number): void {
+    started = true
+    nextDueMs = nowMs + intervalMs
+  }
+
   return {
     intervalMs,
     toleranceMs,
     isDue,
     tryAdmit,
+    forceAdmit,
     reset(): void {
       nextDueMs = 0
       started = false

@@ -5,8 +5,10 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { isIdentityNdi2dLetterbox } from './letterboxRect.ts'
 import {
   letterboxRect,
+  NDI_2D_ENSURE_DRAWN_MIN_MS,
   startStreamMapNdiPump,
   STREAM_MAP_NDI_CHANNEL,
   STREAM_MAP_NDI_DEFAULT_NAME,
@@ -37,6 +39,24 @@ describe('letterboxRect', () => {
       dw: 1920,
       dh: 1080,
     })
+    expect(
+      isIdentityNdi2dLetterbox(
+        1920,
+        1080,
+        1920,
+        1080,
+        letterboxRect(1920, 1080, 1920, 1080),
+      ),
+    ).toBe(true)
+    expect(
+      isIdentityNdi2dLetterbox(
+        960,
+        540,
+        1920,
+        1080,
+        letterboxRect(960, 540, 1920, 1080),
+      ),
+    ).toBe(false)
   })
 
   it('pillarboxes a wide source', () => {
@@ -52,6 +72,7 @@ describe('STREAM_MAP_NDI constants', () => {
   it('targets channel 2d with broadcast-web-2d default name', () => {
     expect(STREAM_MAP_NDI_CHANNEL).toBe('2d')
     expect(STREAM_MAP_NDI_DEFAULT_NAME).toBe('broadcast-web-2d')
+    expect(NDI_2D_ENSURE_DRAWN_MIN_MS).toBe(100)
   })
 })
 
@@ -62,7 +83,8 @@ describe('streamMapNdiPump source invariants', () => {
     expect(src).toMatch(/letterbox/)
     expect(src).toMatch(/1920/)
     expect(src).toMatch(/bottomUp:\s*false/)
-    expect(src).toMatch(/onStudioTick/)
+    expect(src).toMatch(/setInterval/)
+    expect(src).not.toMatch(/onStudioTick/)
     expect(src).not.toMatch(/ndiControllerPanel/)
     expect(src).not.toMatch(/scene\/sidebar/)
     expect(src).not.toMatch(/stubHud/)
@@ -74,6 +96,9 @@ describe('streamMapNdiPump source invariants', () => {
     expect(src).toMatch(/capture\.defer/)
     expect(src).toMatch(/recordNdiCapture\(['"]2d['"]/)
     expect(src).toMatch(/2D source canvas unavailable/)
+    expect(src).toMatch(/getPaintGeneration/)
+    expect(src).toMatch(/NDI_2D_ENSURE_DRAWN_MIN_MS\s*=\s*100/)
+    expect(src).not.toMatch(/isNdiFboReadbackPressured/)
   })
 })
 
@@ -225,7 +250,6 @@ describe('startStreamMapNdiPump enable/disable', () => {
     await vi.waitFor(() => {
       expect(pump?.getSourceName()).toContain('broadcast-web-2d')
     })
-    for (const cb of tickCbs) cb()
     await vi.waitFor(() => {
       expect(pump?.getError()).toBe('2D source canvas unavailable')
     })
@@ -236,6 +260,7 @@ describe('startStreamMapNdiPump enable/disable', () => {
   it('defaults to STREAM_MAP_NDI_DEFAULT_FPS (30) and enabled unless false', () => {
     const src = readFileSync(join(here, 'streamMapNdiPump.ts'), 'utf8')
     expect(src).toMatch(/STREAM_MAP_NDI_DEFAULT_FPS\s*=\s*30/)
+    expect(src).toMatch(/NDI_2D_ENSURE_DRAWN_MIN_MS\s*=\s*100/)
     expect(src).toMatch(/options\.enabled !== false/)
     expect(src).toMatch(/getSendFps/)
     expect(src).toMatch(/createSendFpsCounter/)
@@ -244,8 +269,7 @@ describe('startStreamMapNdiPump enable/disable', () => {
   })
 })
 
-describe('startStreamMapNdiPump defers capture off the studio:tick stack', () => {
-  const tickCbs = new Set<() => void>()
+describe('startStreamMapNdiPump uses independent interval (not studio:tick)', () => {
   const deferred: Array<() => void> = []
   let restoreCtx: (() => void) | undefined
 
@@ -319,12 +343,7 @@ describe('startStreamMapNdiPump defers capture off the studio:tick stack', () =>
     const bridge: BroadcastStudioBridge = {
       isStudio: true,
       ndi,
-      onStudioTick: (cb) => {
-        tickCbs.add(cb)
-        return () => {
-          tickCbs.delete(cb)
-        }
-      },
+      onStudioTick: () => () => {},
     }
     ;(window as Window & { broadcastStudio?: BroadcastStudioBridge }).broadcastStudio =
       bridge
@@ -334,14 +353,13 @@ describe('startStreamMapNdiPump defers capture off the studio:tick stack', () =>
   afterEach(() => {
     restoreCtx?.()
     restoreCtx = undefined
-    tickCbs.clear()
     deferred.length = 0
     delete (window as Window & { broadcastStudio?: BroadcastStudioBridge })
       .broadcastStudio
     vi.restoreAllMocks()
   })
 
-  it('does not run ensureDrawn or sendFrame inside the studio:tick callback', async () => {
+  it('does not run ensureDrawn or sendFrame until the independent defer fires', async () => {
     restoreCtx = installFake2dContext()
     const { sendFrame } = installBridge()
     const canvas = document.createElement('canvas')
@@ -358,6 +376,7 @@ describe('startStreamMapNdiPump defers capture off the studio:tick stack', () =>
       },
       outputWidth: 16,
       outputHeight: 8,
+      fps: 50,
       ndi2dCapture: {
         forceSync: true,
         onFallbackNote: () => {},
@@ -371,13 +390,14 @@ describe('startStreamMapNdiPump defers capture off the studio:tick stack', () =>
       expect(pump?.getSourceName()).toContain('broadcast-web-2d')
     })
 
-    drawn = 0
-    for (const cb of tickCbs) cb()
+    await vi.waitFor(() => {
+      expect(deferred.length).toBeGreaterThanOrEqual(1)
+    })
     expect(drawn).toBe(0)
     expect(sendFrame).not.toHaveBeenCalled()
-    expect(deferred).toHaveLength(1)
 
-    deferred[0]?.()
+    const first = deferred.shift()
+    first?.()
     await vi.waitFor(() => {
       expect(sendFrame).toHaveBeenCalled()
     })
@@ -396,6 +416,72 @@ describe('startStreamMapNdiPump defers capture off the studio:tick stack', () =>
     expect(frame.data.byteLength).toBe(16 * 8 * 2)
     expect(frame.bottomUp).toBe(false)
     expect(frame.pixelFormat).toBe('uyvy')
+    pump?.stop()
+  })
+
+  it('throttles ensureDrawn and skips grab when paint generation is unchanged', async () => {
+    restoreCtx = installFake2dContext()
+    const { sendFrame } = installBridge()
+    const canvas = document.createElement('canvas')
+    canvas.width = 8
+    canvas.height = 8
+    canvas.getContext('2d')?.fillRect(0, 0, 8, 8)
+
+    let drawn = 0
+    let paintGen = 7
+
+    const pump = startStreamMapNdiPump({
+      getSourceCanvas: () => canvas,
+      ensureDrawn: () => {
+        drawn += 1
+      },
+      getPaintGeneration: () => paintGen,
+      outputWidth: 16,
+      outputHeight: 8,
+      fps: 50,
+      ndi2dCapture: {
+        forceSync: true,
+        onFallbackNote: () => {},
+        defer: (fn) => {
+          deferred.push(fn)
+        },
+      },
+    })
+    expect(pump).not.toBeNull()
+    await vi.waitFor(() => {
+      expect(pump?.getSourceName()).toContain('broadcast-web-2d')
+    })
+    await vi.waitFor(() => {
+      expect(deferred.length).toBeGreaterThanOrEqual(1)
+    })
+
+    deferred.shift()?.()
+    await vi.waitFor(() => {
+      expect(sendFrame).toHaveBeenCalledTimes(1)
+    })
+    expect(drawn).toBe(0)
+
+    await new Promise((resolve) => setTimeout(resolve, 40))
+    await vi.waitFor(() => {
+      expect(deferred.length).toBeGreaterThanOrEqual(1)
+    })
+    deferred.shift()?.()
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(sendFrame).toHaveBeenCalledTimes(1)
+    expect(drawn).toBe(0)
+
+    paintGen = 8
+    await new Promise((resolve) =>
+      setTimeout(resolve, NDI_2D_ENSURE_DRAWN_MIN_MS),
+    )
+    await vi.waitFor(() => {
+      expect(deferred.length).toBeGreaterThanOrEqual(1)
+    })
+    deferred.shift()?.()
+    await vi.waitFor(() => {
+      expect(sendFrame).toHaveBeenCalledTimes(2)
+    })
+    expect(drawn).toBe(0)
     pump?.stop()
   })
 })

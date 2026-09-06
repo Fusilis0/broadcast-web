@@ -10,6 +10,7 @@ import * as THREE from 'three'
 import { getPtsNtpMap } from '../telemetry/ptsNtpMap.ts'
 import { telemetryBus } from '../telemetry/bus.ts'
 import { timeNdiStage } from './ndiStageTiming.ts'
+import { notePresentedPts90k } from './ndiPresentPts.ts'
 import { getSrtBridge, type SrtBridge } from './srtBridge.ts'
 import {
   createVideoDecodePipeline,
@@ -30,6 +31,9 @@ export type StreamTextureLike = {
   image: unknown
   needsUpdate: boolean
   colorSpace?: unknown
+  isVideoTexture?: boolean
+  update?: () => void
+  internalFormat?: string | null
   dispose: () => void
 }
 
@@ -45,6 +49,11 @@ export type VideoStreamManagerOptions = {
   decoderFactory?: VideoDecoderFactory
   createTexture?: () => StreamTextureLike
   uploadFrame?: (tex: StreamTextureLike, frame: VideoFrameLike) => void
+  /**
+   * Force GPU upload for a texture that may not be in a drawn material.
+   * Production: `renderer.initTexture(tex)` → texImage2D(VideoFrame).
+   */
+  forceUploadTexture?: (tex: StreamTextureLike) => void
   warmCap?: number
   onOpsError?: (povId: string, message: string) => void
   nowMs?: () => number
@@ -83,13 +92,34 @@ type StreamSlot = {
   hasFrame: boolean
 }
 
+type VideoFrameUploadTexture = THREE.Texture & {
+  isVideoTexture: boolean
+  update: () => void
+}
+
+/**
+ * Video uploads use RGBA8 + shader sRGB EOTF (`DECODE_VIDEO_TEXTURE`), not
+ * texStorage SRGB8_ALPHA8 (three.js #26516 / #28980).
+ */
+export const VIDEO_FRAME_TEXIMAGE_GL_INTERNAL_FORMAT = 'RGBA8' as const
+
+export function applyVideoFrameTexImage2DUpload(tex: THREE.Texture): THREE.Texture {
+  const video = tex as VideoFrameUploadTexture
+  video.colorSpace = THREE.SRGBColorSpace
+  video.internalFormat = null
+  video.isVideoTexture = true
+  video.update = () => {
+    /* present() owns needsUpdate */
+  }
+  return video
+}
+
 export function createVideoStreamTexture(): THREE.Texture {
   const tex = new THREE.Texture()
-  tex.colorSpace = THREE.SRGBColorSpace
   tex.minFilter = THREE.LinearFilter
   tex.magFilter = THREE.LinearFilter
   tex.generateMipmaps = false
-  return tex
+  return applyVideoFrameTexImage2DUpload(tex)
 }
 
 export function uploadVideoFrameToTexture(
@@ -141,6 +171,7 @@ export function startVideoStreamManager(
   const nowMs = options.nowMs ?? (() => performance.now())
   const createTexture = options.createTexture ?? createVideoStreamTexture
   const uploadFrame = options.uploadFrame ?? uploadVideoFrameToTexture
+  const forceUploadTexture = options.forceUploadTexture
   const getLutStreamId = options.getLutStreamId ?? ((povId: string) => povId)
 
   const streams = new Map<string, StreamSlot>()
@@ -263,7 +294,11 @@ export function startVideoStreamManager(
           const shown = slot.pipe.present()
           if (!shown) continue
           uploadFrame(slot.texture, shown.frame)
+          forceUploadTexture?.(slot.texture)
           slot.hasFrame = true
+          if (slot.povId === activePov) {
+            notePresentedPts90k(shown.pts90k)
+          }
         }
         bindActiveTexture()
       })

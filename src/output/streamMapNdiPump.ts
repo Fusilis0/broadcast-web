@@ -12,11 +12,11 @@
  * of local 2D host / sidebar visibility (canvas 2D redraw still fills the
  * bitmap when the host is off-screen).
  *
- * **Tick (DSP-OUT-20260828-07 / DSP-OUT-20260829-04):** `onStudioTick` only
- * *schedules* capture. Gate and send are independent of AR/3D. `ensureDrawn` /
- * grab run after the FBO pumps (`setTimeout(0)`). Happy path: worker +
- * transferable buffer. Fail closed to sync `getImageData`. 2D does **not**
- * occupy the FBO stagger slot. Do not rewrite the grab helper here.
+ * **Tick:** capture runs on an independent `setInterval` at the 2D fps — not
+ * `studio:tick`. `ensureDrawn` is throttled (stream map already paints on
+ * pose + 10 Hz rounding). Unchanged paint generation skips grab+IPC — NDI
+ * keeps the last unique frame. Identity 1080 letterbox packs once in the
+ * worker (no second UYVY blit). Do not yield-to-death on AR/3D PBO pressure.
  *
  * No-ops when `window.broadcastStudio` is missing (Chrome path).
  */
@@ -25,7 +25,7 @@ import {
   createNdi2dAsyncCapture,
   type CreateNdi2dAsyncCaptureOptions,
 } from './ndi2dAsyncCapture.ts'
-import { createNdiCaptureGate } from './ndiCaptureClock.ts'
+import { createNdiCaptureGate, ndiCaptureGateFps } from './ndiCaptureClock.ts'
 import { createNdiDeferredSend } from './ndiDeferredSend.ts'
 import { NdiDelayBuffer } from './ndiDelayBuffer.ts'
 import { createSendFpsCounter } from './perfCounters.ts'
@@ -36,7 +36,6 @@ import {
   timeNdiStage,
 } from './ndiStageTiming.ts'
 import {
-  debugSessionLog,
   getStudioBridge,
   sendStudioNdiFrame,
   type NdiChannelId,
@@ -51,6 +50,11 @@ export const STREAM_MAP_NDI_CHANNEL: NdiChannelId = '2d'
 export const STREAM_MAP_NDI_DEFAULT_NAME = 'broadcast-web-2d'
 /** Default 2D NDI send rate (always-on @ 30 — DSP-OUT-20260828-04). */
 export const STREAM_MAP_NDI_DEFAULT_FPS = 30
+/**
+ * Min gap between `ensureDrawn` calls. Stream map already redraws on pose
+ * and at 10 Hz rounding — extra 32 Hz paints hitch JS.
+ */
+export const NDI_2D_ENSURE_DRAWN_MIN_MS = 100
 
 export type LetterboxRect = {
   dx: number
@@ -84,8 +88,13 @@ export function letterboxRect(
 export type StreamMapNdiPumpOptions = {
   /** Stream-map (or twin) canvas; may be hidden in the DOM. */
   getSourceCanvas: () => HTMLCanvasElement | null | undefined
-  /** Force a redraw before capture (map stays fresh while PiP hidden). */
+  /** Force a redraw before capture (throttled). Unused when paint generation is wired. */
   ensureDrawn?: () => void
+  /**
+   * Stream-map paint generation. When this is unchanged since the last
+   * successful grab, skip bitmap/worker/IPC (NDI repeats the last frame).
+   */
+  getPaintGeneration?: () => number
   /** Target send rate. Default **30**. */
   fps?: number
   /** NDI source name (hostname prepended by SDK). Default `broadcast-web-2d`. */
@@ -159,7 +168,10 @@ export function startStreamMapNdiPump(
   let grabbing = false
   let queued = false
   let starting = false
-  let unsubTick: (() => void) | null = null
+  let lastPaintGeneration: number | null = null
+  let lastEnsureDrawnAt = Number.NEGATIVE_INFINITY
+  let timer: ReturnType<typeof setInterval> | null = null
+  const periodMs = 1000 / ndiCaptureGateFps(fps)
   const capture = createNdi2dAsyncCapture(options.ndi2dCapture)
   const packPool = createNdiPackPool('uyvy')
 
@@ -233,6 +245,7 @@ export function startStreamMapNdiPump(
   }
 
   const ipc = createNdiDeferredSend({
+    maxPending: 2,
     send: (frame) => {
       sendFrameData(frame.data)
     },
@@ -265,18 +278,6 @@ export function startStreamMapNdiPump(
       data.byteLength === packedFrameBytes('uyvy', outW, outH)
     const packed = alreadyPacked ? data : packPool.pack(data, outW, outH)
     if (!packed) return
-    // #region agent log
-    if (!(globalThis as { __ndi2dPackAt?: number }).__ndi2dPackAt ||
-      performance.now() - ((globalThis as { __ndi2dPackAt?: number }).__ndi2dPackAt ?? 0) > 1000) {
-      ;(globalThis as { __ndi2dPackAt?: number }).__ndi2dPackAt = performance.now()
-      debugSessionLog({
-        hypothesisId: 'H14',
-        location: 'streamMapNdiPump.ts:deliverPixels',
-        message: '2D pack path',
-        data: { alreadyPacked, inBytes: data.byteLength, outBytes: packed.byteLength },
-      })
-    }
-    // #endregion
     const ready = delayBuffer.push(
       {
         capturedAtMs: now,
@@ -310,10 +311,24 @@ export function startStreamMapNdiPump(
       return
     }
 
-    try {
-      options.ensureDrawn?.()
-    } catch (err) {
-      console.warn('[output] stream map ensureDrawn failed', err)
+    const paintGen = options.getPaintGeneration?.()
+    if (
+      paintGen != null &&
+      lastPaintGeneration != null &&
+      paintGen === lastPaintGeneration
+    ) {
+      return
+    }
+
+    // Paint generation already tracks pose + 10 Hz rounding. Extra pump
+    // redraw() bumps gen and forces a grab every time (live skipUnchanged=0).
+    if (paintGen == null && now - lastEnsureDrawnAt >= NDI_2D_ENSURE_DRAWN_MIN_MS) {
+      try {
+        options.ensureDrawn?.()
+      } catch (err) {
+        console.warn('[output] stream map ensureDrawn failed', err)
+      }
+      lastEnsureDrawnAt = now
     }
 
     const src = options.getSourceCanvas()
@@ -332,6 +347,7 @@ export function startStreamMapNdiPump(
         const data = await capture.grab({ source: src, outW, outH, box })
         recordNdiStage('2dGrab', performance.now() - t0)
         if (disposed || !enabled) return
+        if (paintGen != null) lastPaintGeneration = paintGen
         deliverPixels(data, performance.now())
       } catch (err) {
         recordNdiStage('2dGrab', performance.now() - t0)
@@ -367,15 +383,17 @@ export function startStreamMapNdiPump(
   }
 
   function ensureTick(): void {
-    if (disposed || !enabled || unsubTick) return
-    unsubTick = bridge.onStudioTick(() => {
+    if (disposed || !enabled || timer) return
+    timer = setInterval(() => {
       scheduleCapture()
-    })
+    }, periodMs)
   }
 
   function clearTick(): void {
-    unsubTick?.()
-    unsubTick = null
+    if (timer) {
+      clearInterval(timer)
+      timer = null
+    }
   }
 
   function setEnabled(on: boolean): void {
@@ -386,6 +404,8 @@ export function startStreamMapNdiPump(
       startSender()
       ensureTick()
     } else {
+      lastPaintGeneration = null
+      lastEnsureDrawnAt = Number.NEGATIVE_INFINITY
       clearTick()
       delayBuffer.clear()
       stopSender()

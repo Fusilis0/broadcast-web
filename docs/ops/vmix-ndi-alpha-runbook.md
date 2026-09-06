@@ -1,6 +1,6 @@
 # vMix — alpha NDI ingest (path A)
 
-**Status:** **Human Pass** (2026-07-31) — alpha NDI + 1080p lock + park-on-minimize OK  
+**Status:** Live AR NDI (2026-09-06) is **opaque UYVY** — sim + SRT are merged in-app; vMix must **not** key `broadcast-web` as alpha. The 2026-07-31 Human Pass below is the old UYVA ingest.  
 **Related:** [`ndi-alpha-electron.md`](../architecture/ndi-alpha-electron.md), [`air-runbook.md`](./air-runbook.md), [`desktop/README.md`](../../desktop/README.md)  
 **Observed send name (dev):** `DESKTOP-264DNL1 (broadcast-web)`
 

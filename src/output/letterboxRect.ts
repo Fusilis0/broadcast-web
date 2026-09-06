@@ -13,6 +13,24 @@ export type LetterboxRect = {
   dh: number
 }
 
+/** True when the source already fills the 1080 lock — skip a second UYVY blit. */
+export function isIdentityNdi2dLetterbox(
+  srcW: number,
+  srcH: number,
+  outW: number,
+  outH: number,
+  box: LetterboxRect,
+): boolean {
+  return (
+    srcW === outW &&
+    srcH === outH &&
+    box.dx === 0 &&
+    box.dy === 0 &&
+    box.dw === outW &&
+    box.dh === outH
+  )
+}
+
 /** Pure: fit `src` into `dst` preserving aspect (letterbox / pillarbox). */
 export function letterboxRect(
   srcW: number,

@@ -22,6 +22,7 @@ function stubMap(): Map2dHandle {
   return {
     root,
     getCanvas: () => canvas,
+    getPaintGeneration: () => 0,
     updatePose: () => {},
     setCourseMarks: () => {},
     setLayoutFeatures: () => {},
