@@ -195,7 +195,7 @@ Per-boat draw mode: **`solid`** | **`ghost`** | **`hidden`** (`BoatVisibilityMod
 ## Ops free cam (preview vs air)
 
 - HUD **view** select: **Follow active POV** (default) | **Free cam**.
-- **Free cam:** OrbitControls on the WebGL canvas (drag orbit, right-drag/pan, wheel zoom) around ENU origin — works even when drone telemetry is idle.
+- **Free cam:** MapControls on the WebGL canvas (left-drag pan, right-drag orbit, wheel zoom toward cursor, **WASD** fly). Pan/WASD stay on the ground plane; speed scales with camera height so the same move covers more metres when zoomed out. Pivot follows WASD — Focus does not trap you. Works even when drone telemetry is idle.
 - **Follow:** on-screen preview uses the active POV pose again (`1`–`4` / Fleet **Cam** / POV select).
 - Free cam does **not** mutate `activePovId` — air selection stays with POV switch / Fleet Cam.
 - Status line includes `view=follow` or `view=free`.

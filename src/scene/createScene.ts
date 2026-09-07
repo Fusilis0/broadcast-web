@@ -927,7 +927,7 @@ export function startScene(options: SceneOptions): SceneHandle {
     try {
       const dt = Math.min(clock.getDelta(), 0.1)
       const cam = previewCamera()
-      if (opsViewMode === 'free') freeCam?.update()
+      if (opsViewMode === 'free') freeCam?.update(dt)
       countdownFlags?.tickClock(dt)
       // Foam wakes share this tick (preview rAF / studio when hidden). Do not
       // raise STUDIO_TICK_FPS or add a second clock.

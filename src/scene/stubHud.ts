@@ -526,7 +526,7 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   viewSelect.id = 'ops-view-mode'
   viewSelect.className = 'ops-hud__mode-select'
   viewSelect.title =
-    'Ops preview: Free cam orbits the world; Follow uses active POV. Air/NDI stays on active POV.'
+    'Ops preview: Free cam pans the world (WASD, left-drag); Follow uses active POV. Air/NDI stays on active POV.'
   for (const [value, label] of [
     ['follow', 'Follow active POV'],
     ['free', 'Free cam'],
@@ -542,7 +542,7 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
 
   const viewHint = document.createElement('span')
   viewHint.className = 'ops-hud__mode-hint'
-  viewHint.textContent = 'orbit · drag canvas'
+  viewHint.textContent = 'WASD · left pan · right orbit'
   viewRow.appendChild(viewHint)
 
   const fpsRow = document.createElement('div')
