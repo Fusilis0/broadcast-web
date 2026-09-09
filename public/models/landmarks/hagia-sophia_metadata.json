@@ -1,0 +1,2593 @@
+{
+  "format_version": "1.0",
+  "source_file": "hagia-sophia",
+  "model_source": "sketchup",
+  "sketchup_version": "{21.0.0}",
+  "total_definitions": 5,
+  "total_meshes": 144,
+  "total_layers": 4,
+  "layers": [
+    {
+      "name": "Layer0",
+      "color": {
+        "r": 255,
+        "g": 84,
+        "b": 84
+      }
+    },
+    {
+      "name": "Google Earth Terrain",
+      "color": {
+        "r": 0,
+        "g": 153,
+        "b": 135
+      }
+    },
+    {
+      "name": "Google Earth Snapshot",
+      "color": {
+        "r": 119,
+        "g": 119,
+        "b": 153
+      }
+    },
+    {
+      "name": "Layer1",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 0
+      }
+    }
+  ],
+  "materials": [
+    {
+      "name": "Google Earth Snapshot1",
+      "color": {
+        "r": 136,
+        "g": 136,
+        "b": 136
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\DOCUME~1\\ADMINI~2\\LOCALS~1\\Temp\\GEI35.jpg",
+        "x_scale": 1.0,
+        "y_scale": 1.0
+      }
+    },
+    {
+      "name": "Color_000",
+      "color": {
+        "r": 255,
+        "g": 255,
+        "b": 255
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Color_A03",
+      "color": {
+        "r": 255,
+        "g": 130,
+        "b": 117
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Fencing_Diamond_Mesh3",
+      "color": {
+        "r": 157,
+        "g": 155,
+        "b": 153
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "Fencing_Diamond_Mesh.png",
+        "x_scale": 8.0,
+        "y_scale": 3.8290600385126865
+      }
+    },
+    {
+      "name": "Color_007",
+      "color": {
+        "r": 58,
+        "g": 58,
+        "b": 58
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Fencing_Mesh_Blue2",
+      "color": {
+        "r": 255,
+        "g": 255,
+        "b": 255
+      },
+      "transparency": 1.0,
+      "colorized": true,
+      "colorize_type": 1,
+      "texture": {
+        "filename": "Fencing_Mesh_Blue.png",
+        "x_scale": 39.37007874015748,
+        "y_scale": 39.37007874015748
+      }
+    },
+    {
+      "name": "Metal_Embossed",
+      "color": {
+        "r": 144,
+        "g": 144,
+        "b": 144
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "Metal_Embossed.jpg",
+        "x_scale": 10.0,
+        "y_scale": 10.0
+      }
+    },
+    {
+      "name": "Color_009",
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 0
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Color_004",
+      "color": {
+        "r": 102,
+        "g": 102,
+        "b": 102
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Concrete_Stamped_Ashlar",
+      "color": {
+        "r": 165,
+        "g": 91,
+        "b": 84
+      },
+      "transparency": 1.0,
+      "colorized": true,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "Concrete_Stamped_Ashlar.jpg",
+        "x_scale": 118.11023622047244,
+        "y_scale": 94.48818897637796
+      }
+    },
+    {
+      "name": "Color_D1",
+      "color": {
+        "r": 255,
+        "g": 215,
+        "b": 150
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Concrete_Block_8x8_Gray4",
+      "color": {
+        "r": 139,
+        "g": 140,
+        "b": 136
+      },
+      "transparency": 1.0,
+      "colorized": true,
+      "colorize_type": 1,
+      "texture": {
+        "filename": "Concrete_Block_8x8_Gray.jpg",
+        "x_scale": 118.11023622047244,
+        "y_scale": 118.11023622047244
+      }
+    },
+    {
+      "name": "Concrete_Block_8x8_Gray7",
+      "color": {
+        "r": 210,
+        "g": 211,
+        "b": 205
+      },
+      "transparency": 1.0,
+      "colorized": true,
+      "colorize_type": 1,
+      "texture": {
+        "filename": "Concrete_Block_8x8_Gray.jpg",
+        "x_scale": 118.11023622047244,
+        "y_scale": 118.11023622047244
+      }
+    },
+    {
+      "name": "Concrete_Block_8x8_Gray5",
+      "color": {
+        "r": 216,
+        "g": 132,
+        "b": 110
+      },
+      "transparency": 1.0,
+      "colorized": true,
+      "colorize_type": 1,
+      "texture": {
+        "filename": "Concrete_Block_8x8_Gray.jpg",
+        "x_scale": 118.11023622047244,
+        "y_scale": 118.11023622047244
+      }
+    },
+    {
+      "name": "Metal_Aluminum_Anodized",
+      "color": {
+        "r": 185,
+        "g": 192,
+        "b": 201
+      },
+      "transparency": 1.0,
+      "colorized": true,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "Metal_Aluminum_Anodized.jpg",
+        "x_scale": 393.7007874015748,
+        "y_scale": 393.7007874015748
+      }
+    },
+    {
+      "name": "Concrete_Block_8x8_Gray6",
+      "color": {
+        "r": 157,
+        "g": 158,
+        "b": 154
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 1,
+      "texture": {
+        "filename": "Concrete_Block_8x8_Gray.jpg",
+        "x_scale": 196.8503937007874,
+        "y_scale": 196.8503937007874
+      }
+    },
+    {
+      "name": "Concrete_Block_8x8_Gray8",
+      "color": {
+        "r": 177,
+        "g": 178,
+        "b": 173
+      },
+      "transparency": 1.0,
+      "colorized": true,
+      "colorize_type": 1,
+      "texture": {
+        "filename": "Concrete_Block_8x8_Gray.jpg",
+        "x_scale": 118.11023622047244,
+        "y_scale": 118.11023622047244
+      }
+    },
+    {
+      "name": "Concrete_Block_8x8_Gray9",
+      "color": {
+        "r": 157,
+        "g": 158,
+        "b": 154
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 1,
+      "texture": {
+        "filename": "Concrete_Block_8x8_Gray.jpg",
+        "x_scale": 48.0,
+        "y_scale": 48.0
+      }
+    },
+    {
+      "name": "_Kirmizi",
+      "color": {
+        "r": 218,
+        "g": 151,
+        "b": 134
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\My Documents\\Isler\\GoogleEarth Modeller\\AyaSofya-GoogleEarth\\map\\kirmizi.jpg",
+        "x_scale": 1968.616422947132,
+        "y_scale": 2243.3070866141734
+      }
+    },
+    {
+      "name": "Metal_Seamed",
+      "color": {
+        "r": 101,
+        "g": 98,
+        "b": 105
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\My Documents\\Isler\\GoogleEarth Modeller\\AyaSofya-GoogleEarth\\map\\metal.jpg",
+        "x_scale": 19.68503937007874,
+        "y_scale": 11.623547056617923
+      }
+    },
+    {
+      "name": "*11",
+      "color": {
+        "r": 179,
+        "g": 118,
+        "b": 103
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\My Documents\\Isler\\GoogleEarth Modeller\\AyaSofya-GoogleEarth\\map\\kirmizi-koyu.jpg",
+        "x_scale": 1968.616422947132,
+        "y_scale": 2243.3070866141734
+      }
+    },
+    {
+      "name": "Color_008",
+      "color": {
+        "r": 30,
+        "g": 30,
+        "b": 30
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "*8",
+      "color": {
+        "r": 213,
+        "g": 150,
+        "b": 135
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\My Documents\\Isler\\GoogleEarth Modeller\\AyaSofya-GoogleEarth\\map\\bant1.jpg",
+        "x_scale": 165.35433070866142,
+        "y_scale": 98.4251968503937
+      }
+    },
+    {
+      "name": "*9",
+      "color": {
+        "r": 213,
+        "g": 150,
+        "b": 135
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\My Documents\\Isler\\GoogleEarth Modeller\\AyaSofya-GoogleEarth\\map\\bant1.jpg",
+        "x_scale": 297.6377952755906,
+        "y_scale": 177.16535433070868
+      }
+    },
+    {
+      "name": "*3",
+      "color": {
+        "r": 204,
+        "g": 147,
+        "b": 114
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\My Documents\\Isler\\GoogleEarth Modeller\\AyaSofya-GoogleEarth\\map\\kemer-b.jpg",
+        "x_scale": 787.4015748031496,
+        "y_scale": 511.8110236220473
+      }
+    },
+    {
+      "name": "*4",
+      "color": {
+        "r": 205,
+        "g": 155,
+        "b": 143
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\My Documents\\Isler\\GoogleEarth Modeller\\AyaSofya-GoogleEarth\\map\\kemer-o.jpg",
+        "x_scale": 511.8110236220473,
+        "y_scale": 354.33070866141736
+      }
+    },
+    {
+      "name": "*5",
+      "color": {
+        "r": 177,
+        "g": 171,
+        "b": 172
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\My Documents\\Isler\\GoogleEarth Modeller\\AyaSofya-GoogleEarth\\map\\kemer-k.jpg",
+        "x_scale": 393.7007874015748,
+        "y_scale": 905.5118110236219
+      }
+    },
+    {
+      "name": "_Tas",
+      "color": {
+        "r": 208,
+        "g": 195,
+        "b": 192
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\My Documents\\Isler\\GoogleEarth Modeller\\AyaSofya-GoogleEarth\\map\\tas.jpg",
+        "x_scale": 787.4015748031496,
+        "y_scale": 424.8569648218434
+      }
+    },
+    {
+      "name": "_Metal",
+      "color": {
+        "r": 153,
+        "g": 157,
+        "b": 160
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "Metal_Rough.jpg",
+        "x_scale": 8.0,
+        "y_scale": 8.0
+      }
+    },
+    {
+      "name": "*10",
+      "color": {
+        "r": 163,
+        "g": 150,
+        "b": 147
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\My Documents\\Isler\\GoogleEarth Modeller\\AyaSofya-GoogleEarth\\map\\tas-koyu.jpg",
+        "x_scale": 787.4015748031496,
+        "y_scale": 424.85696482184335
+      }
+    },
+    {
+      "name": "*7",
+      "color": {
+        "r": 210,
+        "g": 151,
+        "b": 136
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\My Documents\\Isler\\GoogleEarth Modeller\\AyaSofya-GoogleEarth\\map\\blok copy.jpg",
+        "x_scale": 629.9212598425197,
+        "y_scale": 748.0314960629922
+      }
+    },
+    {
+      "name": "*6",
+      "color": {
+        "r": 231,
+        "g": 187,
+        "b": 162
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\My Documents\\Isler\\GoogleEarth Modeller\\AyaSofya-GoogleEarth\\map\\motif.jpg",
+        "x_scale": 118.11023622047244,
+        "y_scale": 118.11023622047244
+      }
+    },
+    {
+      "name": "*2",
+      "color": {
+        "r": 209,
+        "g": 201,
+        "b": 197
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\My Documents\\Isler\\GoogleEarth Modeller\\AyaSofya-GoogleEarth\\map\\minare1.jpg",
+        "x_scale": 29.51834197982777,
+        "y_scale": 401.18110236220474
+      }
+    },
+    {
+      "name": "*1",
+      "color": {
+        "r": 225,
+        "g": 181,
+        "b": 158
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\My Documents\\Isler\\GoogleEarth Modeller\\AyaSofya-GoogleEarth\\map\\minare2.jpg",
+        "x_scale": 29.52755905511811,
+        "y_scale": 401.3063707945598
+      }
+    },
+    {
+      "name": "Layer_Layer0",
+      "color": {
+        "r": 255,
+        "g": 84,
+        "b": 84
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Layer_Google Earth Terrain",
+      "color": {
+        "r": 0,
+        "g": 153,
+        "b": 135
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Layer_Google Earth Snapshot",
+      "color": {
+        "r": 119,
+        "g": 119,
+        "b": 153
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Layer_Layer1",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 0
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    }
+  ],
+  "mesh_index": {
+    "mesh_0_ROOT_Layer0_218_151_134_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_1_ROOT_Layer0_102_102_102_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_2_ROOT_Layer0_179_118_103_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_3_ROOT_Layer0_101_98_105_ds": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_4_ROOT_Layer0_101_98_105_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_5_ROOT_Layer0_58_58_58_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_6_ROOT_Layer0_102_102_102_ds": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_7_ROOT_Layer0_30_30_30_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_8_ROOT_Layer0_218_151_134_ds": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_9_ROOT_Layer0_179_118_103_ds": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_10_ROOT_Layer0_213_150_135_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_11_ROOT_Layer0_165_91_84_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_12_ROOT_Layer0_204_147_114_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_13_ROOT_Layer0_255_215_150_ds": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_14_ROOT_Layer0_255_215_150_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_15_ROOT_Layer0_139_140_136_ds": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_16_ROOT_Layer0_58_58_58_ds": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_17_ROOT_Layer0_205_155_143_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_18_ROOT_Layer0_210_211_205_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_19_ROOT_Layer0_209_201_197_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_20_ROOT_Layer0_30_30_30_ds": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_21_ROOT_Layer0_177_171_172_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_22_ROOT_Layer0_210_211_205_ds": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_23_ROOT_Layer0_209_201_197_ds": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_24_ROOT_Layer0_139_140_136_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_25_ROOT_Layer0_208_195_192_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_26_ROOT_Layer0_163_150_147_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_27_ROOT_Layer0_216_132_110_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_28_ROOT_Layer0_210_151_136_ds": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_29_ROOT_Layer0_216_132_110_ds": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_30_ROOT_Layer0_231_187_162_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_31_ROOT_Layer0_177_178_173_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_32_ROOT_Layer0_225_181_158_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_33_ROOT_Layer0_157_158_154_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_34_ROOT_Layer0_185_192_201_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_35_ROOT__Component_717_Layer1_102_102_102_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        10144.5,
+        10101.67,
+        43424.68
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_36_ROOT__Component_717_Layer1_58_58_58_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        10144.5,
+        10101.67,
+        43424.68
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_37_ROOT__Component_717_Layer1_255_255_255_ds": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        10144.5,
+        10101.67,
+        43424.68
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_38_ROOT__Component_717_Layer1_144_144_144_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        10144.5,
+        10101.67,
+        43424.68
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_39_ROOT__Component_717_Layer1_255_255_255_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        10144.5,
+        10101.67,
+        43424.68
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_40_ROOT__Component_717_Layer1_0_0_0_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        10144.5,
+        10101.67,
+        43424.68
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_41_ROOT__Component_717_Layer1_102_102_102_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        26740.97,
+        6165.48,
+        43424.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_42_ROOT__Component_717_Layer1_58_58_58_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        26740.97,
+        6165.48,
+        43424.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_43_ROOT__Component_717_Layer1_255_255_255_ds": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        26740.97,
+        6165.48,
+        43424.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_44_ROOT__Component_717_Layer1_144_144_144_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        26740.97,
+        6165.48,
+        43424.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_45_ROOT__Component_717_Layer1_255_255_255_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        26740.97,
+        6165.48,
+        43424.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_46_ROOT__Component_717_Layer1_0_0_0_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        26740.97,
+        6165.48,
+        43424.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_47_ROOT__Component_717_Layer1_102_102_102_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        35686.46,
+        26047.85,
+        43425.26
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_48_ROOT__Component_717_Layer1_58_58_58_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        35686.46,
+        26047.85,
+        43425.26
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_49_ROOT__Component_717_Layer1_255_255_255_ds": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        35686.46,
+        26047.85,
+        43425.26
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_50_ROOT__Component_717_Layer1_144_144_144_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        35686.46,
+        26047.85,
+        43425.26
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_51_ROOT__Component_717_Layer1_255_255_255_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        35686.46,
+        26047.85,
+        43425.26
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_52_ROOT__Component_717_Layer1_0_0_0_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        35686.46,
+        26047.85,
+        43425.26
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_53_ROOT__Component_717_Layer1_102_102_102_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        7213.57,
+        26904.82,
+        43424.88
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_54_ROOT__Component_717_Layer1_58_58_58_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        7213.57,
+        26904.82,
+        43424.88
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_55_ROOT__Component_717_Layer1_255_255_255_ds": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        7213.57,
+        26904.82,
+        43424.88
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_56_ROOT__Component_717_Layer1_144_144_144_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        7213.57,
+        26904.82,
+        43424.88
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_57_ROOT__Component_717_Layer1_255_255_255_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        7213.57,
+        26904.82,
+        43424.88
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_58_ROOT__Component_717_Layer1_0_0_0_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        7213.57,
+        26904.82,
+        43424.88
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_59_ROOT__Component_717_Layer1_102_102_102_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        5994.95,
+        21039.23,
+        43424.78
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_60_ROOT__Component_717_Layer1_58_58_58_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        5994.95,
+        21039.23,
+        43424.78
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_61_ROOT__Component_717_Layer1_255_255_255_ds": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        5994.95,
+        21039.23,
+        43424.78
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_62_ROOT__Component_717_Layer1_144_144_144_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        5994.95,
+        21039.23,
+        43424.78
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_63_ROOT__Component_717_Layer1_255_255_255_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        5994.95,
+        21039.23,
+        43424.78
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_64_ROOT__Component_717_Layer1_0_0_0_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        5994.95,
+        21039.23,
+        43424.78
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_65_ROOT__Component_717_Layer1_102_102_102_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        31750.27,
+        9451.38,
+        43424.96
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_66_ROOT__Component_717_Layer1_58_58_58_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        31750.27,
+        9451.38,
+        43424.96
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_67_ROOT__Component_717_Layer1_255_255_255_ds": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        31750.27,
+        9451.38,
+        43424.96
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_68_ROOT__Component_717_Layer1_144_144_144_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        31750.27,
+        9451.38,
+        43424.96
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_69_ROOT__Component_717_Layer1_255_255_255_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        31750.27,
+        9451.38,
+        43424.96
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_70_ROOT__Component_717_Layer1_0_0_0_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        31750.27,
+        9451.38,
+        43424.96
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_71_ROOT__Component_717_Layer1_102_102_102_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        6858.6,
+        15110.97,
+        43424.7
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_72_ROOT__Component_717_Layer1_58_58_58_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        6858.6,
+        15110.97,
+        43424.7
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_73_ROOT__Component_717_Layer1_255_255_255_ds": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        6858.6,
+        15110.97,
+        43424.7
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_74_ROOT__Component_717_Layer1_144_144_144_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        6858.6,
+        15110.97,
+        43424.7
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_75_ROOT__Component_717_Layer1_255_255_255_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        6858.6,
+        15110.97,
+        43424.7
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_76_ROOT__Component_717_Layer1_0_0_0_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        6858.6,
+        15110.97,
+        43424.7
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_77_ROOT__Component_717_Layer1_102_102_102_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        36550.12,
+        20119.58,
+        43425.18
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_78_ROOT__Component_717_Layer1_58_58_58_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        36550.12,
+        20119.58,
+        43425.18
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_79_ROOT__Component_717_Layer1_255_255_255_ds": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        36550.12,
+        20119.58,
+        43425.18
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_80_ROOT__Component_717_Layer1_144_144_144_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        36550.12,
+        20119.58,
+        43425.18
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_81_ROOT__Component_717_Layer1_255_255_255_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        36550.12,
+        20119.58,
+        43425.18
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_82_ROOT__Component_717_Layer1_0_0_0_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        36550.12,
+        20119.58,
+        43425.18
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_83_ROOT__Component_717_Layer1_102_102_102_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        32400.56,
+        31057.15,
+        43425.28
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_84_ROOT__Component_717_Layer1_58_58_58_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        32400.56,
+        31057.15,
+        43425.28
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_85_ROOT__Component_717_Layer1_255_255_255_ds": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        32400.56,
+        31057.15,
+        43425.28
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_86_ROOT__Component_717_Layer1_144_144_144_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        32400.56,
+        31057.15,
+        43425.28
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_87_ROOT__Component_717_Layer1_255_255_255_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        32400.56,
+        31057.15,
+        43425.28
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_88_ROOT__Component_717_Layer1_0_0_0_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        32400.56,
+        31057.15,
+        43425.28
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_89_ROOT__Component_717_Layer1_102_102_102_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        14947.11,
+        6520.45,
+        43424.69
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_90_ROOT__Component_717_Layer1_58_58_58_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        14947.11,
+        6520.45,
+        43424.69
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_91_ROOT__Component_717_Layer1_255_255_255_ds": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        14947.11,
+        6520.45,
+        43424.69
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_92_ROOT__Component_717_Layer1_144_144_144_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        14947.11,
+        6520.45,
+        43424.69
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_93_ROOT__Component_717_Layer1_255_255_255_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        14947.11,
+        6520.45,
+        43424.69
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_94_ROOT__Component_717_Layer1_0_0_0_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        14947.11,
+        6520.45,
+        43424.69
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_95_ROOT__Component_717_Layer1_102_102_102_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        15804.09,
+        34993.34,
+        43425.11
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_96_ROOT__Component_717_Layer1_58_58_58_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        15804.09,
+        34993.34,
+        43425.11
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_97_ROOT__Component_717_Layer1_255_255_255_ds": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        15804.09,
+        34993.34,
+        43425.11
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_98_ROOT__Component_717_Layer1_144_144_144_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        15804.09,
+        34993.34,
+        43425.11
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_99_ROOT__Component_717_Layer1_255_255_255_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        15804.09,
+        34993.34,
+        43425.11
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_100_ROOT__Component_717_Layer1_0_0_0_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        15804.09,
+        34993.34,
+        43425.11
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_101_ROOT__Component_717_Layer1_102_102_102_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        20812.71,
+        5301.82,
+        43424.75
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_102_ROOT__Component_717_Layer1_58_58_58_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        20812.71,
+        5301.82,
+        43424.75
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_103_ROOT__Component_717_Layer1_255_255_255_ds": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        20812.71,
+        5301.82,
+        43424.75
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_104_ROOT__Component_717_Layer1_144_144_144_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        20812.71,
+        5301.82,
+        43424.75
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_105_ROOT__Component_717_Layer1_255_255_255_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        20812.71,
+        5301.82,
+        43424.75
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_106_ROOT__Component_717_Layer1_0_0_0_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        20812.71,
+        5301.82,
+        43424.75
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_107_ROOT__Component_717_Layer1_102_102_102_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        35331.49,
+        14253.99,
+        43425.08
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_108_ROOT__Component_717_Layer1_58_58_58_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        35331.49,
+        14253.99,
+        43425.08
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_109_ROOT__Component_717_Layer1_255_255_255_ds": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        35331.49,
+        14253.99,
+        43425.08
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_110_ROOT__Component_717_Layer1_144_144_144_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        35331.49,
+        14253.99,
+        43425.08
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_111_ROOT__Component_717_Layer1_255_255_255_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        35331.49,
+        14253.99,
+        43425.08
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_112_ROOT__Component_717_Layer1_0_0_0_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        35331.49,
+        14253.99,
+        43425.08
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_113_ROOT__Component_717_Layer1_102_102_102_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        10794.79,
+        31707.44,
+        43425.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_114_ROOT__Component_717_Layer1_58_58_58_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        10794.79,
+        31707.44,
+        43425.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_115_ROOT__Component_717_Layer1_255_255_255_ds": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        10794.79,
+        31707.44,
+        43425.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_116_ROOT__Component_717_Layer1_144_144_144_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        10794.79,
+        31707.44,
+        43425.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_117_ROOT__Component_717_Layer1_255_255_255_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        10794.79,
+        31707.44,
+        43425.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_118_ROOT__Component_717_Layer1_0_0_0_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        10794.79,
+        31707.44,
+        43425.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_119_ROOT__Component_717_Layer1_102_102_102_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        21732.36,
+        35856.99,
+        43425.21
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_120_ROOT__Component_717_Layer1_58_58_58_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        21732.36,
+        35856.99,
+        43425.21
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_121_ROOT__Component_717_Layer1_255_255_255_ds": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        21732.36,
+        35856.99,
+        43425.21
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_122_ROOT__Component_717_Layer1_144_144_144_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        21732.36,
+        35856.99,
+        43425.21
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_123_ROOT__Component_717_Layer1_255_255_255_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        21732.36,
+        35856.99,
+        43425.21
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_124_ROOT__Component_717_Layer1_0_0_0_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        21732.36,
+        35856.99,
+        43425.21
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_125_ROOT__Component_717_Layer1_102_102_102_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        27597.95,
+        34638.37,
+        43425.27
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_126_ROOT__Component_717_Layer1_58_58_58_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        27597.95,
+        34638.37,
+        43425.27
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_127_ROOT__Component_717_Layer1_255_255_255_ds": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        27597.95,
+        34638.37,
+        43425.27
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_128_ROOT__Component_717_Layer1_144_144_144_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        27597.95,
+        34638.37,
+        43425.27
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_129_ROOT__Component_717_Layer1_255_255_255_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        27597.95,
+        34638.37,
+        43425.27
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_130_ROOT__Component_717_Layer1_0_0_0_ss": {
+      "name": "",
+      "definition_name": "kubpen",
+      "layer": "Layer1",
+      "position_mm": [
+        27597.95,
+        34638.37,
+        43425.27
+      ],
+      "properties": {},
+      "path": "ROOT / Component_717"
+    },
+    "mesh_131_ROOT__Component_1399_Layer1_255_255_255_ss": {
+      "name": "",
+      "definition_name": "Kopyası Kopyası Door_Glass Double_Sidelights",
+      "layer": "Layer1",
+      "position_mm": [
+        31578.03,
+        -22395.81,
+        16253.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_1399"
+    },
+    "mesh_132_ROOT__Component_1399_Layer1_102_102_102_ss": {
+      "name": "",
+      "definition_name": "Kopyası Kopyası Door_Glass Double_Sidelights",
+      "layer": "Layer1",
+      "position_mm": [
+        31578.03,
+        -22395.81,
+        16253.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_1399"
+    },
+    "mesh_133_ROOT__Component_1399_Layer1_255_130_117_ss": {
+      "name": "",
+      "definition_name": "Kopyası Kopyası Door_Glass Double_Sidelights",
+      "layer": "Layer1",
+      "position_mm": [
+        31578.03,
+        -22395.81,
+        16253.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_1399"
+    },
+    "mesh_134_ROOT__Component_1399_Layer1_157_155_153_ds": {
+      "name": "",
+      "definition_name": "Kopyası Kopyası Door_Glass Double_Sidelights",
+      "layer": "Layer1",
+      "position_mm": [
+        31578.03,
+        -22395.81,
+        16253.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_1399"
+    },
+    "mesh_135_ROOT__Component_1586_Layer1_255_130_117_ss": {
+      "name": "",
+      "definition_name": "Kopyası (2) Door_Glass Double_Sidelights",
+      "layer": "Layer1",
+      "position_mm": [
+        56124.97,
+        11961.98,
+        17141.82
+      ],
+      "properties": {},
+      "path": "ROOT / Component_1586"
+    },
+    "mesh_136_ROOT__Component_1586_Layer1_102_102_102_ss": {
+      "name": "",
+      "definition_name": "Kopyası (2) Door_Glass Double_Sidelights",
+      "layer": "Layer1",
+      "position_mm": [
+        56124.97,
+        11961.98,
+        17141.82
+      ],
+      "properties": {},
+      "path": "ROOT / Component_1586"
+    },
+    "mesh_137_ROOT__Component_1586_Layer1_157_155_153_ds": {
+      "name": "",
+      "definition_name": "Kopyası (2) Door_Glass Double_Sidelights",
+      "layer": "Layer1",
+      "position_mm": [
+        56124.97,
+        11961.98,
+        17141.82
+      ],
+      "properties": {},
+      "path": "ROOT / Component_1586"
+    },
+    "mesh_138_ROOT__Component_1399_Layer1_255_255_255_ss": {
+      "name": "",
+      "definition_name": "Kopyası Kopyası Door_Glass Double_Sidelights",
+      "layer": "Layer1",
+      "position_mm": [
+        124.86,
+        79926.59,
+        4811.09
+      ],
+      "properties": {},
+      "path": "ROOT / Component_1399"
+    },
+    "mesh_139_ROOT__Component_1399_Layer1_102_102_102_ss": {
+      "name": "",
+      "definition_name": "Kopyası Kopyası Door_Glass Double_Sidelights",
+      "layer": "Layer1",
+      "position_mm": [
+        124.86,
+        79926.59,
+        4811.09
+      ],
+      "properties": {},
+      "path": "ROOT / Component_1399"
+    },
+    "mesh_140_ROOT__Component_1399_Layer1_255_130_117_ss": {
+      "name": "",
+      "definition_name": "Kopyası Kopyası Door_Glass Double_Sidelights",
+      "layer": "Layer1",
+      "position_mm": [
+        124.86,
+        79926.59,
+        4811.09
+      ],
+      "properties": {},
+      "path": "ROOT / Component_1399"
+    },
+    "mesh_141_ROOT__Component_1399_Layer1_157_155_153_ds": {
+      "name": "",
+      "definition_name": "Kopyası Kopyası Door_Glass Double_Sidelights",
+      "layer": "Layer1",
+      "position_mm": [
+        124.86,
+        79926.59,
+        4811.09
+      ],
+      "properties": {},
+      "path": "ROOT / Component_1399"
+    },
+    "mesh_142_ROOT__Google_Earth_Terrain_Location Terrain": {
+      "name": "Google Earth Terrain",
+      "definition_name": "Google Earth Terrain",
+      "layer": "Location Terrain",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Google Earth Terrain"
+    },
+    "mesh_143_ROOT__Google_Earth_Snapshot_Location Snapshot": {
+      "name": "Google Earth Snapshot",
+      "definition_name": "Google Earth Snapshot",
+      "layer": "Location Snapshot",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Google Earth Snapshot"
+    }
+  },
+  "scene_hierarchy": {
+    "name": "ROOT",
+    "definition_name": "ROOT_MODEL",
+    "layer": "Layer0",
+    "position_mm": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "properties": {},
+    "children": [
+      {
+        "name": "",
+        "definition_name": "kubpen",
+        "layer": "Layer1",
+        "position_mm": [
+          10144.5,
+          10101.67,
+          43424.68
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "kubpen",
+        "layer": "Layer1",
+        "position_mm": [
+          26740.97,
+          6165.48,
+          43424.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "kubpen",
+        "layer": "Layer1",
+        "position_mm": [
+          35686.46,
+          26047.85,
+          43425.26
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "kubpen",
+        "layer": "Layer1",
+        "position_mm": [
+          7213.57,
+          26904.82,
+          43424.88
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "kubpen",
+        "layer": "Layer1",
+        "position_mm": [
+          5994.95,
+          21039.23,
+          43424.78
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "kubpen",
+        "layer": "Layer1",
+        "position_mm": [
+          31750.27,
+          9451.38,
+          43424.96
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "kubpen",
+        "layer": "Layer1",
+        "position_mm": [
+          6858.6,
+          15110.97,
+          43424.7
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "kubpen",
+        "layer": "Layer1",
+        "position_mm": [
+          36550.12,
+          20119.58,
+          43425.18
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "kubpen",
+        "layer": "Layer1",
+        "position_mm": [
+          32400.56,
+          31057.15,
+          43425.28
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "kubpen",
+        "layer": "Layer1",
+        "position_mm": [
+          14947.11,
+          6520.45,
+          43424.69
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "kubpen",
+        "layer": "Layer1",
+        "position_mm": [
+          15804.09,
+          34993.34,
+          43425.11
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "kubpen",
+        "layer": "Layer1",
+        "position_mm": [
+          20812.71,
+          5301.82,
+          43424.75
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "kubpen",
+        "layer": "Layer1",
+        "position_mm": [
+          35331.49,
+          14253.99,
+          43425.08
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "kubpen",
+        "layer": "Layer1",
+        "position_mm": [
+          10794.79,
+          31707.44,
+          43425.0
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "kubpen",
+        "layer": "Layer1",
+        "position_mm": [
+          21732.36,
+          35856.99,
+          43425.21
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "kubpen",
+        "layer": "Layer1",
+        "position_mm": [
+          27597.95,
+          34638.37,
+          43425.27
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Kopyası Kopyası Door_Glass Double_Sidelights",
+        "layer": "Layer1",
+        "position_mm": [
+          31578.03,
+          -22395.81,
+          16253.25
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Kopyası (2) Door_Glass Double_Sidelights",
+        "layer": "Layer1",
+        "position_mm": [
+          56124.97,
+          11961.98,
+          17141.82
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Kopyası Kopyası Door_Glass Double_Sidelights",
+        "layer": "Layer1",
+        "position_mm": [
+          124.86,
+          79926.59,
+          4811.09
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "Google Earth Terrain",
+        "definition_name": "Google Earth Terrain",
+        "layer": "Location Terrain",
+        "position_mm": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "Google Earth Snapshot",
+        "definition_name": "Google Earth Snapshot",
+        "layer": "Location Snapshot",
+        "position_mm": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "properties": {},
+        "children": []
+      }
+    ]
+  }
+}

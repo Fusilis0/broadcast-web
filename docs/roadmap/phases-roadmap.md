@@ -1,8 +1,8 @@
 # Phases Roadmap — broadcast-web
 
 **Owner:** BW  
-**Updated:** 2026-09-05  
-**Design:** [`../architecture/race-projects-and-world-authoring.md`](../architecture/race-projects-and-world-authoring.md) · air: [`../ops/air-runbook.md`](../ops/air-runbook.md) · **Phase 19:** [`../architecture/phase19-senexus-qol.md`](../architecture/phase19-senexus-qol.md)
+**Updated:** 2026-09-08  
+**Design:** [`../architecture/race-projects-and-world-authoring.md`](../architecture/race-projects-and-world-authoring.md) · air: [`../ops/air-runbook.md`](../ops/air-runbook.md) · **Phase 19:** [`../architecture/phase19-senexus-qol.md`](../architecture/phase19-senexus-qol.md) · **20–22:** [`../architecture/3d-environment-buildings.md`](../architecture/3d-environment-buildings.md) · [`../architecture/commercial-video.md`](../architecture/commercial-video.md) · [`../architecture/srt-egress.md`](../architecture/srt-egress.md)
 
 ---
 
@@ -12,16 +12,19 @@
 | --- | --- |
 | **First version venue** | **Local studio** — Electron + Vite + VPS telemetry (`ws://…`). No cloud host required for v1. |
 | **Hetzner / public SPA / WSS TLS** | **Deferred** — months later, optional; may never ship if local+LAN is enough. Checklist kept as archive: [`../ops/human-hetzner-wss-checklist.md`](../ops/human-hetzner-wss-checklist.md). |
-| **Preferred air** | Electron **alpha NDI** (chroma = fallback). |
-| **Frame budgets** | **PRF** — ops preview ~60 rAF (≥30); NDI AR/3D/2D **30/30/30** always-on (`DSP-OUT-20260828-02`). PBO readback (`DSP-OUT-20260828-01`). Never `STUDIO_TICK_FPS = 60`. [`../architecture/performance-budgets.md`](../architecture/performance-budgets.md) |
+| **Preferred air** | Until Phase 22: Electron NDI still in product (30×3 **closed**). **After Phase 22 execute:** SRT AR/3D/2D; NDI code kept, not used on air. |
+| **Frame budgets** | **PRF** — ops preview ~60 rAF. Never `STUDIO_TICK_FPS = 60`. NDI 30×3 **closed**. SRT 30×3 **not promised**. [`../architecture/performance-budgets.md`](../architecture/performance-budgets.md) |
 | **SRT ingest** | **SRT** — Electron caller, catalog cams 1–27, HEVC decode / ffmpeg fallback. [`BOOTSTRAP_SRT.md`](../agentic/dispatches/BOOTSTRAP_SRT.md) |
-| **App egress (WebRTC/SRT)** | Deferred (E0) — compositor program-out if remote needed. |
+| **App egress (SRT)** | **Phase 22** — three callers (AR, 3D, 2D). NDI parked. VPS later. [`../architecture/srt-egress.md`](../architecture/srt-egress.md) |
 | **v1 focus** | **Visual parity + ops QoL** (assets, maps, tags, editor), then LAN project features, then Unity cutover. |
 
 ### Current pointer
 
-**Active engineering:** **Phase 19** notes **done** (SCN/CAL/PLT/OUT product Pass). **GEO 19.18** parked until Q5. **NDI 30×3** parked until operator call (coworker work). Do **not** send SCN a MapTiler worker. Briefs: [`../agentic/briefs/phase19/`](../agentic/briefs/phase19/).  
-**Phase 18 leftover:** NDI send **30×3** — **wait for operator call** (HUD live proof 2026-09-05; not 30 fps). **19.3** OBS picture Pass. **10.1** Unity **retired** (operator 2026-09-05). **10.2** console deep-link **future**.
+**Open now: Phase 21 — GEO then SCN then OUT.** Cinematic MP4. Brief: [`../agentic/briefs/phase21/README.md`](../agentic/briefs/phase21/README.md). Phase 20 hero smoke can finish in a **separate** SCN chat.
+
+**Then Phase 22** three-channel SRT out; NDI parked; VPS details then.
+
+Do **not** skip to SRT. Do **not** start the commercial video in the SCN chat.
 
 **10.1** Unity parallel-air **closed 2026-09-05** (operator: retire Unity; broadcast-web is primary). **10.2** console emit still waiting.  
 **Done:** Phase 11 core (**V1-D**) + follow-up authoring workspace / calib+output into sidebar +
@@ -32,7 +35,7 @@ breaking billboard chain, boat/drone/buoy placement, Save as, Rename, Duplicate 
 after BW drove the real Electron renderer end-to-end) all accepted. See
 `docs/architecture/world-authoring-workspace.md`. Phase 12 cloud still deferred.  
 **Done:** Phase 11 (**V1-D**) + follow-ups; **Phase 13 complete** (13.1–13.8). Phase 12 deferred. **10.1 Unity retired 2026-09-05.**  
-**Parked:** NDI **30×3** until operator call · **10.2** console emit · GEO **19.18** Q5.
+**Parked:** **10.2** console emit · NDI **30×3 closed** (do not reopen).
 
 ---
 
@@ -404,21 +407,79 @@ parallel. Engineering accepted 2026-08-17.
 | 19.15 | Sea over assets (not new globe) | SCN | **Closed 2026-09-05** — flat-sea + texture Pass (`04-08`). Holes/Gerstner punch **cancelled**. **Not MapTiler.** |
 | 19.16 | Seed library + git-trackable uploads | PLT | **Done** `DSP-PLT-20260901-01` |
 | 19.17 | Instant project switch (UI+2D+list) | PLT+SCN | **Human Pass 2026-09-05** (`DSP-SCN-20260905-03`; PLT investigate `DSP-PLT-20260905-01`) |
-| 19.18 | Terrain provider options | GEO | **Parked** until Q5 |
+| 19.18 | Terrain provider options | GEO | **Superseded by 20.1** — OSM Buildings + heroes; not MapTiler; IBB parked |
 
-**Human open order:** No Phase 19 worker. GEO **only** if Q5 reopens. **30×3** only when the operator calls. No MapTiler worker.
+**Human open order:** No Phase 19 worker. Next is **Phase 20 SCN**. NDI 30×3 **closed**.
 
-**Exit:** Notes inventory in the design doc §2 all done or parked (19.18 Q5). 14.3c cancelled. 19.14 / 19.15 closed 2026-09-05.
+**Exit:** Notes inventory in the design doc §2 all done or parked (19.18 → 20.1). 14.3c cancelled. 19.14 / 19.15 closed 2026-09-05.
 
 ---
 
-## Air / output priority (updated 2026-08-26)
+### Phase 20 — City 3D (OSM Buildings + heroes) *(NEXT — SCN)*
 
-1. **Electron + alpha NDI** — preferred studio air (`arBackground: 'alpha'`, unchanged default)
-2. **Electron + composited AR over drone SRT** — Phase 17 (`arBackground: 'video'`); opaque program on the AR channel
+**Design:** [`../architecture/3d-environment-buildings.md`](../architecture/3d-environment-buildings.md)  
+**Brief:** [`../agentic/briefs/phase20/SCN_PHASE20.md`](../agentic/briefs/phase20/SCN_PHASE20.md)  
+**Handoff:** [`../agentic/handoffs/HO-BW-SCN-20260907-01.md`](../agentic/handoffs/HO-BW-SCN-20260907-01.md)
+
+Keep Cesium World Terrain. Add Cesium **OSM Buildings** (ion 96188) as the 3D city tileset. Add **hero historic glTF** (CC first). Clip OSM under heroes. Never on AR plate. IBB parked. DIY survey closed. Google Photorealistic off air.
+
+| # | Work | Owner | Notes |
+| --- | --- | --- | --- |
+| 20.1a | OSM Buildings tileset | SCN | Second `TilesRenderer`, same origin, lock-tiles, credits on 3D+Ops |
+| 20.1b | Hero glTF + OSM hole | SCN (+ GEO if ENU wrong) | Short CC pack OK |
+| 20.1c | Ops on/off + attribution | SCN | Never burn credits into AR |
+
+**Exit:** Human Pass on 3D — city massing visible, a few landmarks recognizable if heroes shipped, AR still clean. **Then operator opens BW** for Phase 21. SCN must not start 21 or 22.
+
+---
+
+### Phase 21 — Cinematic sequences / intro video *(OPEN — GEO then SCN then OUT)*
+
+**Design:** [`../architecture/commercial-video.md`](../architecture/commercial-video.md) **Locked 2026-09-08.**  
+**Briefs:** [`../agentic/briefs/phase21/README.md`](../agentic/briefs/phase21/README.md)
+
+Silent **1080p30 MP4**. vMix plays it; app waits. Globe + ENU, cloud seam. Aerial + OSM + human glTF (three bridges). No race chrome, no audio, no credits. Rumeli Hisarı not in this clip.
+
+| # | Work | Owner | DSP |
+| --- | --- | --- | --- |
+| 21.0 | ECEF / globe keyframes | GEO | `DSP-GEO-20260908-01` |
+| 21.1 | Player + hide-race + cloud | SCN | `DSP-SCN-20260908-01` |
+| 21.2 | `intro-bosphorus.json` | SCN | `DSP-SCN-20260908-02` **code-complete** |
+| 21.2b | Country pins + continuous globe | SCN | `DSP-SCN-20260908-06` |
+| 21.2c | Intro Human Pass (west/east, HD, ENU seams) | SCN | `DSP-SCN-20260909-01` **code-complete** |
+| 21.3a | Tile cache dir (not git) | PLT | `DSP-PLT-20260908-01` |
+| 21.3b | Prefetch + lock-tiles | SCN | `DSP-SCN-20260908-07` **code-complete** |
+| 21.4 | Silent MP4 | OUT | `DSP-OUT-20260908-01` **code-complete** |
+
+**Exit:** Operator accepts the MP4 **and** can swap JSON for a later video. Then Phase 22.
+
+---
+
+### Phase 22 — SRT AR + 3D + 2D out; NDI parked *(after 21)*
+
+**Design:** [`../architecture/srt-egress.md`](../architecture/srt-egress.md)
+
+Three SRT **caller** publishes at once; per-channel stop. ffmpeg children + GPU encode; **not** NDI UYVY IPC. NDI **code kept**, **not used on air**. VPS/relay host **TBD at execute**. LAN race 40–80 ms; WAN 200–1000 ms when a relay exists.
+
+| # | Work | Owner | Notes |
+| --- | --- | --- | --- |
+| 22.1 | Three program surfaces + ffmpeg SRT | SRT + OUT + PLT | AR, 3D, 2D |
+| 22.2 | Park NDI on air | OUT | Defaults off; panel legacy |
+| 22.3 | Relay URLs | SRT + PLT | Wait for operator VPS details |
+
+**Exit:** vMix (LAN) can take three SRT inputs; each channel can be stopped; preview not bricked; NDI not required for air.
+
+---
+
+## Air / output priority (updated 2026-09-07)
+
+Until Phase 22 execute: NDI still in the binary (30×3 closed). After 22: **SRT AR/3D/2D is air.**
+
+1. **Electron SRT program out ×3** — Phase **22** (LAN + later WAN relay)
+2. **Electron + composited AR over drone SRT** — Phase 17 **ingest**
 3. **Chroma + window capture** — fallback
-4. **WHEP underlay** — preview / CV only (cannot carry PTS; not a Phase 17 path)
-5. **App WebRTC/SRT *egress*** — still deferred (use compositor out). Phase 17 is **ingest**; `egress-webrtc-srt-evaluation.md` E0 does not apply to it.
+4. **WHEP underlay** — preview / CV only
+5. **NDI** — parked after 22 (code remains)
 
 ---
 
@@ -457,5 +518,8 @@ Do not re-open unless a regression. Details live in `docs/agentic/dispatches/don
 | Studio 60, ocean polish, fleet authoring | **15** *(done)* |
 | Visual upgrade & two-rail ops | **16** *(done)* |
 | AR SRT underlay + NTP match | **17** *(engineering done)* |
-| Studio air-readiness (NDI colour/fps/fleet) | **18** *(waves 1–3 in code; 30×3 wait for operator call)* |
-| Senexus QoL (authoring, NDI stripes, library) | **19** *(notes Pass; 19.18 Q5; 30×3 wait for call)* |
+| Studio air-readiness (NDI colour/fps/fleet) | **18** *(waves 1–3 in code; 30×3 **closed**)* |
+| Senexus QoL (authoring, NDI stripes, library) | **19** *(notes Pass; 19.18 → **20.1**)* |
+| OSM city + hero landmarks | **20** *(open now — SCN)* |
+| Commercial video | **21** *(after 20, via BW)* |
+| SRT AR+3D+2D out; NDI parked | **22** *(after 21; VPS later)* |

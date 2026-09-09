@@ -35,11 +35,14 @@ export {
 } from './environment/index.ts'
 export {
   CESIUM_ION_BING_AERIAL_ASSET_ID,
+  CESIUM_ION_BING_ROAD_ASSET_ID,
   CESIUM_ION_WORLD_TERRAIN_ASSET_ID,
   DEFAULT_TERRAIN_ENABLED,
+  DEFAULT_TERRAIN_OVERLAY,
   DEFAULT_TERRAIN_WATER_DISCARD_Y,
   TERRAIN_SESSION_LOCK_KEY,
   TERRAIN_SESSION_NUDGE_KEY,
+  TERRAIN_SESSION_OVERLAY_KEY,
   TERRAIN_VRAM_BYTES_TARGET,
   createTerrainAttributionOverlay,
   CESIUM_ION_TOKEN_MAX_LEN,
@@ -50,9 +53,45 @@ export {
   shouldShowTerrain,
   type TerrainAttributionHandle,
   type TerrainHandle,
+  type TerrainOverlayKind,
 } from './terrain/index.ts'
 export {
+  BUILDINGS_SESSION_ENABLED_KEY,
+  BUILDINGS_VRAM_BYTES_TARGET,
+  CESIUM_ION_OSM_BUILDINGS_ASSET_ID,
+  DEFAULT_BUILDINGS_ENABLED,
+  OSM_BUILDINGS_CREDIT_FALLBACK,
+  createBuildings,
+  isEnuXzInOccupancyHole,
+  type BuildingsHandle,
+  type OccupancyHole,
+} from './buildings/index.ts'
+export {
+  DEFAULT_HEROES_ENABLED,
+  DEFAULT_LANDMARK_OFFSETS,
+  LANDMARK_AUTHORED_UNIT_M,
+  LANDMARK_CATALOGUE,
+  LANDMARKS_AUTOSAVE_MS,
+  LANDMARKS_SESSION_ENABLED_KEY,
+  createLandmarks,
+  occupancyHolesForCatalogue,
+  parseRaceProjectLandmarks,
+  persistLandmarkOffsets,
+  mergeLandmarkOffsetLayers,
+  offsetsFromProject,
+  readGlobalLandmarkOffsets,
+  readSessionHeroesEnabled,
+  readSessionLandmarkOffsets,
+  snapshotRaceProjectLandmarks,
+  writeSessionLandmarkOffsets,
+  type LandmarkEntry,
+  type LandmarkPoseOffset,
+  type LandmarkTextureReport,
+  type LandmarksHandle,
+} from './landmarks/index.ts'
+export {
   createFreeCam,
+  DEFAULT_OPS_VIEW_MODE,
   formatOpsViewStatus,
   isOpsViewMode,
   type FreeCamHandle,
@@ -158,6 +197,7 @@ export {
   isSidebarCollapseHotkey,
   SIDEBAR_COLLAPSE_HOTKEY,
   startAssetInspector,
+  startHeroesPanel,
   featureAssetKind,
   resolveAssetFocusEnu,
   openLibraryLogoPicker,
@@ -170,6 +210,8 @@ export {
   type AssetInspectorOptions,
   type AssetKind,
   type AssetRowId,
+  type HeroesPanelHandle,
+  type HeroesPanelOptions,
 } from './sidebar/index.ts'
 export {
   createWorldAuthoringWorkspace,
@@ -182,6 +224,16 @@ export {
   type WorldAuthoringWorkspaceOptions,
   type WorldMapAuthoringLauncherHandle,
 } from './worldAuthoringWorkspace.ts'
+
+export {
+  CINEMATIC_CATALOGUE,
+  CINEMATIC_FPS,
+  cinematicSequenceUrl,
+  loadSequence,
+  parseSequence,
+  type CinematicSequence,
+  type CinematicTransport,
+} from './cinematics/index.ts'
 
 export {
   FLOW_LIVE_JSON_STORAGE_KEY,

@@ -54,7 +54,7 @@ export type NdiChannelIndicator = NdiAirIndicator | 'idle'
 
 /**
  * Multi-sender bridge ready (Phase 13.4+). Phase 19.4: AR/3D/2D each have
- * independent hand toggles (session-only; default all on).
+ * independent hand toggles (session-only; default all off).
  */
 export const STREAM_MAP_NDI_BRIDGE_SUPPORTED = true
 
@@ -192,7 +192,7 @@ export type NdiControllerPanelOptions = {
    * @deprecated Prefer `onNdiChannelWantedChange` (still fired for `'2d'`).
    */
   onStreamMapNdiEnabledChange?: (enabled: boolean) => void
-  /** Seed toggle UI from session wanted flags (default all on). */
+  /** Seed toggle UI from session wanted flags (default all off). */
   initialChannelWanted?: Partial<NdiChannelWanted>
   /**
    * Live per-channel delay (ms). Defaults 0. Changing does not restart pumps;

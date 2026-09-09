@@ -1,0 +1,1339 @@
+{
+  "format_version": "1.0",
+  "source_file": "dolmabahce",
+  "model_source": "sketchup",
+  "sketchup_version": "{21.0.0}",
+  "total_definitions": 2,
+  "total_meshes": 53,
+  "total_layers": 3,
+  "layers": [
+    {
+      "name": "Layer0",
+      "color": {
+        "r": 255,
+        "g": 255,
+        "b": 255
+      }
+    },
+    {
+      "name": "Google Earth Terrain",
+      "color": {
+        "r": 102,
+        "g": 68,
+        "b": 0
+      }
+    },
+    {
+      "name": "Google Earth Snapshot",
+      "color": {
+        "r": 0,
+        "g": 153,
+        "b": 135
+      }
+    }
+  ],
+  "materials": [
+    {
+      "name": "[Color_001]",
+      "color": {
+        "r": 226,
+        "g": 226,
+        "b": 226
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "[Color_006]",
+      "color": {
+        "r": 86,
+        "g": 86,
+        "b": 86
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "[Color_000]",
+      "color": {
+        "r": 255,
+        "g": 255,
+        "b": 255
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "[Color_H15]",
+      "color": {
+        "r": 122,
+        "g": 153,
+        "b": 153
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Google Earth Snapshot1",
+      "color": {
+        "r": 117,
+        "g": 117,
+        "b": 117
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\DOCUME~1\\BCA\\LOCALS~1\\Temp\\GEI32.jpg",
+        "x_scale": 1.0,
+        "y_scale": 1.0
+      }
+    },
+    {
+      "name": "10",
+      "color": {
+        "r": 180,
+        "g": 158,
+        "b": 159
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "D:\\My Documents\\Isler\\GoogleEarthModeller\\Dolmabahce-GoogleEarth\\Map\\pembe-01.jpg",
+        "x_scale": 393.7007874015748,
+        "y_scale": 787.4015748031496
+      }
+    },
+    {
+      "name": "7,5",
+      "color": {
+        "r": 181,
+        "g": 159,
+        "b": 160
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "D:\\My Documents\\Isler\\GoogleEarthModeller\\Dolmabahce-GoogleEarth\\Map\\pembe-05_750.jpg",
+        "x_scale": 295.2755905511811,
+        "y_scale": 787.4015748031496
+      }
+    },
+    {
+      "name": "2,5",
+      "color": {
+        "r": 189,
+        "g": 170,
+        "b": 168
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "D:\\My Documents\\Isler\\GoogleEarthModeller\\Dolmabahce-GoogleEarth\\Map\\pembe-02.jpg",
+        "x_scale": 98.4251968503937,
+        "y_scale": 787.4015748031496
+      }
+    },
+    {
+      "name": "7,5-ic",
+      "color": {
+        "r": 139,
+        "g": 117,
+        "b": 123
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "D:\\My Documents\\Isler\\GoogleEarthModeller\\Dolmabahce-GoogleEarth\\Map\\pembe-03.jpg",
+        "x_scale": 295.2755905511811,
+        "y_scale": 787.4015748031496
+      }
+    },
+    {
+      "name": "5,5",
+      "color": {
+        "r": 176,
+        "g": 152,
+        "b": 154
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "D:\\My Documents\\Isler\\GoogleEarthModeller\\Dolmabahce-GoogleEarth\\Map\\pembe-04_550.jpg",
+        "x_scale": 216.53543307086616,
+        "y_scale": 787.4015748031496
+      }
+    },
+    {
+      "name": "Ana_04b",
+      "color": {
+        "r": 123,
+        "g": 123,
+        "b": 127
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "D:\\My Documents\\Isler\\GoogleEarthModeller\\Dolmabahce-GoogleEarth\\Map\\ana_04b.jpg",
+        "x_scale": 248.03149606299215,
+        "y_scale": 523.6220472440946
+      }
+    },
+    {
+      "name": "*1",
+      "color": {
+        "r": 147,
+        "g": 145,
+        "b": 146
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "D:\\My Documents\\Isler\\GoogleEarthModeller\\Dolmabahce-GoogleEarth\\Map\\ana_06.jpg",
+        "x_scale": 248.03149606299218,
+        "y_scale": 720.4724409448819
+      }
+    },
+    {
+      "name": "*2",
+      "color": {
+        "r": 136,
+        "g": 136,
+        "b": 138
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "D:\\My Documents\\Isler\\GoogleEarthModeller\\Dolmabahce-GoogleEarth\\Map\\ana_04a.jpg",
+        "x_scale": 354.33070866141736,
+        "y_scale": 523.6220472440946
+      }
+    },
+    {
+      "name": "*3",
+      "color": {
+        "r": 168,
+        "g": 167,
+        "b": 167
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "D:\\My Documents\\Isler\\GoogleEarthModeller\\Dolmabahce-GoogleEarth\\Map\\ana_03.jpg",
+        "x_scale": 98.42519685039372,
+        "y_scale": 523.6220472440946
+      }
+    },
+    {
+      "name": "*4",
+      "color": {
+        "r": 168,
+        "g": 167,
+        "b": 167
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "D:\\My Documents\\Isler\\GoogleEarthModeller\\Dolmabahce-GoogleEarth\\Map\\ana_05.jpg",
+        "x_scale": 98.42519685039369,
+        "y_scale": 720.4724409448819
+      }
+    },
+    {
+      "name": "*5",
+      "color": {
+        "r": 185,
+        "g": 189,
+        "b": 189
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "D:\\My Documents\\Isler\\GoogleEarthModeller\\Dolmabahce-GoogleEarth\\Map\\ana_01.jpg",
+        "x_scale": 98.4251968503937,
+        "y_scale": 98.4251968503937
+      }
+    },
+    {
+      "name": "*6",
+      "color": {
+        "r": 163,
+        "g": 168,
+        "b": 171
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "D:\\My Documents\\Isler\\GoogleEarthModeller\\Dolmabahce-GoogleEarth\\Map\\ana_02.jpg",
+        "x_scale": 354.33070866141736,
+        "y_scale": 140.607424071991
+      }
+    },
+    {
+      "name": "*7",
+      "color": {
+        "r": 142,
+        "g": 142,
+        "b": 144
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "D:\\My Documents\\Isler\\GoogleEarthModeller\\Dolmabahce-GoogleEarth\\Map\\ana_03b.jpg",
+        "x_scale": 98.42519685039372,
+        "y_scale": 523.6220472440946
+      }
+    },
+    {
+      "name": "*8",
+      "color": {
+        "r": 142,
+        "g": 142,
+        "b": 143
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "D:\\My Documents\\Isler\\GoogleEarthModeller\\Dolmabahce-GoogleEarth\\Map\\ana_05b.jpg",
+        "x_scale": 98.42519685039369,
+        "y_scale": 720.4724409448819
+      }
+    },
+    {
+      "name": "*9",
+      "color": {
+        "r": 157,
+        "g": 159,
+        "b": 154
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "D:\\My Documents\\Isler\\GoogleEarthModeller\\Dolmabahce-GoogleEarth\\Map\\yan1.jpg",
+        "x_scale": 590.5511811023622,
+        "y_scale": 393.7007874015748
+      }
+    },
+    {
+      "name": "*10",
+      "color": {
+        "r": 197,
+        "g": 197,
+        "b": 200
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "D:\\My Documents\\Isler\\GoogleEarthModeller\\Dolmabahce-GoogleEarth\\Map\\baba.jpg",
+        "x_scale": 98.4251968503937,
+        "y_scale": 157.48031496062995
+      }
+    },
+    {
+      "name": "*11",
+      "color": {
+        "r": 184,
+        "g": 185,
+        "b": 190
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "D:\\My Documents\\Isler\\GoogleEarthModeller\\Dolmabahce-GoogleEarth\\Map\\merd.jpg",
+        "x_scale": 196.8503937007874,
+        "y_scale": 147.63779527559058
+      }
+    },
+    {
+      "name": "*12",
+      "color": {
+        "r": 178,
+        "g": 177,
+        "b": 166
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "D:\\My Documents\\Isler\\GoogleEarthModeller\\Dolmabahce-GoogleEarth\\Map\\arka2-90.jpg",
+        "x_scale": 354.33070866141736,
+        "y_scale": 1377.9527559055118
+      }
+    },
+    {
+      "name": "*13",
+      "color": {
+        "r": 178,
+        "g": 177,
+        "b": 167
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "D:\\My Documents\\Isler\\GoogleEarthModeller\\Dolmabahce-GoogleEarth\\Map\\arka1-90.jpg",
+        "x_scale": 354.33070866141736,
+        "y_scale": 1377.9527559055118
+      }
+    },
+    {
+      "name": "*14",
+      "color": {
+        "r": 178,
+        "g": 177,
+        "b": 167
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "D:\\My Documents\\Isler\\GoogleEarthModeller\\Dolmabahce-GoogleEarth\\Map\\arka1-75.jpg",
+        "x_scale": 295.2755905511811,
+        "y_scale": 1377.9527559055118
+      }
+    },
+    {
+      "name": "*15",
+      "color": {
+        "r": 178,
+        "g": 177,
+        "b": 167
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "D:\\My Documents\\Isler\\GoogleEarthModeller\\Dolmabahce-GoogleEarth\\Map\\arka2-75.jpg",
+        "x_scale": 295.2755905511811,
+        "y_scale": 1377.9527559055118
+      }
+    },
+    {
+      "name": "*16",
+      "color": {
+        "r": 180,
+        "g": 178,
+        "b": 169
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "D:\\My Documents\\Isler\\GoogleEarthModeller\\Dolmabahce-GoogleEarth\\Map\\arka360.jpg",
+        "x_scale": 1181.1023622047244,
+        "y_scale": 1377.9527559055118
+      }
+    },
+    {
+      "name": "*17",
+      "color": {
+        "r": 190,
+        "g": 185,
+        "b": 177
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "D:\\My Documents\\Isler\\GoogleEarthModeller\\Dolmabahce-GoogleEarth\\Map\\ucgen.jpg",
+        "x_scale": 472.4409448818898,
+        "y_scale": 106.2992125984252
+      }
+    },
+    {
+      "name": "*18",
+      "color": {
+        "r": 90,
+        "g": 87,
+        "b": 88
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\My Documents\\Isler\\GoogleEarth Modeller\\Dolmabahce-GoogleEarth\\Map\\orta_01.jpg",
+        "x_scale": 590.5511811023622,
+        "y_scale": 307.0866141732283
+      }
+    },
+    {
+      "name": "*19",
+      "color": {
+        "r": 103,
+        "g": 98,
+        "b": 91
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\My Documents\\Isler\\GoogleEarth Modeller\\Dolmabahce-GoogleEarth\\Map\\orta_02.jpg",
+        "x_scale": 590.5511811023622,
+        "y_scale": 307.0866141732283
+      }
+    },
+    {
+      "name": "*20",
+      "color": {
+        "r": 92,
+        "g": 88,
+        "b": 88
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\My Documents\\Isler\\GoogleEarth Modeller\\Dolmabahce-GoogleEarth\\Map\\orta_03.jpg",
+        "x_scale": 590.5511811023622,
+        "y_scale": 307.0866141732283
+      }
+    },
+    {
+      "name": "*21",
+      "color": {
+        "r": 103,
+        "g": 98,
+        "b": 91
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\My Documents\\Isler\\GoogleEarth Modeller\\Dolmabahce-GoogleEarth\\Map\\orta_04.jpg",
+        "x_scale": 590.5511811023622,
+        "y_scale": 307.0866141732283
+      }
+    },
+    {
+      "name": "*22",
+      "color": {
+        "r": 143,
+        "g": 138,
+        "b": 129
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "D:\\My Documents\\Isler\\GoogleEarthModeller\\Dolmabahce-GoogleEarth\\Map\\sol1.jpg",
+        "x_scale": 196.8503937007874,
+        "y_scale": 728.3464566929135
+      }
+    },
+    {
+      "name": "*23",
+      "color": {
+        "r": 143,
+        "g": 138,
+        "b": 129
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "D:\\My Documents\\Isler\\GoogleEarthModeller\\Dolmabahce-GoogleEarth\\Map\\sol2.jpg",
+        "x_scale": 295.2755905511811,
+        "y_scale": 1092.5196850393702
+      }
+    },
+    {
+      "name": "*24",
+      "color": {
+        "r": 123,
+        "g": 121,
+        "b": 114
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\My Documents\\Isler\\GoogleEarth Modeller\\Dolmabahce-GoogleEarth\\Map\\cevre1.jpg",
+        "x_scale": 885.8267716535433,
+        "y_scale": 728.3464566929134
+      }
+    },
+    {
+      "name": "*26",
+      "color": {
+        "r": 123,
+        "g": 122,
+        "b": 115
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\My Documents\\Isler\\GoogleEarth Modeller\\Dolmabahce-GoogleEarth\\Map\\cevre3-100.jpg",
+        "x_scale": 393.70078740157476,
+        "y_scale": 728.3464566929134
+      }
+    },
+    {
+      "name": "[Color_003]",
+      "color": {
+        "r": 170,
+        "g": 170,
+        "b": 170
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "[Color_002]",
+      "color": {
+        "r": 198,
+        "g": 198,
+        "b": 198
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "*27",
+      "color": {
+        "r": 219,
+        "g": 223,
+        "b": 222
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\My Documents\\Isler\\GoogleEarth Modeller\\Dolmabahce-GoogleEarth\\Map\\cati.jpg",
+        "x_scale": 787.4015748031496,
+        "y_scale": 787.4015748031496
+      }
+    },
+    {
+      "name": "Layer_Layer0",
+      "color": {
+        "r": 255,
+        "g": 255,
+        "b": 255
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Layer_Google Earth Terrain",
+      "color": {
+        "r": 102,
+        "g": 68,
+        "b": 0
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Layer_Google Earth Snapshot",
+      "color": {
+        "r": 0,
+        "g": 153,
+        "b": 135
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    }
+  ],
+  "mesh_index": {
+    "mesh_0_ROOT_Layer0_185_189_189_ds": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_1_ROOT_Layer0_168_167_167_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_2_ROOT_Layer0_142_142_144_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_3_ROOT_Layer0_219_223_222_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_4_ROOT_Layer0_226_226_226_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_5_ROOT_Layer0_157_159_154_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_6_ROOT_Layer0_176_152_154_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_7_ROOT_Layer0_189_170_168_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_8_ROOT_Layer0_139_117_123_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_9_ROOT_Layer0_181_159_160_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_10_ROOT_Layer0_180_158_159_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_11_ROOT_Layer0_178_177_167_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_12_ROOT_Layer0_178_177_167_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_13_ROOT_Layer0_180_178_169_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_14_ROOT_Layer0_178_177_167_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_15_ROOT_Layer0_178_177_166_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_16_ROOT_Layer0_123_121_114_ds": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_17_ROOT_Layer0_123_122_115_ds": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_18_ROOT_Layer0_123_122_115_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_19_ROOT_Layer0_219_223_222_ds": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_20_ROOT_Layer0_86_86_86_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_21_ROOT_Layer0_198_198_198_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_22_ROOT_Layer0_147_145_146_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_23_ROOT_Layer0_185_189_189_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_24_ROOT_Layer0_226_226_226_ds": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_25_ROOT_Layer0_163_168_171_ds": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_26_ROOT_Layer0_163_168_171_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_27_ROOT_Layer0_142_142_143_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_28_ROOT_Layer0_123_123_127_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_29_ROOT_Layer0_255_255_255_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_30_ROOT_Layer0_122_153_153_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_31_ROOT_Layer0_184_185_190_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_32_ROOT_Layer0_123_121_114_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_33_ROOT_Layer0_143_138_129_ds": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_34_ROOT_Layer0_170_170_170_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_35_ROOT_Layer0_103_98_91_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_36_ROOT_Layer0_92_88_88_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_37_ROOT_Layer0_190_185_177_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_38_ROOT_Layer0_142_142_144_ds": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_39_ROOT_Layer0_143_138_129_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_40_ROOT_Layer0_142_142_143_ds": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_41_ROOT_Layer0_136_136_138_ds": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_42_ROOT_Layer0_136_136_138_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_43_ROOT_Layer0_103_98_91_ds": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_44_ROOT_Layer0_90_87_88_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_45_ROOT_Layer0_103_98_91_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_46_ROOT_Layer0_168_167_167_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_47_ROOT_Layer0_123_123_127_ds": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_48_ROOT_Layer0_197_197_200_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_49_ROOT__Google_Earth_Terrain_Location Terrain_117_117_117_ss": {
+      "name": "Google Earth Terrain",
+      "definition_name": "Google Earth Terrain",
+      "layer": "Location Terrain",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Google Earth Terrain"
+    },
+    "mesh_50_ROOT__Google_Earth_Terrain_Location Terrain_136_136_136_ss": {
+      "name": "Google Earth Terrain",
+      "definition_name": "Google Earth Terrain",
+      "layer": "Location Terrain",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Google Earth Terrain"
+    },
+    "mesh_51_ROOT__Google_Earth_Snapshot_Location Snapshot_117_117_117_ss": {
+      "name": "Google Earth Snapshot",
+      "definition_name": "Google Earth Snapshot",
+      "layer": "Location Snapshot",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Google Earth Snapshot"
+    },
+    "mesh_52_ROOT__Google_Earth_Snapshot_Location Snapshot_136_136_136_ss": {
+      "name": "Google Earth Snapshot",
+      "definition_name": "Google Earth Snapshot",
+      "layer": "Location Snapshot",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Google Earth Snapshot"
+    }
+  },
+  "scene_hierarchy": {
+    "name": "ROOT",
+    "definition_name": "ROOT_MODEL",
+    "layer": "Layer0",
+    "position_mm": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "properties": {},
+    "children": [
+      {
+        "name": "Google Earth Terrain",
+        "definition_name": "Google Earth Terrain",
+        "layer": "Location Terrain",
+        "position_mm": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "Google Earth Snapshot",
+        "definition_name": "Google Earth Snapshot",
+        "layer": "Location Snapshot",
+        "position_mm": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "properties": {},
+        "children": []
+      }
+    ]
+  }
+}

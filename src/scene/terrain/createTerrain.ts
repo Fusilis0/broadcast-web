@@ -19,7 +19,9 @@ import * as GeoOrigin from '../../geodesy/geoOrigin.ts'
 import { creditsToLines } from './attribution.ts'
 import {
   CESIUM_ION_BING_AERIAL_ASSET_ID,
+  CESIUM_ION_BING_ROAD_ASSET_ID,
   CESIUM_ION_WORLD_TERRAIN_ASSET_ID,
+  DEFAULT_TERRAIN_OVERLAY,
   REORIENTATION_AZIMUTH_RAD,
   TERRAIN_STATUS_NO_TOKEN,
   TERRAIN_STATUS_OFF,
@@ -27,6 +29,7 @@ import {
   TERRAIN_UNLOAD_DELAY_MS,
   TERRAIN_VRAM_BYTES_TARGET,
 } from './constants.ts'
+import { overlayKindFromImageryAssetId, overlayToImageryAssetId } from './terrainOverlay.ts'
 import { shouldShowTerrain } from './terrainGate.ts'
 import {
   DEFAULT_TERRAIN_WATER_DISCARD_Y,
@@ -34,6 +37,11 @@ import {
   patchTerrainWaterMaterials,
   sceneFromLoadModelEvent,
 } from './terrainWaterMask.ts'
+import { installCinematicTileFetchCache } from '../cinematics/tileDiskCache.ts'
+import {
+  isolateTilesRendererCaches,
+  syncTilesRendererCameras,
+} from './isolateTilesCaches.ts'
 
 export type TerrainAttribution = { type: string; value: unknown }
 
@@ -51,6 +59,9 @@ export type TerrainTilesAdapter = {
   addEventListener: (name: string, cb: (event: unknown) => void) => void
   removeEventListener?: (name: string, cb: (event: unknown) => void) => void
   dispose: () => void
+  errorTarget?: number
+  downloadQueue?: { readonly running: boolean }
+  visibleTiles?: { readonly size: number }
 }
 
 export type CreateTerrainOptions = {
@@ -62,6 +73,36 @@ export type CreateTerrainOptions = {
   tilesFactory?: () => TerrainTilesAdapter
   /** Skip ion/network plugins (CI stub). Alignment math is still applied. */
   skipIonPlugins?: boolean
+  /**
+   * ENU race tangent (default). `false` = cinematic globe: World Terrain stays
+   * in ECEF — **no** `ReorientationPlugin`. Never mount both frames at once.
+   */
+  reorient?: boolean
+  /**
+   * Dithered tile fade. Off for cinematic remounts — locking mid-fade leaves
+   * a grey stipple over the peninsula.
+   */
+  fadeTiles?: boolean
+  /**
+   * UnloadTilesPlugin. Off while a cinematic is filling so fine Aerial is not
+   * evicted down to mush.
+   */
+  unloadTiles?: boolean
+  /**
+   * GPU budget when `unloadTiles` is on. Cinematic remounts pass the higher
+   * cinematic target in case unload is re-enabled.
+   */
+  vramBytesTarget?: number
+  /**
+   * Road overlay (ion 4) failed — parent may remount with Aerial 2.
+   * Not called for World Terrain root 401s.
+   */
+  onImageryRejected?: (fromAssetId: number) => void
+}
+
+/** Globe cinematic tiles skip the ENU ReorientationPlugin. */
+export function shouldRegisterReorientation(reorient?: boolean): boolean {
+  return reorient !== false
 }
 
 export type TerrainHandle = {
@@ -82,9 +123,15 @@ export type TerrainHandle = {
   getWaterDiscardYM: () => number
   setTilesLocked: (locked: boolean) => void
   getTilesLocked: () => boolean
+  setErrorTarget: (value: number) => void
+  getErrorTarget: () => number
+  isDownloadIdle: () => boolean
+  getVisibleTileCount: () => number
   getCredits: () => readonly string[]
   getStatusMessage: () => string
   getImageryOverlayActive: () => boolean
+  /** ion imagery overlay actually registered (4, 2 after fallback, or 0). */
+  getImageryAssetId: () => number
   /**
    * Register preview + air cameras and advance LOD unless lock-tiles is on.
    * Call every scene tick while the instance exists.
@@ -120,11 +167,25 @@ function wrapTilesRenderer(tiles: TilesRenderer): TerrainTilesAdapter {
     dispose: () => {
       tiles.dispose()
     },
+    get errorTarget() {
+      return tiles.errorTarget
+    },
+    set errorTarget(value: number) {
+      tiles.errorTarget = value
+    },
+    get downloadQueue() {
+      return tiles.downloadQueue
+    },
+    get visibleTiles() {
+      return tiles.visibleTiles
+    },
   }
 }
 
 function defaultTilesFactory(): TerrainTilesAdapter {
-  return wrapTilesRenderer(new TilesRenderer())
+  const tiles = new TilesRenderer()
+  isolateTilesRendererCaches(tiles)
+  return wrapTilesRenderer(tiles)
 }
 
 function finiteNudge(nudgeM: number): number {
@@ -184,10 +245,12 @@ export function createTerrain(options: CreateTerrainOptions): TerrainHandle {
     options.assetId !== undefined && options.assetId > 0
       ? Math.floor(options.assetId)
       : CESIUM_ION_WORLD_TERRAIN_ASSET_ID
-  const imageryAssetId =
+  const imageryAssetIdRequested =
     options.imageryAssetId !== undefined
       ? Math.floor(options.imageryAssetId)
-      : CESIUM_ION_BING_AERIAL_ASSET_ID
+      : overlayToImageryAssetId(DEFAULT_TERRAIN_OVERLAY)
+  let imageryAssetIdUsed = imageryAssetIdRequested
+
 
   const root = new THREE.Group()
   root.name = 'cesiumTerrain'
@@ -205,8 +268,10 @@ export function createTerrain(options: CreateTerrainOptions): TerrainHandle {
   let disposed = false
   let credits: string[] = []
   let imageryOverlayActive = false
+  let overlayFallbackArmed =
+    imageryAssetIdRequested === CESIUM_ION_BING_ROAD_ASSET_ID
   let statusExtra = ''
-  let lastPreview: THREE.Camera | null = null
+  const registeredCameras = new Set<THREE.Camera>()
   let reorient: ReorientationPlugin | null = null
 
   function applyNudge(): void {
@@ -248,15 +313,50 @@ export function createTerrain(options: CreateTerrainOptions): TerrainHandle {
   function statusMessage(): string {
     if (token === '') return TERRAIN_STATUS_NO_TOKEN
     if (!enabled) return TERRAIN_STATUS_OFF
-    if (statusExtra) return `${TERRAIN_STATUS_ON} · ${statusExtra}`
-    return TERRAIN_STATUS_ON
+    const overlayBit = overlayKindFromImageryAssetId(imageryAssetIdUsed)
+    const tileBit = `tiles ${tiles.visibleTiles?.size ?? 0}`
+    if (statusExtra) {
+      return `${TERRAIN_STATUS_ON} · ${overlayBit} · ${statusExtra} · ${tileBit}`
+    }
+    return `${TERRAIN_STATUS_ON} · ${overlayBit} · ${tileBit}`
+  }
+
+  function isOverlayAuthFailure(detail: string): boolean {
+    const d = detail.toLowerCase()
+    if (
+      !d.includes('401') &&
+      !d.includes('unauthorized') &&
+      !d.includes('not imagery') &&
+      !d.includes('unhandled')
+    ) {
+      return false
+    }
+    return (
+      d.includes('overlay') ||
+      d.includes('imagery') ||
+      d.includes(String(CESIUM_ION_BING_ROAD_ASSET_ID))
+    )
+  }
+
+  function markRoadOverlayFailed(detail: string): void {
+    overlayFallbackArmed = false
+    console.warn(
+      `[terrain] Bing Road overlay (ion ${CESIUM_ION_BING_ROAD_ASSET_ID}) failed; falling back to Aerial ${CESIUM_ION_BING_AERIAL_ASSET_ID}`,
+      detail,
+    )
+    statusExtra = `road overlay failed; using aerial ${CESIUM_ION_BING_AERIAL_ASSET_ID}`
   }
 
   function onLoadError(event: unknown): void {
     const { rootFailed, detail } = describeIonLoadError(event)
     console.warn('[terrain] ion load-error', detail)
-    if (!rootFailed) return
-    statusExtra = `ion load failed (${detail})`
+    if (rootFailed) {
+      statusExtra = `ion load failed (${detail})`
+      return
+    }
+    if (!overlayFallbackArmed || !isOverlayAuthFailure(detail)) return
+    markRoadOverlayFailed(detail)
+    options.onImageryRejected?.(CESIUM_ION_BING_ROAD_ASSET_ID)
   }
 
   if (!options.skipIonPlugins && token !== '') {
@@ -289,44 +389,67 @@ export function createTerrain(options: CreateTerrainOptions): TerrainHandle {
         },
       }),
     )
-    tiles.registerPlugin(new TilesFadePlugin({ fadeDuration: 250 }))
-    tiles.registerPlugin(
-      new UnloadTilesPlugin({
-        bytesTarget: TERRAIN_VRAM_BYTES_TARGET,
-        delay: TERRAIN_UNLOAD_DELAY_MS,
-      }),
-    )
+    if (options.fadeTiles !== false) {
+      tiles.registerPlugin(new TilesFadePlugin({ fadeDuration: 250 }))
+    }
+    if (options.unloadTiles !== false) {
+      tiles.registerPlugin(
+        new UnloadTilesPlugin({
+          bytesTarget:
+            options.vramBytesTarget ?? TERRAIN_VRAM_BYTES_TARGET,
+          delay: TERRAIN_UNLOAD_DELAY_MS,
+        }),
+      )
+    }
     tiles.registerPlugin(new UpdateOnChangePlugin())
 
-    const origin = reorientArgsFromGeoOrigin()
-    reorient = new ReorientationPlugin({
-      lat: origin?.latRad ?? null,
-      lon: origin?.lonRad ?? null,
-      height: origin?.heightHae ?? 0,
-      recenter: true,
-      azimuth: REORIENTATION_AZIMUTH_RAD,
-    })
-    tiles.registerPlugin(reorient)
+    if (shouldRegisterReorientation(options.reorient)) {
+      const origin = reorientArgsFromGeoOrigin()
+      reorient = new ReorientationPlugin({
+        lat: origin?.latRad ?? null,
+        lon: origin?.lonRad ?? null,
+        height: origin?.heightHae ?? 0,
+        recenter: true,
+        azimuth: REORIENTATION_AZIMUTH_RAD,
+      })
+      tiles.registerPlugin(reorient)
+    }
 
-    if (imageryAssetId > 0) {
-      try {
-        const overlay = new CesiumIonOverlay({
-          apiToken: token,
-          assetId: imageryAssetId,
-          autoRefreshToken: true,
-        })
-        tiles.registerPlugin(
-          new ImageOverlayPlugin({
-            overlays: [overlay],
-            renderer: options.renderer,
-          }),
-        )
-        imageryOverlayActive = true
-      } catch (err) {
-        imageryOverlayActive = false
-        const msg = err instanceof Error ? err.message : String(err)
-        console.warn('[terrain] imagery overlay skipped', msg)
-        statusExtra = `bare terrain (imagery overlay failed; Bing asset ${imageryAssetId})`
+    if (imageryAssetIdRequested > 0) {
+      const tryOverlay = (assetId: number): boolean => {
+        try {
+          const overlay = new CesiumIonOverlay({
+            apiToken: token,
+            assetId,
+            autoRefreshToken: true,
+          })
+          tiles.registerPlugin(
+            new ImageOverlayPlugin({
+              overlays: [overlay],
+              renderer: options.renderer,
+            }),
+          )
+          imageryOverlayActive = true
+          imageryAssetIdUsed = assetId
+          return true
+        } catch (err) {
+          imageryOverlayActive = false
+          const msg = err instanceof Error ? err.message : String(err)
+          console.warn('[terrain] imagery overlay skipped', msg)
+          statusExtra = `bare terrain (imagery overlay failed; Bing asset ${assetId})`
+          return false
+        }
+      }
+
+      if (!tryOverlay(imageryAssetIdRequested)) {
+        if (imageryAssetIdRequested === CESIUM_ION_BING_ROAD_ASSET_ID) {
+          markRoadOverlayFailed(
+            statusExtra || 'imagery overlay constructor failed',
+          )
+          if (tryOverlay(CESIUM_ION_BING_AERIAL_ASSET_ID)) {
+            statusExtra = `road overlay failed; using aerial ${CESIUM_ION_BING_AERIAL_ASSET_ID}`
+          }
+        }
       }
     }
 
@@ -334,6 +457,11 @@ export function createTerrain(options: CreateTerrainOptions): TerrainHandle {
   }
 
   tiles.addEventListener('load-model', onLoadModel)
+
+  let uninstallTileCache: (() => void) | null = null
+  if (!options.skipIonPlugins && token !== '') {
+    uninstallTileCache = installCinematicTileFetchCache()
+  }
 
   const unsubOrigin = GeoOrigin.onChanged(() => {
     if (disposed) return
@@ -380,23 +508,28 @@ export function createTerrain(options: CreateTerrainOptions): TerrainHandle {
       tilesLocked = locked === true
     },
     getTilesLocked: () => tilesLocked,
+    setErrorTarget(value: number): void {
+      if (disposed) return
+      const next = Number.isFinite(value) && value > 0 ? value : 16
+      tiles.errorTarget = next
+    },
+    getErrorTarget: () => tiles.errorTarget ?? 16,
+    isDownloadIdle: () => tiles.downloadQueue?.running !== true,
+    getVisibleTileCount: () => tiles.visibleTiles?.size ?? 0,
     getCredits: () => credits,
     getStatusMessage: () => statusMessage(),
     getImageryOverlayActive: () => imageryOverlayActive,
+    getImageryAssetId: () => imageryAssetIdUsed,
     tick(previewCamera, airCamera, renderer): void {
       if (disposed || token === '' || !enabled) return
 
-      if (lastPreview && lastPreview !== previewCamera && lastPreview !== airCamera) {
-        tiles.deleteCamera(lastPreview)
-      }
-      lastPreview = previewCamera
-
-      tiles.setCamera(previewCamera)
-      tiles.setResolutionFromRenderer(previewCamera, renderer)
-      if (airCamera !== previewCamera) {
-        tiles.setCamera(airCamera)
-        tiles.setResolutionFromRenderer(airCamera, renderer)
-      }
+      syncTilesRendererCameras(
+        tiles,
+        previewCamera,
+        airCamera,
+        renderer,
+        registeredCameras,
+      )
 
       if (!tilesLocked) {
         tiles.update()
@@ -408,6 +541,8 @@ export function createTerrain(options: CreateTerrainOptions): TerrainHandle {
     dispose(): void {
       if (disposed) return
       disposed = true
+      uninstallTileCache?.()
+      uninstallTileCache = null
       unsubOrigin()
       tiles.removeEventListener?.('load-model', onLoadModel)
       tiles.dispose()

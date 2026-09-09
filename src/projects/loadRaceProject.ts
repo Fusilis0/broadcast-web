@@ -104,6 +104,8 @@ function logProjectSwitchTiming(
   console.info('[19.17]', extra)
 }
 
+export const DEFAULT_BOOT_RACE_ID = 'empty'
+
 export async function loadRaceProject(
   id: string,
   options: LoadRaceProjectOptions = {},

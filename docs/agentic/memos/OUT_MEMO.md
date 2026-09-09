@@ -1,7 +1,48 @@
 # OUT_MEMO
 
-**Last updated:** 2026-09-06  
-**Status:** **NDI 30×3 closed.** 2D Send off did not raise AR/3D above **~20**. Keep B (cheaper begin + PBO 3 + 2D +31 ms). Next product direction: **SRT out** (design plans from operator).
+**Last updated:** 2026-09-09  
+**Status:** NDI 30×3 **closed**. Phase **21** MP4 **code-complete**. Human Pass = Electron Record. `HO-SCN-OUT-20260909-01` **done** (Send default off).
+
+## 2026-09-09 — HO-SCN-OUT-20260909-01 done (NDI Send off)
+
+`NDI_CHANNEL_WANTED_DEFAULTS` is all **false**. Missing session → AR/3D/2D Send unchecked. Existing `bw.ndi.channelWanted` in this tab still wins. Not Phase 22. Not Record.
+
+## 2026-09-09 — DSP-OUT-20260908-01 code-complete
+
+Silent 1080p30 MP4 via canvas `MediaRecorder` (prefer H.264 MP4; WebM remuxed with ffmpeg). Record wired from `#ops-cinematic-record` in `main.ts`. SCN still owns play/seek/hide-race. Web-only → `desktop only`. Disk/permission → ops status, no throw. NDI / SRT / Phase 22 unchanged.
+
+**Human Pass:** Play the **2026-09-09** path first (Canada→UK then Russia→Turkey→İstanbul). Then `npm run desktop:dev` → **Record**. Duration ~60 s (±0.5 s). App does not go live after.
+
+## 2026-09-09 — NDI Send off at cold start (do not implement in SCN)
+
+`HO-SCN-OUT-20260909-01`. Operator: AR/3D/2D Send **unchecked** on studio open. Change `NDI_CHANNEL_WANTED_DEFAULTS` to all false. Session still wins. Not Phase 22. Not cinematic Record.
+
+## 2026-09-09 — SCN-07 warm in tree (do not implement here)
+
+Prefetch on project start; Play waits. Record after operator Pass on **second** Play (no globe pop). Same hooks. File `intro-bosphorus.mp4`.
+
+## 2026-09-08 — SCN-02 sequence in tree (do not implement here)
+
+`intro-bosphorus` can Play 60 s. Record still this DSP. Start after operator Human Pass on that Play (path recognisable). Same hooks as SCN-01. File name `intro-bosphorus.mp4`.
+
+## 2026-09-08 — SCN-01 Record hooks (do not implement here)
+
+Player is **code-complete**. Record stays OUT. When Human Pass on Play (`_empty`):
+
+- `scene.playCinematic()` / `pauseCinematic()` / `seekCinematic(t)` / `getCinematicTransport()`
+- Canvas: `scene.renderer.domElement` (studio 1920×1080)
+- Clock: `CINEMATIC_FPS` (30). Do not advance the spline from 60 rAF
+- Hide-race already on while `isCinematicActive()`
+- Enable `#ops-cinematic-record` (disabled stub)
+- Silent MP4 only — no audio
+
+DSP: `DSP-OUT-20260908-01-cinematic-mp4`. Do not start until Play works ~1 s.
+
+## 2026-09-08 — Phase 21 cinematic MP4
+
+Operator: vMix plays a **pre-recorded** silent 1080p30 file. App does not play-then-live. DSP: `DSP-OUT-20260908-01-cinematic-mp4` after SCN-01. Not NDI. Brief: `docs/agentic/briefs/phase21/OUT_PHASE21.md`.
+
+## 2026-09-07 — NDI 30×3 closed; SRT is Phase 22
 
 ## 2026-09-06 — experiment B live
 
@@ -128,4 +169,4 @@ HUD lock (2026-09-06 idea-port, three-on): Send **17 / 17 / 3**, preview **~10**
 - Do not compress before NDI `sendFrame` (SDK already compresses on the wire).
 
 ## Next
-NDI 30×3 closed. Wait for operator **SRT out** design plans; enhance, then implement. SRT caller / catalog / decode / colour bars → **SRT**. Pose NTP → **TEL**. Chroma/NDI plate → **OUT**.
+NDI 30×3 closed. Phase **22** SRT AR+3D+2D (`docs/architecture/srt-egress.md`). Do not start until BW opens 22 after commercial video. Park NDI on air; keep code.

@@ -29,6 +29,7 @@ import {
   canWriteProjectsApi,
   confirmSaveWithOrphanBoatIds,
   defaultEditedRaceId,
+  DEFAULT_BOOT_RACE_ID,
   downloadRaceProject,
   downloadVenuePack,
   getDefaultVenuePackCache,
@@ -41,6 +42,7 @@ import {
   materializeVenuePack,
   parseVenuePack,
   persistRaceProjectLocal,
+  canPersistRaceProjectWithoutDownload,
   projectsApiBearerToken,
   resolveBootPanelBoats,
   resolveLoadedFleetBoats,
@@ -87,6 +89,7 @@ import {
   startVideoStreamManager,
   startVisualTimecode,
   startWhepUnderlay,
+  startCinematicRecord,
   readWebGlGpuInfo,
   NDI_PBO_DEPTH_MATCH_DELAY_MS,
   STUDIO_OUTPUT_HEIGHT,
@@ -144,11 +147,19 @@ import {
   resolveAssetFocusEnu,
   setLayoutFeatures,
   startAssetInspector,
+  startHeroesPanel,
   startFleetLivePanel,
   startFlowPanel,
   startMapFeatureEditor,
   startScene,
   startStubHud,
+  LANDMARKS_AUTOSAVE_MS,
+  mergeLandmarkOffsetLayers,
+  offsetsFromProject,
+  persistLandmarkOffsets,
+  readGlobalLandmarkOffsets,
+  readSessionLandmarkOffsets,
+  snapshotRaceProjectLandmarks,
   createWorldAuthoringWorkspace,
   mountWorldMapAuthoringLauncher,
   resolveAuthoringInitiallyOpen,
@@ -159,11 +170,11 @@ import {
   resolveCesiumIonToken,
   writeSessionCesiumIonToken,
   type AssetInspectorHandle,
-
   type AssetRowId,
   type BoatVisibilityMode,
   type FleetLivePanelHandle,
   type FlowPanelHandle,
+  type HeroesPanelHandle,
   type MapFeatureEditorHandle,
   type SceneHandle,
   type WorldAuthoringWorkspaceHandle,
@@ -214,7 +225,7 @@ let visualTimecode: VisualTimecodeHandle | null = null
 let whepUnderlay: WhepUnderlayHandle | null = null
 let previewClock: DualFrameClock | null = null
 let ndiPump: NdiFramePumpHandle | null = null
-/** Session-only NDI hand toggles (AR/3D/2D); default all on. Not project.json. */
+/** Session-only NDI hand toggles (AR/3D/2D); default all off. Not project.json. */
 let ndiChannelWanted: NdiChannelWanted = loadNdiChannelWanted()
 let streamMapNdiPump: StreamMapNdiPumpHandle | null = null
 /** Off-screen / local-2D host for the stream-map canvas (2D NDI + switcher). */
@@ -231,6 +242,8 @@ let worldAuthoring: WorldAuthoringWorkspaceHandle | null = null
 let worldMapLauncher: WorldMapAuthoringLauncherHandle | null = null
 let fleetPanel: FleetLivePanelHandle | null = null
 let assetInspector: AssetInspectorHandle | null = null
+let heroesPanel: HeroesPanelHandle | null = null
+let landmarksSaveTimer: ReturnType<typeof setTimeout> | null = null
 /** Soft POV map-dot visibility (false = hidden). Missing → true. */
 const povMapVisible = new Map<string, boolean>()
 /** Soft POV 3D flag (no mesh yet). Missing → true. */
@@ -407,6 +420,69 @@ function focusAssetRow(target: AssetRowId): void {
   }
   scene.frameEnuPoint(enu, 80)
   hud.getMap().focusEnu(enu.x, northFromSceneZ(enu.z), 80)
+  hud.setOpsViewMode('free')
+  fleetPanel?.setOpsViewMode('free')
+}
+
+function snapshotCurrentLandmarks() {
+  return snapshotRaceProjectLandmarks(scene?.getLandmarkPoseOffsets() ?? {})
+}
+
+function canAutoWriteRaceProject(): boolean {
+  if (!bootConfig) return false
+  return canPersistRaceProjectWithoutDownload({
+    racesBridge: getRacesBridge(),
+    projectsApiBase: bootConfig.projectsApiBase,
+    canWriteApi: canWriteProjectsApi(bootConfig, window.location.search),
+  })
+}
+
+function applyMergedLandmarkOffsets(project: RaceProject | null): void {
+  if (!scene) return
+  const pack = offsetsFromProject(project?.landmarks)
+  const merged = mergeLandmarkOffsetLayers(
+    pack,
+    readGlobalLandmarkOffsets(),
+    readSessionLandmarkOffsets(),
+  )
+  scene.applyLandmarkPoseOffsets(snapshotRaceProjectLandmarks(merged))
+  persistLandmarkOffsets(scene.getLandmarkPoseOffsets())
+  heroesPanel?.refresh()
+}
+
+function applyLandmarkOffsetsFromPack(project: RaceProject | null): void {
+  applyMergedLandmarkOffsets(project)
+}
+
+function restoreLandmarkOffsetsAtBoot(): void {
+  applyMergedLandmarkOffsets(raceProject)
+}
+
+function scheduleLandmarkAutoSave(): void {
+  persistLandmarkOffsets(scene?.getLandmarkPoseOffsets() ?? {})
+  if (!canAutoWriteRaceProject()) return
+  if (landmarksSaveTimer) clearTimeout(landmarksSaveTimer)
+  landmarksSaveTimer = setTimeout(() => {
+    landmarksSaveTimer = null
+    void saveCurrentRaceProject({
+      mode: 'save',
+      skipDownload: true,
+      skipOrphanConfirm: true,
+      quiet: true,
+    })
+  }, LANDMARKS_AUTOSAVE_MS)
+}
+
+function focusHeroLandmark(id: string): void {
+  if (!scene) return
+  const enu = scene.getLandmarkWorldPosition(id)
+  if (!enu) {
+    console.warn('[heroes] Focus: no position for', id)
+    return
+  }
+  const radius = scene.getLandmarkFocusRadius(id) ?? 80
+  scene.frameEnuPoint(enu, radius)
+  hud.getMap().focusEnu(enu.x, northFromSceneZ(enu.z), radius)
   hud.setOpsViewMode('free')
   fleetPanel?.setOpsViewMode('free')
 }
@@ -736,6 +812,12 @@ type SaveRaceProjectOptions = {
    * `saveAs` = new id (API POST when configured).
    */
   mode?: 'save' | 'saveAs'
+  /** Chrome: do not trigger a file download (slider auto-save). */
+  skipDownload?: boolean
+  /** Skip the orphan-boat confirm modal (auto-save). */
+  skipOrphanConfirm?: boolean
+  /** Skip HUD saving/saved flicker (auto-save). */
+  quiet?: boolean
 }
 
 function syncFleetIntoConfig(config: AppConfig): void {
@@ -1158,6 +1240,7 @@ function buildCurrentRaceProject(meta?: {
   const boatMapVisible = fleetBoatMapVisibleRecord(fleet?.boats)
   const povMapVisibleRecord = fleetPovMapVisibleRecord(povIds)
   const calibration = snapshotCalibrationByPovId(povIds)
+  const landmarks = snapshotCurrentLandmarks()
   return buildRaceProject({
     id,
     name,
@@ -1176,6 +1259,7 @@ function buildCurrentRaceProject(meta?: {
     flagsUrl: flagsUrl || config.flagsUrl,
     replayUrl: replayUrl || config.replayUrl,
     calibration,
+    landmarks,
     revision: meta?.revision,
     output: raceOutputFromRuntime(config),
   })
@@ -1297,13 +1381,17 @@ async function saveCurrentRaceProject(
   const config = bootConfig
   if (!config) {
     console.warn('[projects] save skipped; config not ready')
-    hud.setSaveStatus(formatSaveLoadStatus('error', 'save failed'))
+    if (!options.quiet) {
+      hud.setSaveStatus(formatSaveLoadStatus('error', 'save failed'))
+    }
     return
   }
   if (!canWriteProjectsApi(config, window.location.search)) {
     console.warn('[projects] save skipped; air-only role')
-    hud.setSaveStatus(formatSaveLoadStatus('error', 'air-only · Save disabled'))
-    hud.setBootMessage('air-only · Save disabled')
+    if (!options.quiet) {
+      hud.setSaveStatus(formatSaveLoadStatus('error', 'air-only · Save disabled'))
+      hud.setBootMessage('air-only · Save disabled')
+    }
     return
   }
 
@@ -1334,17 +1422,21 @@ async function saveCurrentRaceProject(
   const catalogueIds = scene
     ? [...scene.getBoatNamesCatalogue().keys()]
     : []
-  if (!confirmSaveWithOrphanBoatIds(boatIds, catalogueIds)) {
+  if (
+    !options.skipOrphanConfirm &&
+    !confirmSaveWithOrphanBoatIds(boatIds, catalogueIds)
+  ) {
     hud.setBootMessage('save cancelled')
     return
   }
 
-  hud.setSaveStatus(formatSaveLoadStatus('saving'))
+  if (!options.quiet) hud.setSaveStatus(formatSaveLoadStatus('saving'))
   try {
     const boatVisibility = fleetBoatVisibilityRecord(fleet?.boats)
     const boatMapVisible = fleetBoatMapVisibleRecord(fleet?.boats)
     const povMapVisibleRecord = fleetPovMapVisibleRecord(povIds)
     const calibration = snapshotCalibrationByPovId(povIds)
+    const landmarks = snapshotCurrentLandmarks()
     const project = buildRaceProject({
       id,
       name,
@@ -1363,6 +1455,7 @@ async function saveCurrentRaceProject(
       flagsUrl: flagsUrl || config.flagsUrl,
       replayUrl: replayUrl || config.replayUrl,
       calibration,
+      landmarks,
       revision: mode === 'save' ? raceProject?.revision : undefined,
       output: raceOutputFromRuntime(config),
     })
@@ -1373,6 +1466,7 @@ async function saveCurrentRaceProject(
       project,
       racesBridge: races,
       mode,
+      skipDownload: options.skipDownload === true,
       download: downloadRaceProject,
     })
     if (persist.local && !persist.local.ok) {
@@ -1392,12 +1486,16 @@ async function saveCurrentRaceProject(
     }
     const status = formatPersistStatus(persist, { api: Boolean(stored) })
     const persisted = localSaved || persist.downloaded || Boolean(stored)
-    hud.setSaveStatus(
-      persisted
-        ? formatSaveLoadStatus('saved', status)
-        : formatSaveLoadStatus('error', status || 'save failed'),
-    )
-    hud.setBootMessage(`saved: ${finalProject.id} · ${status}`)
+    if (!options.quiet) {
+      hud.setSaveStatus(
+        persisted
+          ? formatSaveLoadStatus('saved', status)
+          : formatSaveLoadStatus('error', status || 'save failed'),
+      )
+      hud.setBootMessage(`saved: ${finalProject.id} · ${status}`)
+    } else if (!persisted) {
+      console.warn('[projects] landmark auto-save: no persist', status)
+    }
     console.info('[projects] saved RaceProject', {
       id: finalProject.id,
       mode,
@@ -1405,15 +1503,19 @@ async function saveCurrentRaceProject(
       boatIds: finalProject.fleet.boatIds,
       povIds: finalProject.povIds,
       features: finalProject.features?.length ?? 0,
+      landmarks: Object.keys(finalProject.landmarks?.byId ?? {}).length,
       local: localSaved,
       localPath: persist.local?.ok ? persist.local.path : undefined,
       downloaded: persist.downloaded,
       api: Boolean(stored),
+      quiet: Boolean(options.quiet),
     })
   } catch (err) {
     console.warn('[projects] save/download failed', err)
-    hud.setSaveStatus(formatSaveLoadStatus('error', 'save failed'))
-    hud.setBootMessage('save failed')
+    if (!options.quiet) {
+      hud.setSaveStatus(formatSaveLoadStatus('error', 'save failed'))
+      hud.setBootMessage('save failed')
+    }
   }
 }
 
@@ -1685,6 +1787,7 @@ async function applyLoadedRaceProject(project: RaceProject): Promise<void> {
   logProjectSwitchStage('fleetPanel.setState', tLists)
   hud.setBootMessage(`project: ${project.id}`)
   console.info('[projects] switched race pack', { id: project.id })
+  applyLandmarkOffsetsFromPack(project)
 
   const tIngest = performance.now()
   void restartIngest(ingest?.mode ?? config.telemetryMode)
@@ -1713,6 +1816,7 @@ async function applyLoadedRaceProject(project: RaceProject): Promise<void> {
         console.warn('[projects] URL world load after lists failed', err)
       })
   }
+  startCinematicTileWarm()
 }
 
 async function switchRace(id: string): Promise<void> {
@@ -1812,11 +1916,15 @@ opsSidebar.getOverlayHost().appendChild(terrainAttrib.el)
 
 function syncTerrainAttribution(): void {
   const lines = scene?.getTerrainCredits() ?? []
+  const cinematicOff = !(scene?.isCinematicActive() ?? false)
   const show =
+    cinematicOff &&
     localChannelFocus === '3d' &&
-    (scene?.getTerrainEnabled() ?? false) &&
+    ((scene?.getTerrainEnabled() ?? false) ||
+      (scene?.getBuildingsEnabled() ?? false) ||
+      (scene?.getHeroesEnabled() ?? false)) &&
     lines.length > 0
-  terrainAttrib.setLines(lines)
+  terrainAttrib.setLines(cinematicOff ? lines : [])
   terrainAttrib.setVisible(show)
 }
 
@@ -1833,6 +1941,7 @@ worldMapLauncher = mountWorldMapAuthoringLauncher(
 /** Section body hosts — filled synchronously by registerSection mount. */
 let projectSectionEl!: HTMLElement
 let assetsSectionEl!: HTMLElement
+let heroesSectionEl!: HTMLElement
 let calibSectionEl!: HTMLElement
 let librarySectionEl!: HTMLElement
 let liveSectionEl!: HTMLElement
@@ -1840,6 +1949,7 @@ let ndiSectionEl!: HTMLElement
 let flowSectionEl!: HTMLElement
 let opsSectionEl!: HTMLElement
 let environmentSectionEl!: HTMLElement
+let cinematicsSectionEl!: HTMLElement
 let windSectionEl!: HTMLElement
 let libraryPanel: LibraryPanelHandle | null = null
 let projectManagerPanel: ProjectManagerPanelHandle | null = null
@@ -1877,6 +1987,20 @@ opsSidebar.registerSection({
       dispose() {
         assetInspector?.dispose()
         assetInspector = null
+      },
+    }
+  },
+})
+opsSidebar.registerSection({
+  id: 'heroes',
+  label: 'Hero buildings',
+  order: 35,
+  mount(container) {
+    heroesSectionEl = container
+    return {
+      dispose() {
+        heroesPanel?.dispose()
+        heroesPanel = null
       },
     }
   },
@@ -1947,6 +2071,15 @@ opsSidebar.registerSection({
   order: 30,
   mount(container) {
     environmentSectionEl = container
+    return { dispose: () => {} }
+  },
+})
+opsSidebar.registerSection({
+  id: 'cinematics',
+  label: 'Cinematics',
+  order: 35,
+  mount(container) {
+    cinematicsSectionEl = container
     return { dispose: () => {} }
   },
 })
@@ -2036,6 +2169,7 @@ const hud = startStubHud({
     project: projectSectionEl,
     ops: opsSectionEl,
     environment: environmentSectionEl,
+    cinematics: cinematicsSectionEl,
     wind: windSectionEl,
     map: authoringShell.getMapHost(),
     streamMapHost: local2dHost,
@@ -2071,11 +2205,21 @@ const hud = startStubHud({
     scene?.setTerrainEnabled(enabled)
     syncTerrainAttribution()
   },
+  onBuildingsEnabledChange: (enabled) => {
+    scene?.setBuildingsEnabled(enabled)
+    syncTerrainAttribution()
+  },
+  onHeroesEnabledChange: (enabled) => {
+    scene?.setHeroesEnabled(enabled)
+  },
   onTerrainAltitudeNudgeChange: (nudgeM) => {
     scene?.setTerrainAltitudeNudgeM(nudgeM)
   },
   onTerrainTilesLockedChange: (locked) => {
     scene?.setTerrainTilesLocked(locked)
+  },
+  onTerrainOverlayChange: (kind) => {
+    scene?.setTerrainOverlay(kind)
   },
   onTerrainWaterDiscardYChange: (yM) => {
     scene?.setTerrainWaterDiscardYM(yM)
@@ -2091,6 +2235,27 @@ const hud = startStubHud({
   },
   onEditorToggle: (open) => {
     authoringShell.setOpen(open)
+  },
+  onCinematicSequenceChange: (_id, url) => {
+    void scene?.loadCinematicSequence(url)
+  },
+  onCinematicPlay: () => {
+    scene?.playCinematic()
+  },
+  onCinematicPause: () => {
+    scene?.pauseCinematic()
+  },
+  onCinematicSeek: (tSec) => {
+    scene?.seekCinematic(tSec)
+  },
+  onCinematicStop: () => {
+    scene?.stopCinematic()
+  },
+  onCinematicDumpWarmUrls: () => {
+    scene?.dumpCinematicWarmUrls()
+  },
+  onCinematicRecord: () => {
+    void recordCinematicMp4()
   },
   onRaceLoad: (id) => {
     void switchRace(id)
@@ -2116,6 +2281,73 @@ const hud = startStubHud({
   },
 })
 
+function startCinematicTileWarm(): void {
+  if (!scene) return
+  void scene.warmCinematicTiles().catch((err) => {
+    console.warn('[cinematics] warm start failed', err)
+  })
+}
+
+/**
+ * OUT Record: silent 1080p30 MP4 from the studio canvas. SCN owns play;
+ * this only encodes. Disk/permission failures stay on the ops status line.
+ */
+async function recordCinematicMp4(): Promise<void> {
+  const setStatus = (msg: string) => {
+    hud.setCinematicRecordStatus(msg)
+  }
+  try {
+    if (!scene) {
+      setStatus('record: no scene')
+      return
+    }
+    const rec = getStudioBridge()?.cinematicRecord
+    if (!rec || typeof rec.choosePath !== 'function' || typeof rec.write !== 'function') {
+      setStatus('desktop only')
+      return
+    }
+    if (!scene.getCinematicSequence()) {
+      setStatus('record: cinematic inactive')
+      return
+    }
+    scene.seekCinematic(0)
+    hud.setCinematicRecordBusy(true)
+    try {
+      await startCinematicRecord({
+        isStudio: true,
+        isCinematicActive: () => scene?.isCinematicActive() ?? false,
+        getTransport: () =>
+          scene?.getCinematicTransport() ?? {
+            active: false,
+            playing: false,
+            tSec: 0,
+            durationSec: 0,
+            sequenceId: null,
+            fps: 30,
+          },
+        canvas: scene.renderer.domElement,
+        choosePath: (defaultName) => rec.choosePath({ defaultName }),
+        writeFile: async (opts) => {
+          const result = await rec.write(opts)
+          if (result.ok) return { ok: true, path: result.path }
+          return { ok: false, error: result.error ?? 'write failed' }
+        },
+        onStatus: setStatus,
+        playCinematic: () => {
+          scene?.playCinematic()
+        },
+      })
+    } finally {
+      hud.setCinematicRecordBusy(false)
+    }
+  } catch (err) {
+    hud.setCinematicRecordBusy(false)
+    setStatus(
+      `record failed: ${err instanceof Error ? err.message : String(err)}`,
+    )
+  }
+}
+
 async function persistAndApplyIonToken(token: string): Promise<void> {
   const trimmed = token.trim()
   if (trimmed.length > CESIUM_ION_TOKEN_MAX_LEN) {
@@ -2125,6 +2357,7 @@ async function persistAndApplyIonToken(token: string): Promise<void> {
   writeSessionCesiumIonToken(trimmed)
   if (bootConfig) bootConfig.cesiumIonToken = trimmed
   scene?.setCesiumIonToken(trimmed)
+  startCinematicTileWarm()
   const status = scene?.getTerrainStatusMessage() ?? ''
   const setter = getStudioBridge()?.config?.setCesiumIonToken
   if (typeof setter !== 'function') {
@@ -2230,24 +2463,23 @@ void (async () => {
     localRaces: Boolean(racesBridge),
   })
 
-  // PLT+CON: ?race=<id> → local pack under /races/<id>/; miss → config.json (warn).
-  if (deeplink.race) {
-    try {
-      raceProject = await loadRaceProject(deeplink.race, {
-        projectsApiBase: config.projectsApiBase,
-      })
-      applyRaceProjectToConfig(config, raceProject)
-      console.info('[projects] loaded race pack', { id: raceProject.id })
-      hud.setBootMessage(`project: ${raceProject.id}`)
-      hud.setProjectMeta(raceProject.id, raceProject.name)
-      hud.setActiveRaceId(raceProject.id)
-    } catch (err) {
-      console.warn(
-        '[projects] race pack load failed; continuing with config.json',
-        err,
-      )
-      raceProject = null
-    }
+  // PLT+CON: no `?race=` → pack `empty`; `?race=<id>` wins; miss → config.json (warn).
+  const bootRaceId = deeplink.race?.trim() || DEFAULT_BOOT_RACE_ID
+  try {
+    raceProject = await loadRaceProject(bootRaceId, {
+      projectsApiBase: config.projectsApiBase,
+    })
+    applyRaceProjectToConfig(config, raceProject)
+    console.info('[projects] loaded race pack', { id: raceProject.id })
+    hud.setBootMessage(`project: ${raceProject.id}`)
+    hud.setProjectMeta(raceProject.id, raceProject.name)
+    hud.setActiveRaceId(raceProject.id)
+  } catch (err) {
+    console.warn(
+      '[projects] race pack load failed; continuing with config.json',
+      err,
+    )
+    raceProject = null
   }
 
   // CON: query overrides after config + pack; before origin / ingest (token not validated).
@@ -2322,7 +2554,9 @@ void (async () => {
     clearColor: clear.color,
     cesiumIonToken,
     cesiumIonAssetId: config.cesiumIonAssetId,
-    cesiumIonImageryAssetId: config.cesiumIonImageryAssetId,
+    terrainOverlay: hud.getTerrainOverlay(),
+    buildingsEnabled: hud.getBuildingsEnabled(),
+    heroesEnabled: hud.getHeroesEnabled(),
     frameClock: {
       subscribe: (onTick) =>
         previewClock!.subscribePreview(() => {
@@ -2357,13 +2591,23 @@ void (async () => {
   })
   // Realistic sea/sky only when clear is opaque-safe (preview today).
   scene.setEnvironmentOpaqueClearSafe(outputMode === 'preview')
+  restoreLandmarkOffsetsAtBoot()
   scene.setTerrainAltitudeNudgeM(hud.getTerrainAltitudeNudgeM())
   scene.setTerrainTilesLocked(hud.getTerrainTilesLocked())
+  scene.setTerrainOverlay(hud.getTerrainOverlay())
   scene.setTerrainWaterDiscardYM(hud.getTerrainWaterDiscardYM())
   scene.setSeaHeightYM(hud.getSeaHeightYM())
   scene.setTerrainCreditsListener(() => {
     hud.setTerrainStatus(scene?.getTerrainStatusMessage() ?? '')
     syncTerrainAttribution()
+  })
+  scene.setCinematicTransportListener((transport) => {
+    hud.setCinematicTransport(transport)
+    hud.setCinematicChromeHidden(transport.active)
+    syncTerrainAttribution()
+  })
+  scene.setCinematicWarmStatusListener((status) => {
+    hud.setCinematicWarmStatus(status)
   })
   hud.setTerrainStatus(scene.getTerrainStatusMessage())
   hud.setCesiumIonToken(cesiumIonToken)
@@ -2474,7 +2718,7 @@ void (async () => {
         )
       },
       forceUploadTexture: (tex) => {
-        scene.renderer.initTexture(tex as never)
+        sceneHandle.renderer.initTexture(tex as never)
       },
       getActivePovId: () => sceneHandle.getActivePovId(),
       getLutStreamId: lutStreamIdForPov,
@@ -2578,6 +2822,7 @@ void (async () => {
   applyConfigOrigin(config.origin)
   hud.setOrigin(config.origin)
   startOpenMeteoWind({ origin: config.origin })
+  startCinematicTileWarm()
 
   // Shared GPS→ENU layout: one list for 2D map + editor.
   const world = await loadWorldForProject(raceProject)
@@ -2599,7 +2844,7 @@ void (async () => {
   }
 
   // World Authoring workspace — large map + tool palette (SCN-04).
-  // Editor role defaults open; air closed; ?editor=1|0 overrides.
+  // Closed at cold start; ?editor=1 opens, ?editor=0 stays closed.
   const authoringOpen = resolveAuthoringInitiallyOpen(projectWritesEnabled)
   syncMapGeoBridge({ ops: hud.getMap(), stream: hud.getStreamMap() })
   mapEditor = startMapFeatureEditor({
@@ -2817,7 +3062,7 @@ void (async () => {
   try {
     await refreshRacePicker(raceProject?.id)
   } catch {
-    hud.setRaceIds(['demo-istanbul'], raceProject?.id ?? 'demo-istanbul')
+    hud.setRaceIds(['empty'], raceProject?.id ?? DEFAULT_BOOT_RACE_ID)
   }
 
   // Name/colour catalogue — before TEL so first boat spawn can resolve tags.
@@ -3187,6 +3432,20 @@ void (async () => {
     onPovLabelChange: (id, label) => {
       fleetPanel?.setPovLabel(id, label)
     },
+  })
+
+  heroesPanel = startHeroesPanel({
+    container: heroesSectionEl,
+    getOffsets: () => scene?.getLandmarkPoseOffsets() ?? {},
+    getTextureReport: () => scene?.getLandmarkTextureReport() ?? [],
+    onFocus: focusHeroLandmark,
+    onOffsetChange: (id, pose) => {
+      scene?.setLandmarkPoseOffset(id, pose)
+      scheduleLandmarkAutoSave()
+    },
+  })
+  void scene.landmarksReady.then(() => {
+    heroesPanel?.refresh()
   })
 
   // Boot live uses enabled lists (often empty until Connect); mock/replay use registry.

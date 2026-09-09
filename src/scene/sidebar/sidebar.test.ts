@@ -133,12 +133,14 @@ describe('createSidebar two-rail shell', () => {
       'project',
       'live',
       'assets',
+      'heroes',
       'library',
       'ops',
       'ndi',
       'flow',
       'calib',
       'environment',
+      'cinematics',
       'wind',
     ]) {
       sidebar.registerSection(mountEmpty(id))
@@ -150,11 +152,13 @@ describe('createSidebar two-rail shell', () => {
     expect(left?.querySelector('[data-ops-section="project"]')).toBeTruthy()
     expect(left?.querySelector('[data-ops-section="live"]')).toBeTruthy()
     expect(left?.querySelector('[data-ops-section="assets"]')).toBeTruthy()
+    expect(left?.querySelector('[data-ops-section="heroes"]')).toBeTruthy()
     expect(left?.querySelector('[data-ops-section="world-map"]')).toBeNull()
     expect(right?.querySelector('[data-ops-section="ndi"]')).toBeTruthy()
     expect(right?.querySelector('[data-ops-section="flow"]')).toBeTruthy()
     expect(right?.querySelector('[data-ops-section="calib"]')).toBeTruthy()
     expect(right?.querySelector('[data-ops-section="environment"]')).toBeTruthy()
+    expect(right?.querySelector('[data-ops-section="cinematics"]')).toBeTruthy()
     expect(right?.querySelector('[data-ops-section="wind"]')).toBeTruthy()
     expect(left?.querySelector('[data-ops-section="ndi"]')).toBeNull()
     expect(right?.querySelector('[data-ops-section="project"]')).toBeNull()

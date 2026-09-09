@@ -1,4 +1,5 @@
 import { parseRaceProjectCalibration } from '../calibration/projectCalibration.ts'
+import { parseRaceProjectLandmarks } from '../scene/landmarks/projectLandmarks.ts'
 import { parseRounding } from '../scene/features/rounding.ts'
 import { parseHexColorCss } from '../scene/boatNames/categoryColor.ts'
 import type { WorldFeature, WorldFeatureType } from '../scene/features/types.ts'
@@ -336,6 +337,9 @@ export function parseRaceProject(raw: unknown): RaceProject {
 
   const calibration = parseRaceProjectCalibration(o.calibration)
   if (calibration !== undefined) project.calibration = calibration
+
+  const landmarks = parseRaceProjectLandmarks(o.landmarks)
+  if (landmarks !== undefined) project.landmarks = landmarks
 
   return project
 }

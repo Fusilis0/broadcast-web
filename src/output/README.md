@@ -2,6 +2,8 @@
 
 Owned by **OUT**. Canvas clear modes, visual timecode, WebRTC WHEP underlay / later egress, Electron NDI frame pump.
 
+**Cinematic MP4 (Phase 21):** silent **1920×1080 30 fps** file from the opaque 3D canvas (`cinematicRecorder.ts`). **Not NDI.** vMix plays the file; this app does not go live after Record. Record stops at **duration or operator stop** — a globe→ENU remount **pause** must not cut the file at ~21 s.
+
 ## Clear modes
 
 | Symbol | Role |
@@ -151,11 +153,11 @@ Browser **MediaMTX WHEP** video under the Three canvas in **preview** only. Soft
 | `NdiDelayBuffer` / `clampNdiDelayMs` / `normalizeOutputDelayMs` | Per-channel RAM delay ring (0–30000 ms); **bypass + no allocation at 0** |
 | `estimateNdiDelayBufferBytes` | `width×height×4×ceil(delayMs/1000×fps)` — 1920×1080 @ 30 fps × 30 s ≈ **~7.5 GB/channel** |
 | `startLocalChannelSwitcher` / `resolveLocalFocusPresentation` | Local 2D/3D/AR window focus (Phase 13.5) — never stops NDI |
-| `startNdiControllerPanel({ …, getDelayMs?, onDelayMsChange? })` | Ops sidebar **NDI** tab — per-channel status + delay inputs + live **Send** fps (1 s successful-send counter; **0 fps** when live but silent, not em-dash); hand toggles pause/resume AR/3D/2D independently (session-only; default all **on**) |
+| `startNdiControllerPanel({ …, getDelayMs?, onDelayMsChange? })` | Ops sidebar **NDI** tab — per-channel status + delay inputs + live **Send** fps (1 s successful-send counter; **0 fps** when live but silent, not em-dash); hand toggles pause/resume AR/3D/2D independently (session-only; default all **off**) |
 | `loadNdiChannelWanted` / `saveNdiChannelWanted` | Session-only AR/3D/2D wanted flags (`sessionStorage`); never race/`project.json` |
 | `resolveNdiAirIndicator` | Pure `unavailable` \| `stopped` \| `starting` \| `live` \| `error` (AR / 3D pumps) |
 | `resolveNdiChannelIndicator` | Per-channel indicator including `idle` (2d uses stream-map pump when provided) |
-| `STREAM_MAP_NDI_BRIDGE_SUPPORTED` | `true` (Phase 13.4) — studio enables AR/3D/2D hand toggles (Phase 19.4; default all **on**) |
+| `STREAM_MAP_NDI_BRIDGE_SUPPORTED` | `true` (Phase 13.4) — studio enables AR/3D/2D hand toggles (Phase 19.4; default all **off**) |
 | `isAirCameraLocked` / `shouldForceFollowActivePov` | Studio bridge **or** `transparent` → air framing locked |
 | `planNdiCapture` | Same camera → FB readback; preview ≠ air → dual-render FBO (helper; AR pump always FBO-captures on studio tick) |
 | `STUDIO_OUTPUT_WIDTH/HEIGHT` | Electron lock **1920×1080** (AR/3D drawing buffer **and** 2D NDI letterbox target) |
@@ -232,7 +234,7 @@ mandatory on every skipped frame — missing it exhausts the decoder pool.
 
 **No in-browser NDI** without the Electron bridge. Preferred studio air = Electron alpha NDI; Chrome chroma = fallback ([`docs/ops/air-runbook.md`](../../docs/ops/air-runbook.md)). Path B deferred.
 
-**Lifecycle:** `startVideoBackground` **then** `startVideoStreamManager` **then** optional `startVisualTimecode` (only when `timecodeEnabled`) **then** `startNdiFramePump` (AR) **then** `startNdi3dChannelPump` (3D) **then** `startStreamMapNdiPump` (2D) in Electron. With the barcode off, NDI binds the video-background wrap directly — underlay still draws before the scene. Stop on `beforeunload` (stream manager, then timecode if started, then video-background so wraps unstack). Phase **19.4**: independent hand toggles for **AR / 3D / 2D** in the NDI tab pause/resume each sender (session/`sessionStorage` only — never `project.json`). Default all **on**.
+**Lifecycle:** `startVideoBackground` **then** `startVideoStreamManager` **then** optional `startVisualTimecode` (only when `timecodeEnabled`) **then** `startNdiFramePump` (AR) **then** `startNdi3dChannelPump` (3D) **then** `startStreamMapNdiPump` (2D) in Electron. With the barcode off, NDI binds the video-background wrap directly — underlay still draws before the scene. Stop on `beforeunload` (stream manager, then timecode if started, then video-background so wraps unstack). Phase **19.4**: independent hand toggles for **AR / 3D / 2D** in the NDI tab pause/resume each sender (session/`sessionStorage` only — never `project.json`). Default all **off**.
 
 ### Capture rate / UI FPS (Phase 13 perf / preview 60 / Studio 30 Send / `DSP-OUT-20260828-04`)
 
@@ -241,9 +243,9 @@ AR/3D GPU readback is **pipelined** (WebGL2 PBO + fence; one frame of capture la
 | Channel | Enable default | FPS default | Notes |
 | --- | --- | --- | --- |
 | **Ops preview** | on (visible window) | **rAF ~60** | Local WebGL present only. Ops HUD **preview** row shows a 1 s smoothed fps; **hitch** is `dt > 50 ms` in the same window. Hidden/minimized → studio tick (60 Hz) so NDI does not freeze. Preview is not 60 from `STUDIO_TICK_FPS`. |
-| **AR** | on (session) | **30** | Air path on `studio:tick` at 60 Hz; independent of 3D on PBO |
-| **3D** | on (session) | **30** | Always-on; same-tick FBO with AR on PBO; Send is not 60 |
-| **2D** | **on** | **30** | Toggle in NDI tab stops **only** this sender. Deferred/async CPU grab; not an FBO slot. |
+| **AR** | **off** (session) | **30** | Air path on `studio:tick` at 60 Hz; independent of 3D on PBO |
+| **3D** | **off** (session) | **30** | Send checked ⇒ send; same-tick FBO with AR on PBO; Send is not 60 |
+| **2D** | **off** | **30** | Toggle in NDI tab stops **only** this sender. Deferred/async CPU grab; not an FBO slot. |
 
 Live **Send** fps on the Output rail is a 1 s counter of successful `sendFrame` calls (`getSendFps()`). It is **not** the cap: defaults stay AR **30** / 3D **30** / 2D on@30. The capture gate targets ~32 fps nominal so the 1 s readout never shows 29. `STUDIO_TICK_FPS` is **60**.
 

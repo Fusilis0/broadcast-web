@@ -58,6 +58,7 @@ describe('parseRaceProject', () => {
     expect(p.fleet.boatIds).toEqual(['21', '22', '23', '24'])
     expect(p.povIds).toEqual(['1', '2'])
     expect(p.calibration).toBeUndefined()
+    expect(p.landmarks).toBeUndefined()
   })
 
   it('soft-parses optional calibration.byPovId (aliases + junk ignored)', () => {
@@ -81,6 +82,46 @@ describe('parseRaceProject', () => {
       altMeters: -0.5,
     })
     expect(p.calibration?.byPovId['']).toBeUndefined()
+  })
+
+  it('soft-parses optional landmarks.byId (junk / omit ignored)', () => {
+    const p = parseRaceProject({
+      ...minimal,
+      landmarks: {
+        byId: {
+          'maidens-tower': {
+            offsetM: { x: 2, y: 1, z: -3 },
+            yawDeg: 15,
+            mystery: true,
+          },
+          'galata-tower': { pitchDeg: 4 },
+          '': { yawDeg: 9 },
+          bad: 'nope',
+        },
+      },
+    })
+    expect(p.landmarks?.byId['maidens-tower']).toEqual({
+      offsetM: { x: 2, y: 1, z: -3 },
+      yawDeg: 15,
+    })
+    expect(p.landmarks?.byId['galata-tower']).toEqual({ pitchDeg: 4 })
+    expect(p.landmarks?.byId['']).toBeUndefined()
+    expect(p.landmarks?.byId.bad).toBeUndefined()
+
+    const scaled = parseRaceProject({
+      ...minimal,
+      landmarks: { byId: { 'maidens-tower': { scale: 3 } } },
+    })
+    expect(scaled.landmarks?.byId['maidens-tower']).toEqual({ scale: 3 })
+
+    const missing = parseRaceProject({
+      ...minimal,
+      landmarks: { byId: { junk: { offsetM: { x: 'nope' } } } },
+    })
+    expect(missing.landmarks).toBeUndefined()
+
+    const omitted = parseRaceProject(minimal)
+    expect(omitted.landmarks).toBeUndefined()
   })
 
   it('soft-parses optional fleet.boatVisibility (drops junk)', () => {

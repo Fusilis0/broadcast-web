@@ -46,7 +46,7 @@ import {
  * ramped travel as the sea. Ops preview + 3D NDI only (inherits this mount).
  */
 export const REALISTIC_ENVIRONMENT_DEFAULTS = {
-  skyScale: 10_000,
+  skyScale: 80_000,
   /** Preetham sky — muted / slightly overcast. */
   turbidity: 6,
   rayleigh: 1.4,
@@ -245,6 +245,8 @@ export function createRealisticEnvironment(
     lastCenterX = _camWorld.x
     lastCenterY = _camWorld.y
     lastCenterZ = _camWorld.z
+    sky.position.copy(_camWorld)
+    if (root.parent) root.worldToLocal(sky.position)
     syncWindVfx(0)
     prevBeforeRender.call(
       oceanHandle.mesh,

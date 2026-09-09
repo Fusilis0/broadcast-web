@@ -1,0 +1,874 @@
+{
+  "format_version": "1.0",
+  "source_file": "galata-tower",
+  "model_source": "sketchup",
+  "sketchup_version": "{21.0.0}",
+  "total_definitions": 6,
+  "total_meshes": 38,
+  "total_layers": 3,
+  "layers": [
+    {
+      "name": "Layer0",
+      "color": {
+        "r": 255,
+        "g": 84,
+        "b": 84
+      }
+    },
+    {
+      "name": "Google Earth Terrain",
+      "color": {
+        "r": 170,
+        "g": 68,
+        "b": 0
+      }
+    },
+    {
+      "name": "Google Earth Snapshot",
+      "color": {
+        "r": 204,
+        "g": 102,
+        "b": 0
+      }
+    }
+  ],
+  "materials": [
+    {
+      "name": "*10",
+      "color": {
+        "r": 195,
+        "g": 195,
+        "b": 145
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "E:\\My Documents\\Isler\\GoogleEarthModeller\\Galata-Kulesi\\_paratonel.png",
+        "x_scale": 19.68503937007874,
+        "y_scale": 118.11023622047244
+      }
+    },
+    {
+      "name": "*5",
+      "color": {
+        "r": 76,
+        "g": 87,
+        "b": 75
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "E:\\My Documents\\Isler\\GoogleEarthModeller\\Galata-Kulesi\\_silme.jpg",
+        "x_scale": 78.74015748031496,
+        "y_scale": 39.37007874015748
+      }
+    },
+    {
+      "name": "*4",
+      "color": {
+        "r": 186,
+        "g": 183,
+        "b": 154
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "E:\\My Documents\\Isler\\GoogleEarthModeller\\Galata-Kulesi\\_renk.jpg",
+        "x_scale": 19.68503937007874,
+        "y_scale": 19.68503937007874
+      }
+    },
+    {
+      "name": "*1",
+      "color": {
+        "r": 128,
+        "g": 122,
+        "b": 112
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "E:\\My Documents\\Isler\\GoogleEarthModeller\\Galata-Kulesi\\_cephe1.jpg",
+        "x_scale": 149.60629921259843,
+        "y_scale": 1377.9527559055118
+      }
+    },
+    {
+      "name": "*2",
+      "color": {
+        "r": 134,
+        "g": 127,
+        "b": 116
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "E:\\My Documents\\Isler\\GoogleEarthModeller\\Galata-Kulesi\\_cephe2.jpg",
+        "x_scale": 141.91540010987,
+        "y_scale": 1377.9527559055118
+      }
+    },
+    {
+      "name": "*6",
+      "color": {
+        "r": 124,
+        "g": 120,
+        "b": 104
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "E:\\My Documents\\Isler\\GoogleEarthModeller\\Galata-Kulesi\\_cephe3.jpg",
+        "x_scale": 149.60629921259843,
+        "y_scale": 236.2204724409449
+      }
+    },
+    {
+      "name": "*9",
+      "color": {
+        "r": 215,
+        "g": 207,
+        "b": 198
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "E:\\My Documents\\Isler\\GoogleEarthModeller\\Galata-Kulesi\\korkuluk.png",
+        "x_scale": 163.38582677165357,
+        "y_scale": 102.11614173228348
+      }
+    },
+    {
+      "name": "[Color_C15]",
+      "color": {
+        "r": 36,
+        "g": 40,
+        "b": 45
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "D:\\Documents and Settings\\ozan\\Desktop\\Google Earth projeler\\galata kulesi\\kaplama\\renk 1.jpg",
+        "x_scale": 100.0,
+        "y_scale": 51.61290322580645
+      }
+    },
+    {
+      "name": "*12",
+      "color": {
+        "r": 207,
+        "g": 225,
+        "b": 237
+      },
+      "transparency": 1.0,
+      "colorized": true,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "E:\\My Documents\\Isler\\GoogleEarthModeller\\Galata-Kulesi\\_cati.jpg",
+        "x_scale": 52.493438320209975,
+        "y_scale": 78.74015748031496
+      }
+    },
+    {
+      "name": "*8",
+      "color": {
+        "r": 147,
+        "g": 160,
+        "b": 168
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "E:\\My Documents\\Isler\\GoogleEarthModeller\\Galata-Kulesi\\_cati.jpg",
+        "x_scale": 52.493438320209975,
+        "y_scale": 78.74015748031496
+      }
+    },
+    {
+      "name": "*3",
+      "color": {
+        "r": 132,
+        "g": 119,
+        "b": 105
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "E:\\My Documents\\Isler\\GoogleEarthModeller\\Galata-Kulesi\\_kapi.jpg",
+        "x_scale": 149.60629921259843,
+        "y_scale": 590.5511811023622
+      }
+    },
+    {
+      "name": "*7",
+      "color": {
+        "r": 109,
+        "g": 110,
+        "b": 98
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "E:\\My Documents\\Isler\\GoogleEarthModeller\\Galata-Kulesi\\_cephe4.jpg",
+        "x_scale": 121.25984251968505,
+        "y_scale": 157.48031496062993
+      }
+    },
+    {
+      "name": "*11",
+      "color": {
+        "r": 85,
+        "g": 96,
+        "b": 100
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "E:\\My Documents\\Isler\\GoogleEarthModeller\\Galata-Kulesi\\_cati-pencere.jpg",
+        "x_scale": 68.8976377952756,
+        "y_scale": 118.11023622047244
+      }
+    },
+    {
+      "name": "Google Earth Snapshot1",
+      "color": {
+        "r": 113,
+        "g": 113,
+        "b": 113
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\DOCUME~1\\BURCIN\\LOCALS~1\\Temp\\GEIA.jpg",
+        "x_scale": 1.0,
+        "y_scale": 1.0
+      }
+    },
+    {
+      "name": "Layer_Layer0",
+      "color": {
+        "r": 255,
+        "g": 84,
+        "b": 84
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Layer_Google Earth Terrain",
+      "color": {
+        "r": 170,
+        "g": 68,
+        "b": 0
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Layer_Google Earth Snapshot",
+      "color": {
+        "r": 204,
+        "g": 102,
+        "b": 0
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    }
+  ],
+  "mesh_index": {
+    "mesh_0_ROOT__Component_44__Component_45_Layer0": {
+      "name": "",
+      "definition_name": "Group#1",
+      "layer": "Layer0",
+      "position_mm": [
+        697.58,
+        -4243.94,
+        67522.5
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_45"
+    },
+    "mesh_1_ROOT__Component_44__Component_67_Layer0_147_160_168_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        1674.38,
+        -906.02,
+        56148.55
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_67"
+    },
+    "mesh_2_ROOT__Component_44__Component_67_Layer0_85_96_100_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        1674.38,
+        -906.02,
+        56148.55
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_67"
+    },
+    "mesh_3_ROOT__Component_44__Component_67_Layer0_85_96_100_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        1674.38,
+        -906.02,
+        56148.55
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_67"
+    },
+    "mesh_4_ROOT__Component_44__Component_67_Layer0_207_225_237_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        1674.38,
+        -906.02,
+        56148.55
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_67"
+    },
+    "mesh_5_ROOT__Component_44__Component_67_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        1674.38,
+        -906.02,
+        56148.55
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_67"
+    },
+    "mesh_6_ROOT__Component_44__Component_67_Layer0_147_160_168_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        4784.75,
+        -5220.74,
+        56148.55
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_67"
+    },
+    "mesh_7_ROOT__Component_44__Component_67_Layer0_85_96_100_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        4784.75,
+        -5220.74,
+        56148.55
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_67"
+    },
+    "mesh_8_ROOT__Component_44__Component_67_Layer0_85_96_100_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        4784.75,
+        -5220.74,
+        56148.55
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_67"
+    },
+    "mesh_9_ROOT__Component_44__Component_67_Layer0_207_225_237_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        4784.75,
+        -5220.74,
+        56148.55
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_67"
+    },
+    "mesh_10_ROOT__Component_44__Component_67_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        4784.75,
+        -5220.74,
+        56148.55
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_67"
+    },
+    "mesh_11_ROOT__Component_44__Component_67_Layer0_147_160_168_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        470.03,
+        -8331.11,
+        56148.55
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_67"
+    },
+    "mesh_12_ROOT__Component_44__Component_67_Layer0_85_96_100_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        470.03,
+        -8331.11,
+        56148.55
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_67"
+    },
+    "mesh_13_ROOT__Component_44__Component_67_Layer0_85_96_100_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        470.03,
+        -8331.11,
+        56148.55
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_67"
+    },
+    "mesh_14_ROOT__Component_44__Component_67_Layer0_207_225_237_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        470.03,
+        -8331.11,
+        56148.55
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_67"
+    },
+    "mesh_15_ROOT__Component_44__Component_67_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        470.03,
+        -8331.11,
+        56148.55
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_67"
+    },
+    "mesh_16_ROOT__Component_44__Component_67_Layer0_147_160_168_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -2640.34,
+        -4016.39,
+        56148.55
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_67"
+    },
+    "mesh_17_ROOT__Component_44__Component_67_Layer0_85_96_100_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -2640.34,
+        -4016.39,
+        56148.55
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_67"
+    },
+    "mesh_18_ROOT__Component_44__Component_67_Layer0_85_96_100_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -2640.34,
+        -4016.39,
+        56148.55
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_67"
+    },
+    "mesh_19_ROOT__Component_44__Component_67_Layer0_207_225_237_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -2640.34,
+        -4016.39,
+        56148.55
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_67"
+    },
+    "mesh_20_ROOT__Component_44__Component_67_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -2640.34,
+        -4016.39,
+        56148.55
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_67"
+    },
+    "mesh_21_ROOT__Component_44__Component_100_Layer0_76_87_75_ss": {
+      "name": "",
+      "definition_name": "Group#2",
+      "layer": "Layer0",
+      "position_mm": [
+        1072.21,
+        7978.89,
+        -2962.5
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_100"
+    },
+    "mesh_22_ROOT__Component_44__Component_100_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#2",
+      "layer": "Layer0",
+      "position_mm": [
+        1072.21,
+        7978.89,
+        -2962.5
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_100"
+    },
+    "mesh_23_ROOT__Component_44__Component_100_Layer0_128_122_112_ss": {
+      "name": "",
+      "definition_name": "Group#2",
+      "layer": "Layer0",
+      "position_mm": [
+        1072.21,
+        7978.89,
+        -2962.5
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_100"
+    },
+    "mesh_24_ROOT__Component_44__Component_100_Layer0_134_127_116_ss": {
+      "name": "",
+      "definition_name": "Group#2",
+      "layer": "Layer0",
+      "position_mm": [
+        1072.21,
+        7978.89,
+        -2962.5
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_100"
+    },
+    "mesh_25_ROOT__Component_44__Component_100_Layer0_124_120_104_ss": {
+      "name": "",
+      "definition_name": "Group#2",
+      "layer": "Layer0",
+      "position_mm": [
+        1072.21,
+        7978.89,
+        -2962.5
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_100"
+    },
+    "mesh_26_ROOT__Component_44__Component_100_Layer0_215_207_198_ds": {
+      "name": "",
+      "definition_name": "Group#2",
+      "layer": "Layer0",
+      "position_mm": [
+        1072.21,
+        7978.89,
+        -2962.5
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_100"
+    },
+    "mesh_27_ROOT__Component_44__Component_100_Layer0_36_40_45_ss": {
+      "name": "",
+      "definition_name": "Group#2",
+      "layer": "Layer0",
+      "position_mm": [
+        1072.21,
+        7978.89,
+        -2962.5
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_100"
+    },
+    "mesh_28_ROOT__Component_44__Component_100_Layer0_207_225_237_ss": {
+      "name": "",
+      "definition_name": "Group#2",
+      "layer": "Layer0",
+      "position_mm": [
+        1072.21,
+        7978.89,
+        -2962.5
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_100"
+    },
+    "mesh_29_ROOT__Component_44__Component_100_Layer0_147_160_168_ss": {
+      "name": "",
+      "definition_name": "Group#2",
+      "layer": "Layer0",
+      "position_mm": [
+        1072.21,
+        7978.89,
+        -2962.5
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_100"
+    },
+    "mesh_30_ROOT__Component_44__Component_100_Layer0_186_183_154_ss": {
+      "name": "",
+      "definition_name": "Group#2",
+      "layer": "Layer0",
+      "position_mm": [
+        1072.21,
+        7978.89,
+        -2962.5
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_100"
+    },
+    "mesh_31_ROOT__Component_44__Component_100_Layer0_132_119_105_ss": {
+      "name": "",
+      "definition_name": "Group#2",
+      "layer": "Layer0",
+      "position_mm": [
+        1072.21,
+        7978.89,
+        -2962.5
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_100"
+    },
+    "mesh_32_ROOT__Component_44__Component_100_Layer0_109_110_98_ss": {
+      "name": "",
+      "definition_name": "Group#2",
+      "layer": "Layer0",
+      "position_mm": [
+        1072.21,
+        7978.89,
+        -2962.5
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_100"
+    },
+    "mesh_33_ROOT__Component_44__Component_100_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#2",
+      "layer": "Layer0",
+      "position_mm": [
+        1072.21,
+        7978.89,
+        -2962.5
+      ],
+      "properties": {},
+      "path": "ROOT / Component_44 / Component_100"
+    },
+    "mesh_34_ROOT__Google_Earth_Terrain_Location Terrain_113_113_113_ss": {
+      "name": "Google Earth Terrain",
+      "definition_name": "Google Earth Terrain",
+      "layer": "Location Terrain",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Google Earth Terrain"
+    },
+    "mesh_35_ROOT__Google_Earth_Terrain_Location Terrain_136_136_136_ss": {
+      "name": "Google Earth Terrain",
+      "definition_name": "Google Earth Terrain",
+      "layer": "Location Terrain",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Google Earth Terrain"
+    },
+    "mesh_36_ROOT__Google_Earth_Snapshot_Location Snapshot_113_113_113_ss": {
+      "name": "Google Earth Snapshot",
+      "definition_name": "Google Earth Snapshot",
+      "layer": "Location Snapshot",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Google Earth Snapshot"
+    },
+    "mesh_37_ROOT__Google_Earth_Snapshot_Location Snapshot_136_136_136_ss": {
+      "name": "Google Earth Snapshot",
+      "definition_name": "Google Earth Snapshot",
+      "layer": "Location Snapshot",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Google Earth Snapshot"
+    }
+  },
+  "scene_hierarchy": {
+    "name": "ROOT",
+    "definition_name": "ROOT_MODEL",
+    "layer": "Layer0",
+    "position_mm": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "properties": {},
+    "children": [
+      {
+        "name": "",
+        "definition_name": "Group#4",
+        "layer": "Layer0",
+        "position_mm": [
+          -7532.02,
+          3985.66,
+          -2962.5
+        ],
+        "properties": {},
+        "children": [
+          {
+            "name": "",
+            "definition_name": "Group#1",
+            "layer": "Layer0",
+            "position_mm": [
+              697.58,
+              -4243.94,
+              67522.5
+            ],
+            "properties": {},
+            "children": []
+          },
+          {
+            "name": "",
+            "definition_name": "Group#3",
+            "layer": "Layer0",
+            "position_mm": [
+              1674.38,
+              -906.02,
+              56148.55
+            ],
+            "properties": {},
+            "children": []
+          },
+          {
+            "name": "",
+            "definition_name": "Group#3",
+            "layer": "Layer0",
+            "position_mm": [
+              4784.75,
+              -5220.74,
+              56148.55
+            ],
+            "properties": {},
+            "children": []
+          },
+          {
+            "name": "",
+            "definition_name": "Group#3",
+            "layer": "Layer0",
+            "position_mm": [
+              470.03,
+              -8331.11,
+              56148.55
+            ],
+            "properties": {},
+            "children": []
+          },
+          {
+            "name": "",
+            "definition_name": "Group#3",
+            "layer": "Layer0",
+            "position_mm": [
+              -2640.34,
+              -4016.39,
+              56148.55
+            ],
+            "properties": {},
+            "children": []
+          },
+          {
+            "name": "",
+            "definition_name": "Group#2",
+            "layer": "Layer0",
+            "position_mm": [
+              1072.21,
+              7978.89,
+              -2962.5
+            ],
+            "properties": {},
+            "children": []
+          }
+        ]
+      },
+      {
+        "name": "Google Earth Terrain",
+        "definition_name": "Google Earth Terrain",
+        "layer": "Location Terrain",
+        "position_mm": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "Google Earth Snapshot",
+        "definition_name": "Google Earth Snapshot",
+        "layer": "Location Snapshot",
+        "position_mm": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "properties": {},
+        "children": []
+      }
+    ]
+  }
+}

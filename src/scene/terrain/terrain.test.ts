@@ -10,11 +10,18 @@ import {
 import * as GeoOrigin from '../../geodesy/geoOrigin.ts'
 import { creditsToLines, htmlToPlainText } from './attribution.ts'
 import {
+  CESIUM_ION_BING_AERIAL_ASSET_ID,
+  CESIUM_ION_BING_ROAD_ASSET_ID,
   CESIUM_ION_WORLD_TERRAIN_ASSET_ID,
   DEFAULT_TERRAIN_ENABLED,
   REORIENTATION_AZIMUTH_RAD,
 } from './constants.ts'
-import { createTerrain, describeIonLoadError, type TerrainTilesAdapter } from './createTerrain.ts'
+import {
+  createTerrain,
+  describeIonLoadError,
+  shouldRegisterReorientation,
+  type TerrainTilesAdapter,
+} from './createTerrain.ts'
 import { pluginFrameToScene, reorientationHeightHae } from './reorient.ts'
 import { shouldShowTerrain } from './terrainGate.ts'
 import { DEFAULT_TERRAIN_WATER_DISCARD_Y, shouldHideTerrainWater } from './terrainWaterMask.ts'
@@ -22,15 +29,26 @@ import { DEFAULT_TERRAIN_WATER_DISCARD_Y, shouldHideTerrainWater } from './terra
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const BIN_PATH = resolve(__dirname, '../../../public/EGM96_1deg.bin')
 
-function stubTiles(): { adapter: TerrainTilesAdapter; updateCount: { n: number } } {
+function stubTiles(): {
+  adapter: TerrainTilesAdapter
+  updateCount: { n: number }
+  cameras: { set: THREE.Camera[]; deleted: THREE.Camera[] }
+} {
   const group = new THREE.Group()
   group.name = 'stubTiles'
   const updateCount = { n: 0 }
+  const cameras = { set: [] as THREE.Camera[], deleted: [] as THREE.Camera[] }
   const adapter: TerrainTilesAdapter = {
     group,
     registerPlugin: () => undefined,
-    setCamera: () => true,
-    deleteCamera: () => true,
+    setCamera: (camera) => {
+      cameras.set.push(camera)
+      return true
+    },
+    deleteCamera: (camera) => {
+      cameras.deleted.push(camera)
+      return true
+    },
     setResolutionFromRenderer: () => true,
     update: () => {
       updateCount.n += 1
@@ -41,7 +59,7 @@ function stubTiles(): { adapter: TerrainTilesAdapter; updateCount: { n: number }
       group.clear()
     },
   }
-  return { adapter, updateCount }
+  return { adapter, updateCount, cameras }
 }
 
 function fakeRenderer(): THREE.WebGLRenderer {
@@ -183,6 +201,25 @@ describe('createTerrain (stubbed tileset, no ion network)', () => {
     handle.dispose()
   })
 
+  it('unregisters a parked air camera when tick uses preview only', () => {
+    const { adapter, cameras } = stubTiles()
+    const handle = createTerrain({
+      renderer: fakeRenderer(),
+      token: 'test-token',
+      skipIonPlugins: true,
+      tilesFactory: () => adapter,
+    })
+    handle.setEnabled(true)
+    const preview = new THREE.PerspectiveCamera()
+    const air = new THREE.PerspectiveCamera()
+    handle.tick(preview, air, fakeRenderer())
+    expect(cameras.set).toContain(preview)
+    expect(cameras.set).toContain(air)
+    handle.tick(preview, preview, fakeRenderer())
+    expect(cameras.deleted).toContain(air)
+    handle.dispose()
+  })
+
   it('hides water only when asked; default threshold is +0.5 m', () => {
     const { adapter } = stubTiles()
     const handle = createTerrain({
@@ -215,6 +252,8 @@ describe('createTerrain (stubbed tileset, no ion network)', () => {
     )
     expect(shader.uniforms['uHideTerrainWater']?.value).toBe(1)
     expect(shader.fragmentShader).toContain('discard')
+    expect(shader.uniforms['uTerrainGrey']).toBeUndefined()
+    expect(shader.fragmentShader).not.toContain('uTerrainGrey')
 
     handle.setHideWater(false)
     expect(handle.getHideWater()).toBe(false)
@@ -227,6 +266,47 @@ describe('createTerrain (stubbed tileset, no ion network)', () => {
 
     mesh.geometry.dispose()
     ;(mesh.material as THREE.Material).dispose()
+    handle.dispose()
+  })
+
+  it('defaults overlay to Bing Aerial ion 2; road 4 stays available', () => {
+    const { adapter } = stubTiles()
+    let factoryCalls = 0
+    const handle = createTerrain({
+      renderer: fakeRenderer(),
+      token: 'test-token',
+      skipIonPlugins: true,
+      tilesFactory: () => {
+        factoryCalls += 1
+        return adapter
+      },
+    })
+    expect(factoryCalls).toBe(1)
+    expect(handle.getImageryAssetId()).toBe(CESIUM_ION_BING_AERIAL_ASSET_ID)
+    expect(handle.getImageryAssetId()).toBe(2)
+    expect(handle.getStatusMessage()).toBe('Terrain: off')
+
+    handle.setEnabled(true)
+    handle.setOpaqueClearSafe(true)
+    expect(handle.getStatusMessage()).toContain('aerial')
+    expect(handle.getStatusMessage()).not.toContain('grey')
+
+    handle.dispose()
+  })
+
+  it('accepts aerial overlay 2 without remounting in the stub factory', () => {
+    const { adapter } = stubTiles()
+    const handle = createTerrain({
+      renderer: fakeRenderer(),
+      token: 'test-token',
+      skipIonPlugins: true,
+      imageryAssetId: CESIUM_ION_BING_AERIAL_ASSET_ID,
+      tilesFactory: () => adapter,
+    })
+    expect(handle.getImageryAssetId()).toBe(2)
+    handle.setEnabled(true)
+    handle.setOpaqueClearSafe(true)
+    expect(handle.getStatusMessage()).toContain('aerial')
     handle.dispose()
   })
 })
@@ -246,8 +326,50 @@ describe('attribution strings', () => {
 })
 
 describe('ion asset defaults', () => {
-  it('defaults World Terrain to asset 1', () => {
+  it('defaults World Terrain to asset 1, Aerial overlay 2, Road compare 4', () => {
     expect(CESIUM_ION_WORLD_TERRAIN_ASSET_ID).toBe(1)
+    expect(CESIUM_ION_BING_ROAD_ASSET_ID).toBe(4)
+    expect(CESIUM_ION_BING_AERIAL_ASSET_ID).toBe(2)
+  })
+
+  it('createTerrain defaults overlay from DEFAULT_TERRAIN_OVERLAY; grey Rec.709 is gone', () => {
+    const src = readFileSync(resolve(__dirname, 'createTerrain.ts'), 'utf8')
+    expect(src).toContain('overlayToImageryAssetId(DEFAULT_TERRAIN_OVERLAY)')
+    expect(src).toContain('CESIUM_ION_BING_ROAD_ASSET_ID')
+    expect(src).toContain('CESIUM_ION_BING_AERIAL_ASSET_ID')
+    expect(src).toContain('CesiumIonOverlay')
+    expect(src).toContain('ImageOverlayPlugin')
+    expect(src).toContain('falling back to Aerial')
+    expect(src).not.toContain('setImageryLook')
+    expect(src).not.toContain('uTerrainGrey')
+    expect(src).not.toContain('GoogleMapsOverlay')
+    expect(src).not.toContain('GoogleCloudAuth')
+    expect(src).not.toMatch(/imageryAssetId\s*[:=]\s*0/)
+    expect(src).toMatch(/isolateTilesRendererCaches/)
+  })
+
+  it('createScene remounts terrain on overlay switch without disposing OSM Buildings', () => {
+    const src = readFileSync(resolve(__dirname, '../createScene.ts'), 'utf8')
+    expect(src).toContain('setTerrainOverlay')
+    expect(src).toContain('remountTerrainOnly')
+    expect(src).toContain('CESIUM_ION_BING_ROAD_ASSET_ID')
+    expect(src).not.toContain('setTerrainImageryLook')
+    expect(src).not.toContain('setImageryLook')
+    expect(src).toMatch(
+      /function remountTerrainOnly\([\s\S]{0,600}disposeTerrainInstance/,
+    )
+    expect(src).not.toMatch(
+      /function remountTerrainOnly\([\s\S]{0,400}disposeBuildingsInstance/,
+    )
+    expect(src).toMatch(
+      /function restoreCinematicLook\(\)[\s\S]{0,1400}disposeBuildingsInstance/,
+    )
+    expect(src).toContain('BUILDINGS_ERROR_TARGET')
+    expect(src).toMatch(/terrain\.tick\(tilesCam, tilesCam, renderer\)/)
+    expect(src).toContain('parkedGlobeTerrain')
+    expect(src).toContain('parkedEnuTerrain')
+    expect(src).toContain('reuseParked')
+    expect(src).toMatch(/cinematicPlayer\.seek\(0\)/)
   })
 })
 
@@ -264,5 +386,13 @@ describe('describeIonLoadError', () => {
     expect(
       describeIonLoadError({ tile: { content: { uri: 'x.terrain' } }, error: '404' }),
     ).toEqual({ rootFailed: false, detail: '404' })
+  })
+})
+
+describe('cinematic globe tiles (no ReorientationPlugin)', () => {
+  it('skips ENU reorientation when reorient is false', () => {
+    expect(shouldRegisterReorientation(undefined)).toBe(true)
+    expect(shouldRegisterReorientation(true)).toBe(true)
+    expect(shouldRegisterReorientation(false)).toBe(false)
   })
 })

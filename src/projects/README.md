@@ -21,19 +21,19 @@ API stub: [`server/README.md`](../../server/README.md) · ops: [`docs/ops/projec
 ```ts
 import {
   applyRaceProjectToConfig,
+  DEFAULT_BOOT_RACE_ID,
   loadRaceProject,
 } from './projects/index.ts'
 
 const config = await loadConfig()
-if (deeplink.race) {
-  try {
-    const project = await loadRaceProject(deeplink.race, {
-      projectsApiBase: config.projectsApiBase,
-    })
-    applyRaceProjectToConfig(config, project)
-  } catch (err) {
-    console.warn('[projects] race pack load failed; continuing with config.json', err)
-  }
+const bootRaceId = deeplink.race?.trim() || DEFAULT_BOOT_RACE_ID
+try {
+  const project = await loadRaceProject(bootRaceId, {
+    projectsApiBase: config.projectsApiBase,
+  })
+  applyRaceProjectToConfig(config, project)
+} catch (err) {
+  console.warn('[projects] race pack load failed; continuing with config.json', err)
 }
 applyDeeplinkToBoot(config, deeplink)
 ```
@@ -69,7 +69,7 @@ Sidebar **Project** section (`startProjectManagerPanel`) lists API projects when
 
 Helpers: `listRaceProjects`, `duplicateRaceProject`, `renameRaceProject`, `setRaceProjectArchived`, `confirmSaveWithOrphanBoatIds` (`src/projects/projectManager.ts`).
 
-Payload includes **runtime session** state: world origin (`config.origin` / world-anchor Apply), Fleet `boatIds` / `povIds`, embedded **`fleet.boats`** rows (names, category, visibility, map flag, planned GPS), `boatNamesUrl` (fallback for old packs), **`features`** (present including `[]` is the complete world — demo `courseUrl` / `sponsorsUrl` / `flagsUrl` are ignored on Load), fixture URLs (compat when `features` omitted), soft **`calibration.byPovId`** (CAL offsets snapshot for current `povIds`; omitted when empty), and soft **`output.srtUrlTemplate` + `output.srtByPovId`** (SRT camera ids; the relay token is stripped on Save). Load hydrates `offsetsStore` when the field is present and rebuilds the Fleet list from `fleet.boats` when present (does not dump the names-URL catalogue).
+Payload includes **runtime session** state: world origin (`config.origin` / world-anchor Apply), Fleet `boatIds` / `povIds`, embedded **`fleet.boats`** rows (names, category, visibility, map flag, planned GPS), `boatNamesUrl` (fallback for old packs), **`features`** (present including `[]` is the complete world — demo `courseUrl` / `sponsorsUrl` / `flagsUrl` are ignored on Load), fixture URLs (compat when `features` omitted), soft **`calibration.byPovId`** (CAL offsets snapshot for current `povIds`; omitted when empty), soft **`landmarks.byId`** (hero ENU/Euler authoring offsets; omitted when empty — missing ids use catalogue `DEFAULT_LANDMARK_OFFSETS`), and soft **`output.srtUrlTemplate` + `output.srtByPovId`** (SRT camera ids; the relay token is stripped on Save). Load hydrates `offsetsStore` when the field is present and rebuilds the Fleet list from `fleet.boats` when present (does not dump the names-URL catalogue). Hero slider auto-save writes the pack only when Electron `races.save` or the projects API can persist — Chrome never downloads on each nudge.
 
 ### Save destinations
 

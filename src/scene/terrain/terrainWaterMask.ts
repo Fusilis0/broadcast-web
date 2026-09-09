@@ -7,7 +7,8 @@
  * threshold (default +0.5 m AMSL, plus the altitude nudge).
  *
  * Plugin registration order in `createTerrain` is unchanged — this only
- * patches materials after parse (`load-model` + a root traverse).
+ * patches materials after parse (`load-model` + a root traverse). Overlay
+ * look is the ion imagery asset (Road 4 / Aerial 2), not a luma filter.
  */
 
 import * as THREE from 'three'
@@ -47,8 +48,8 @@ function isPatched(
 }
 
 /**
- * Inject water-fragment `discard` into a tile material. Chains any existing
- * `onBeforeCompile` (fade / Bing overlay wrap first).
+ * Inject water-fragment `discard` into a tile material.
+ * Chains any existing `onBeforeCompile` (fade / Bing overlay wrap first).
  */
 export function patchTerrainWaterMaterial(
   material: THREE.Material,
@@ -78,10 +79,16 @@ export function patchTerrainWaterMaterial(
       shader.fragmentShader.replace(
         /void\s+main\s*\(\s*\)\s*\{/,
         (match) => `${match}
-          if (uHideTerrainWater > 0.5) {
+            if (uHideTerrainWater > 0.5) {
             float waterAmt = 0.0;
             #ifdef USE_ROUGHNESSMAP
-              waterAmt = 1.0 - texture2D(roughnessMap, vRoughnessMapUv).g;
+              vec3 rm = texture2D(roughnessMap, vRoughnessMapUv).rgb;
+              float chroma = max(abs(rm.r - rm.g), abs(rm.g - rm.b));
+              if (chroma < 0.08) {
+                waterAmt = 1.0 - rm.g;
+              } else {
+                waterAmt = vTerrainWorldY < uTerrainWaterY ? 1.0 : 0.0;
+              }
             #else
               waterAmt = vTerrainWorldY < uTerrainWaterY ? 1.0 : 0.0;
             #endif

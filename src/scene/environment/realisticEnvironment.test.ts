@@ -48,6 +48,10 @@ describe('createRealisticEnvironment', () => {
     expect(handle.root.children.length).toBe(0)
   })
 
+  it('uses a sky radius that still covers the 3rd bridge from the race origin', () => {
+    expect(REALISTIC_ENVIRONMENT_DEFAULTS.skyScale).toBe(80_000)
+  })
+
   it('snaps default wind from 000° to travel +Z (not the old −Z swell)', () => {
     const snap = windBus.getSnapshot()
     expect(snap?.directionFromDeg).toBe(0)

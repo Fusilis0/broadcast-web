@@ -178,6 +178,10 @@ export {
 
   type NdiMainPerfChannel,
 
+  type StudioCinematicRecordBridge,
+
+  type StudioCinematicRecordSaveResult,
+
 } from './studioBridge.ts'
 
 
@@ -848,6 +852,33 @@ export {
 } from './videoDecodePipeline.ts'
 
 
+
+export {
+  CINEMATIC_RECORD_BITRATE,
+  CINEMATIC_RECORD_COVER_BUDGET_MS,
+  CINEMATIC_RECORD_DEFAULT_ID,
+  CINEMATIC_RECORD_FPS,
+  CINEMATIC_RECORD_HEIGHT,
+  CINEMATIC_RECORD_MIME_CANDIDATES,
+  CINEMATIC_RECORD_WIDTH,
+  cinematicRecordDefaultName,
+  cinematicRecordNeedsRemux,
+  cinematicRecordShouldStop,
+  isCinematicRecordBusy,
+  isCinematicRecordMp4Mime,
+  pickCinematicRecordMime,
+  refuseCinematicRecord,
+  startCinematicRecord,
+  type CinematicRecordCanvas,
+  type CinematicRecordOk,
+  type CinematicRecordPathResult,
+  type CinematicRecordRefuse,
+  type CinematicRecordRefuseReason,
+  type CinematicRecordResult,
+  type CinematicRecordTransport,
+  type CinematicRecordWriteResult,
+  type StartCinematicRecordInput,
+} from './cinematicRecorder.ts'
 
 export {
 

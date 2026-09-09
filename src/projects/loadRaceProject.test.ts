@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { loadRaceProject, raceProjectApiUrl } from './loadRaceProject.ts'
+import { DEFAULT_BOOT_RACE_ID, loadRaceProject, raceProjectApiUrl } from './loadRaceProject.ts'
 
 const staticPack = {
   schemaVersion: 1,
@@ -20,6 +20,10 @@ const apiPack = {
 describe('loadRaceProject', () => {
   afterEach(() => {
     vi.restoreAllMocks()
+  })
+
+  it('boots the empty pack when no ?race=', () => {
+    expect(DEFAULT_BOOT_RACE_ID).toBe('empty')
   })
 
   it('loads static pack when projectsApiBase unset', async () => {

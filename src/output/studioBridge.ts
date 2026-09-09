@@ -95,6 +95,32 @@ export type StudioConfigBridge = {
   setCesiumIonToken: (token: string) => Promise<StudioConfigSetTokenResult>
 }
 
+export type StudioCinematicTilesBridge = {
+  packaged: () => Promise<boolean>
+  has: (name: string) => Promise<boolean>
+  read: (name: string) => Promise<ArrayBuffer | null>
+  write: (payload: {
+    name: string
+    bytes: ArrayBuffer
+    url?: string
+  }) => Promise<{ ok: boolean; skipped?: boolean; error?: string }>
+}
+
+export type StudioCinematicRecordSaveResult =
+  | { ok: true; path: string }
+  | { ok: false; cancelled?: boolean; error?: string }
+
+export type StudioCinematicRecordBridge = {
+  choosePath: (opts: {
+    defaultName: string
+  }) => Promise<StudioCinematicRecordSaveResult>
+  write: (opts: {
+    path: string
+    mime: string
+    bytes: ArrayBuffer
+  }) => Promise<StudioCinematicRecordSaveResult>
+}
+
 export type BroadcastStudioBridge = {
   isStudio: true
   ndi: StudioNdiBridge
@@ -105,6 +131,10 @@ export type BroadcastStudioBridge = {
    * (commit to share). `--file` → userData (not git).
    */
   config?: StudioConfigBridge
+  /** Packaged `--file` ion tile cache (userData). Optional; Vite uses GET/POST. */
+  cinematicTiles?: StudioCinematicTilesBridge
+  /** Silent cinematic MP4 save dialog + disk write. Optional; Chrome has none. */
+  cinematicRecord?: StudioCinematicRecordBridge
   /**
    * Main-process ~30 fps clock (not throttled when minimized).
    * NDI pumps subscribe here. Ops WebGL preview uses rAF when visible

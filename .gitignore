@@ -15,3 +15,11 @@ coverage/
 server/data/
 *.sqlite
 *.sqlite-journal
+# DSP-SCN-20260908-03 — ~98 MB Sketchfab mesh; no Git-LFS without BW/PLT.
+# Copy locally from Desktop `hero models/gltf-out/` for studio.
+public/models/landmarks/maidens-tower.glb
+# DSP-PLT-20260908-01 — cinematic ion tile bytes (not git). Manifest is SCN-07.
+.cache/cinematic-tiles/
+userData/cinematic-tiles/
+desktop/cinematic-tiles/
+*.terrain

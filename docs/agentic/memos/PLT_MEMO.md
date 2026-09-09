@@ -1,7 +1,15 @@
 # PLT_MEMO
 
-**Last updated:** 2026-09-05  
-**Status:** Phase 19.17 investigation **accepted** — stall is SCN remount; PLT plumbing not needed
+**Last updated:** 2026-09-09  
+**Status:** Cinematic tile dir shipped; **SCN-07 warm in tree**. Idle.
+
+## 2026-09-08 — DSP-PLT-20260908-01 code-complete
+
+Electron `userData/cinematic-tiles`, Vite `.cache/cinematic-tiles`, gitignored. `getCinematicTileCacheDir` Node/Vitest only — not SPA. Vite `GET /cinematic-tiles/*`. Filename SHA-256 of URL minus token query. Packaged `--file` read of userData is SCN-07 (IPC/protocol). No prefetch.
+
+## 2026-09-08 — cinematic tile disk (BW)
+
+Operator: ion tiles on studio disk, not git. Manifest (SCN-07) lists ids. PLT: `getCinematicTileCacheDir`, gitignore `.cache/cinematic-tiles/`, Electron userData. Handoff `HO-BW-PLT-20260908-01`.
 
 ## Phase 19 domain roadmap (PLT)
 

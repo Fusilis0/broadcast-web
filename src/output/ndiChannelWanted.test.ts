@@ -10,34 +10,34 @@ import {
 } from './ndiChannelWanted.ts'
 
 describe('ndiChannelWanted (Phase 19.4)', () => {
-  it('defaults all channels on', () => {
+  it('defaults all channels off', () => {
     expect(defaultNdiChannelWanted()).toEqual({
-      ar: true,
-      '3d': true,
-      '2d': true,
+      ar: false,
+      '3d': false,
+      '2d': false,
     })
-    expect(NDI_CHANNEL_WANTED_DEFAULTS.ar).toBe(true)
+    expect(NDI_CHANNEL_WANTED_DEFAULTS.ar).toBe(false)
   })
 
   it('normalizes partial overrides and ignores junk', () => {
-    expect(normalizeNdiChannelWanted({ ar: false })).toEqual({
-      ar: false,
-      '3d': true,
-      '2d': true,
+    expect(normalizeNdiChannelWanted({ ar: true })).toEqual({
+      ar: true,
+      '3d': false,
+      '2d': false,
     })
     expect(
       normalizeNdiChannelWanted({
         ar: 'nope' as unknown as boolean,
-        '3d': false,
+        '3d': true,
       }),
     ).toEqual({
-      ar: true,
-      '3d': false,
-      '2d': true,
+      ar: false,
+      '3d': true,
+      '2d': false,
     })
   })
 
-  it('loads all-on when sessionStorage missing or invalid', () => {
+  it('loads all-off when sessionStorage missing or invalid', () => {
     const mem = new Map<string, string>()
     const storage = {
       getItem: (k: string) => mem.get(k) ?? null,
@@ -58,7 +58,7 @@ describe('ndiChannelWanted (Phase 19.4)', () => {
         mem.set(k, v)
       },
     }
-    const next = saveNdiChannelWanted({ '3d': false, '2d': false }, storage)
+    const next = saveNdiChannelWanted({ ar: true, '3d': false }, storage)
     expect(next).toEqual({ ar: true, '3d': false, '2d': false })
     expect(mem.get(NDI_CHANNEL_WANTED_STORAGE_KEY)).toContain('"3d":false')
     expect(loadNdiChannelWanted(storage)).toEqual(next)

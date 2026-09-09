@@ -1,0 +1,70 @@
+{
+  "id": "_empty",
+  "durationSec": 2,
+  "width": 1920,
+  "height": 1080,
+  "fps": 30,
+  "shots": [
+    {
+      "t0": 0,
+      "t1": 1,
+      "domain": "globe",
+      "fog": false,
+      "ocean": false,
+      "buildings": false,
+      "imagery": "aerial",
+      "cloud01": 0,
+      "keyframes": [
+        {
+          "lat": 0,
+          "lon": 0,
+          "altMsl": 20000000,
+          "lookLat": 0,
+          "lookLon": 0,
+          "lookAltMsl": 0,
+          "t01": 0,
+          "ease": "linear"
+        },
+        {
+          "lat": 10,
+          "lon": 10,
+          "altMsl": 15000000,
+          "lookLat": 10,
+          "lookLon": 10,
+          "lookAltMsl": 0,
+          "t01": 1
+        }
+      ]
+    },
+    {
+      "t0": 1,
+      "t1": 2,
+      "domain": "enu",
+      "fog": false,
+      "ocean": true,
+      "buildings": true,
+      "imagery": "aerial",
+      "cloud01": 1,
+      "keyframes": [
+        {
+          "lat": 41.1,
+          "lon": 29.07,
+          "altMsl": 800,
+          "lookLat": 41.09,
+          "lookLon": 29.06,
+          "lookAltMsl": 0,
+          "t01": 0
+        },
+        {
+          "lat": 41.08,
+          "lon": 29.05,
+          "altMsl": 400,
+          "lookLat": 41.07,
+          "lookLon": 29.04,
+          "lookAltMsl": 0,
+          "t01": 1
+        }
+      ]
+    }
+  ]
+}

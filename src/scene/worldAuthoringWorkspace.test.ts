@@ -33,10 +33,10 @@ describe('resolveAuthoringInitiallyOpen', () => {
     expect(resolveAuthoringInitiallyOpen(true, '?editor=0')).toBe(false)
   })
 
-  it('defaults open for editor role and closed for air', () => {
-    expect(resolveAuthoringInitiallyOpen(true, '')).toBe(true)
+  it('defaults closed unless ?editor=1', () => {
+    expect(resolveAuthoringInitiallyOpen(true, '')).toBe(false)
     expect(resolveAuthoringInitiallyOpen(false, '')).toBe(false)
-    expect(resolveAuthoringInitiallyOpen(true, '?race=demo')).toBe(true)
+    expect(resolveAuthoringInitiallyOpen(true, '?race=demo')).toBe(false)
   })
 })
 

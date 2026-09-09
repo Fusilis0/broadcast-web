@@ -16,14 +16,28 @@ export const CESIUM_ION_WORLD_TERRAIN_ASSET_ID = 1
 /**
  * Cesium ion Asset Depot: Bing Maps Aerial (IMAGERY).
  * Draped via `ImageOverlayPlugin` + `CesiumIonOverlay`; not Google Photorealistic.
+ * Default Ops map overlay.
  */
 export const CESIUM_ION_BING_AERIAL_ASSET_ID = 2
+
+/**
+ * Cesium ion Asset Depot: Bing Maps Road (IMAGERY).
+ * Cesium preset “World Terrain + Bing Maps Road”. Cartographic streets/labels
+ * on quantized-mesh heights. Ops compare overlay. Not Google 2D Map Tiles.
+ */
+export const CESIUM_ION_BING_ROAD_ASSET_ID = 4
 
 /**
  * `UnloadTilesPlugin.bytesTarget` — GPU budget for uploaded tile meshes/textures.
  * 384 MiB is a conservative studio default (1080p × AR+3D). Tune if hitching.
  */
 export const TERRAIN_VRAM_BYTES_TARGET = 384 * 1024 * 1024
+
+/**
+ * Cinematic remounts skip UnloadTilesPlugin (fine Aerial must not evict).
+ * If unload is re-enabled, use this higher budget instead of 384 MiB.
+ */
+export const CINEMATIC_TERRAIN_VRAM_BYTES_TARGET = 768 * 1024 * 1024
 
 /** Wait after a tile is hidden before freeing GPU data (ms). */
 export const TERRAIN_UNLOAD_DELAY_MS = 1000
@@ -46,3 +60,9 @@ export const TERRAIN_STATUS_ON = 'Terrain: on · AR-gated'
 
 export const TERRAIN_SESSION_NUDGE_KEY = 'bw.terrain.altitudeNudgeM'
 export const TERRAIN_SESSION_LOCK_KEY = 'bw.terrain.tilesLocked'
+/**
+ * Ops map overlay: Bing Road ion 4 vs Bing Aerial ion 2.
+ * Missing session → aerial. Leftover `bw.terrain.imageryLook` is ignored.
+ */
+export const TERRAIN_SESSION_OVERLAY_KEY = 'bw.terrain.overlay'
+export const DEFAULT_TERRAIN_OVERLAY = 'aerial' as const

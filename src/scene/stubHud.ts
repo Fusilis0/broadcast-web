@@ -14,6 +14,7 @@ import {
 import { formatBoatEnuStatus } from './fleetRegistry.ts'
 import type { LayoutFeature } from './features/types.ts'
 import {
+  DEFAULT_OPS_VIEW_MODE,
   formatOpsViewStatus,
   isOpsViewMode,
   type OpsViewMode,
@@ -36,13 +37,35 @@ import {
 } from './waterPlanePlacement.ts'
 import {
   DEFAULT_TERRAIN_ENABLED,
+  DEFAULT_TERRAIN_OVERLAY,
   DEFAULT_TERRAIN_WATER_DISCARD_Y,
   TERRAIN_SESSION_LOCK_KEY,
   TERRAIN_SESSION_NUDGE_KEY,
+  isTerrainOverlayKind,
+  normalizeTerrainOverlay,
+  readSessionTerrainOverlay,
+  writeSessionTerrainOverlay,
+  type TerrainOverlayKind,
 } from './terrain/index.ts'
+import {
+  DEFAULT_BUILDINGS_ENABLED,
+  readSessionBuildingsEnabled,
+  writeSessionBuildingsEnabled,
+} from './buildings/index.ts'
+import {
+  DEFAULT_HEROES_ENABLED,
+  readSessionHeroesEnabled,
+  writeSessionHeroesEnabled,
+} from './landmarks/index.ts'
 import { createMap2d, type Map2dHandle } from './map2d.ts'
 import { formatPovStatus, resolvePovIdList } from './povSwitcher.ts'
 import { createStreamMap2d } from './streamMap.ts'
+import {
+  mountCinematicsOps,
+  type CinematicsOpsHandle,
+  type CinematicTransport,
+  type WarmTilesStatus,
+} from './cinematics/index.ts'
 import {
   clampStreamBoatIconScale,
   STREAM_BOAT_ICON_SCALE_MAX,
@@ -120,6 +143,8 @@ export type StubHudMountHosts = {
   environment?: HTMLElement
   /** Wind from-deg / hold row (right rail). Falls back to `ops`. */
   wind?: HTMLElement
+  /** Cinematics transport (right rail). Omitted → no row (legacy HUD). */
+  cinematics?: HTMLElement
   /** Ops 2D map root. */
   map: HTMLElement
   /** Stream / on-air map host (off-screen for 2D NDI; local 2D CSS-hosts it). */
@@ -229,10 +254,23 @@ export type StubHudOptions = {
   /** Cesium ion terrain (default off). */
   onTerrainEnabledChange?: (enabled: boolean) => void
   terrainEnabled?: boolean
+  /** Cesium OSM Buildings (default on). Independent of terrain on/off. */
+  onBuildingsEnabledChange?: (enabled: boolean) => void
+  buildingsEnabled?: boolean
+  /** Hero landmarks (default on). Independent of buildings on/off. */
+  onHeroesEnabledChange?: (enabled: boolean) => void
+  heroesEnabled?: boolean
   onTerrainAltitudeNudgeChange?: (nudgeM: number) => void
   terrainAltitudeNudgeM?: number
   onTerrainTilesLockedChange?: (locked: boolean) => void
   terrainTilesLocked?: boolean
+  /**
+   * Terrain map overlay (`road` | `aerial`). Default **aerial** (Bing Aerial ion 2).
+   * Session `bw.terrain.overlay`. Switching remounts terrain, not OSM Buildings.
+   * Leftover `bw.terrain.imageryLook` is ignored.
+   */
+  onTerrainOverlayChange?: (kind: TerrainOverlayKind) => void
+  terrainOverlay?: TerrainOverlayKind
   /** Height-fallback AMSL (m) for hiding Cesium water. Default 0.5. */
   onTerrainWaterDiscardYChange?: (yM: number) => void
   terrainWaterDiscardYM?: number
@@ -309,6 +347,14 @@ export type StubHudOptions = {
   initialOrigin?: ConfigOrigin
   /** Apply edited world anchor → GEO origin + ENU remount (caller). */
   onOriginApply?: (origin: ConfigOrigin) => void
+  /** Cinematic sequence selected (url from catalogue). Empty id = Off. */
+  onCinematicSequenceChange?: (id: string, url: string) => void
+  onCinematicPlay?: () => void
+  onCinematicPause?: () => void
+  onCinematicSeek?: (tSec: number) => void
+  onCinematicStop?: () => void
+  onCinematicDumpWarmUrls?: () => void
+  onCinematicRecord?: () => void
 }
 
 export type StubHudHandle = {
@@ -330,8 +376,14 @@ export type StubHudHandle = {
   setEnvironmentMode: (mode: EnvironmentMode) => void
   setSeaQuality: (quality: SeaQuality) => void
   setTerrainEnabled: (enabled: boolean) => void
+  setBuildingsEnabled: (enabled: boolean) => void
+  getBuildingsEnabled: () => boolean
+  setHeroesEnabled: (enabled: boolean) => void
+  getHeroesEnabled: () => boolean
   setTerrainAltitudeNudgeM: (nudgeM: number) => void
   setTerrainTilesLocked: (locked: boolean) => void
+  setTerrainOverlay: (kind: TerrainOverlayKind) => void
+  getTerrainOverlay: () => TerrainOverlayKind
   setTerrainWaterDiscardYM: (yM: number) => void
   setSeaHeightYM: (yM: number) => void
   setTerrainStatus: (msg: string) => void
@@ -379,6 +431,15 @@ export type StubHudHandle = {
   setOrigin: (origin: ConfigOrigin) => void
   /** Enable/disable Save + Save as (air-only → false). */
   setProjectWritesEnabled: (enabled: boolean) => void
+  /** Cinematic transport readout / scrub (authoring). */
+  setCinematicTransport: (transport: CinematicTransport) => void
+  setCinematicWarmStatus: (status: WarmTilesStatus) => void
+  setCinematicRecordStatus: (msg: string) => void
+  setCinematicRecordBusy: (busy: boolean) => void
+  /**
+   * Hide 2D maps while a cinematic is active (race chrome). Sidebar stays.
+   */
+  setCinematicChromeHidden: (hidden: boolean) => void
   stop: () => void
 }
 
@@ -461,6 +522,17 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   }
 
   const windHost = hosts?.wind ?? opsHud
+  const cinematicsOps: CinematicsOpsHandle | null = hosts?.cinematics
+    ? mountCinematicsOps(hosts.cinematics, {
+        onSequenceChange: options.onCinematicSequenceChange,
+        onPlay: options.onCinematicPlay,
+        onPause: options.onCinematicPause,
+        onSeek: options.onCinematicSeek,
+        onStop: options.onCinematicStop,
+        onDumpWarmUrls: options.onCinematicDumpWarmUrls,
+        onRecord: options.onCinematicRecord,
+      })
+    : null
 
   const modeRow = document.createElement('div')
   modeRow.className = 'ops-hud__mode-row'
@@ -536,7 +608,7 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
     opt.textContent = label
     viewSelect.appendChild(opt)
   }
-  let opsViewMode: OpsViewMode = options.opsViewMode ?? 'follow'
+  let opsViewMode: OpsViewMode = options.opsViewMode ?? DEFAULT_OPS_VIEW_MODE
   viewSelect.value = opsViewMode
   viewRow.appendChild(viewSelect)
 
@@ -713,6 +785,37 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   terrainSelect.value = terrainEnabled ? 'on' : 'off'
   terrainRow.appendChild(terrainSelect)
 
+  const overlayLabel = document.createElement('label')
+  overlayLabel.className = 'ops-hud__mode-label'
+  overlayLabel.htmlFor = 'ops-terrain-overlay'
+  overlayLabel.textContent = 'map'
+  terrainRow.appendChild(overlayLabel)
+
+  const overlaySelect = document.createElement('select')
+  overlaySelect.id = 'ops-terrain-overlay'
+  overlaySelect.className = 'ops-hud__mode-select'
+  overlaySelect.title =
+    'World Terrain overlay. aerial = Bing Aerial (ion 2) satellite (default); road = Bing Maps Road (ion 4) streets/labels on hills. Switching remounts terrain tiles, not OSM Buildings.'
+  for (const kind of ['road', 'aerial'] as const) {
+    const opt = document.createElement('option')
+    opt.value = kind
+    opt.textContent = kind
+    overlaySelect.appendChild(opt)
+  }
+  let terrainOverlay: TerrainOverlayKind =
+    options.terrainOverlay !== undefined
+      ? normalizeTerrainOverlay(options.terrainOverlay)
+      : DEFAULT_TERRAIN_OVERLAY
+  try {
+    if (options.terrainOverlay === undefined) {
+      terrainOverlay = readSessionTerrainOverlay(DEFAULT_TERRAIN_OVERLAY)
+    }
+  } catch {
+    // sessionStorage may be blocked
+  }
+  overlaySelect.value = terrainOverlay
+  terrainRow.appendChild(overlaySelect)
+
   const lockTilesLabel = document.createElement('label')
   lockTilesLabel.className = 'ops-hud__mode-label'
   lockTilesLabel.htmlFor = 'ops-terrain-lock-tiles'
@@ -724,7 +827,7 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   lockTilesCheck.type = 'checkbox'
   lockTilesCheck.className = 'ops-hud__checkbox'
   lockTilesCheck.title =
-    'Freeze terrain LOD once the shot is framed (broadcast air mode).'
+    'Freeze terrain and OSM Buildings LOD once the shot is framed (broadcast air mode).'
   let terrainTilesLocked = options.terrainTilesLocked === true
   try {
     if (options.terrainTilesLocked === undefined) {
@@ -735,6 +838,58 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   }
   lockTilesCheck.checked = terrainTilesLocked
   terrainRow.appendChild(lockTilesCheck)
+
+  const buildingsLabel = document.createElement('label')
+  buildingsLabel.className = 'ops-hud__mode-label'
+  buildingsLabel.htmlFor = 'ops-buildings-enabled'
+  buildingsLabel.textContent = 'buildings'
+  terrainRow.appendChild(buildingsLabel)
+
+  const buildingsCheck = document.createElement('input')
+  buildingsCheck.id = 'ops-buildings-enabled'
+  buildingsCheck.type = 'checkbox'
+  buildingsCheck.className = 'ops-hud__checkbox'
+  buildingsCheck.title =
+    'Cesium OSM Buildings (ion 96188). City massing, 3D/opaque only — forced off for transparent/chroma AR. Needs an ion token (Ops field or public/config.json). Independent of terrain on/off.'
+  let buildingsEnabled =
+    options.buildingsEnabled !== undefined
+      ? options.buildingsEnabled === true
+      : DEFAULT_BUILDINGS_ENABLED
+  try {
+    if (options.buildingsEnabled === undefined) {
+      buildingsEnabled = readSessionBuildingsEnabled(DEFAULT_BUILDINGS_ENABLED)
+    }
+  } catch {
+    // sessionStorage may be blocked
+  }
+  buildingsCheck.checked = buildingsEnabled
+  terrainRow.appendChild(buildingsCheck)
+
+  const heroesLabel = document.createElement('label')
+  heroesLabel.className = 'ops-hud__mode-label'
+  heroesLabel.htmlFor = 'ops-heroes-enabled'
+  heroesLabel.textContent = 'heroes'
+  terrainRow.appendChild(heroesLabel)
+
+  const heroesCheck = document.createElement('input')
+  heroesCheck.id = 'ops-heroes-enabled'
+  heroesCheck.type = 'checkbox'
+  heroesCheck.className = 'ops-hud__checkbox'
+  heroesCheck.title =
+    'Named historic landmarks (glTF or labelled proxy). 3D/opaque only — forced off for transparent/chroma AR. Off hides the mesh and fills the OSM occupancy hole.'
+  let heroesEnabled =
+    options.heroesEnabled !== undefined
+      ? options.heroesEnabled === true
+      : DEFAULT_HEROES_ENABLED
+  try {
+    if (options.heroesEnabled === undefined) {
+      heroesEnabled = readSessionHeroesEnabled(DEFAULT_HEROES_ENABLED)
+    }
+  } catch {
+    // sessionStorage may be blocked
+  }
+  heroesCheck.checked = heroesEnabled
+  terrainRow.appendChild(heroesCheck)
 
   const nudgeLabel = document.createElement('label')
   nudgeLabel.className = 'ops-hud__mode-label'
@@ -847,7 +1002,8 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   ionApply.type = 'button'
   ionApply.className = 'ops-hud__btn'
   ionApply.textContent = 'Apply'
-  ionApply.title = 'Remount terrain with this token and save to config.json (Electron).'
+  ionApply.title =
+    'Remount terrain and OSM buildings with this token and save to config.json (Electron).'
   ionRow.appendChild(ionApply)
 
   const applyIonToken = (): void => {
@@ -866,6 +1022,23 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
     if (next === terrainEnabled) return
     terrainEnabled = next
     options.onTerrainEnabledChange?.(next)
+  })
+  overlaySelect.addEventListener('change', () => {
+    const next = overlaySelect.value
+    if (!isTerrainOverlayKind(next) || next === terrainOverlay) return
+    terrainOverlay = next
+    writeSessionTerrainOverlay(terrainOverlay)
+    options.onTerrainOverlayChange?.(terrainOverlay)
+  })
+  buildingsCheck.addEventListener('change', () => {
+    buildingsEnabled = buildingsCheck.checked
+    writeSessionBuildingsEnabled(buildingsEnabled)
+    options.onBuildingsEnabledChange?.(buildingsEnabled)
+  })
+  heroesCheck.addEventListener('change', () => {
+    heroesEnabled = heroesCheck.checked
+    writeSessionHeroesEnabled(heroesEnabled)
+    options.onHeroesEnabledChange?.(heroesEnabled)
   })
   lockTilesCheck.addEventListener('change', () => {
     terrainTilesLocked = lockTilesCheck.checked
@@ -1291,6 +1464,16 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
       terrainEnabled = enabled === true
       terrainSelect.value = terrainEnabled ? 'on' : 'off'
     },
+    setBuildingsEnabled(enabled: boolean): void {
+      buildingsEnabled = enabled === true
+      buildingsCheck.checked = buildingsEnabled
+    },
+    getBuildingsEnabled: () => buildingsEnabled,
+    setHeroesEnabled(enabled: boolean): void {
+      heroesEnabled = enabled === true
+      heroesCheck.checked = heroesEnabled
+    },
+    getHeroesEnabled: () => heroesEnabled,
     setTerrainAltitudeNudgeM(nudgeM: number): void {
       terrainNudgeM = Number.isFinite(nudgeM) ? nudgeM : 0
       nudgeInput.value = String(terrainNudgeM)
@@ -1298,6 +1481,10 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
     setTerrainTilesLocked(locked: boolean): void {
       terrainTilesLocked = locked === true
       lockTilesCheck.checked = terrainTilesLocked
+    },
+    setTerrainOverlay(kind: TerrainOverlayKind): void {
+      terrainOverlay = normalizeTerrainOverlay(kind)
+      overlaySelect.value = terrainOverlay
     },
     setTerrainWaterDiscardYM(yM: number): void {
       terrainWaterDiscardYM = clampTerrainWaterDiscardYM(yM)
@@ -1343,6 +1530,7 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
     },
     getTerrainAltitudeNudgeM: () => terrainNudgeM,
     getTerrainTilesLocked: () => terrainTilesLocked,
+    getTerrainOverlay: () => terrainOverlay,
     getTerrainWaterDiscardYM: () => terrainWaterDiscardYM,
     getSeaHeightYM: () => seaHeightYM,
     setCourseMarks(marks): void {
@@ -1392,12 +1580,35 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
     setProjectWritesEnabled(enabled: boolean): void {
       localProject.setProjectWritesEnabled(enabled)
     },
+    setCinematicTransport(transport: CinematicTransport): void {
+      cinematicsOps?.setTransport(transport)
+    },
+    setCinematicWarmStatus(status: WarmTilesStatus): void {
+      cinematicsOps?.setWarmStatus(status)
+    },
+    setCinematicRecordStatus(msg: string): void {
+      cinematicsOps?.setRecordStatus(msg)
+    },
+    setCinematicRecordBusy(busy: boolean): void {
+      cinematicsOps?.setRecordBusy(busy)
+    },
+    setCinematicChromeHidden(hidden: boolean): void {
+      const hide = hidden === true
+      if (hosts) {
+        hosts.map.hidden = hide
+        hosts.streamMapHost.hidden = hide
+      } else {
+        map.root.hidden = hide
+        streamMap.root.hidden = hide
+      }
+    },
     stop(): void {
       window.clearInterval(refreshId)
       window.removeEventListener('keydown', onKeyDown)
       unsubPose()
       for (const u of unsubTel) u()
       windOps.dispose()
+      cinematicsOps?.dispose()
       map.dispose()
       streamMap.dispose()
       localProject.dispose()

@@ -1,7 +1,15 @@
 # SRT_MEMO
 
-**Last updated:** 2026-08-29  
-**Status:** Idle — HEVC copy-decode unblocked (`1a4e0ae`); fallback remains
+**Last updated:** 2026-09-07  
+**Status:** Phase **22** (after 20–21): **three** SRT callers AR/3D/2D; NDI parked. VPS TBD. Ingest locks unchanged.
+
+## 2026-09-07 — SRT program out (operator)
+
+Race day: SRT on **LAN**. Tests: network later (VPS TBD).
+
+**Approach (Phase 22):** **three** callers AR/3D/2D. ffmpeg children, `h264_amf`, not NDI pack. NDI code kept, unused on air. Design: `docs/architecture/srt-egress.md`. No DSP until Phase 20–21 done.
+
+## HEVC SPS RBSP unescape 2026-08-29 (pulled main)
 
 ## HEVC SPS RBSP unescape 2026-08-29 (pulled main)
 Far-device `fix(srt): unescape HEVC SPS so WebCodecs can copy-decode DJI`.

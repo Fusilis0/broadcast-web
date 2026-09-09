@@ -18,6 +18,11 @@ export type PersistRaceProjectOptions = {
    * `export`: always download; skip folder write.
    */
   mode: PersistRaceProjectMode
+  /**
+   * Chrome: skip the download fallback (slider auto-save). Electron folder
+   * write still runs. Default false.
+   */
+  skipDownload?: boolean
   /** Force download even when folder write succeeds (rare). Default false. */
   alsoDownload?: boolean
   download: (project: RaceProject) => void
@@ -58,6 +63,10 @@ export async function persistRaceProjectLocal(
     return { downloaded, local }
   }
 
+  if (options.skipDownload) {
+    return { downloaded: false, local: null }
+  }
+
   download(project)
   downloaded = true
   return { downloaded, local: null }
@@ -77,4 +86,21 @@ export function formatPersistStatus(
   if (extras?.api) parts.push('API')
   if (parts.length === 0) return 'save: no persist'
   return parts.join(' · ')
+}
+
+/**
+ * True when Save can write without a Chrome download (Electron folder or API).
+ * Slider auto-save must be gated on this so Chrome does not spam downloads.
+ */
+export function canPersistRaceProjectWithoutDownload(opts: {
+  racesBridge?: StudioRacesBridge | null
+  projectsApiBase?: string
+  canWriteApi?: boolean
+}): boolean {
+  if (opts.canWriteApi === false) return false
+  if (opts.racesBridge) return true
+  if (opts.canWriteApi === true && (opts.projectsApiBase ?? '').trim() !== '') {
+    return true
+  }
+  return false
 }

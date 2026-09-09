@@ -36,6 +36,11 @@ export {
   type AssetRowId,
 } from './assetInspector.ts'
 export {
+  startHeroesPanel,
+  type HeroesPanelHandle,
+  type HeroesPanelOptions,
+} from './heroesPanel.ts'
+export {
   openLibraryLogoPicker,
   type LibraryLogoPickerOptions,
 } from './libraryLogoPicker.ts'

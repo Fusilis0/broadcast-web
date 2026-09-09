@@ -1,0 +1,660 @@
+{
+  "format_version": "1.0",
+  "source_file": "fsm-bridge",
+  "model_source": "sketchup",
+  "sketchup_version": "{21.0.0}",
+  "total_definitions": 3,
+  "total_meshes": 28,
+  "total_layers": 4,
+  "layers": [
+    {
+      "name": "Layer0",
+      "color": {
+        "r": 255,
+        "g": 84,
+        "b": 84
+      }
+    },
+    {
+      "name": "Layer1",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 0
+      }
+    },
+    {
+      "name": "Google Earth Terrain",
+      "color": {
+        "r": 0,
+        "g": 153,
+        "b": 135
+      }
+    },
+    {
+      "name": "Google Earth Snapshot",
+      "color": {
+        "r": 119,
+        "g": 119,
+        "b": 153
+      }
+    }
+  ],
+  "materials": [
+    {
+      "name": "<Black>",
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 0
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<DarkGoldenrod>",
+      "color": {
+        "r": 184,
+        "g": 134,
+        "b": 11
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<Gray6>",
+      "color": {
+        "r": 96,
+        "g": 96,
+        "b": 96
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 1
+    },
+    {
+      "name": "<Beige>1",
+      "color": {
+        "r": 211,
+        "g": 189,
+        "b": 144
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<Brown>",
+      "color": {
+        "r": 119,
+        "g": 88,
+        "b": 54
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<Charcoal>",
+      "color": {
+        "r": 35,
+        "g": 35,
+        "b": 35
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<Redwood>",
+      "color": {
+        "r": 167,
+        "g": 101,
+        "b": 82
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 1
+    },
+    {
+      "name": "jean blue",
+      "color": {
+        "r": 36,
+        "g": 47,
+        "b": 66
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Google Earth Snapshot1",
+      "color": {
+        "r": 46,
+        "g": 46,
+        "b": 46
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\DOCUME~1\\Hp\\LOCALS~1\\Temp\\GEI2.jpg",
+        "x_scale": 1.0,
+        "y_scale": 1.0
+      }
+    },
+    {
+      "name": "[Asphalt_New]",
+      "color": {
+        "r": 155,
+        "g": 139,
+        "b": 143
+      },
+      "transparency": 1.0,
+      "colorized": true,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "Asphalt_New.jpg",
+        "x_scale": 12.0,
+        "y_scale": 12.0
+      }
+    },
+    {
+      "name": "[Metal_Aluminum_Anodized]",
+      "color": {
+        "r": 105,
+        "g": 109,
+        "b": 114
+      },
+      "transparency": 1.0,
+      "colorized": true,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "Metal_Aluminum_Anodized.jpg",
+        "x_scale": 54.0,
+        "y_scale": 54.0
+      }
+    },
+    {
+      "name": "[Cladding_Stucco_White]",
+      "color": {
+        "r": 200,
+        "g": 200,
+        "b": 200
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "Cladding_Stucco_White.jpg",
+        "x_scale": 18.0,
+        "y_scale": 27.0
+      }
+    },
+    {
+      "name": "[Asphalt_New]1",
+      "color": {
+        "r": 232,
+        "g": 207,
+        "b": 214
+      },
+      "transparency": 1.0,
+      "colorized": true,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "Asphalt_New.jpg",
+        "x_scale": 12.0,
+        "y_scale": 12.0
+      }
+    },
+    {
+      "name": "[Asphalt_New]2",
+      "color": {
+        "r": 67,
+        "g": 60,
+        "b": 62
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "Asphalt_New.jpg",
+        "x_scale": 12.0,
+        "y_scale": 12.0
+      }
+    },
+    {
+      "name": "Layer_Layer0",
+      "color": {
+        "r": 255,
+        "g": 84,
+        "b": 84
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Layer_Layer1",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 0
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Layer_Google Earth Terrain",
+      "color": {
+        "r": 0,
+        "g": 153,
+        "b": 135
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Layer_Google Earth Snapshot",
+      "color": {
+        "r": 119,
+        "g": 119,
+        "b": 153
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    }
+  ],
+  "mesh_index": {
+    "mesh_0_ROOT_Layer0_96_96_96_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_1_ROOT_Layer0_255_84_84_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_2_ROOT_Layer0_35_35_35_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_3_ROOT_Layer0_184_134_11_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_4_ROOT_Layer0_211_189_144_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_5_ROOT_Layer0_0_0_0_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_6_ROOT_Layer0_36_47_66_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_7_ROOT_Layer0_167_101_82_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_8_ROOT_Layer0_119_88_54_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_9_ROOT_Layer0_200_200_200_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_10_ROOT_Layer0_105_109_114_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_11_ROOT_Layer0_200_200_200_ds": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_12_ROOT_Layer0_67_60_62_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_13_ROOT_Layer0_232_207_214_ss": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_14_ROOT_Layer0_255_84_84_ds": {
+      "name": "ROOT",
+      "definition_name": "ROOT_MODEL",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT"
+    },
+    "mesh_15_ROOT__Component_695_Layer0_184_134_11_ss": {
+      "name": "",
+      "definition_name": "Bryce",
+      "layer": "Layer0",
+      "position_mm": [
+        482306.93,
+        44439.45,
+        168173.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_695"
+    },
+    "mesh_16_ROOT__Component_695_Layer0_200_200_200_ss": {
+      "name": "",
+      "definition_name": "Bryce",
+      "layer": "Layer0",
+      "position_mm": [
+        482306.93,
+        44439.45,
+        168173.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_695"
+    },
+    "mesh_17_ROOT__Component_695_Layer0_96_96_96_ss": {
+      "name": "",
+      "definition_name": "Bryce",
+      "layer": "Layer0",
+      "position_mm": [
+        482306.93,
+        44439.45,
+        168173.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_695"
+    },
+    "mesh_18_ROOT__Component_695_Layer0_211_189_144_ss": {
+      "name": "",
+      "definition_name": "Bryce",
+      "layer": "Layer0",
+      "position_mm": [
+        482306.93,
+        44439.45,
+        168173.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_695"
+    },
+    "mesh_19_ROOT__Component_695_Layer0_119_88_54_ss": {
+      "name": "",
+      "definition_name": "Bryce",
+      "layer": "Layer0",
+      "position_mm": [
+        482306.93,
+        44439.45,
+        168173.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_695"
+    },
+    "mesh_20_ROOT__Component_695_Layer0_35_35_35_ss": {
+      "name": "",
+      "definition_name": "Bryce",
+      "layer": "Layer0",
+      "position_mm": [
+        482306.93,
+        44439.45,
+        168173.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_695"
+    },
+    "mesh_21_ROOT__Component_695_Layer0_0_0_0_ss": {
+      "name": "",
+      "definition_name": "Bryce",
+      "layer": "Layer0",
+      "position_mm": [
+        482306.93,
+        44439.45,
+        168173.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_695"
+    },
+    "mesh_22_ROOT__Component_695_Layer0_167_101_82_ss": {
+      "name": "",
+      "definition_name": "Bryce",
+      "layer": "Layer0",
+      "position_mm": [
+        482306.93,
+        44439.45,
+        168173.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_695"
+    },
+    "mesh_23_ROOT__Component_695_Layer0_36_47_66_ss": {
+      "name": "",
+      "definition_name": "Bryce",
+      "layer": "Layer0",
+      "position_mm": [
+        482306.93,
+        44439.45,
+        168173.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_695"
+    },
+    "mesh_24_ROOT__Google_Earth_Terrain_Location Terrain_46_46_46_ss": {
+      "name": "Google Earth Terrain",
+      "definition_name": "Google Earth Terrain",
+      "layer": "Location Terrain",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Google Earth Terrain"
+    },
+    "mesh_25_ROOT__Google_Earth_Terrain_Location Terrain_200_200_200_ss": {
+      "name": "Google Earth Terrain",
+      "definition_name": "Google Earth Terrain",
+      "layer": "Location Terrain",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Google Earth Terrain"
+    },
+    "mesh_26_ROOT__Google_Earth_Snapshot_Location Snapshot_46_46_46_ss": {
+      "name": "Google Earth Snapshot",
+      "definition_name": "Google Earth Snapshot",
+      "layer": "Location Snapshot",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Google Earth Snapshot"
+    },
+    "mesh_27_ROOT__Google_Earth_Snapshot_Location Snapshot_200_200_200_ss": {
+      "name": "Google Earth Snapshot",
+      "definition_name": "Google Earth Snapshot",
+      "layer": "Location Snapshot",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Google Earth Snapshot"
+    }
+  },
+  "scene_hierarchy": {
+    "name": "ROOT",
+    "definition_name": "ROOT_MODEL",
+    "layer": "Layer0",
+    "position_mm": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "properties": {},
+    "children": [
+      {
+        "name": "",
+        "definition_name": "Bryce",
+        "layer": "Layer0",
+        "position_mm": [
+          482306.93,
+          44439.45,
+          168173.01
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "Google Earth Terrain",
+        "definition_name": "Google Earth Terrain",
+        "layer": "Location Terrain",
+        "position_mm": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "Google Earth Snapshot",
+        "definition_name": "Google Earth Snapshot",
+        "layer": "Location Snapshot",
+        "position_mm": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "properties": {},
+        "children": []
+      }
+    ]
+  }
+}

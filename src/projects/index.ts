@@ -14,6 +14,7 @@ export {
   type FleetBoatSnapshotInput,
 } from './fleetBoats.ts'
 export {
+  DEFAULT_BOOT_RACE_ID,
   loadRaceProject,
   raceProjectApiUrl,
   raceProjectUrl,
@@ -90,6 +91,7 @@ export {
 export {
   formatPersistStatus,
   persistRaceProjectLocal,
+  canPersistRaceProjectWithoutDownload,
   type PersistRaceProjectMode,
   type PersistRaceProjectOptions,
   type PersistRaceProjectResult,
@@ -120,6 +122,8 @@ export {
 export type {
   RaceProject,
   RaceProjectCalibration,
+  RaceProjectLandmarks,
+  RaceProjectLandmarkPose,
   RaceProjectOrigin,
   RaceProjectFleet,
   RaceProjectFleetBoat,

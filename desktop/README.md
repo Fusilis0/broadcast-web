@@ -178,13 +178,15 @@ npm run desktop:file
 
 | File | Role |
 | --- | --- |
-| `main.cjs` | BrowserWindow + NDI IPC (per-channel) + `races:*` + `config:setCesiumIonToken` + `srt:*` IPC |
-| `preload.cjs` | `window.broadcastStudio` bridge (`ndi` + `races` + `config` + `srt`) |
+| `main.cjs` | BrowserWindow + NDI IPC (per-channel) + `races:*` + `config:setCesiumIonToken` + `srt:*` + cinematic MP4 save IPC |
+| `preload.cjs` | `window.broadcastStudio` bridge (`ndi` + `races` + `config` + `srt` + `cinematicRecord`) |
 | `ndiSender.cjs` | Multi-sender `grandi` Map (`ar`/`3d`/`2d` → BGRA) |
 | `srtReader.cjs` | Per-POV SRT caller → raw MPEG-TS over IPC (ffmpeg `-c copy` child) |
 | `srtHelpers.cjs` | URL validation, ffmpeg argv (PTS-safe), status normalisation |
 | `racesFs.cjs` | Local RaceProject folder write/list/read |
 | `configFs.cjs` | Patch `cesiumIonToken` in `public/config.json` (dev) or userData (`--file`) |
+| `cinematicTileCache.cjs` | Cinematic ion tile cache dir (`userData/cinematic-tiles`; Vite uses `.cache/cinematic-tiles`) |
+| `cinematicRecord.cjs` | Save-as dialog + write silent cinematic MP4 (ffmpeg remux if MediaRecorder emitted WebM) |
 
 ## Local RaceProject saves (Phase 13.8)
 
@@ -218,6 +220,21 @@ studio; commit demo packs intentionally. No new ignore scheme in this slice.
 
 **API coexistence:** when `projectsApiBase` is set, HTTP POST/PUT still runs; Electron Save
 writes the local folder when the `races` bridge is present (folder + API; Export… = download).
+
+## Cinematic ion tile cache (Phase 21.3a)
+
+Tile **bytes** stay on the studio machine, not in git. SPA helper:
+`getCinematicTileCacheDir()` in `src/platform/cinematicTileCache.ts`.
+
+| Runtime | Directory |
+| --- | --- |
+| This shell (Electron `userData`) | `app.getPath('userData')/cinematic-tiles/` |
+| `npm run dev` / Vite preview | repo `.cache/cinematic-tiles/` (gitignored) |
+
+`desktop:dev` loads the Vite URL, so the renderer `GET`/`POST /cinematic-tiles/<file>`
+is served from `.cache` by the Vite plugin. Packaged `--file` uses `userData` via
+IPC `cinematicTiles.read` / `write` (SHA-256 filename, token query stripped).
+Do not commit `.terrain`.
 
 ## Cesium ion token (git-share)
 

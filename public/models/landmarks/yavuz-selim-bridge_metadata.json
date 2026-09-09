@@ -1,0 +1,470 @@
+{
+  "format_version": "1.0",
+  "source_file": "yavuz-selim-bridge",
+  "model_source": "sketchup",
+  "sketchup_version": "{21.0.0}",
+  "total_definitions": 3,
+  "total_meshes": 12,
+  "total_layers": 1,
+  "layers": [
+    {
+      "name": "Layer0",
+      "color": {
+        "r": 255,
+        "g": 255,
+        "b": 255
+      }
+    }
+  ],
+  "materials": [
+    {
+      "name": "Niraj_Skin",
+      "color": {
+        "r": 158,
+        "g": 128,
+        "b": 115
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Niraj_Shoe_Stitching",
+      "color": {
+        "r": 181,
+        "g": 137,
+        "b": 92
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Niraj_Pant_Shadow",
+      "color": {
+        "r": 70,
+        "g": 74,
+        "b": 99
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Niraj_Shoe_Sole",
+      "color": {
+        "r": 96,
+        "g": 73,
+        "b": 48
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Niraj_Pant",
+      "color": {
+        "r": 69,
+        "g": 86,
+        "b": 117
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Niraj_Shirt",
+      "color": {
+        "r": 144,
+        "g": 153,
+        "b": 181
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Niraj_Hair_Dark",
+      "color": {
+        "r": 109,
+        "g": 109,
+        "b": 109
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Niraj_Hair_Gray",
+      "color": {
+        "r": 178,
+        "g": 178,
+        "b": 178
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<auto>",
+      "color": {
+        "r": 24,
+        "g": 24,
+        "b": 24
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:/Users/yucel/OneDrive/Documents/Tolga_D_Drive/9000-Peyzaj_ve_Kat/collada/yavuz_sultan_selim_bridge/material_1.jpg",
+        "x_scale": 1.0,
+        "y_scale": 1.0
+      }
+    },
+    {
+      "name": "<auto>1",
+      "color": {
+        "r": 221,
+        "g": 223,
+        "b": 210
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:/Users/yucel/OneDrive/Documents/Tolga_D_Drive/9000-Peyzaj_ve_Kat/collada/yavuz_sultan_selim_bridge/duvar.jpg",
+        "x_scale": 1.0,
+        "y_scale": 1.0
+      }
+    },
+    {
+      "name": "<auto>2",
+      "color": {
+        "r": 217,
+        "g": 218,
+        "b": 206
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:/Users/yucel/OneDrive/Documents/Tolga_D_Drive/9000-Peyzaj_ve_Kat/collada/yavuz_sultan_selim_bridge/gri_metal.jpg",
+        "x_scale": 1.0,
+        "y_scale": 1.0
+      }
+    },
+    {
+      "name": "<auto>3",
+      "color": {
+        "r": 255,
+        "g": 255,
+        "b": 255
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<auto>4",
+      "color": {
+        "r": 145,
+        "g": 146,
+        "b": 145
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:/Users/yucel/OneDrive/Documents/Tolga_D_Drive/9000-Peyzaj_ve_Kat/collada/yavuz_sultan_selim_bridge/Asphalt_Gray.jpg",
+        "x_scale": 1.0,
+        "y_scale": 1.0
+      }
+    },
+    {
+      "name": "<auto>5",
+      "color": {
+        "r": 241,
+        "g": 241,
+        "b": 241
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:/Users/yucel/OneDrive/Documents/Tolga_D_Drive/9000-Peyzaj_ve_Kat/collada/yavuz_sultan_selim_bridge/White_concrete.jpg",
+        "x_scale": 1.0,
+        "y_scale": 1.0
+      }
+    },
+    {
+      "name": "<auto>6",
+      "color": {
+        "r": 245,
+        "g": 245,
+        "b": 245
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:/Users/yucel/OneDrive/Documents/Tolga_D_Drive/9000-Peyzaj_ve_Kat/collada/yavuz_sultan_selim_bridge/material_4.jpg",
+        "x_scale": 1.0,
+        "y_scale": 1.0
+      }
+    },
+    {
+      "name": "<auto>7",
+      "color": {
+        "r": 69,
+        "g": 69,
+        "b": 69
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:/Users/yucel/OneDrive/Documents/Tolga_D_Drive/9000-Peyzaj_ve_Kat/collada/yavuz_sultan_selim_bridge/__.jpg",
+        "x_scale": 1.0,
+        "y_scale": 1.0
+      }
+    },
+    {
+      "name": "<auto>8",
+      "color": {
+        "r": 24,
+        "g": 24,
+        "b": 24
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:/Users/yucel/OneDrive/Documents/Tolga_D_Drive/9000-Peyzaj_ve_Kat/collada/yavuz_sultan_selim_bridge/material_1_0.jpg",
+        "x_scale": 1.0,
+        "y_scale": 1.0
+      }
+    },
+    {
+      "name": "<auto>9",
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 0
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<auto>14",
+      "color": {
+        "r": 130,
+        "g": 75,
+        "b": 74
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:/Users/yucel/OneDrive/Documents/Tolga_D_Drive/9000-Peyzaj_ve_Kat/collada/yavuz_sultan_selim_bridge/texture.png",
+        "x_scale": 1.0,
+        "y_scale": 1.0
+      }
+    },
+    {
+      "name": "Layer_Layer0",
+      "color": {
+        "r": 255,
+        "g": 255,
+        "b": 255
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    }
+  ],
+  "mesh_index": {
+    "mesh_0_ROOT__Component_127826_Layer0_221_223_210_ds": {
+      "name": "",
+      "definition_name": "skpDB75",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_127826"
+    },
+    "mesh_1_ROOT__Component_127826_Layer0_217_218_206_ds": {
+      "name": "",
+      "definition_name": "skpDB75",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_127826"
+    },
+    "mesh_2_ROOT__Component_127826_Layer0_255_255_255_ds": {
+      "name": "",
+      "definition_name": "skpDB75",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_127826"
+    },
+    "mesh_3_ROOT__Component_127826_Layer0_145_146_145_ds": {
+      "name": "",
+      "definition_name": "skpDB75",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_127826"
+    },
+    "mesh_4_ROOT__Component_127826_Layer0_241_241_241_ds": {
+      "name": "",
+      "definition_name": "skpDB75",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_127826"
+    },
+    "mesh_5_ROOT__Component_127826_Layer0_245_245_245_ds": {
+      "name": "",
+      "definition_name": "skpDB75",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_127826"
+    },
+    "mesh_6_ROOT__Component_127826_Layer0_69_69_69_ds": {
+      "name": "",
+      "definition_name": "skpDB75",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_127826"
+    },
+    "mesh_7_ROOT__Component_127826_Layer0_217_218_206_ss": {
+      "name": "",
+      "definition_name": "skpDB75",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_127826"
+    },
+    "mesh_8_ROOT__Component_127826_Layer0_221_223_210_ss": {
+      "name": "",
+      "definition_name": "skpDB75",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_127826"
+    },
+    "mesh_9_ROOT__Component_127826_Layer0_24_24_24_ds": {
+      "name": "",
+      "definition_name": "skpDB75",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_127826"
+    },
+    "mesh_10_ROOT__Component_127826_Layer0_130_75_74_ds": {
+      "name": "",
+      "definition_name": "skpDB75",
+      "layer": "Layer0",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_127826"
+    },
+    "mesh_11_ROOT__Component_127826__Component_111509_Layer0": {
+      "name": "",
+      "definition_name": "Component",
+      "layer": "Layer0",
+      "position_mm": [
+        -696476.85,
+        421584.88,
+        54211.47
+      ],
+      "properties": {},
+      "path": "ROOT / Component_127826 / Component_111509"
+    }
+  },
+  "scene_hierarchy": {
+    "name": "ROOT",
+    "definition_name": "ROOT_MODEL",
+    "layer": "Layer0",
+    "position_mm": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "properties": {},
+    "children": [
+      {
+        "name": "",
+        "definition_name": "skpDB75",
+        "layer": "Layer0",
+        "position_mm": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "properties": {},
+        "children": [
+          {
+            "name": "",
+            "definition_name": "Component",
+            "layer": "Layer0",
+            "position_mm": [
+              -696476.85,
+              421584.88,
+              54211.47
+            ],
+            "properties": {},
+            "children": []
+          }
+        ]
+      }
+    ]
+  }
+}

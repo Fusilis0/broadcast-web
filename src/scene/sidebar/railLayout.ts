@@ -23,12 +23,14 @@ export const OPS_RAIL_SECTIONS: readonly OpsRailSectionSpec[] = [
   { id: 'project', rail: 'left', label: 'Project', order: 10, defaultExpanded: true },
   { id: 'live', rail: 'left', label: 'Fleet & Live', order: 20, defaultExpanded: true },
   { id: 'assets', rail: 'left', label: 'Assets', order: 30, defaultExpanded: false },
+  { id: 'heroes', rail: 'left', label: 'Hero buildings', order: 35, defaultExpanded: false },
   { id: 'library', rail: 'left', label: 'Library', order: 50, defaultExpanded: false },
   { id: 'ops', rail: 'left', label: 'Race ops', order: 60, defaultExpanded: false },
   { id: 'ndi', rail: 'right', label: 'Output', order: 10, defaultExpanded: true },
   { id: 'flow', rail: 'right', label: 'Flow', order: 15, defaultExpanded: false },
   { id: 'calib', rail: 'right', label: 'Calibration', order: 20, defaultExpanded: false },
   { id: 'environment', rail: 'right', label: 'Environment', order: 30, defaultExpanded: false },
+  { id: 'cinematics', rail: 'right', label: 'Cinematics', order: 35, defaultExpanded: true },
   { id: 'wind', rail: 'right', label: 'Wind', order: 40, defaultExpanded: false },
 ]
 

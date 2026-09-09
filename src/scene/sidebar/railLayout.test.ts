@@ -16,6 +16,7 @@ describe('OPS_RAIL_SECTIONS grouping (BW-locked)', () => {
       'project',
       'live',
       'assets',
+      'heroes',
       'library',
       'ops',
     ])
@@ -24,6 +25,7 @@ describe('OPS_RAIL_SECTIONS grouping (BW-locked)', () => {
       'flow',
       'calib',
       'environment',
+      'cinematics',
       'wind',
     ])
   })
@@ -32,11 +34,13 @@ describe('OPS_RAIL_SECTIONS grouping (BW-locked)', () => {
     expect(railForSection('project')).toBe('left')
     expect(railForSection('live')).toBe('left')
     expect(railForSection('assets')).toBe('left')
+    expect(railForSection('heroes')).toBe('left')
     expect(railForSection('library')).toBe('left')
     expect(railForSection('ndi')).toBe('right')
     expect(railForSection('flow')).toBe('right')
     expect(railForSection('calib')).toBe('right')
     expect(railForSection('environment')).toBe('right')
+    expect(railForSection('cinematics')).toBe('right')
     expect(railForSection('wind')).toBe('right')
     expect(OPS_RAIL_SECTIONS.map((s) => s.id)).not.toContain('world-map')
   })
@@ -45,8 +49,16 @@ describe('OPS_RAIL_SECTIONS grouping (BW-locked)', () => {
     expect(defaultSectionExpanded('project')).toBe(true)
     expect(defaultSectionExpanded('live')).toBe(true)
     expect(defaultSectionExpanded('ndi')).toBe(true)
+    expect(defaultSectionExpanded('cinematics')).toBe(true)
     for (const s of OPS_RAIL_SECTIONS) {
-      if (s.id === 'project' || s.id === 'live' || s.id === 'ndi') continue
+      if (
+        s.id === 'project' ||
+        s.id === 'live' ||
+        s.id === 'ndi' ||
+        s.id === 'cinematics'
+      ) {
+        continue
+      }
       expect(defaultSectionExpanded(s.id)).toBe(false)
     }
   })

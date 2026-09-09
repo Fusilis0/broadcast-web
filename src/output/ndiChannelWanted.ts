@@ -8,11 +8,11 @@ export type NdiChannelWanted = Record<NdiChannelId, boolean>
 
 export const NDI_CHANNEL_WANTED_STORAGE_KEY = 'bw.ndi.channelWanted'
 
-/** Cold start / missing session → all senders on (today’s behaviour). */
+/** Cold start / missing session → all senders off. Session still wins. */
 export const NDI_CHANNEL_WANTED_DEFAULTS: NdiChannelWanted = {
-  ar: true,
-  '3d': true,
-  '2d': true,
+  ar: false,
+  '3d': false,
+  '2d': false,
 }
 
 export function defaultNdiChannelWanted(): NdiChannelWanted {
@@ -50,7 +50,7 @@ function getSessionStorage(): SessionStorageLike | null {
 }
 
 /**
- * Load wanted flags from `sessionStorage`. Missing / invalid → all on.
+ * Load wanted flags from `sessionStorage`. Missing / invalid → all off.
  * Never reads race / `project.json`.
  */
 export function loadNdiChannelWanted(

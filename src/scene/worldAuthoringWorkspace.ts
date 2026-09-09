@@ -36,7 +36,7 @@ export type WorldAuthoringWorkspaceOptions = {
 
   container: HTMLElement
 
-  /** Start open (editor role default; air closed). */
+  /** Start closed unless `?editor=1` or caller sets `initiallyOpen`. */
 
   initiallyOpen?: boolean
 
@@ -158,13 +158,13 @@ function writeStoredMapSize(sizePx: number): void {
 
  * Resolve initial authoring open state.
 
- * `?editor=1` / `?editor=0` force; else editor role (writes) → open, air → closed.
+ * `?editor=1` / `?editor=0` force; else **closed** (even when project writes are on).
 
  */
 
 export function resolveAuthoringInitiallyOpen(
 
-  projectWritesEnabled: boolean,
+  _projectWritesEnabled: boolean,
 
   search: string = typeof window !== 'undefined' ? window.location.search : '',
 
@@ -184,7 +184,7 @@ export function resolveAuthoringInitiallyOpen(
 
   }
 
-  return projectWritesEnabled
+  return false
 
 }
 

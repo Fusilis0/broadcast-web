@@ -7,13 +7,13 @@ Every orchestrator must know this table. Wrong-domain → refuse and redirect.
 | **BW** | Broadcast-Web Master Orchestrator | Roadmap, architecture, routing, phase gates, conflict resolution | Feature code, domain deep planning | All |
 | **TEL** | Telemetry Ingest Orchestrator | VPS WebSocket client, DTOs, mock/replay/live sources, `stream_anchor` routing, packet health | Pose math, Three scene, vMix | GEO, CAL, SCN, CON |
 | **GEO** | Geodesy & World Frame Orchestrator | `GeoOrigin`, ECEF→ENU, EGM96, altitude contracts (HAE/AMSL/relative), origin config | Meshes, WS sockets, output | TEL, SCN, CAL |
-| **SCN** | Scene & Visuals Orchestrator | Three.js scene graph, boats, course, buoys, sponsors, flags, glTF/assets, 2D map view, lighting | Geodesy formulas, WS protocol, vMix | GEO, TEL, CAL, OUT, PRF |
-| **OUT** | Output & Compositing Orchestrator | Canvas clear modes, chroma, WebRTC underlay/egress, NDI helper contract, timecode burn-in, AR plate mode | Scene content, telemetry parse, SRT ingest | SCN, CAL, PLT, PRF, SRT |
+| **SCN** | Scene & Visuals Orchestrator | Three.js scene graph, boats, course, buoys, sponsors, flags, glTF/assets, 2D map, lighting, **cinematic sequences (Phase 21)** | Geodesy formulas, WS protocol, vMix, MP4 encode | GEO, TEL, CAL, OUT, PRF |
+| **OUT** | Output & Compositing Orchestrator | Canvas clear modes, chroma, WebRTC underlay, NDI helper **(parked after Phase 22)**, timecode, AR plate mode, **cinematic MP4 (Phase 21)** | Scene content, telemetry parse, SRT ingest, globe math | SCN, CAL, PLT, PRF, SRT |
 | **CON** | Console Bridge Orchestrator | Deep-link URL contract, auth token handoff (design), status events console may consume | Console codebase (other team), 3D rendering | BW, TEL, CAL, PLT |
 | **CAL** | Calibration & Vision Orchestrator | Runtime offsets (yaw/pitch/roll/FOV/alt), human calib UI plan, future CV match video↔render | Raw telemetry transport, asset art | TEL, GEO, SCN, OUT |
 | **PLT** | Platform & DevEx Orchestrator | Repo/tooling, Vite/TS scaffold, env, CI, Hetzner deploy, WSS/proxy notes, Cursor rules hygiene | Product features inside `src/` domains above | BW, all (support) |
 | **PRF** | Performance Orchestrator | Frame-time budgets, dual clock, NDI stagger policy, measurement playbook, cost ladders | Scene look, chroma/NDI/SRT implementation, telemetry protocol | OUT, SCN, PLT, BW, SRT |
-| **SRT** | SRT Ingest Orchestrator | SRT caller, catalog, ffmpeg TS pipe, demux/decode, HEVC fallback, Race ops SRT HUD | Chroma/NDI/pose match/`syncTrimMs` | OUT, TEL, CAL, PLT, PRF |
+| **SRT** | SRT Ingest **and** (Phase 22) program **egress** | Caller ingest, catalog, ffmpeg TS, demux/decode; **later** AR/3D/2D SRT publish | Pose NTP, NDI pack | OUT, TEL, CAL, PLT, PRF |
 
 ## Responsibility one-liners
 
@@ -22,7 +22,7 @@ Every orchestrator must know this table. Wrong-domain → refuse and redirect.
 - **GEO** — “Lat/lon/alt become stable right-handed Three ENU (`z=−North`).”
 - **SCN** — “ENU + telemetry become things you see.”
 - **OUT** — “Pixels leave the app toward preview or vMix.”
-- **SRT** — “SRT bytes become a decoded AR underlay (caller, not listener).”
+- **SRT** — “SRT bytes become a decoded AR underlay (caller, not listener). Phase 22: program SRT out.”
 - **CON** — “Console can open and talk to us safely.”
 - **CAL** — “Camera stays aligned when drones lie.”
 - **PLT** — “The project builds, runs, and deploys.”

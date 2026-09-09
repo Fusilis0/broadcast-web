@@ -71,12 +71,14 @@ sidebar.dispose()
 | left | 10 | `project` | Project | Race Load/Save/Pack + world origin |
 | left | 20 | `live` | Fleet & Live | Fleet / Live panel |
 | left | 30 | `assets` | Assets | Per-entity Focus / Show-3D / Show-2D / Details (SCN-03) |
+| left | 35 | `heroes` | Hero buildings | Catalogue Focus + ENU XYZ / yaw-pitch-roll / scale; offsets on `RaceProject.landmarks` (catalogue defaults when pack omits) |
 | left | 50 | `library` | Library | Universal asset browse/upload (PLT-01; pragmatic left) |
 | left | 60 | `ops` | Race ops | Leftover stubHud: telemetry, POV, view, countdown, status |
 | right | 10 | `ndi` | Output | Output mode (OUT) + NDI controller / delay |
 | right | 15 | `flow` | Flow | Per-entity telem + SRT JSON inspector (SCN-10; DOM-only; default off) |
 | right | 20 | `calib` | Calibration | CAL offset sliders + SCN **Calibration overlay** checkbox |
 | right | 30 | `environment` | Environment | simple/realistic, sea, terrain, ion token, **sea m** (ocean Y), **Cesium hide m** (tile discard) |
+| right | 35 | `cinematics` | Cinematics | Sequence select, Play / Pause / Record / scrub (Phase 21 authoring). Record = OUT silent MP4 |
 | right | 40 | `wind` | Wind | source / from-deg / hold |
 
 Section **ids** (`data-ops-section`) stay stable for remaining panels so existing hooks keep working. `world-map` was removed in 19.6 (header **World** toggle). Output mode moved into `ndi`; env/wind rows moved out of `ops`.
@@ -100,8 +102,7 @@ There is **no World accordion**. A compact **World** toggle sits on the Race set
 no Close button). The dedicated **World Authoring** window mounts on `getOverlayHost()` (DOM
 overlay — never WebGL / NDI): large 2D map (≥560px default, user-resizable 420–900px) + grouped
 tool palette (Course / Graphics / Fleet / Anchor). OSM / Fit stay on the map toolbar inside the
-window. Editor role defaults the workspace open; air stays closed. `?editor=1` / `?editor=0`
-override. Ops **authoring** checkbox mirrors the same open state (not a second gate). Hide uses
+window. Cold start is **closed**; `?editor=1` opens, `?editor=0` stays closed. Ops **authoring** checkbox mirrors the same open state (not a second gate). Hide uses
 `hidden` + `.world-authoring[hidden] { display: none }` so the panel actually disappears.
 
 ```ts

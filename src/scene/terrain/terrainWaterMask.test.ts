@@ -27,6 +27,7 @@ describe('terrain water uniforms', () => {
     const u = createTerrainWaterUniforms()
     expect(u.uHideTerrainWater.value).toBe(0)
     expect(u.uTerrainWaterY.value).toBe(0.5)
+    expect('uTerrainGrey' in u).toBe(false)
   })
 
   it('toggles the hide uniform without allocating a new object identity for materials', () => {
@@ -51,11 +52,16 @@ describe('patchTerrainWaterMaterial', () => {
     mat.onBeforeCompile(shader as never, {} as THREE.WebGLRenderer)
     expect(shader.uniforms['uHideTerrainWater']).toBe(uniforms.uHideTerrainWater)
     expect(shader.uniforms['uTerrainWaterY']).toBe(uniforms.uTerrainWaterY)
+    expect(shader.uniforms['uTerrainGrey']).toBeUndefined()
     expect(shader.vertexShader).toContain('vTerrainWorldY')
     expect(shader.fragmentShader).toContain('uHideTerrainWater')
     expect(shader.fragmentShader).toContain('discard')
     expect(shader.fragmentShader).toContain('USE_ROUGHNESSMAP')
+    expect(shader.fragmentShader).toContain('chroma')
     expect(shader.fragmentShader).toContain('uTerrainWaterY')
+    expect(shader.fragmentShader).not.toContain('uTerrainGrey')
+    expect(shader.fragmentShader).not.toContain('0.2126')
+    expect(shader.fragmentShader).not.toContain('gl_FragColor.rgb = vec3(luma)')
     mat.dispose()
   })
 
@@ -66,6 +72,21 @@ describe('patchTerrainWaterMaterial', () => {
     const first = mat.onBeforeCompile
     patchTerrainWaterMaterial(mat, uniforms)
     expect(mat.onBeforeCompile).toBe(first)
+    mat.dispose()
+  })
+
+  it('keeps water discard without a Rec.709 grey uniform', () => {
+    const uniforms = createTerrainWaterUniforms(true, 0.5)
+    const mat = new THREE.MeshStandardMaterial()
+    patchTerrainWaterMaterial(mat, uniforms)
+    const shader = {
+      uniforms: {} as Record<string, { value: unknown }>,
+      vertexShader: '#include <begin_vertex>\nvoid main() { }',
+      fragmentShader: 'void main() { gl_FragColor = vec4(1.0); }',
+    }
+    mat.onBeforeCompile(shader as never, {} as THREE.WebGLRenderer)
+    expect(shader.fragmentShader).toContain('discard')
+    expect(shader.fragmentShader).not.toContain('uTerrainGrey')
     mat.dispose()
   })
 })
@@ -87,6 +108,7 @@ describe('patchTerrainWaterMaterials', () => {
       {} as THREE.WebGLRenderer,
     )
     expect(shader.fragmentShader).toContain('discard')
+    expect(shader.fragmentShader).not.toContain('uTerrainGrey')
     mesh.geometry.dispose()
     ;(mesh.material as THREE.Material).dispose()
   })
@@ -107,5 +129,7 @@ describe('no GPU readback', () => {
     expect(src).not.toMatch(/\breadPixels\s*\(/)
     expect(src).not.toMatch(/\bgetImageData\s*\(/)
     expect(src).not.toMatch(/\breadRenderTargetPixels\s*\(/)
+    expect(src).not.toContain('uTerrainGrey')
+    expect(src).not.toContain('0.2126')
   })
 })

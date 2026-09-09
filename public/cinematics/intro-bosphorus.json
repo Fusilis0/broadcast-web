@@ -1,0 +1,645 @@
+{
+  "id": "intro-bosphorus",
+  "durationSec": 72,
+  "width": 1920,
+  "height": 1080,
+  "fps": 30,
+  "pins": [
+    { "id": "usa", "label": "USA", "lat": 39.83, "lon": -98.58, "flag": "usa" },
+    { "id": "canada", "label": "Canada", "lat": 56.13, "lon": -106.35, "flag": "canada" },
+    { "id": "uk", "label": "UK", "lat": 54.0, "lon": -2.5, "flag": "uk" },
+    { "id": "russia", "label": "Russia", "lat": 55.8, "lon": 37.6, "flag": "russia" },
+    { "id": "bulgaria", "label": "Bulgaria", "lat": 42.73, "lon": 25.49, "flag": "bulgaria" },
+    { "id": "turkey", "label": "Turkey", "lat": 39.0, "lon": 35.2, "flag": "turkey" },
+    { "id": "istanbul", "label": "İstanbul", "lat": 41.0082, "lon": 28.9784, "kind": "place" }
+  ],
+  "heroPins": [
+    { "id": "yavuz-selim-bridge", "label": "Yavuz Sultan Selim", "lat": 41.202, "lon": 29.118, "kind": "hero" },
+    { "id": "fsm-bridge", "label": "Fatih Sultan Mehmet", "lat": 41.091, "lon": 29.061, "kind": "hero" },
+    { "id": "bogazici-bridge", "label": "15 July Martyrs", "lat": 41.045, "lon": 29.034, "kind": "hero" },
+    { "id": "maidens-tower", "label": "Maiden's Tower", "lat": 41.0211, "lon": 29.0041, "kind": "hero" },
+    { "id": "sultan-ahmed", "label": "Sultan Ahmed", "lat": 41.00541, "lon": 28.97681, "kind": "hero" },
+    { "id": "hagia-sophia", "label": "Hagia Sophia", "lat": 41.00858, "lon": 28.98018, "kind": "hero" },
+    { "id": "aya-irini", "label": "Hagia Irene", "lat": 41.0104, "lon": 28.9812, "kind": "hero" },
+    { "id": "topkapi", "label": "Topkapı", "lat": 41.01152, "lon": 28.98338, "kind": "hero" },
+    { "id": "galata-tower", "label": "Galata Tower", "lat": 41.0256, "lon": 28.9741, "kind": "hero" },
+    { "id": "dolmabahce", "label": "Dolmabahçe", "lat": 41.03917, "lon": 29.0007, "kind": "hero" },
+    { "id": "ciragan", "label": "Çırağan", "lat": 41.04342388464562, "lon": 29.01532600006871, "kind": "hero" }
+  ],
+  "tileWarm": {
+    "contentUrls": []
+  },
+  "shots": [
+    {
+      "id": "world",
+      "t0": 0,
+      "t1": 3.5,
+      "domain": "globe",
+      "fog": false,
+      "ocean": false,
+      "buildings": false,
+      "imagery": "aerial",
+      "cloud01": 0,
+      "keyframes": [
+        {
+          "lat": 22, "lon": -38, "altMsl": 18000000,
+          "lookLat": 40, "lookLon": 30, "lookAltMsl": 0,
+          "t01": 0, "ease": "easeInOut", "lookId": "earth-europe"
+        },
+        {
+          "lat": 38, "lon": -18, "altMsl": 15000000,
+          "lookLat": 48, "lookLon": 12, "lookAltMsl": 0,
+          "t01": 1, "lookId": "europe"
+        }
+      ]
+    },
+    {
+      "id": "transit-usa",
+      "t0": 3.5,
+      "t1": 6,
+      "domain": "globe",
+      "fog": false,
+      "ocean": false,
+      "buildings": false,
+      "imagery": "aerial",
+      "cloud01": 0,
+      "keyframes": [
+        {
+          "lat": 38, "lon": -18, "altMsl": 15000000,
+          "lookLat": 48, "lookLon": 12, "lookAltMsl": 0,
+          "t01": 0, "ease": "easeInOut", "lookId": "europe"
+        },
+        {
+          "lat": 32, "lon": -55, "altMsl": 16000000,
+          "lookLat": 42, "lookLon": -70, "lookAltMsl": 0,
+          "t01": 0.42, "ease": "easeInOut", "lookId": "north-atlantic"
+        },
+        {
+          "lat": 28.5, "lon": -98.58, "altMsl": 4500000,
+          "lookLat": 39.83, "lookLon": -98.58, "lookAltMsl": 0,
+          "t01": 1, "lookId": "usa"
+        }
+      ]
+    },
+    {
+      "id": "usa",
+      "t0": 6,
+      "t1": 7.4,
+      "domain": "globe",
+      "fog": false,
+      "ocean": false,
+      "buildings": false,
+      "imagery": "aerial",
+      "cloud01": 0,
+      "keyframes": [
+        {
+          "lat": 28.5, "lon": -98.58, "altMsl": 4500000,
+          "lookLat": 39.83, "lookLon": -98.58, "lookAltMsl": 0,
+          "t01": 0, "ease": "linear", "lookId": "usa"
+        },
+        {
+          "lat": 28.7, "lon": -97.8, "altMsl": 4600000,
+          "lookLat": 39.83, "lookLon": -98.58, "lookAltMsl": 0,
+          "t01": 1, "lookId": "usa"
+        }
+      ]
+    },
+    {
+      "id": "transit-canada",
+      "t0": 7.4,
+      "t1": 9.8,
+      "domain": "globe",
+      "fog": false,
+      "ocean": false,
+      "buildings": false,
+      "imagery": "aerial",
+      "cloud01": 0,
+      "keyframes": [
+        {
+          "lat": 28.7, "lon": -97.8, "altMsl": 4600000,
+          "lookLat": 39.83, "lookLon": -98.58, "lookAltMsl": 0,
+          "t01": 0, "ease": "easeInOut", "lookId": "usa"
+        },
+        {
+          "lat": 40, "lon": -102, "altMsl": 8000000,
+          "lookLat": 48, "lookLon": -104, "lookAltMsl": 0,
+          "t01": 0.45, "ease": "easeInOut", "lookId": "north-america"
+        },
+        {
+          "lat": 47, "lon": -106.35, "altMsl": 6800000,
+          "lookLat": 56.13, "lookLon": -106.35, "lookAltMsl": 0,
+          "t01": 1, "lookId": "canada"
+        }
+      ]
+    },
+    {
+      "id": "canada",
+      "t0": 9.8,
+      "t1": 11.2,
+      "domain": "globe",
+      "fog": false,
+      "ocean": false,
+      "buildings": false,
+      "imagery": "aerial",
+      "cloud01": 0,
+      "keyframes": [
+        {
+          "lat": 47, "lon": -106.35, "altMsl": 6800000,
+          "lookLat": 56.13, "lookLon": -106.35, "lookAltMsl": 0,
+          "t01": 0, "ease": "linear", "lookId": "canada"
+        },
+        {
+          "lat": 47.15, "lon": -105.9, "altMsl": 6900000,
+          "lookLat": 56.13, "lookLon": -106.35, "lookAltMsl": 0,
+          "t01": 1, "lookId": "canada"
+        }
+      ]
+    },
+    {
+      "id": "transit-uk",
+      "t0": 11.2,
+      "t1": 13.2,
+      "domain": "globe",
+      "fog": false,
+      "ocean": false,
+      "buildings": false,
+      "imagery": "aerial",
+      "cloud01": 0,
+      "keyframes": [
+        {
+          "lat": 47.15, "lon": -105.9, "altMsl": 6900000,
+          "lookLat": 56.13, "lookLon": -106.35, "lookAltMsl": 0,
+          "t01": 0, "ease": "easeInOut", "lookId": "canada"
+        },
+        {
+          "lat": 28, "lon": -42, "altMsl": 16000000,
+          "lookLat": 46, "lookLon": -20, "lookAltMsl": 0,
+          "t01": 0.42, "ease": "easeInOut", "lookId": "north-atlantic"
+        },
+        {
+          "lat": 49.5, "lon": -2.5, "altMsl": 2500000,
+          "lookLat": 54, "lookLon": -2.5, "lookAltMsl": 0,
+          "t01": 1, "lookId": "uk"
+        }
+      ]
+    },
+    {
+      "id": "uk",
+      "t0": 13.2,
+      "t1": 14.6,
+      "domain": "globe",
+      "fog": false,
+      "ocean": false,
+      "buildings": false,
+      "imagery": "aerial",
+      "cloud01": 0,
+      "keyframes": [
+        {
+          "lat": 49.5, "lon": -2.5, "altMsl": 2500000,
+          "lookLat": 54, "lookLon": -2.5, "lookAltMsl": 0,
+          "t01": 0, "ease": "linear", "lookId": "uk"
+        },
+        {
+          "lat": 49.7, "lon": -1.8, "altMsl": 2550000,
+          "lookLat": 54, "lookLon": -2.5, "lookAltMsl": 0,
+          "t01": 1, "lookId": "uk"
+        }
+      ]
+    },
+    {
+      "id": "transit-russia",
+      "t0": 14.6,
+      "t1": 16.8,
+      "domain": "globe",
+      "fog": false,
+      "ocean": false,
+      "buildings": false,
+      "imagery": "aerial",
+      "cloud01": 0,
+      "keyframes": [
+        {
+          "lat": 49.7, "lon": -1.8, "altMsl": 2550000,
+          "lookLat": 54, "lookLon": -2.5, "lookAltMsl": 0,
+          "t01": 0, "ease": "easeInOut", "lookId": "uk"
+        },
+        {
+          "lat": 32, "lon": 12, "altMsl": 15500000,
+          "lookLat": 48, "lookLon": 20, "lookAltMsl": 0,
+          "t01": 0.4, "ease": "easeInOut", "lookId": "europe"
+        },
+        {
+          "lat": 48, "lon": 37.6, "altMsl": 5000000,
+          "lookLat": 55.8, "lookLon": 37.6, "lookAltMsl": 0,
+          "t01": 1, "lookId": "russia"
+        }
+      ]
+    },
+    {
+      "id": "russia",
+      "t0": 16.8,
+      "t1": 18.2,
+      "domain": "globe",
+      "fog": false,
+      "ocean": false,
+      "buildings": false,
+      "imagery": "aerial",
+      "cloud01": 0,
+      "keyframes": [
+        {
+          "lat": 48, "lon": 37.6, "altMsl": 5000000,
+          "lookLat": 55.8, "lookLon": 37.6, "lookAltMsl": 0,
+          "t01": 0, "ease": "linear", "lookId": "russia"
+        },
+        {
+          "lat": 48.2, "lon": 38.3, "altMsl": 5100000,
+          "lookLat": 55.8, "lookLon": 37.6, "lookAltMsl": 0,
+          "t01": 1, "lookId": "russia"
+        }
+      ]
+    },
+    {
+      "id": "transit-bulgaria",
+      "t0": 18.2,
+      "t1": 20.6,
+      "domain": "globe",
+      "fog": false,
+      "ocean": false,
+      "buildings": false,
+      "imagery": "aerial",
+      "cloud01": 0,
+      "keyframes": [
+        {
+          "lat": 48.2, "lon": 38.3, "altMsl": 5100000,
+          "lookLat": 55.8, "lookLon": 37.6, "lookAltMsl": 0,
+          "t01": 0, "ease": "easeInOut", "lookId": "russia"
+        },
+        {
+          "lat": 40, "lon": 30, "altMsl": 12000000,
+          "lookLat": 46, "lookLon": 28, "lookAltMsl": 0,
+          "t01": 0.42, "ease": "easeInOut", "lookId": "black-sea"
+        },
+        {
+          "lat": 38.2, "lon": 25.49, "altMsl": 2200000,
+          "lookLat": 42.73, "lookLon": 25.49, "lookAltMsl": 0,
+          "t01": 1, "lookId": "bulgaria"
+        }
+      ]
+    },
+    {
+      "id": "bulgaria",
+      "t0": 20.6,
+      "t1": 22,
+      "domain": "globe",
+      "fog": false,
+      "ocean": false,
+      "buildings": false,
+      "imagery": "aerial",
+      "cloud01": 0,
+      "keyframes": [
+        {
+          "lat": 38.2, "lon": 25.49, "altMsl": 2200000,
+          "lookLat": 42.73, "lookLon": 25.49, "lookAltMsl": 0,
+          "t01": 0, "ease": "linear", "lookId": "bulgaria"
+        },
+        {
+          "lat": 38.4, "lon": 26.1, "altMsl": 2250000,
+          "lookLat": 42.73, "lookLon": 25.49, "lookAltMsl": 0,
+          "t01": 1, "lookId": "bulgaria"
+        }
+      ]
+    },
+    {
+      "id": "transit-turkey",
+      "t0": 22,
+      "t1": 24.4,
+      "domain": "globe",
+      "fog": false,
+      "ocean": false,
+      "buildings": false,
+      "imagery": "aerial",
+      "cloud01": 0,
+      "keyframes": [
+        {
+          "lat": 38.4, "lon": 26.1, "altMsl": 2250000,
+          "lookLat": 42.73, "lookLon": 25.49, "lookAltMsl": 0,
+          "t01": 0, "ease": "easeInOut", "lookId": "bulgaria"
+        },
+        {
+          "lat": 36, "lon": 30, "altMsl": 6000000,
+          "lookLat": 40, "lookLon": 32, "lookAltMsl": 0,
+          "t01": 0.4, "ease": "easeInOut", "lookId": "anatolia"
+        },
+        {
+          "lat": 33.5, "lon": 35.2, "altMsl": 1800000,
+          "lookLat": 39, "lookLon": 35.2, "lookAltMsl": 0,
+          "t01": 1, "lookId": "turkey"
+        }
+      ]
+    },
+    {
+      "id": "turkey",
+      "t0": 24.4,
+      "t1": 25.8,
+      "domain": "globe",
+      "fog": false,
+      "ocean": false,
+      "buildings": false,
+      "imagery": "aerial",
+      "cloud01": 0,
+      "keyframes": [
+        {
+          "lat": 33.5, "lon": 35.2, "altMsl": 1800000,
+          "lookLat": 39, "lookLon": 35.2, "lookAltMsl": 0,
+          "t01": 0, "ease": "linear", "lookId": "turkey"
+        },
+        {
+          "lat": 33.7, "lon": 35.8, "altMsl": 1850000,
+          "lookLat": 39, "lookLon": 35.2, "lookAltMsl": 0,
+          "t01": 1, "lookId": "turkey"
+        }
+      ]
+    },
+    {
+      "id": "marmara",
+      "t0": 25.8,
+      "t1": 28.2,
+      "domain": "globe",
+      "fog": false,
+      "ocean": false,
+      "buildings": false,
+      "imagery": "aerial",
+      "cloud01": 0,
+      "keyframes": [
+        {
+          "lat": 33.7, "lon": 35.8, "altMsl": 1850000,
+          "lookLat": 39, "lookLon": 35.2, "lookAltMsl": 0,
+          "t01": 0, "ease": "easeInOut", "lookId": "turkey"
+        },
+        {
+          "lat": 37.8, "lon": 31.2, "altMsl": 700000,
+          "lookLat": 40.4, "lookLon": 30.2, "lookAltMsl": 0,
+          "t01": 0.5, "ease": "easeInOut", "lookId": "anatolia"
+        },
+        {
+          "lat": 40.85, "lon": 28.95, "altMsl": 110000,
+          "lookLat": 41.0082, "lookLon": 28.9784, "lookAltMsl": 0,
+          "t01": 1, "lookId": "istanbul"
+        }
+      ]
+    },
+    {
+      "id": "marmara-cloud-in",
+      "t0": 28.2,
+      "t1": 30,
+      "domain": "globe",
+      "fog": false,
+      "ocean": false,
+      "buildings": false,
+      "imagery": "aerial",
+      "cloud01": 1,
+      "keyframes": [
+        {
+          "lat": 40.85, "lon": 28.95, "altMsl": 110000,
+          "lookLat": 41.0082, "lookLon": 28.9784, "lookAltMsl": 0,
+          "t01": 0, "ease": "easeInOut", "lookId": "istanbul"
+        },
+        {
+          "lat": 40.92, "lon": 29, "altMsl": 85000,
+          "lookLat": 41.05, "lookLon": 29.08, "lookAltMsl": 0,
+          "t01": 1, "lookId": "istanbul"
+        }
+      ]
+    },
+    {
+      "id": "bosphorus-reveal",
+      "t0": 30,
+      "t1": 33,
+      "domain": "enu",
+      "fog": true,
+      "ocean": true,
+      "buildings": true,
+      "imagery": "aerial",
+      "cloud01": 0,
+      "keyframes": [
+        {
+          "lat": 41.218, "lon": 29.108, "altMsl": 780,
+          "lookLat": 41.202, "lookLon": 29.118, "lookAltMsl": 45,
+          "t01": 0, "ease": "linear", "lookId": "yavuz-selim-bridge"
+        },
+        {
+          "lat": 41.198, "lon": 29.100, "altMsl": 720,
+          "lookLat": 41.178, "lookLon": 29.104, "lookAltMsl": 28,
+          "t01": 1, "lookId": "yavuz-selim-bridge"
+        }
+      ]
+    },
+    {
+      "id": "bosphorus-pass",
+      "t0": 33,
+      "t1": 44,
+      "domain": "enu",
+      "fog": true,
+      "ocean": true,
+      "buildings": true,
+      "imagery": "aerial",
+      "cloud01": 0,
+      "keyframes": [
+        {
+          "lat": 41.198, "lon": 29.100, "altMsl": 720,
+          "lookLat": 41.178, "lookLon": 29.104, "lookAltMsl": 28,
+          "t01": 0, "ease": "linear", "lookId": "yavuz-selim-bridge"
+        },
+        {
+          "lat": 41.170, "lon": 29.086, "altMsl": 680,
+          "lookLat": 41.148, "lookLon": 29.090, "lookAltMsl": 26,
+          "t01": 0.22, "lookId": "fsm-bridge"
+        },
+        {
+          "lat": 41.148, "lon": 29.076, "altMsl": 640,
+          "lookLat": 41.091, "lookLon": 29.061, "lookAltMsl": 28,
+          "t01": 0.42, "lookId": "fsm-bridge"
+        },
+        {
+          "lat": 41.128, "lon": 29.068, "altMsl": 640,
+          "lookLat": 41.091, "lookLon": 29.061, "lookAltMsl": 28,
+          "t01": 0.52, "lookId": "fsm-bridge"
+        },
+        {
+          "lat": 41.095, "lon": 29.052, "altMsl": 600,
+          "lookLat": 41.045, "lookLon": 29.034, "lookAltMsl": 26,
+          "t01": 0.76, "lookId": "bogazici-bridge"
+        },
+        {
+          "lat": 41.062, "lon": 29.036, "altMsl": 560,
+          "lookLat": 41.045, "lookLon": 29.034, "lookAltMsl": 26,
+          "t01": 1, "lookId": "bogazici-bridge"
+        }
+      ]
+    },
+    {
+      "id": "maidens-tower",
+      "t0": 44,
+      "t1": 49,
+      "domain": "enu",
+      "fog": true,
+      "ocean": true,
+      "buildings": true,
+      "imagery": "aerial",
+      "cloud01": 0,
+      "keyframes": [
+        {
+          "lat": 41.062, "lon": 29.036, "altMsl": 560,
+          "lookLat": 41.045, "lookLon": 29.034, "lookAltMsl": 26,
+          "t01": 0, "ease": "linear", "lookId": "bogazici-bridge"
+        },
+        {
+          "lat": 41.036, "lon": 29.000, "altMsl": 240,
+          "lookLat": 41.026, "lookLon": 29.006, "lookAltMsl": 32,
+          "t01": 0.4, "lookId": "maidens-tower"
+        },
+        {
+          "lat": 41.026, "lon": 28.998, "altMsl": 130,
+          "lookLat": 41.0211, "lookLon": 29.0041, "lookAltMsl": 32,
+          "t01": 0.72, "lookId": "maidens-tower"
+        },
+        {
+          "lat": 41.0232, "lon": 28.9965, "altMsl": 105,
+          "lookLat": 41.0211, "lookLon": 29.0041, "lookAltMsl": 30,
+          "t01": 1, "lookId": "maidens-tower"
+        }
+      ]
+    },
+    {
+      "id": "peninsula",
+      "t0": 49,
+      "t1": 62,
+      "domain": "enu",
+      "fog": true,
+      "ocean": true,
+      "buildings": true,
+      "imagery": "aerial",
+      "cloud01": 0,
+      "keyframes": [
+        {
+          "lat": 41.0232, "lon": 28.9965, "altMsl": 105,
+          "lookLat": 41.0211, "lookLon": 29.0041, "lookAltMsl": 30,
+          "t01": 0, "ease": "linear", "lookId": "maidens-tower"
+        },
+        {
+          "lat": 41.016, "lon": 28.988, "altMsl": 145,
+          "lookLat": 41.012, "lookLon": 28.984, "lookAltMsl": 40,
+          "t01": 0.22, "lookId": "sultan-ahmed"
+        },
+        {
+          "lat": 41.0064, "lon": 28.9788, "altMsl": 152,
+          "lookLat": 41.00541, "lookLon": 28.97681, "lookAltMsl": 46,
+          "t01": 0.48, "lookId": "sultan-ahmed"
+        },
+        {
+          "lat": 41.0052, "lon": 28.9796, "altMsl": 150,
+          "lookLat": 41.00858, "lookLon": 28.98018, "lookAltMsl": 48,
+          "t01": 0.62, "lookId": "hagia-sophia"
+        },
+        {
+          "lat": 41.0070, "lon": 28.9808, "altMsl": 148,
+          "lookLat": 41.0104, "lookLon": 28.9812, "lookAltMsl": 40,
+          "t01": 0.82, "lookId": "aya-irini"
+        },
+        {
+          "lat": 41.0086, "lon": 28.9833, "altMsl": 144,
+          "lookLat": 41.01152, "lookLon": 28.98338, "lookAltMsl": 40,
+          "t01": 1, "lookId": "topkapi"
+        }
+      ]
+    },
+    {
+      "id": "galata",
+      "t0": 62,
+      "t1": 66,
+      "domain": "enu",
+      "fog": true,
+      "ocean": true,
+      "buildings": true,
+      "imagery": "aerial",
+      "cloud01": 0,
+      "keyframes": [
+        {
+          "lat": 41.0086, "lon": 28.9833, "altMsl": 144,
+          "lookLat": 41.01152, "lookLon": 28.98338, "lookAltMsl": 40,
+          "t01": 0, "ease": "linear", "lookId": "topkapi"
+        },
+        {
+          "lat": 41.0182, "lon": 28.9742, "altMsl": 158,
+          "lookLat": 41.0256, "lookLon": 28.9741, "lookAltMsl": 55,
+          "t01": 0.4, "lookId": "galata-tower"
+        },
+        {
+          "lat": 41.0220, "lon": 28.9720, "altMsl": 150,
+          "lookLat": 41.0256, "lookLon": 28.9741, "lookAltMsl": 58,
+          "t01": 0.72, "lookId": "galata-tower"
+        },
+        {
+          "lat": 41.0238, "lon": 28.9715, "altMsl": 142,
+          "lookLat": 41.0256, "lookLon": 28.9741, "lookAltMsl": 60,
+          "t01": 1, "lookId": "galata-tower"
+        }
+      ]
+    },
+    {
+      "id": "dolmabahce",
+      "t0": 66,
+      "t1": 69,
+      "domain": "enu",
+      "fog": true,
+      "ocean": true,
+      "buildings": true,
+      "imagery": "aerial",
+      "cloud01": 0,
+      "keyframes": [
+        {
+          "lat": 41.0238, "lon": 28.9715, "altMsl": 142,
+          "lookLat": 41.0256, "lookLon": 28.9741, "lookAltMsl": 60,
+          "t01": 0, "ease": "linear", "lookId": "galata-tower"
+        },
+        {
+          "lat": 41.0322, "lon": 28.9940, "altMsl": 152,
+          "lookLat": 41.03917, "lookLon": 29.0007, "lookAltMsl": 28,
+          "t01": 0.42, "lookId": "dolmabahce"
+        },
+        {
+          "lat": 41.0345, "lon": 29.0020, "altMsl": 146,
+          "lookLat": 41.03917, "lookLon": 29.0007, "lookAltMsl": 26,
+          "t01": 1, "lookId": "dolmabahce"
+        }
+      ]
+    },
+    {
+      "id": "ciragan",
+      "t0": 69,
+      "t1": 72,
+      "domain": "enu",
+      "fog": true,
+      "ocean": true,
+      "buildings": true,
+      "imagery": "aerial",
+      "cloud01": 0,
+      "keyframes": [
+        {
+          "lat": 41.0345, "lon": 29.0020, "altMsl": 146,
+          "lookLat": 41.03917, "lookLon": 29.0007, "lookAltMsl": 26,
+          "t01": 0, "ease": "linear", "lookId": "dolmabahce"
+        },
+        {
+          "lat": 41.0380, "lon": 29.0110, "altMsl": 150,
+          "lookLat": 41.04342388464562, "lookLon": 29.01532600006871, "lookAltMsl": 20,
+          "t01": 0.36, "lookId": "ciragan"
+        },
+        {
+          "lat": 41.0405, "lon": 29.0180, "altMsl": 144,
+          "lookLat": 41.04342388464562, "lookLon": 29.01532600006871, "lookAltMsl": 18,
+          "t01": 1, "lookId": "ciragan"
+        }
+      ]
+    }
+  ]
+}

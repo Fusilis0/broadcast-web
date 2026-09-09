@@ -11,6 +11,7 @@ import {
 import {
   formatPersistStatus,
   persistRaceProjectLocal,
+  canPersistRaceProjectWithoutDownload,
 } from './persistRaceProjectLocal.ts'
 import type { StudioRacesBridge } from './racesBridge.ts'
 import type { RaceProject } from './types.ts'
@@ -117,6 +118,53 @@ describe('persistRaceProjectLocal', () => {
       'saved · download',
     )
     expect(formatSaveLoadStatus('downloaded')).toBe('downloaded')
+  })
+
+  it('Chrome skipDownload does not download', async () => {
+    const download = vi.fn()
+    const result = await persistRaceProjectLocal({
+      project: sample,
+      racesBridge: null,
+      mode: 'save',
+      skipDownload: true,
+      download,
+    })
+    expect(download).not.toHaveBeenCalled()
+    expect(result.downloaded).toBe(false)
+    expect(result.local).toBeNull()
+  })
+
+  it('canPersistRaceProjectWithoutDownload is Electron or writable API', () => {
+    expect(
+      canPersistRaceProjectWithoutDownload({ racesBridge: mockBridge() }),
+    ).toBe(true)
+    expect(
+      canPersistRaceProjectWithoutDownload({
+        racesBridge: null,
+        projectsApiBase: '/api',
+        canWriteApi: true,
+      }),
+    ).toBe(true)
+    expect(
+      canPersistRaceProjectWithoutDownload({
+        racesBridge: mockBridge(),
+        canWriteApi: false,
+      }),
+    ).toBe(false)
+    expect(
+      canPersistRaceProjectWithoutDownload({
+        racesBridge: null,
+        projectsApiBase: '/api',
+        canWriteApi: false,
+      }),
+    ).toBe(false)
+    expect(
+      canPersistRaceProjectWithoutDownload({
+        racesBridge: null,
+        projectsApiBase: '',
+        canWriteApi: true,
+      }),
+    ).toBe(false)
   })
 
   it('export always downloads and skips folder write', async () => {

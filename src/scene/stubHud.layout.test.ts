@@ -7,6 +7,10 @@ import { startStubHud } from './stubHud.ts'
 afterEach(() => {
   document.body.replaceChildren()
   sessionStorage.removeItem('bw.streamMap.boatScale')
+  sessionStorage.removeItem('bw.buildings.enabled')
+  sessionStorage.removeItem('bw.heroes.enabled')
+  sessionStorage.removeItem('bw.terrain.overlay')
+  sessionStorage.removeItem('bw.terrain.imageryLook')
 })
 
 describe('stubHud two-rail hosts', () => {
@@ -34,6 +38,25 @@ describe('stubHud two-rail hosts', () => {
 
     expect(environment.querySelector('#ops-environment-mode')).toBeTruthy()
     expect(environment.querySelector('#ops-terrain-nudge')).toBeTruthy()
+    expect(environment.querySelector('#ops-terrain-overlay')).toBeTruthy()
+    expect(environment.querySelector('#ops-terrain-aerial')).toBeNull()
+    expect(
+      (environment.querySelector('#ops-terrain-overlay') as HTMLSelectElement)
+        .value,
+    ).toBe('aerial')
+    expect(hud.getTerrainOverlay()).toBe('aerial')
+    expect(environment.querySelector('#ops-buildings-enabled')).toBeTruthy()
+    expect(
+      (environment.querySelector('#ops-buildings-enabled') as HTMLInputElement)
+        .checked,
+    ).toBe(true)
+    expect(hud.getBuildingsEnabled()).toBe(true)
+    expect(environment.querySelector('#ops-heroes-enabled')).toBeTruthy()
+    expect(
+      (environment.querySelector('#ops-heroes-enabled') as HTMLInputElement)
+        .checked,
+    ).toBe(true)
+    expect(hud.getHeroesEnabled()).toBe(true)
     expect(environment.querySelector('[data-ops="terrain-water-discard"]')).toBeTruthy()
     expect(environment.querySelector('[data-ops="sea-height"]')).toBeTruthy()
     expect(
@@ -42,6 +65,9 @@ describe('stubHud two-rail hosts', () => {
     expect(
       environment.querySelector('label[for="ops-sea-height-y"]')?.textContent,
     ).toBe('sea m')
+    expect(
+      (ops.querySelector('#ops-view-mode') as HTMLSelectElement).value,
+    ).toBe('free')
     expect(ops.querySelector('#ops-environment-mode')).toBeNull()
     expect(ops.querySelector('#ops-stream-map')).toBeNull()
     expect(streamMapHost.querySelector('.stream-map')).toBeTruthy()
@@ -121,6 +147,111 @@ describe('stubHud two-rail hosts', () => {
     expect(seaSeen[1]).toBe(20)
     expect(seaInput.value).toBe('20')
 
+    hud.stop()
+  })
+
+  it('map overlay defaults aerial, toggles road, remounts via callback, and persists', () => {
+    const project = document.createElement('div')
+    const ops = document.createElement('div')
+    const environment = document.createElement('div')
+    const wind = document.createElement('div')
+    const map = document.createElement('div')
+    const streamMapHost = document.createElement('div')
+    document.body.append(project, ops, environment, wind, map, streamMapHost)
+
+    const seen: string[] = []
+    const hud = startStubHud({
+      container: document.body,
+      hosts: { project, ops, environment, wind, map, streamMapHost },
+      onTerrainOverlayChange: (kind) => {
+        seen.push(kind)
+      },
+    })
+
+    const overlay = environment.querySelector(
+      '#ops-terrain-overlay',
+    ) as HTMLSelectElement
+    expect(overlay).toBeTruthy()
+    expect(environment.querySelector('#ops-terrain-aerial')).toBeNull()
+    expect(overlay.value).toBe('aerial')
+    expect(hud.getTerrainOverlay()).toBe('aerial')
+    expect(sessionStorage.getItem('bw.terrain.overlay')).toBeNull()
+    expect(sessionStorage.getItem('bw.terrain.imageryLook')).toBeNull()
+
+    overlay.value = 'road'
+    overlay.dispatchEvent(new Event('change'))
+    expect(seen).toEqual(['road'])
+    expect(hud.getTerrainOverlay()).toBe('road')
+    expect(sessionStorage.getItem('bw.terrain.overlay')).toBe('road')
+
+    overlay.value = 'aerial'
+    overlay.dispatchEvent(new Event('change'))
+    expect(seen).toEqual(['road', 'aerial'])
+    expect(hud.getTerrainOverlay()).toBe('aerial')
+    expect(sessionStorage.getItem('bw.terrain.overlay')).toBe('aerial')
+
+    hud.stop()
+  })
+
+  it('boots map aerial from overlay session; leftover imageryLook does not win', () => {
+    sessionStorage.setItem('bw.terrain.imageryLook', 'color')
+    sessionStorage.setItem('bw.terrain.overlay', 'aerial')
+    const project = document.createElement('div')
+    const ops = document.createElement('div')
+    const environment = document.createElement('div')
+    const wind = document.createElement('div')
+    const map = document.createElement('div')
+    const streamMapHost = document.createElement('div')
+    document.body.append(project, ops, environment, wind, map, streamMapHost)
+
+    const hud = startStubHud({
+      container: document.body,
+      hosts: { project, ops, environment, wind, map, streamMapHost },
+    })
+    expect(
+      (environment.querySelector('#ops-terrain-overlay') as HTMLSelectElement)
+        .value,
+    ).toBe('aerial')
+    expect(hud.getTerrainOverlay()).toBe('aerial')
+    expect(environment.querySelector('#ops-terrain-aerial')).toBeNull()
+    hud.stop()
+  })
+
+  it('mounts Cinematics Play/Pause/scrub and an enabled Record', () => {
+    const project = document.createElement('div')
+    const ops = document.createElement('div')
+    const environment = document.createElement('div')
+    const cinematics = document.createElement('div')
+    const wind = document.createElement('div')
+    const map = document.createElement('div')
+    const streamMapHost = document.createElement('div')
+    document.body.append(
+      project,
+      ops,
+      environment,
+      cinematics,
+      wind,
+      map,
+      streamMapHost,
+    )
+    const hud = startStubHud({
+      container: document.body,
+      hosts: { project, ops, environment, cinematics, wind, map, streamMapHost },
+    })
+    expect(cinematics.querySelector('#ops-cinematic-sequence')).toBeTruthy()
+    expect(cinematics.querySelector('#ops-cinematic-play')).toBeTruthy()
+    expect(cinematics.querySelector('#ops-cinematic-pause')).toBeTruthy()
+    expect(
+      (cinematics.querySelector('#ops-cinematic-record') as HTMLButtonElement)
+        .disabled,
+    ).toBe(false)
+    expect(cinematics.querySelector('#ops-cinematic-scrub')).toBeTruthy()
+    expect(ops.querySelector('#ops-cinematic-play')).toBeNull()
+    hud.setCinematicChromeHidden(true)
+    expect(map.hidden).toBe(true)
+    expect(streamMapHost.hidden).toBe(true)
+    hud.setCinematicChromeHidden(false)
+    expect(map.hidden).toBe(false)
     hud.stop()
   })
 })

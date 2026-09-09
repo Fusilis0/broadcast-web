@@ -108,6 +108,25 @@ export type RaceProject = {
    * Omit when empty; old packs without this field still parse.
    */
   calibration?: RaceProjectCalibration
+  /**
+   * Soft optional hero landmark authoring offsets (SCN).
+   * ENU metres + Euler degrees on catalogue ids. Omit when empty;
+   * old packs without this field still parse. Not a geoid.
+   */
+  landmarks?: RaceProjectLandmarks
+}
+
+export type RaceProjectLandmarkPose = {
+  offsetM?: { x: number; y: number; z: number }
+  yawDeg?: number
+  pitchDeg?: number
+  rollDeg?: number
+  /** Uniform mesh scale. Omit → 1. */
+  scale?: number
+}
+
+export type RaceProjectLandmarks = {
+  byId?: Record<string, RaceProjectLandmarkPose>
 }
 
 export type { WorldFeature }

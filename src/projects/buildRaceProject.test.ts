@@ -177,6 +177,62 @@ describe('buildRaceProject', () => {
     expect(again.povIds).toEqual(['5'])
     expect(again.output?.srtByPovId?.['5']).toBe('30')
   })
+
+  it('embeds landmarks.byId and round-trips through parse; omit empty', () => {
+    const project = buildRaceProject({
+      id: 'hero-pack',
+      name: 'Hero Pack',
+      origin: { lat: 41, lon: 29, altMsl: 0 },
+      boatIds: ['21'],
+      povIds: ['1'],
+      landmarks: {
+        byId: {
+          'maidens-tower': {
+            offsetM: { x: 3, y: 0, z: -1 },
+            yawDeg: 12,
+          },
+        },
+      },
+      updatedAt: '2026-09-08T12:00:00.000Z',
+    })
+    expect(project.landmarks?.byId['maidens-tower']).toEqual({
+      offsetM: { x: 3, y: 0, z: -1 },
+      yawDeg: 12,
+    })
+    const again = parseRaceProject(JSON.parse(serializeRaceProject(project)))
+    expect(again.landmarks?.byId['maidens-tower']?.offsetM).toEqual({
+      x: 3,
+      y: 0,
+      z: -1,
+    })
+    expect(again.landmarks?.byId['maidens-tower']?.yawDeg).toBe(12)
+
+    const scaled = buildRaceProject({
+      id: 'hero-scale',
+      name: 'Hero Scale',
+      origin: { lat: 41, lon: 29, altMsl: 0 },
+      boatIds: ['21'],
+      povIds: ['1'],
+      landmarks: {
+        byId: {
+          'maidens-tower': { scale: 2.5 },
+        },
+      },
+      updatedAt: '2026-09-08T12:00:00.000Z',
+    })
+    expect(scaled.landmarks?.byId['maidens-tower']).toEqual({ scale: 2.5 })
+
+    const empty = buildRaceProject({
+      id: 'no-heroes',
+      name: 'No Heroes',
+      origin: { lat: 41, lon: 29, altMsl: 0 },
+      boatIds: ['21'],
+      povIds: ['1'],
+      landmarks: { byId: {} },
+      updatedAt: '2026-09-08T12:00:00.000Z',
+    })
+    expect(empty.landmarks).toBeUndefined()
+  })
 })
 
 describe('listLocalRaceIds', () => {

@@ -31,6 +31,7 @@ Plan and organize the entire parallel Three.js broadcast overlay system. Route w
 | Boats/course/meshes/2D map | SCN |
 | Chroma/WebRTC/vMix/timecode/NDI send | OUT |
 | SRT caller, catalog, decode, colour bars | SRT |
+| SRT **program out** (AR/3D/2D publish) | SRT + OUT (Phase **22** only) |
 | Console button / deep link | CON |
 | Offsets / future CV | CAL |
 | Preview/NDI fps, hitch, GPU cost, “make it 60” | PRF |
@@ -38,10 +39,11 @@ Plan and organize the entire parallel Three.js broadcast overlay system. Route w
 
 ## Output stack (your call — locked)
 
-1. Chroma → vMix (first air)  
-2. WebRTC underlay (preview + CV)  
-3. SRT/WebRTC egress later  
-4. Native NDI helper last resort  
+1. **SRT program out ×3** (Phase 22) — LAN / later WAN  
+2. Chroma → vMix fallback  
+3. WebRTC underlay (preview + CV)  
+4. NDI — parked after 22 (code remains)  
+5. Phase 17 SRT **ingest** unchanged  
 
 ## How you talk to domain orchestrators
 

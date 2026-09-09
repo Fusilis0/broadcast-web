@@ -1,6 +1,8 @@
 # geodesy
 
-Owned by **GEO**. WGS84 origin, EGM96 undulation, GPS → ENU.
+Owned by **GEO**. WGS84 origin, EGM96 undulation, GPS → ENU, cinematic ECEF.
+
+**Cinematic domains (Phase 21):** Globe keyframes are WGS84 **ECEF metres** plus **ellipsoid up** (`geodeticToEcefMeters`, `ellipsoidUpEcef`, `ecefLookAt`). Keyframe altitude is AMSL; globe conversion uses the same `amslToHae` (EGM96) as the race path — no second geoid. Strait / hero shots stay on the Istanbul tangent plane via `enuKeyframeToScene` → `gpsToEnuAmsl`. SCN owns tiles (`TilesRenderer` without `ReorientationPlugin` in the globe domain). This package does not mount CesiumJS or a tileset.
 
 ## Axis contract
 
@@ -29,6 +31,10 @@ Boats use **HAE** altitudes (provisional). Drones: `takeoffAMSL + relativeAlt + 
 | `sceneZFromNorth` / `northFromSceneZ` / `eastNorthFromScene` | Scene Z ↔ geographic north |
 | `applyConfigOrigin` | Apply `{ lat, lon, altMsl }` from config shape (AMSL) |
 | `parseConfigOriginFields` | Parse HUD/form lat/lon/altMsl strings → `ConfigOrigin` or `null` |
+| `geodeticToEcefMeters` | Cinematic globe: AMSL geodetic → ECEF metres (`amslToHae` then WGS84) |
+| `ellipsoidUpEcef` | Unit geodetic normal at lat/lon |
+| `ecefLookAt` | Eye + RH orthonormal basis (forward at target; up = ellipsoid up at eye). Degenerate look → nadir |
+| `enuKeyframeToScene` | Cinematic ENU: wrapper on `gpsToEnuAmsl` |
 
 **World anchor:** `origin` is the Unity-style GeoOrigin — that WGS84 point is ENU `(0,0,0)`. Ops edit it in the stub HUD (**origin** lat/lon/altMsl + Apply); `main` updates runtime config, calls `applyConfigOrigin`, then remounts course/sponsors/features so ENU shifts consistently. Deeplink origin params still win at boot.
 

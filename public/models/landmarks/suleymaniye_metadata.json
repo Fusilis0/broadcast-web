@@ -1,0 +1,5163 @@
+{
+  "format_version": "1.0",
+  "source_file": "suleymaniye",
+  "model_source": "sketchup",
+  "sketchup_version": "{21.0.0}",
+  "total_definitions": 14,
+  "total_meshes": 303,
+  "total_layers": 3,
+  "layers": [
+    {
+      "name": "Layer0",
+      "color": {
+        "r": 255,
+        "g": 84,
+        "b": 84
+      }
+    },
+    {
+      "name": "Google Earth Terrain",
+      "color": {
+        "r": 204,
+        "g": 68,
+        "b": 0
+      }
+    },
+    {
+      "name": "Google Earth Snapshot",
+      "color": {
+        "r": 170,
+        "g": 68,
+        "b": 0
+      }
+    }
+  ],
+  "materials": [
+    {
+      "name": "Google Earth Snapshot1",
+      "color": {
+        "r": 107,
+        "g": 107,
+        "b": 107
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\DOCUME~1\\BURCIN\\LOCALS~1\\Temp\\GEI18.jpg",
+        "x_scale": 1.0,
+        "y_scale": 1.0
+      }
+    },
+    {
+      "name": "*2",
+      "color": {
+        "r": 84,
+        "g": 97,
+        "b": 99
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\Desktop\\Suleymaniye\\_renk1.jpg",
+        "x_scale": 98.4251968503937,
+        "y_scale": 98.4251968503937
+      }
+    },
+    {
+      "name": "*3",
+      "color": {
+        "r": 204,
+        "g": 205,
+        "b": 174
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\Desktop\\Suleymaniye\\_renk2.jpg",
+        "x_scale": 393.7007874015748,
+        "y_scale": 393.7007874015748
+      }
+    },
+    {
+      "name": "*4",
+      "color": {
+        "r": 117,
+        "g": 123,
+        "b": 116
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\Desktop\\Suleymaniye\\_kubbecam.jpg",
+        "x_scale": 175.75928008998875,
+        "y_scale": 196.8503937007874
+      }
+    },
+    {
+      "name": "*5",
+      "color": {
+        "r": 184,
+        "g": 186,
+        "b": 160
+      },
+      "transparency": 1.0,
+      "colorized": true,
+      "colorize_type": 1,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\Desktop\\Suleymaniye\\_pencere2.jpg",
+        "x_scale": 984.2519685039371,
+        "y_scale": 682.6263652527306
+      }
+    },
+    {
+      "name": "*6",
+      "color": {
+        "r": 117,
+        "g": 123,
+        "b": 116
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\Desktop\\Suleymaniye\\_kubbecam.jpg",
+        "x_scale": 105.45556805399325,
+        "y_scale": 118.11023622047244
+      }
+    },
+    {
+      "name": "*7",
+      "color": {
+        "r": 154,
+        "g": 150,
+        "b": 126
+      },
+      "transparency": 1.0,
+      "colorized": true,
+      "colorize_type": 1,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\Desktop\\Suleymaniye\\_pencere1.jpg",
+        "x_scale": 393.7007874015748,
+        "y_scale": 282.6569755703614
+      }
+    },
+    {
+      "name": "*8",
+      "color": {
+        "r": 235,
+        "g": 236,
+        "b": 224
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\Desktop\\Suleymaniye\\_kemer.png",
+        "x_scale": 177.16535433070868,
+        "y_scale": 314.96062992125985
+      }
+    },
+    {
+      "name": "*9",
+      "color": {
+        "r": 235,
+        "g": 236,
+        "b": 224
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\Desktop\\Suleymaniye\\_kemer.png",
+        "x_scale": 275.59055118110234,
+        "y_scale": 492.12598425196853
+      }
+    },
+    {
+      "name": "*10",
+      "color": {
+        "r": 187,
+        "g": 186,
+        "b": 159
+      },
+      "transparency": 1.0,
+      "colorized": true,
+      "colorize_type": 1,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\Desktop\\Suleymaniye\\_pencere3.jpg",
+        "x_scale": 275.59055118110234,
+        "y_scale": 492.12598425196853
+      }
+    },
+    {
+      "name": "*11",
+      "color": {
+        "r": 177,
+        "g": 181,
+        "b": 144
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\Desktop\\Suleymaniye\\_giris.jpg",
+        "x_scale": 826.7716535433071,
+        "y_scale": 735.5836035201482
+      }
+    },
+    {
+      "name": "*12",
+      "color": {
+        "r": 154,
+        "g": 150,
+        "b": 126
+      },
+      "transparency": 1.0,
+      "colorized": true,
+      "colorize_type": 1,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\Desktop\\Suleymaniye\\_pencere1.jpg",
+        "x_scale": 275.59055118110234,
+        "y_scale": 196.8503937007874
+      }
+    },
+    {
+      "name": "*13",
+      "color": {
+        "r": 195,
+        "g": 199,
+        "b": 172
+      },
+      "transparency": 1.0,
+      "colorized": true,
+      "colorize_type": 1,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\Desktop\\Suleymaniye\\_serefealti.jpg",
+        "x_scale": 27.637795275590552,
+        "y_scale": 46.06299212598425
+      }
+    },
+    {
+      "name": "*14",
+      "color": {
+        "r": 234,
+        "g": 233,
+        "b": 204
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 1,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\Desktop\\Suleymaniye\\_korkuluk.png",
+        "x_scale": 39.37007874015748,
+        "y_scale": 39.37007874015748
+      }
+    },
+    {
+      "name": "*15",
+      "color": {
+        "r": 244,
+        "g": 237,
+        "b": 217
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\Desktop\\Suleymaniye\\_paratonel1.png",
+        "x_scale": 87.10194411539267,
+        "y_scale": 196.8503937007874
+      }
+    },
+    {
+      "name": "*16",
+      "color": {
+        "r": 240,
+        "g": 233,
+        "b": 212
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\Documents and Settings\\BURCIN\\Desktop\\Suleymaniye\\_paratonel2.png",
+        "x_scale": 53.89951256092989,
+        "y_scale": 196.8503937007874
+      }
+    },
+    {
+      "name": "Layer_Layer0",
+      "color": {
+        "r": 255,
+        "g": 84,
+        "b": 84
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Layer_Google Earth Terrain",
+      "color": {
+        "r": 204,
+        "g": 68,
+        "b": 0
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Layer_Google Earth Snapshot",
+      "color": {
+        "r": 170,
+        "g": 68,
+        "b": 0
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    }
+  ],
+  "mesh_index": {
+    "mesh_0_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        4233.88,
+        -31060.96,
+        45129.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_1_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        4233.88,
+        -31060.96,
+        45129.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_2_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        4233.88,
+        -31060.96,
+        45129.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_3_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        7332.03,
+        -61369.23,
+        22499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_4_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        7332.03,
+        -61369.23,
+        22499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_5_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        7332.03,
+        -61369.23,
+        22499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_6_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        38794.29,
+        -19201.53,
+        39504.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_7_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        38794.29,
+        -19201.53,
+        39504.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_8_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        38794.29,
+        -19201.53,
+        39504.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_9_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        27831.13,
+        -9361.66,
+        22499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_10_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        27831.13,
+        -9361.66,
+        22499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_11_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        27831.13,
+        -9361.66,
+        22499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_12_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        11127.92,
+        9239.49,
+        22499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_13_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        11127.92,
+        9239.49,
+        22499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_14_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        11127.92,
+        9239.49,
+        22499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_15_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -26074.38,
+        -24166.93,
+        22499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_16_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -26074.38,
+        -24166.93,
+        22499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_17_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -26074.38,
+        -24166.93,
+        22499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_18_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -9371.18,
+        -42768.08,
+        22499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_19_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -9371.18,
+        -42768.08,
+        22499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_20_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -9371.18,
+        -42768.08,
+        22499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_21_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        9032.45,
+        -45926.66,
+        39504.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_22_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        9032.45,
+        -45926.66,
+        39504.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_23_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        9032.45,
+        -45926.66,
+        39504.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_24_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -11011.4,
+        -23605.27,
+        39504.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_25_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -11011.4,
+        -23605.27,
+        39504.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_26_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -11011.4,
+        -23605.27,
+        39504.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_27_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        18750.44,
+        3119.86,
+        39504.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_28_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        18750.44,
+        3119.86,
+        39504.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_29_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        18750.44,
+        3119.86,
+        39504.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_30_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        44534.34,
+        -27962.82,
+        22499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_31_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        44534.34,
+        -27962.82,
+        22499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_32_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        44534.34,
+        -27962.82,
+        22499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_33_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -9665.77,
+        -21898.2,
+        28499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_34_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -9665.77,
+        -21898.2,
+        28499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_35_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -9665.77,
+        -21898.2,
+        28499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_36_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        12269.64,
+        -46326.09,
+        28499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_37_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        12269.64,
+        -46326.09,
+        28499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_38_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        12269.64,
+        -46326.09,
+        28499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_39_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        34948.83,
+        -37594.98,
+        18849.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_40_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        34948.83,
+        -37594.98,
+        18849.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_41_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        34948.83,
+        -37594.98,
+        18849.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_42_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        17936.33,
+        -52871.63,
+        18849.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_43_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        17936.33,
+        -52871.63,
+        18849.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_44_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        17936.33,
+        -52871.63,
+        18849.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_45_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        523.62,
+        741.89,
+        18849.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_46_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        523.62,
+        741.89,
+        18849.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_47_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        523.62,
+        741.89,
+        18849.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_48_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -16488.88,
+        -14534.77,
+        18849.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_49_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -16488.88,
+        -14534.77,
+        18849.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_50_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -16488.88,
+        -14534.77,
+        18849.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_51_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        50822.33,
+        -9648.51,
+        24504.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_52_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        50822.33,
+        -9648.51,
+        24504.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_53_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        50822.33,
+        -9648.51,
+        24504.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_54_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        29442.22,
+        14160.96,
+        24504.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_55_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        29442.22,
+        14160.96,
+        24504.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_56_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        29442.22,
+        14160.96,
+        24504.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_57_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        227.19,
+        -55081.24,
+        24504.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_58_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        227.19,
+        -55081.24,
+        24504.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_59_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        227.19,
+        -55081.24,
+        24504.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_60_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -21152.91,
+        -31271.76,
+        24504.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_61_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -21152.91,
+        -31271.76,
+        24504.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_62_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -21152.91,
+        -31271.76,
+        24504.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_63_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -11182.49,
+        4201.37,
+        11004.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_64_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -11182.49,
+        4201.37,
+        11004.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_65_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -11182.49,
+        4201.37,
+        11004.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_66_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -5974.17,
+        8878.26,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_67_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -5974.17,
+        8878.26,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_68_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -5974.17,
+        8878.26,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_69_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -765.84,
+        13555.16,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_70_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -765.84,
+        13555.16,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_71_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -765.84,
+        13555.16,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_72_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        4442.48,
+        18232.06,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_73_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        4442.48,
+        18232.06,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_74_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        4442.48,
+        18232.06,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_75_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -16390.81,
+        -475.53,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_76_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -16390.81,
+        -475.53,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_77_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -16390.81,
+        -475.53,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_78_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -26807.46,
+        -9829.33,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_79_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -26807.46,
+        -9829.33,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_80_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -26807.46,
+        -9829.33,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_81_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -21599.13,
+        -5152.43,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_82_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -21599.13,
+        -5152.43,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_83_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -21599.13,
+        -5152.43,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_84_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -49827.55,
+        26283.52,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_85_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -49827.55,
+        26283.52,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_86_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -49827.55,
+        26283.52,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_87_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -55035.88,
+        21606.62,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_88_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -55035.88,
+        21606.62,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_89_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -55035.88,
+        21606.62,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_90_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -23785.94,
+        49668.01,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_91_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -23785.94,
+        49668.01,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_92_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -23785.94,
+        49668.01,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_93_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -28994.26,
+        44991.11,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_94_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -28994.26,
+        44991.11,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_95_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -28994.26,
+        44991.11,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_96_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -44619.23,
+        30960.42,
+        11004.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_97_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -44619.23,
+        30960.42,
+        11004.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_98_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -44619.23,
+        30960.42,
+        11004.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_99_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -34202.59,
+        40314.21,
+        11004.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_100_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -34202.59,
+        40314.21,
+        11004.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_101_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -34202.59,
+        40314.21,
+        11004.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_102_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -39410.91,
+        35637.31,
+        13504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_103_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -39410.91,
+        35637.31,
+        13504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_104_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -39410.91,
+        35637.31,
+        13504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_105_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        10022.83,
+        23243.02,
+        11004.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_106_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        10022.83,
+        23243.02,
+        11004.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_107_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        10022.83,
+        23243.02,
+        11004.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_108_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -18205.59,
+        54678.97,
+        11004.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_109_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -18205.59,
+        54678.97,
+        11004.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_110_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -18205.59,
+        54678.97,
+        11004.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_111_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -60616.22,
+        16595.66,
+        11004.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_112_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -60616.22,
+        16595.66,
+        11004.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_113_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -60616.22,
+        16595.66,
+        11004.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_114_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -32387.8,
+        -14840.29,
+        11004.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_115_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -32387.8,
+        -14840.29,
+        11004.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_116_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -32387.8,
+        -14840.29,
+        11004.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_117_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -37064.7,
+        -9631.97,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_118_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -37064.7,
+        -9631.97,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_119_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -37064.7,
+        -9631.97,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_120_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        5345.93,
+        28451.34,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_121_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        5345.93,
+        28451.34,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_122_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        5345.93,
+        28451.34,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_123_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -41741.6,
+        -4423.64,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_124_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -41741.6,
+        -4423.64,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_125_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -41741.6,
+        -4423.64,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_126_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        669.03,
+        33659.67,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_127_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        669.03,
+        33659.67,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_128_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        669.03,
+        33659.67,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_129_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -4007.87,
+        38867.99,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_130_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -4007.87,
+        38867.99,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_131_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -4007.87,
+        38867.99,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_132_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -46418.5,
+        784.68,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_133_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -46418.5,
+        784.68,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_134_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -46418.5,
+        784.68,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_135_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -8684.77,
+        44076.31,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_136_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -8684.77,
+        44076.31,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_137_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -8684.77,
+        44076.31,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_138_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -51095.39,
+        5993.0,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_139_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -51095.39,
+        5993.0,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_140_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -51095.39,
+        5993.0,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_141_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -13361.66,
+        49284.64,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_142_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -13361.66,
+        49284.64,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_143_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -13361.66,
+        49284.64,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_144_ROOT__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -55772.29,
+        11201.32,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_145_ROOT__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -55772.29,
+        11201.32,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_146_ROOT__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -55772.29,
+        11201.32,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3391"
+    },
+    "mesh_147_ROOT__Component_4422_Layer0": {
+      "name": "",
+      "definition_name": "Group#11",
+      "layer": "Layer0",
+      "position_mm": [
+        21573.17,
+        25986.43,
+        84891.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4422"
+    },
+    "mesh_148_ROOT__Component_4422_Layer0": {
+      "name": "",
+      "definition_name": "Group#11",
+      "layer": "Layer0",
+      "position_mm": [
+        -30510.05,
+        -20782.54,
+        84891.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4422"
+    },
+    "mesh_149_ROOT__Component_4422_Layer0": {
+      "name": "",
+      "definition_name": "Group#11",
+      "layer": "Layer0",
+      "position_mm": [
+        -63248.34,
+        15675.71,
+        67391.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4422"
+    },
+    "mesh_150_ROOT__Component_4422_Layer0": {
+      "name": "",
+      "definition_name": "Group#11",
+      "layer": "Layer0",
+      "position_mm": [
+        -11165.11,
+        62444.69,
+        67391.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4422"
+    },
+    "mesh_151_ROOT__Google_Earth_Terrain_Location Terrain_107_107_107_ss": {
+      "name": "Google Earth Terrain",
+      "definition_name": "Google Earth Terrain",
+      "layer": "Location Terrain",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Google Earth Terrain"
+    },
+    "mesh_152_ROOT__Google_Earth_Terrain_Location Terrain_136_136_136_ss": {
+      "name": "Google Earth Terrain",
+      "definition_name": "Google Earth Terrain",
+      "layer": "Location Terrain",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Google Earth Terrain"
+    },
+    "mesh_153_ROOT__Google_Earth_Snapshot_Location Snapshot_107_107_107_ss": {
+      "name": "Google Earth Snapshot",
+      "definition_name": "Google Earth Snapshot",
+      "layer": "Location Snapshot",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Google Earth Snapshot"
+    },
+    "mesh_154_ROOT__Google_Earth_Snapshot_Location Snapshot_136_136_136_ss": {
+      "name": "Google Earth Snapshot",
+      "definition_name": "Google Earth Snapshot",
+      "layer": "Location Snapshot",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Google Earth Snapshot"
+    },
+    "mesh_155_ROOT__Component_706_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#2",
+      "layer": "Layer0",
+      "position_mm": [
+        -68249.92,
+        -66534.44,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_706"
+    },
+    "mesh_156_ROOT__Component_706_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#2",
+      "layer": "Layer0",
+      "position_mm": [
+        -68249.92,
+        -66534.44,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_706"
+    },
+    "mesh_157_ROOT__Component_706_Layer0_204_205_174_ss": {
+      "name": "",
+      "definition_name": "Group#2",
+      "layer": "Layer0",
+      "position_mm": [
+        -68249.92,
+        -66534.44,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_706"
+    },
+    "mesh_158_ROOT__Component_706_Layer0_184_186_160_ss": {
+      "name": "",
+      "definition_name": "Group#2",
+      "layer": "Layer0",
+      "position_mm": [
+        -68249.92,
+        -66534.44,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_706"
+    },
+    "mesh_159_ROOT__Component_706_Layer0_235_236_224_ds": {
+      "name": "",
+      "definition_name": "Group#2",
+      "layer": "Layer0",
+      "position_mm": [
+        -68249.92,
+        -66534.44,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_706"
+    },
+    "mesh_160_ROOT__Component_706_Layer0_117_123_116_ss": {
+      "name": "",
+      "definition_name": "Group#2",
+      "layer": "Layer0",
+      "position_mm": [
+        -68249.92,
+        -66534.44,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_706"
+    },
+    "mesh_161_ROOT__Component_706_Layer0_204_205_174_ds": {
+      "name": "",
+      "definition_name": "Group#2",
+      "layer": "Layer0",
+      "position_mm": [
+        -68249.92,
+        -66534.44,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_706"
+    },
+    "mesh_162_ROOT__Component_706_Layer0_154_150_126_ss": {
+      "name": "",
+      "definition_name": "Group#2",
+      "layer": "Layer0",
+      "position_mm": [
+        -68249.92,
+        -66534.44,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_706"
+    },
+    "mesh_163_ROOT__Component_706_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#2",
+      "layer": "Layer0",
+      "position_mm": [
+        -68249.92,
+        -66534.44,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_706"
+    },
+    "mesh_164_ROOT__Component_706_Layer0_187_186_159_ss": {
+      "name": "",
+      "definition_name": "Group#2",
+      "layer": "Layer0",
+      "position_mm": [
+        -68249.92,
+        -66534.44,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_706"
+    },
+    "mesh_165_ROOT__Component_706_Layer0_177_181_144_ss": {
+      "name": "",
+      "definition_name": "Group#2",
+      "layer": "Layer0",
+      "position_mm": [
+        -68249.92,
+        -66534.44,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_706"
+    },
+    "mesh_166_ROOT__Component_2932_Layer0_204_205_174_ss": {
+      "name": "",
+      "definition_name": "Group#4",
+      "layer": "Layer0",
+      "position_mm": [
+        39159.72,
+        -13562.35,
+        18499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_2932"
+    },
+    "mesh_167_ROOT__Component_2932_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#4",
+      "layer": "Layer0",
+      "position_mm": [
+        39159.72,
+        -13562.35,
+        18499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_2932"
+    },
+    "mesh_168_ROOT__Component_2932_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#4",
+      "layer": "Layer0",
+      "position_mm": [
+        39159.72,
+        -13562.35,
+        18499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_2932"
+    },
+    "mesh_169_ROOT__Component_2932__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        39421.42,
+        -13295.96,
+        23499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_2932 / Component_3391"
+    },
+    "mesh_170_ROOT__Component_2932__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        39421.42,
+        -13295.96,
+        23499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_2932 / Component_3391"
+    },
+    "mesh_171_ROOT__Component_2932__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        39421.42,
+        -13295.96,
+        23499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_2932 / Component_3391"
+    },
+    "mesh_172_ROOT__Component_2932_Layer0_204_205_174_ss": {
+      "name": "",
+      "definition_name": "Group#4",
+      "layer": "Layer0",
+      "position_mm": [
+        24460.9,
+        2806.66,
+        18499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_2932"
+    },
+    "mesh_173_ROOT__Component_2932_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#4",
+      "layer": "Layer0",
+      "position_mm": [
+        24460.9,
+        2806.66,
+        18499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_2932"
+    },
+    "mesh_174_ROOT__Component_2932_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#4",
+      "layer": "Layer0",
+      "position_mm": [
+        24460.9,
+        2806.66,
+        18499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_2932"
+    },
+    "mesh_175_ROOT__Component_2932__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        24722.59,
+        3073.06,
+        23499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_2932 / Component_3391"
+    },
+    "mesh_176_ROOT__Component_2932__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        24722.59,
+        3073.06,
+        23499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_2932 / Component_3391"
+    },
+    "mesh_177_ROOT__Component_2932__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        24722.59,
+        3073.06,
+        23499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_2932 / Component_3391"
+    },
+    "mesh_178_ROOT__Component_2932_Layer0_204_205_174_ss": {
+      "name": "",
+      "definition_name": "Group#4",
+      "layer": "Layer0",
+      "position_mm": [
+        -6989.56,
+        -24857.18,
+        18499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_2932"
+    },
+    "mesh_179_ROOT__Component_2932_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#4",
+      "layer": "Layer0",
+      "position_mm": [
+        -6989.56,
+        -24857.18,
+        18499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_2932"
+    },
+    "mesh_180_ROOT__Component_2932_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#4",
+      "layer": "Layer0",
+      "position_mm": [
+        -6989.56,
+        -24857.18,
+        18499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_2932"
+    },
+    "mesh_181_ROOT__Component_2932__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -7251.26,
+        -25123.58,
+        23499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_2932 / Component_3391"
+    },
+    "mesh_182_ROOT__Component_2932__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -7251.26,
+        -25123.58,
+        23499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_2932 / Component_3391"
+    },
+    "mesh_183_ROOT__Component_2932__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -7251.26,
+        -25123.58,
+        23499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_2932 / Component_3391"
+    },
+    "mesh_184_ROOT__Component_2932_Layer0_204_205_174_ss": {
+      "name": "",
+      "definition_name": "Group#4",
+      "layer": "Layer0",
+      "position_mm": [
+        7709.26,
+        -41226.2,
+        18499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_2932"
+    },
+    "mesh_185_ROOT__Component_2932_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#4",
+      "layer": "Layer0",
+      "position_mm": [
+        7709.26,
+        -41226.2,
+        18499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_2932"
+    },
+    "mesh_186_ROOT__Component_2932_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#4",
+      "layer": "Layer0",
+      "position_mm": [
+        7709.26,
+        -41226.2,
+        18499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_2932"
+    },
+    "mesh_187_ROOT__Component_2932__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        7447.57,
+        -41492.59,
+        23499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_2932 / Component_3391"
+    },
+    "mesh_188_ROOT__Component_2932__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        7447.57,
+        -41492.59,
+        23499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_2932 / Component_3391"
+    },
+    "mesh_189_ROOT__Component_2932__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        7447.57,
+        -41492.59,
+        23499.25
+      ],
+      "properties": {},
+      "path": "ROOT / Component_2932 / Component_3391"
+    },
+    "mesh_190_ROOT__Component_3156_Layer0_84_97_99_ds": {
+      "name": "",
+      "definition_name": "Group#12",
+      "layer": "Layer0",
+      "position_mm": [
+        21893.05,
+        -20189.0,
+        250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3156"
+    },
+    "mesh_191_ROOT__Component_3156_Layer0_235_236_224_ds": {
+      "name": "",
+      "definition_name": "Group#12",
+      "layer": "Layer0",
+      "position_mm": [
+        21893.05,
+        -20189.0,
+        250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3156"
+    },
+    "mesh_192_ROOT__Component_3156__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        54238.89,
+        -11956.57,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3156 / Component_3391"
+    },
+    "mesh_193_ROOT__Component_3156__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        54238.89,
+        -11956.57,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3156 / Component_3391"
+    },
+    "mesh_194_ROOT__Component_3156__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        54238.89,
+        -11956.57,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3156 / Component_3391"
+    },
+    "mesh_195_ROOT__Component_3156__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        24900.17,
+        18722.13,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3156 / Component_3391"
+    },
+    "mesh_196_ROOT__Component_3156__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        24900.17,
+        18722.13,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3156 / Component_3391"
+    },
+    "mesh_197_ROOT__Component_3156__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        24900.17,
+        18722.13,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3156 / Component_3391"
+    },
+    "mesh_198_ROOT__Component_3156__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        59583.91,
+        -17908.94,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3156 / Component_3391"
+    },
+    "mesh_199_ROOT__Component_3156__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        59583.91,
+        -17908.94,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3156 / Component_3391"
+    },
+    "mesh_200_ROOT__Component_3156__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        59583.91,
+        -17908.94,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3156 / Component_3391"
+    },
+    "mesh_201_ROOT__Component_3156__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        55968.14,
+        -15876.02,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3156 / Component_3391"
+    },
+    "mesh_202_ROOT__Component_3156__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        55968.14,
+        -15876.02,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3156 / Component_3391"
+    },
+    "mesh_203_ROOT__Component_3156__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        55968.14,
+        -15876.02,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3156 / Component_3391"
+    },
+    "mesh_204_ROOT__Component_3156__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        28181.89,
+        17061.23,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3156 / Component_3391"
+    },
+    "mesh_205_ROOT__Component_3156__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        28181.89,
+        17061.23,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3156 / Component_3391"
+    },
+    "mesh_206_ROOT__Component_3156__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        28181.89,
+        17061.23,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3156 / Component_3391"
+    },
+    "mesh_207_ROOT__Component_3156__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        23504.99,
+        22269.55,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3156 / Component_3391"
+    },
+    "mesh_208_ROOT__Component_3156__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        23504.99,
+        22269.55,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3156 / Component_3391"
+    },
+    "mesh_209_ROOT__Component_3156__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        23504.99,
+        22269.55,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3156 / Component_3391"
+    },
+    "mesh_210_ROOT__Component_3390_Layer0_84_97_99_ds": {
+      "name": "",
+      "definition_name": "Group#6",
+      "layer": "Layer0",
+      "position_mm": [
+        16436.01,
+        -25089.25,
+        250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3390"
+    },
+    "mesh_211_ROOT__Component_3390_Layer0_235_236_224_ds": {
+      "name": "",
+      "definition_name": "Group#6",
+      "layer": "Layer0",
+      "position_mm": [
+        16436.01,
+        -25089.25,
+        250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3390"
+    },
+    "mesh_212_ROOT__Component_3390__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        4783.25,
+        -56366.07,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3390 / Component_3391"
+    },
+    "mesh_213_ROOT__Component_3390__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        4783.25,
+        -56366.07,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3390 / Component_3391"
+    },
+    "mesh_214_ROOT__Component_3390__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        4783.25,
+        -56366.07,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3390 / Component_3391"
+    },
+    "mesh_215_ROOT__Component_3390__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -22573.25,
+        -23907.41,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3390 / Component_3391"
+    },
+    "mesh_216_ROOT__Component_3390__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -22573.25,
+        -23907.41,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3390 / Component_3391"
+    },
+    "mesh_217_ROOT__Component_3390__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -22573.25,
+        -23907.41,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3390 / Component_3391"
+    },
+    "mesh_218_ROOT__Component_3390__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        10128.27,
+        -62318.43,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3390 / Component_3391"
+    },
+    "mesh_219_ROOT__Component_3390__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        10128.27,
+        -62318.43,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3390 / Component_3391"
+    },
+    "mesh_220_ROOT__Component_3390__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        10128.27,
+        -62318.43,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3390 / Component_3391"
+    },
+    "mesh_221_ROOT__Component_3390__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        8494.71,
+        -58505.55,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3390 / Component_3391"
+    },
+    "mesh_222_ROOT__Component_3390__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        8494.71,
+        -58505.55,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3390 / Component_3391"
+    },
+    "mesh_223_ROOT__Component_3390__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        8494.71,
+        -58505.55,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3390 / Component_3391"
+    },
+    "mesh_224_ROOT__Component_3390__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -21273.76,
+        -27348.27,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3390 / Component_3391"
+    },
+    "mesh_225_ROOT__Component_3390__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -21273.76,
+        -27348.27,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3390 / Component_3391"
+    },
+    "mesh_226_ROOT__Component_3390__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -21273.76,
+        -27348.27,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3390 / Component_3391"
+    },
+    "mesh_227_ROOT__Component_3390__Component_3391_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -25950.65,
+        -22139.94,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3390 / Component_3391"
+    },
+    "mesh_228_ROOT__Component_3390__Component_3391_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -25950.65,
+        -22139.94,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3390 / Component_3391"
+    },
+    "mesh_229_ROOT__Component_3390__Component_3391_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#3",
+      "layer": "Layer0",
+      "position_mm": [
+        -25950.65,
+        -22139.94,
+        8250.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3390 / Component_3391"
+    },
+    "mesh_230_ROOT__Component_3624_Layer0_204_205_174_ss": {
+      "name": "",
+      "definition_name": "Group#7",
+      "layer": "Layer0",
+      "position_mm": [
+        -12910.15,
+        2633.28,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3624"
+    },
+    "mesh_231_ROOT__Component_3624_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#7",
+      "layer": "Layer0",
+      "position_mm": [
+        -12910.15,
+        2633.28,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3624"
+    },
+    "mesh_232_ROOT__Component_3624_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#7",
+      "layer": "Layer0",
+      "position_mm": [
+        -12910.15,
+        2633.28,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3624"
+    },
+    "mesh_233_ROOT__Component_3624_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#7",
+      "layer": "Layer0",
+      "position_mm": [
+        -12910.15,
+        2633.28,
+        8504.85
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3624"
+    },
+    "mesh_234_ROOT__Component_3657_Layer0_204_205_174_ss": {
+      "name": "",
+      "definition_name": "Group#10",
+      "layer": "Layer0",
+      "position_mm": [
+        18552.41,
+        22965.67,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657"
+    },
+    "mesh_235_ROOT__Component_3657_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#10",
+      "layer": "Layer0",
+      "position_mm": [
+        18552.41,
+        22965.67,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657"
+    },
+    "mesh_236_ROOT__Component_3657_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#10",
+      "layer": "Layer0",
+      "position_mm": [
+        18552.41,
+        22965.67,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657"
+    },
+    "mesh_237_ROOT__Component_3657_Layer0_195_199_172_ss": {
+      "name": "",
+      "definition_name": "Group#10",
+      "layer": "Layer0",
+      "position_mm": [
+        18552.41,
+        22965.67,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657"
+    },
+    "mesh_238_ROOT__Component_3657_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#10",
+      "layer": "Layer0",
+      "position_mm": [
+        18552.41,
+        22965.67,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657"
+    },
+    "mesh_239_ROOT__Component_3657__Component_4025_Layer0_234_233_204_ds": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        19578.07,
+        23991.33,
+        43891.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4025"
+    },
+    "mesh_240_ROOT__Component_3657__Component_4025_Layer0_204_205_174_ss": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        19578.07,
+        23991.33,
+        43891.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4025"
+    },
+    "mesh_241_ROOT__Component_3657__Component_4025_Layer0_195_199_172_ss": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        19578.07,
+        23991.33,
+        43891.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4025"
+    },
+    "mesh_242_ROOT__Component_3657__Component_4025_Layer0_195_199_172_ds": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        19578.07,
+        23991.33,
+        43891.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4025"
+    },
+    "mesh_243_ROOT__Component_3657__Component_4025_Layer0_234_233_204_ds": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        19578.07,
+        23991.33,
+        58891.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4025"
+    },
+    "mesh_244_ROOT__Component_3657__Component_4025_Layer0_204_205_174_ss": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        19578.07,
+        23991.33,
+        58891.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4025"
+    },
+    "mesh_245_ROOT__Component_3657__Component_4025_Layer0_195_199_172_ss": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        19578.07,
+        23991.33,
+        58891.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4025"
+    },
+    "mesh_246_ROOT__Component_3657__Component_4025_Layer0_195_199_172_ds": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        19578.07,
+        23991.33,
+        58891.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4025"
+    },
+    "mesh_247_ROOT__Component_3657__Component_4025_Layer0_234_233_204_ds": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        19578.07,
+        23991.33,
+        51391.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4025"
+    },
+    "mesh_248_ROOT__Component_3657__Component_4025_Layer0_204_205_174_ss": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        19578.07,
+        23991.33,
+        51391.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4025"
+    },
+    "mesh_249_ROOT__Component_3657__Component_4025_Layer0_195_199_172_ss": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        19578.07,
+        23991.33,
+        51391.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4025"
+    },
+    "mesh_250_ROOT__Component_3657__Component_4025_Layer0_195_199_172_ds": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        19578.07,
+        23991.33,
+        51391.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4025"
+    },
+    "mesh_251_ROOT__Component_3657__Component_4151_Layer0_204_205_174_ss": {
+      "name": "",
+      "definition_name": "Group#5",
+      "layer": "Layer0",
+      "position_mm": [
+        18552.41,
+        22965.67,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4151"
+    },
+    "mesh_252_ROOT__Component_3657__Component_4151_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#5",
+      "layer": "Layer0",
+      "position_mm": [
+        18552.41,
+        22965.67,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4151"
+    },
+    "mesh_253_ROOT__Component_3657_Layer0_204_205_174_ss": {
+      "name": "",
+      "definition_name": "Group#10",
+      "layer": "Layer0",
+      "position_mm": [
+        -33530.82,
+        -23803.31,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657"
+    },
+    "mesh_254_ROOT__Component_3657_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#10",
+      "layer": "Layer0",
+      "position_mm": [
+        -33530.82,
+        -23803.31,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657"
+    },
+    "mesh_255_ROOT__Component_3657_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#10",
+      "layer": "Layer0",
+      "position_mm": [
+        -33530.82,
+        -23803.31,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657"
+    },
+    "mesh_256_ROOT__Component_3657_Layer0_195_199_172_ss": {
+      "name": "",
+      "definition_name": "Group#10",
+      "layer": "Layer0",
+      "position_mm": [
+        -33530.82,
+        -23803.31,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657"
+    },
+    "mesh_257_ROOT__Component_3657_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#10",
+      "layer": "Layer0",
+      "position_mm": [
+        -33530.82,
+        -23803.31,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657"
+    },
+    "mesh_258_ROOT__Component_3657__Component_4025_Layer0_234_233_204_ds": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -32505.16,
+        -22777.65,
+        43891.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4025"
+    },
+    "mesh_259_ROOT__Component_3657__Component_4025_Layer0_204_205_174_ss": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -32505.16,
+        -22777.65,
+        43891.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4025"
+    },
+    "mesh_260_ROOT__Component_3657__Component_4025_Layer0_195_199_172_ss": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -32505.16,
+        -22777.65,
+        43891.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4025"
+    },
+    "mesh_261_ROOT__Component_3657__Component_4025_Layer0_195_199_172_ds": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -32505.16,
+        -22777.65,
+        43891.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4025"
+    },
+    "mesh_262_ROOT__Component_3657__Component_4025_Layer0_234_233_204_ds": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -32505.16,
+        -22777.65,
+        58891.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4025"
+    },
+    "mesh_263_ROOT__Component_3657__Component_4025_Layer0_204_205_174_ss": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -32505.16,
+        -22777.65,
+        58891.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4025"
+    },
+    "mesh_264_ROOT__Component_3657__Component_4025_Layer0_195_199_172_ss": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -32505.16,
+        -22777.65,
+        58891.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4025"
+    },
+    "mesh_265_ROOT__Component_3657__Component_4025_Layer0_195_199_172_ds": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -32505.16,
+        -22777.65,
+        58891.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4025"
+    },
+    "mesh_266_ROOT__Component_3657__Component_4025_Layer0_234_233_204_ds": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -32505.16,
+        -22777.65,
+        51391.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4025"
+    },
+    "mesh_267_ROOT__Component_3657__Component_4025_Layer0_204_205_174_ss": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -32505.16,
+        -22777.65,
+        51391.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4025"
+    },
+    "mesh_268_ROOT__Component_3657__Component_4025_Layer0_195_199_172_ss": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -32505.16,
+        -22777.65,
+        51391.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4025"
+    },
+    "mesh_269_ROOT__Component_3657__Component_4025_Layer0_195_199_172_ds": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -32505.16,
+        -22777.65,
+        51391.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4025"
+    },
+    "mesh_270_ROOT__Component_3657__Component_4151_Layer0_204_205_174_ss": {
+      "name": "",
+      "definition_name": "Group#5",
+      "layer": "Layer0",
+      "position_mm": [
+        -33530.82,
+        -23803.31,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4151"
+    },
+    "mesh_271_ROOT__Component_3657__Component_4151_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#5",
+      "layer": "Layer0",
+      "position_mm": [
+        -33530.82,
+        -23803.31,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_3657 / Component_4151"
+    },
+    "mesh_272_ROOT__Component_4024_Layer0_204_205_174_ss": {
+      "name": "",
+      "definition_name": "Group#9",
+      "layer": "Layer0",
+      "position_mm": [
+        -14185.88,
+        59423.93,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024"
+    },
+    "mesh_273_ROOT__Component_4024_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#9",
+      "layer": "Layer0",
+      "position_mm": [
+        -14185.88,
+        59423.93,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024"
+    },
+    "mesh_274_ROOT__Component_4024_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#9",
+      "layer": "Layer0",
+      "position_mm": [
+        -14185.88,
+        59423.93,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024"
+    },
+    "mesh_275_ROOT__Component_4024_Layer0_195_199_172_ss": {
+      "name": "",
+      "definition_name": "Group#9",
+      "layer": "Layer0",
+      "position_mm": [
+        -14185.88,
+        59423.93,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024"
+    },
+    "mesh_276_ROOT__Component_4024_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#9",
+      "layer": "Layer0",
+      "position_mm": [
+        -14185.88,
+        59423.93,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024"
+    },
+    "mesh_277_ROOT__Component_4024__Component_4025_Layer0_234_233_204_ds": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -13160.21,
+        60449.59,
+        33891.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024 / Component_4025"
+    },
+    "mesh_278_ROOT__Component_4024__Component_4025_Layer0_204_205_174_ss": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -13160.21,
+        60449.59,
+        33891.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024 / Component_4025"
+    },
+    "mesh_279_ROOT__Component_4024__Component_4025_Layer0_195_199_172_ss": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -13160.21,
+        60449.59,
+        33891.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024 / Component_4025"
+    },
+    "mesh_280_ROOT__Component_4024__Component_4025_Layer0_195_199_172_ds": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -13160.21,
+        60449.59,
+        33891.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024 / Component_4025"
+    },
+    "mesh_281_ROOT__Component_4024__Component_4025_Layer0_234_233_204_ds": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -13160.21,
+        60449.59,
+        41391.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024 / Component_4025"
+    },
+    "mesh_282_ROOT__Component_4024__Component_4025_Layer0_204_205_174_ss": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -13160.21,
+        60449.59,
+        41391.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024 / Component_4025"
+    },
+    "mesh_283_ROOT__Component_4024__Component_4025_Layer0_195_199_172_ss": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -13160.21,
+        60449.59,
+        41391.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024 / Component_4025"
+    },
+    "mesh_284_ROOT__Component_4024__Component_4025_Layer0_195_199_172_ds": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -13160.21,
+        60449.59,
+        41391.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024 / Component_4025"
+    },
+    "mesh_285_ROOT__Component_4024__Component_4151_Layer0_204_205_174_ss": {
+      "name": "",
+      "definition_name": "Group#5",
+      "layer": "Layer0",
+      "position_mm": [
+        -14185.88,
+        59423.93,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024 / Component_4151"
+    },
+    "mesh_286_ROOT__Component_4024__Component_4151_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#5",
+      "layer": "Layer0",
+      "position_mm": [
+        -14185.88,
+        59423.93,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024 / Component_4151"
+    },
+    "mesh_287_ROOT__Component_4024_Layer0_204_205_174_ss": {
+      "name": "",
+      "definition_name": "Group#9",
+      "layer": "Layer0",
+      "position_mm": [
+        -66269.1,
+        12654.95,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024"
+    },
+    "mesh_288_ROOT__Component_4024_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#9",
+      "layer": "Layer0",
+      "position_mm": [
+        -66269.1,
+        12654.95,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024"
+    },
+    "mesh_289_ROOT__Component_4024_Layer0_84_97_99_ss": {
+      "name": "",
+      "definition_name": "Group#9",
+      "layer": "Layer0",
+      "position_mm": [
+        -66269.1,
+        12654.95,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024"
+    },
+    "mesh_290_ROOT__Component_4024_Layer0_195_199_172_ss": {
+      "name": "",
+      "definition_name": "Group#9",
+      "layer": "Layer0",
+      "position_mm": [
+        -66269.1,
+        12654.95,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024"
+    },
+    "mesh_291_ROOT__Component_4024_Layer0_255_84_84_ds": {
+      "name": "",
+      "definition_name": "Group#9",
+      "layer": "Layer0",
+      "position_mm": [
+        -66269.1,
+        12654.95,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024"
+    },
+    "mesh_292_ROOT__Component_4024__Component_4025_Layer0_234_233_204_ds": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -65243.44,
+        13680.61,
+        33891.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024 / Component_4025"
+    },
+    "mesh_293_ROOT__Component_4024__Component_4025_Layer0_204_205_174_ss": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -65243.44,
+        13680.61,
+        33891.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024 / Component_4025"
+    },
+    "mesh_294_ROOT__Component_4024__Component_4025_Layer0_195_199_172_ss": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -65243.44,
+        13680.61,
+        33891.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024 / Component_4025"
+    },
+    "mesh_295_ROOT__Component_4024__Component_4025_Layer0_195_199_172_ds": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -65243.44,
+        13680.61,
+        33891.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024 / Component_4025"
+    },
+    "mesh_296_ROOT__Component_4024__Component_4025_Layer0_234_233_204_ds": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -65243.44,
+        13680.61,
+        41391.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024 / Component_4025"
+    },
+    "mesh_297_ROOT__Component_4024__Component_4025_Layer0_204_205_174_ss": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -65243.44,
+        13680.61,
+        41391.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024 / Component_4025"
+    },
+    "mesh_298_ROOT__Component_4024__Component_4025_Layer0_195_199_172_ss": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -65243.44,
+        13680.61,
+        41391.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024 / Component_4025"
+    },
+    "mesh_299_ROOT__Component_4024__Component_4025_Layer0_195_199_172_ds": {
+      "name": "",
+      "definition_name": "Group#8",
+      "layer": "Layer0",
+      "position_mm": [
+        -65243.44,
+        13680.61,
+        41391.17
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024 / Component_4025"
+    },
+    "mesh_300_ROOT__Component_4024__Component_4151_Layer0_204_205_174_ss": {
+      "name": "",
+      "definition_name": "Group#5",
+      "layer": "Layer0",
+      "position_mm": [
+        -66269.1,
+        12654.95,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024 / Component_4151"
+    },
+    "mesh_301_ROOT__Component_4024__Component_4151_Layer0_255_84_84_ss": {
+      "name": "",
+      "definition_name": "Group#5",
+      "layer": "Layer0",
+      "position_mm": [
+        -66269.1,
+        12654.95,
+        -4000.0
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4024 / Component_4151"
+    },
+    "mesh_302_ROOT__Component_4390_Layer0": {
+      "name": "",
+      "definition_name": "Group#1",
+      "layer": "Layer0",
+      "position_mm": [
+        15003.92,
+        -20260.22,
+        53479.01
+      ],
+      "properties": {},
+      "path": "ROOT / Component_4390"
+    }
+  },
+  "scene_hierarchy": {
+    "name": "ROOT",
+    "definition_name": "ROOT_MODEL",
+    "layer": "Layer0",
+    "position_mm": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "properties": {},
+    "children": [
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          4233.88,
+          -31060.96,
+          45129.01
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          7332.03,
+          -61369.23,
+          22499.25
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          38794.29,
+          -19201.53,
+          39504.01
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          27831.13,
+          -9361.66,
+          22499.25
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          11127.92,
+          9239.49,
+          22499.25
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -26074.38,
+          -24166.93,
+          22499.25
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -9371.18,
+          -42768.08,
+          22499.25
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          9032.45,
+          -45926.66,
+          39504.01
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -11011.4,
+          -23605.27,
+          39504.01
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          18750.44,
+          3119.86,
+          39504.01
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          44534.34,
+          -27962.82,
+          22499.25
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -9665.77,
+          -21898.2,
+          28499.25
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          12269.64,
+          -46326.09,
+          28499.25
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          34948.83,
+          -37594.98,
+          18849.25
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          17936.33,
+          -52871.63,
+          18849.25
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          523.62,
+          741.89,
+          18849.25
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -16488.88,
+          -14534.77,
+          18849.25
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          50822.33,
+          -9648.51,
+          24504.01
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          29442.22,
+          14160.96,
+          24504.01
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          227.19,
+          -55081.24,
+          24504.01
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -21152.91,
+          -31271.76,
+          24504.01
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -11182.49,
+          4201.37,
+          11004.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -5974.17,
+          8878.26,
+          8504.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -765.84,
+          13555.16,
+          8504.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          4442.48,
+          18232.06,
+          8504.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -16390.81,
+          -475.53,
+          8504.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -26807.46,
+          -9829.33,
+          8504.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -21599.13,
+          -5152.43,
+          8504.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -49827.55,
+          26283.52,
+          8504.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -55035.88,
+          21606.62,
+          8504.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -23785.94,
+          49668.01,
+          8504.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -28994.26,
+          44991.11,
+          8504.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -44619.23,
+          30960.42,
+          11004.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -34202.59,
+          40314.21,
+          11004.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -39410.91,
+          35637.31,
+          13504.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          10022.83,
+          23243.02,
+          11004.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -18205.59,
+          54678.97,
+          11004.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -60616.22,
+          16595.66,
+          11004.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -32387.8,
+          -14840.29,
+          11004.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -37064.7,
+          -9631.97,
+          8504.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          5345.93,
+          28451.34,
+          8504.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -41741.6,
+          -4423.64,
+          8504.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          669.03,
+          33659.67,
+          8504.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -4007.87,
+          38867.99,
+          8504.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -46418.5,
+          784.68,
+          8504.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -8684.77,
+          44076.31,
+          8504.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -51095.39,
+          5993.0,
+          8504.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -13361.66,
+          49284.64,
+          8504.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#3",
+        "layer": "Layer0",
+        "position_mm": [
+          -55772.29,
+          11201.32,
+          8504.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#11",
+        "layer": "Layer0",
+        "position_mm": [
+          21573.17,
+          25986.43,
+          84891.17
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#11",
+        "layer": "Layer0",
+        "position_mm": [
+          -30510.05,
+          -20782.54,
+          84891.17
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#11",
+        "layer": "Layer0",
+        "position_mm": [
+          -63248.34,
+          15675.71,
+          67391.17
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#11",
+        "layer": "Layer0",
+        "position_mm": [
+          -11165.11,
+          62444.69,
+          67391.17
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "Google Earth Terrain",
+        "definition_name": "Google Earth Terrain",
+        "layer": "Location Terrain",
+        "position_mm": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "Google Earth Snapshot",
+        "definition_name": "Google Earth Snapshot",
+        "layer": "Location Snapshot",
+        "position_mm": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#2",
+        "layer": "Layer0",
+        "position_mm": [
+          -68249.92,
+          -66534.44,
+          -4000.0
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#4",
+        "layer": "Layer0",
+        "position_mm": [
+          39159.72,
+          -13562.35,
+          18499.25
+        ],
+        "properties": {},
+        "children": [
+          {
+            "name": "",
+            "definition_name": "Group#3",
+            "layer": "Layer0",
+            "position_mm": [
+              39421.42,
+              -13295.96,
+              23499.25
+            ],
+            "properties": {},
+            "children": []
+          }
+        ]
+      },
+      {
+        "name": "",
+        "definition_name": "Group#4",
+        "layer": "Layer0",
+        "position_mm": [
+          24460.9,
+          2806.66,
+          18499.25
+        ],
+        "properties": {},
+        "children": [
+          {
+            "name": "",
+            "definition_name": "Group#3",
+            "layer": "Layer0",
+            "position_mm": [
+              24722.59,
+              3073.06,
+              23499.25
+            ],
+            "properties": {},
+            "children": []
+          }
+        ]
+      },
+      {
+        "name": "",
+        "definition_name": "Group#4",
+        "layer": "Layer0",
+        "position_mm": [
+          -6989.56,
+          -24857.18,
+          18499.25
+        ],
+        "properties": {},
+        "children": [
+          {
+            "name": "",
+            "definition_name": "Group#3",
+            "layer": "Layer0",
+            "position_mm": [
+              -7251.26,
+              -25123.58,
+              23499.25
+            ],
+            "properties": {},
+            "children": []
+          }
+        ]
+      },
+      {
+        "name": "",
+        "definition_name": "Group#4",
+        "layer": "Layer0",
+        "position_mm": [
+          7709.26,
+          -41226.2,
+          18499.25
+        ],
+        "properties": {},
+        "children": [
+          {
+            "name": "",
+            "definition_name": "Group#3",
+            "layer": "Layer0",
+            "position_mm": [
+              7447.57,
+              -41492.59,
+              23499.25
+            ],
+            "properties": {},
+            "children": []
+          }
+        ]
+      },
+      {
+        "name": "",
+        "definition_name": "Group#12",
+        "layer": "Layer0",
+        "position_mm": [
+          21893.05,
+          -20189.0,
+          250.0
+        ],
+        "properties": {},
+        "children": [
+          {
+            "name": "",
+            "definition_name": "Group#3",
+            "layer": "Layer0",
+            "position_mm": [
+              54238.89,
+              -11956.57,
+              8250.0
+            ],
+            "properties": {},
+            "children": []
+          },
+          {
+            "name": "",
+            "definition_name": "Group#3",
+            "layer": "Layer0",
+            "position_mm": [
+              24900.17,
+              18722.13,
+              8250.0
+            ],
+            "properties": {},
+            "children": []
+          },
+          {
+            "name": "",
+            "definition_name": "Group#3",
+            "layer": "Layer0",
+            "position_mm": [
+              59583.91,
+              -17908.94,
+              8250.0
+            ],
+            "properties": {},
+            "children": []
+          },
+          {
+            "name": "",
+            "definition_name": "Group#3",
+            "layer": "Layer0",
+            "position_mm": [
+              55968.14,
+              -15876.02,
+              8250.0
+            ],
+            "properties": {},
+            "children": []
+          },
+          {
+            "name": "",
+            "definition_name": "Group#3",
+            "layer": "Layer0",
+            "position_mm": [
+              28181.89,
+              17061.23,
+              8250.0
+            ],
+            "properties": {},
+            "children": []
+          },
+          {
+            "name": "",
+            "definition_name": "Group#3",
+            "layer": "Layer0",
+            "position_mm": [
+              23504.99,
+              22269.55,
+              8250.0
+            ],
+            "properties": {},
+            "children": []
+          }
+        ]
+      },
+      {
+        "name": "",
+        "definition_name": "Group#6",
+        "layer": "Layer0",
+        "position_mm": [
+          16436.01,
+          -25089.25,
+          250.0
+        ],
+        "properties": {},
+        "children": [
+          {
+            "name": "",
+            "definition_name": "Group#3",
+            "layer": "Layer0",
+            "position_mm": [
+              4783.25,
+              -56366.07,
+              8250.0
+            ],
+            "properties": {},
+            "children": []
+          },
+          {
+            "name": "",
+            "definition_name": "Group#3",
+            "layer": "Layer0",
+            "position_mm": [
+              -22573.25,
+              -23907.41,
+              8250.0
+            ],
+            "properties": {},
+            "children": []
+          },
+          {
+            "name": "",
+            "definition_name": "Group#3",
+            "layer": "Layer0",
+            "position_mm": [
+              10128.27,
+              -62318.43,
+              8250.0
+            ],
+            "properties": {},
+            "children": []
+          },
+          {
+            "name": "",
+            "definition_name": "Group#3",
+            "layer": "Layer0",
+            "position_mm": [
+              8494.71,
+              -58505.55,
+              8250.0
+            ],
+            "properties": {},
+            "children": []
+          },
+          {
+            "name": "",
+            "definition_name": "Group#3",
+            "layer": "Layer0",
+            "position_mm": [
+              -21273.76,
+              -27348.27,
+              8250.0
+            ],
+            "properties": {},
+            "children": []
+          },
+          {
+            "name": "",
+            "definition_name": "Group#3",
+            "layer": "Layer0",
+            "position_mm": [
+              -25950.65,
+              -22139.94,
+              8250.0
+            ],
+            "properties": {},
+            "children": []
+          }
+        ]
+      },
+      {
+        "name": "",
+        "definition_name": "Group#7",
+        "layer": "Layer0",
+        "position_mm": [
+          -12910.15,
+          2633.28,
+          8504.85
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "",
+        "definition_name": "Group#10",
+        "layer": "Layer0",
+        "position_mm": [
+          18552.41,
+          22965.67,
+          -4000.0
+        ],
+        "properties": {},
+        "children": [
+          {
+            "name": "",
+            "definition_name": "Group#8",
+            "layer": "Layer0",
+            "position_mm": [
+              19578.07,
+              23991.33,
+              43891.17
+            ],
+            "properties": {},
+            "children": []
+          },
+          {
+            "name": "",
+            "definition_name": "Group#8",
+            "layer": "Layer0",
+            "position_mm": [
+              19578.07,
+              23991.33,
+              58891.17
+            ],
+            "properties": {},
+            "children": []
+          },
+          {
+            "name": "",
+            "definition_name": "Group#8",
+            "layer": "Layer0",
+            "position_mm": [
+              19578.07,
+              23991.33,
+              51391.17
+            ],
+            "properties": {},
+            "children": []
+          },
+          {
+            "name": "",
+            "definition_name": "Group#5",
+            "layer": "Layer0",
+            "position_mm": [
+              18552.41,
+              22965.67,
+              -4000.0
+            ],
+            "properties": {},
+            "children": []
+          }
+        ]
+      },
+      {
+        "name": "",
+        "definition_name": "Group#10",
+        "layer": "Layer0",
+        "position_mm": [
+          -33530.82,
+          -23803.31,
+          -4000.0
+        ],
+        "properties": {},
+        "children": [
+          {
+            "name": "",
+            "definition_name": "Group#8",
+            "layer": "Layer0",
+            "position_mm": [
+              -32505.16,
+              -22777.65,
+              43891.17
+            ],
+            "properties": {},
+            "children": []
+          },
+          {
+            "name": "",
+            "definition_name": "Group#8",
+            "layer": "Layer0",
+            "position_mm": [
+              -32505.16,
+              -22777.65,
+              58891.17
+            ],
+            "properties": {},
+            "children": []
+          },
+          {
+            "name": "",
+            "definition_name": "Group#8",
+            "layer": "Layer0",
+            "position_mm": [
+              -32505.16,
+              -22777.65,
+              51391.17
+            ],
+            "properties": {},
+            "children": []
+          },
+          {
+            "name": "",
+            "definition_name": "Group#5",
+            "layer": "Layer0",
+            "position_mm": [
+              -33530.82,
+              -23803.31,
+              -4000.0
+            ],
+            "properties": {},
+            "children": []
+          }
+        ]
+      },
+      {
+        "name": "",
+        "definition_name": "Group#9",
+        "layer": "Layer0",
+        "position_mm": [
+          -14185.88,
+          59423.93,
+          -4000.0
+        ],
+        "properties": {},
+        "children": [
+          {
+            "name": "",
+            "definition_name": "Group#8",
+            "layer": "Layer0",
+            "position_mm": [
+              -13160.21,
+              60449.59,
+              33891.17
+            ],
+            "properties": {},
+            "children": []
+          },
+          {
+            "name": "",
+            "definition_name": "Group#8",
+            "layer": "Layer0",
+            "position_mm": [
+              -13160.21,
+              60449.59,
+              41391.17
+            ],
+            "properties": {},
+            "children": []
+          },
+          {
+            "name": "",
+            "definition_name": "Group#5",
+            "layer": "Layer0",
+            "position_mm": [
+              -14185.88,
+              59423.93,
+              -4000.0
+            ],
+            "properties": {},
+            "children": []
+          }
+        ]
+      },
+      {
+        "name": "",
+        "definition_name": "Group#9",
+        "layer": "Layer0",
+        "position_mm": [
+          -66269.1,
+          12654.95,
+          -4000.0
+        ],
+        "properties": {},
+        "children": [
+          {
+            "name": "",
+            "definition_name": "Group#8",
+            "layer": "Layer0",
+            "position_mm": [
+              -65243.44,
+              13680.61,
+              33891.17
+            ],
+            "properties": {},
+            "children": []
+          },
+          {
+            "name": "",
+            "definition_name": "Group#8",
+            "layer": "Layer0",
+            "position_mm": [
+              -65243.44,
+              13680.61,
+              41391.17
+            ],
+            "properties": {},
+            "children": []
+          },
+          {
+            "name": "",
+            "definition_name": "Group#5",
+            "layer": "Layer0",
+            "position_mm": [
+              -66269.1,
+              12654.95,
+              -4000.0
+            ],
+            "properties": {},
+            "children": []
+          }
+        ]
+      },
+      {
+        "name": "",
+        "definition_name": "Group#1",
+        "layer": "Layer0",
+        "position_mm": [
+          15003.92,
+          -20260.22,
+          53479.01
+        ],
+        "properties": {},
+        "children": []
+      }
+    ]
+  }
+}

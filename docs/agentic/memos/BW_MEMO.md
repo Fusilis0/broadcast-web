@@ -1,7 +1,119 @@
 # BW_MEMO — Broadcast-Web Master Orchestrator
 
-**Last updated:** 2026-09-05  
+**Last updated:** 2026-09-09  
 **Session role:** BW
+
+## 2026-09-09 — DSP-SCN-20260909-02 code-complete (studio boot)
+
+Cold start: race **empty**, Free cam, World authoring closed, aerial overlay, NDI Send off. `?race=` / `?editor=1` still win. Leftover session keys in the same tab still apply until changed.
+
+## 2026-09-09 — DSP-SCN-20260909-01 code-complete (intro look)
+
+West **Canada → UK**, then east **Russia → Turkey → İstanbul**. No USA hold. SSE globe **8** / ENU **3**. Needle pins. Yavuz 2.5 s. ENU seams shared. Çırağan operator GPS. Architecture `commercial-video.md` updated to match.
+
+**Human next:** Play `intro-bosphorus` (countries shorter + flags; Yavuz = 3rd bridge; no Cesium pop after warm). Then **Save tile list**. Then Record if look Pass. Phase 22 later.
+
+## 2026-09-09 — DSP-OUT-20260908-01 code-complete (Record)
+
+Worker: canvas MediaRecorder 30 fps; ffmpeg remux if WebM. `#ops-cinematic-record` enabled. NDI untouched. `tsc` still red only in `videoDecodePipeline.ts` (pre-existing).
+
+**Human Pass:** after look Pass on the **09-01** path, `npm run desktop:dev` → **Record** → Save-as `intro-bosphorus.mp4` → vMix. Good: ~60 s silent 1080p, no HUD. Fail: Chrome-only (`desktop only`), duration way off, HUD in frame.
+
+## 2026-09-09 — operator notes while cinematic worker in flight
+
+SCN recorded: `DSP-SCN-20260909-01` intro Human Pass; `DSP-SCN-20260909-02` studio boot **code-complete**; `HO-SCN-OUT-20260909-01` NDI Send default off **done**.
+
+City path lock update vs 2026-09-08: **Canada → UK** (west) then **Russia → Turkey → İstanbul** (east). Label **Russia**, not Moscow. Record still after look Pass.
+
+## 2026-09-09 — cinematic tiles: sharper + sequence URL list
+
+Operator screenshot: peninsula dither + mushy Aerial. Dump button was a sidecar URL dump, not a map.
+
+Fix in SCN chat: SSE 16 globe / 6 ENU; no fade/unload during cinematic; Play unlocked; **Save tile list** writes `tileWarm.contentUrls` onto the sequence JSON for other PCs. Bytes still local not git.
+
+**Human next:** wait `tiles: warming`, Play `intro-bosphorus` (countries + peninsula should be sharper, no grey veil). Then **Save tile list**, commit the JSON. Second launch / other PC should prefetch from that list. Not Record until look Pass. Not Phase 22.
+
+## 2026-09-08 — intro Human Pass: pins, no teleport, tile warm
+
+Operator: mostly very good. (1) Country **pins** when zooming. (2) No teleport — spend hold time on transits; **country** in frame not cities. (3) Turkey = whole country + pin, then **smooth fly** to İstanbul. (4) **P0** prefetch: manifest in git, tiles on disk not git, check/download on project start. Countries coarse; İstanbul detailed.
+
+Issued: `DSP-SCN-20260908-06`, `DSP-PLT-20260908-01`, then `DSP-SCN-20260908-07`. Handoffs `HO-BW-SCN-20260908-02`, `HO-BW-PLT-20260908-01`. Record still OUT.
+
+## 2026-09-08 — Phase 21 cinematic **locked**; workers issued
+
+Operator: **silent 1080p30 MP4**. vMix plays it; app waits (no play-then-live). Cities: Chicago → Winnipeg → London → Moscow (western Russia) → Turkey. Three **bridge meshes**. Rumeli Hisarı **not** in this clip. No credits. Strawman times accepted.
+
+**Design:** `docs/architecture/commercial-video.md`. Briefs: `docs/agentic/briefs/phase21/`.
+
+| Order | DSP | Chat |
+| --- | --- | --- |
+| 1 | `DSP-GEO-20260908-01-cinematic-globe` | GEO **code-accept 2026-09-08** |
+| 2 | `DSP-SCN-20260908-01-cinematic-player` | SCN **code-complete 2026-09-08** |
+| 3 | `DSP-SCN-20260908-02-intro-bosphorus` | SCN **code-complete 2026-09-08** |
+| 4 | `DSP-SCN-20260908-06-country-pins-spline` | SCN **code-complete 2026-09-08** |
+| 5 | `DSP-PLT-20260908-01-cinematic-tile-disk` | PLT **code-complete 2026-09-08** |
+| 6 | `DSP-SCN-20260908-07-cinematic-tile-warm` | SCN **code-complete 2026-09-09** |
+| 7 | `DSP-OUT-20260908-01-cinematic-mp4` | After look Pass |
+
+No CIN orchestrator. Handoffs `HO-BW-GEO|SCN|OUT-20260908-01`.
+
+**Human next:** Human Pass 07 — wait for `tiles: warming`, then **second** Play of `intro-bosphorus`. Country holds should not pop empty. Optional Dump warm URLs. Not Record until C+D Pass. Not Phase 22.
+
+## 2026-09-08 — Phase 21 cinematic system (draft, not locked)
+
+Operator: intro video ~60 s, **in our app**, no race setup. World → partial city zooms → Turkey → Istanbul → 3rd bridge → Maiden’s Tower → Historic Peninsula → Galata → Çırağan → live. Aerial + OSM + human glTF until IBB. Hide fog on world. Gerstner only after a **cloud** seam into the Bosphorus. Reusable JSON sequences.
+
+**Design:** [`docs/architecture/commercial-video.md`](../../architecture/commercial-video.md) (draft). Canvas: `canvases/commercial-video.canvas.tsx`.
+
+**No new orchestrator.** SCN owns player/look. GEO globe vs ENU. OUT record-to-file. PLT tile warm.
+
+**Blocked on operator §8 questions** (live = MP4 vs in-app; city list; audio; 1080p30 vs 60/4K; hero list; timings; end card). **No DSP until lock.** Not Phase 22.
+
+## 2026-09-07 — Phase 20–22 locked; SCN goes next
+
+Operator order:
+
+1. **Phase 20** Cesium OSM Buildings + hero glTF (**SCN now**)
+2. **Return to BW** → **Phase 21** commercial video (details after 20)
+3. **Phase 22** SRT **AR+3D+2D** at once; **NDI parked** (keep code, do not use on air). VPS later.
+
+Docs: `docs/roadmap/phases-roadmap.md` · `docs/architecture/srt-egress.md` · `docs/architecture/commercial-video.md` · `docs/agentic/briefs/phase20/` · `HO-BW-SCN-20260907-01.md`
+
+**Human next:** new chat, paste `docs/agentic/dispatches/BOOTSTRAP_SCN.md`.
+
+## 2026-09-07 — Phase 20 on roadmap; SRT out design
+
+Operator lock: **Cesium OSM Buildings + 3D Tiles buildings + hero glTF** is the first work. DIY Bosphorus survey closed. IBB parked.
+
+**Roadmap Phase 20** (`docs/roadmap/phases-roadmap.md`): **20.1** buildings first ([`3d-environment-buildings.md`](../architecture/3d-environment-buildings.md)), then **20.2** SRT egress ([`srt-egress.md`](../architecture/srt-egress.md)). 19.18 superseded. NDI 30×3 stays closed.
+
+**SRT out approach (design, not impl):** one opaque 1080 program from a chrome-free window; ffmpeg child + AMF encode; we **call** a listener. Race = LAN vMix (40–80 ms). Test = caller to a **relay** (not studio listen through NAT). Do not reuse NDI UYVY IPC.
+
+No worker until remaining discussion settles (program plate, relay host) and BW issues DSP-20.1.
+
+## 2026-09-06 — 3D environment **locked** (free)
+
+Operator closed DIY Bosphorus photogrammetry. IBB mesh **parked** for a future agreement. Free on-air stack:
+
+1. Keep Cesium World Terrain  
+2. Add Cesium **OSM Buildings** (the 3D city — not a separate product from OSM)  
+3. Hero historic glTF (CC-licensed first)
+
+Google Photorealistic stays off air. No other free city stream fits with a different look. Implement only after remaining phase designs and a worker dispatch. Design: `docs/architecture/3d-environment-buildings.md`.
+
+## 2026-09-06 — next goals: 3D environment (buildings)
+
+Operator closed NDI 30×3; asked to design 3D environment next. Prefer service; pre-baked İstanbul if quality is high; asked whether Cesium already has 3D buildings.
+
+**Design (not implemented):** `docs/architecture/3d-environment-buildings.md`
+
+**Pick:** keep Cesium ion **terrain** + add Cesium **OSM Buildings** + **hero glTF** landmarks. IBB licensed mesh only if that still looks cheap. Google Photorealistic **out** for on-air. Do not stand up CesiumJS / MapLibre.
+
+Q5 is no longer “swap globe vendor in silence.” Default is **add a buildings layer** on the existing 3D Tiles path. No SCN/GEO worker until operator locks this (and remaining phase designs).
+
+## 2026-09-05 — SCN 19.2b + 19.17 Human Pass (`HO-SCN-BW-20260905-01`)
+
+Accepted as Human Pass. **No `src/` in this chat.**
 
 ## 2026-09-05 — SCN 19.2b + 19.17 Human Pass (`HO-SCN-BW-20260905-01`)
 

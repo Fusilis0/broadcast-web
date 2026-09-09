@@ -24,6 +24,43 @@ Orchestrators save concrete `DSP-*.md` files into:
 
 Templates: see `../DISPATCH_PROTOCOL.md`.
 
+### Active 2026-09-08 (Phase 21 cinematic MP4)
+
+Design: [`../../architecture/commercial-video.md`](../../architecture/commercial-video.md). Briefs: [`../briefs/phase21/README.md`](../briefs/phase21/README.md).
+
+| DSP | Owner | Status |
+| --- | --- | --- |
+| [`active/DSP-GEO-20260908-01-cinematic-globe.md`](./active/DSP-GEO-20260908-01-cinematic-globe.md) | GEO | **Code-accept 2026-09-08** — ECEF exports in tree |
+| [`active/DSP-SCN-20260908-01-cinematic-player.md`](./active/DSP-SCN-20260908-01-cinematic-player.md) | SCN | **Code-complete 2026-09-08** — Human Pass = Play `_empty` |
+| [`active/DSP-SCN-20260908-02-intro-bosphorus.md`](./active/DSP-SCN-20260908-02-intro-bosphorus.md) | SCN | **Code-complete 2026-09-08** — Human Pass look → 06/07 |
+| [`active/DSP-SCN-20260908-06-country-pins-spline.md`](./active/DSP-SCN-20260908-06-country-pins-spline.md) | SCN | **Code-complete 2026-09-08** — Human Pass = pins + no teleport |
+| [`active/DSP-PLT-20260908-01-cinematic-tile-disk.md`](./active/DSP-PLT-20260908-01-cinematic-tile-disk.md) | PLT | **Code-complete 2026-09-08** — cache dir |
+| [`active/DSP-SCN-20260908-07-cinematic-tile-warm.md`](./active/DSP-SCN-20260908-07-cinematic-tile-warm.md) | SCN | **Code-complete 2026-09-09** — Human Pass = second Play, no pop |
+| [`active/DSP-SCN-20260909-01-intro-human-pass.md`](./active/DSP-SCN-20260909-01-intro-human-pass.md) | SCN | **Code-complete 2026-09-09** — Human Pass = Play west/east path + Save tile list |
+| [`active/DSP-SCN-20260909-02-studio-boot-defaults.md`](./active/DSP-SCN-20260909-02-studio-boot-defaults.md) | SCN | **Code-complete 2026-09-09** — empty / free cam / authoring closed / aerial; NDI off in same tree |
+| [`active/DSP-OUT-20260908-01-cinematic-mp4.md`](./active/DSP-OUT-20260908-01-cinematic-mp4.md) | OUT | **Code-complete 2026-09-09** — Human Pass = Electron Record ~60 s MP4 |
+
+NDI Send off at boot: [`../handoffs/HO-SCN-OUT-20260909-01.md`](../handoffs/HO-SCN-OUT-20260909-01.md) — OUT owns, not SCN.
+
+Do **not** mix Phase 20 hero smoke into these chats. No SRT, no NDI capture, no play-then-live, no credits, no CesiumJS.
+
+### Active 2026-09-07 (SCN — Phase 20 OSM Buildings + heroes)
+
+Design: [`../../architecture/3d-environment-buildings.md`](../../architecture/3d-environment-buildings.md). Brief: [`../briefs/phase20/SCN_PHASE20.md`](../briefs/phase20/SCN_PHASE20.md). Handoff in: [`../handoffs/HO-BW-SCN-20260907-01.md`](../handoffs/HO-BW-SCN-20260907-01.md).
+
+| DSP | Owner | Status |
+| --- | --- | --- |
+| [`active/DSP-SCN-20260907-01-osm-buildings.md`](./active/DSP-SCN-20260907-01-osm-buildings.md) | SCN | **Human Fail 2026-09-07** — no boxes (fixed by 03) |
+| [`active/DSP-SCN-20260907-03-osm-buildings-visible.md`](./active/DSP-SCN-20260907-03-osm-buildings-visible.md) | SCN | **Human Pass 2026-09-07** — white OSM boxes on Bing hills |
+| [`active/DSP-SCN-20260907-04-grey-aerial.md`](./active/DSP-SCN-20260907-04-grey-aerial.md) | SCN | **Human Fail 2026-09-07** — B&W satellite filter, not road map |
+| [`active/DSP-SCN-20260907-05-road-overlay.md`](./active/DSP-SCN-20260907-05-road-overlay.md) | SCN | **Human Pass 2026-09-07** — keep road + aerial; decide default later |
+| [`active/DSP-SCN-20260907-02-hero-gltf.md`](./active/DSP-SCN-20260907-02-hero-gltf.md) | SCN | **Code-accept 2026-09-07** — three named proxies; Human Pass pending |
+| [`active/DSP-SCN-20260908-03-hero-gltf-pack.md`](./active/DSP-SCN-20260908-03-hero-gltf-pack.md) | SCN | **Code-accept 2026-09-08** — Human Pass pending (street-scale smoke) |
+| [`active/DSP-SCN-20260908-04-hero-buildings-panel.md`](./active/DSP-SCN-20260908-04-hero-buildings-panel.md) | SCN | **Code-accept 2026-09-08** — Human Pass pending |
+| [`active/DSP-SCN-20260908-05-rumeli-mesh.md`](./active/DSP-SCN-20260908-05-rumeli-mesh.md) | SCN | **Code-accept 2026-09-08** — `hisar2.skp` mounted; Human Pass pending |
+
+Do **not** start 02 in the same chat as 01. After 01+02 Human Pass → **BW** (`BOOTSTRAP_BW.md`). No SRT, no commercial video, no CesiumJS, no Google Photorealistic, no IBB, no MapTiler engine.
+
 ### Active 2026-09-02 (PRF — idle vs mouse)
 
 | DSP | Owner | Status |

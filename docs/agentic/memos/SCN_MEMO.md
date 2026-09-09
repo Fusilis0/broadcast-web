@@ -1,9 +1,238 @@
 # SCN_MEMO
 
-**Last updated:** 2026-09-05  
-**Status:** Phase 19 SCN **Human Pass** (19.2b + 19.17). Returned to **BW** (`HO-SCN-BW-20260905-01`). **19.18** parked GEO. **No Cesium vendor switch.** Do not re-seed library.
+**Last updated:** 2026-09-09  
+**Status:** Intro Human Pass 2 in tree (hover cameras, tile lock, pins). Record still OUT.
 
-Design: `docs/architecture/phase19-senexus-qol.md` · Brief: `docs/agentic/briefs/phase19/SCN_PHASE19.md`
+## 2026-09-09 — intro Human Pass 2 (camera + tiles + pins)
+
+Operator: Cesium pops on video; countries too long; pins behind globe / thick type; no hero pins; cloud snap; wrong 3rd-bridge look; parked cameras; Galata short; Maiden’s three angles; no flags / focus pop.
+
+- Play **locks** tiles after warm. Globe→ENU remount stays under cloud until idle.
+- Countries **~1 s hover** (orbit), not parked. Time moved to ENU.
+- Yavuz look **41.202, 29.118**. Equal **3 s** hover on three bridges.
+- Cloud lerps 2 s in / 2.5 s out.
+- Pins: `depthTest: false`, flags, thin type, focus scale, ENU hero labels.
+- Galata **8 s** closer. Peninsula Süleymaniye→Topkapı. Maiden’s one left hover.
+
+**Human next:** Play once (wait `tiles: warm`), then **Save tile list**. No MP4 until look Pass.
+
+## 2026-09-09 — DSP-SCN-20260909-02 code-complete (studio boot)
+
+Cold start (no query, missing session): race pack **`empty`**, Race ops view **Free cam**, World authoring **closed**, terrain map **aerial** (Bing ion **2**). `?race=` / `?editor=1|0` still win. Leftover `bw.terrain.overlay` / `bw.ndi.channelWanted` in this tab still wins until the operator changes them.
+
+NDI AR/3D/2D Send default **off** shipped in the same change (`NDI_CHANNEL_WANTED_DEFAULTS`).
+
+## 2026-09-09 — DSP-SCN-20260909-01 code-complete
+
+Play/warm SSE globe **8** / ENU **3** (Bing ion **2**). Path: west **Canada → UK**, east **Russia → Turkey → İstanbul**. USA pin only (no hold). Label **Russia**, never Moscow. Pin İstanbul. Needle pins. Yavuz hold **2.5 s**. ENU seams share boundary poses. Çırağan look **41.04342388464562, 29.01532600006871**. Stay 60 s.
+
+**Human Pass:** Play 60 s (sharp satellite, no ENU pop). Then **Save tile list** so finer tiles land in `tileWarm.contentUrls`. If VRAM holds, globe SSE can try **6**. No MP4 in this DSP.
+
+## 2026-09-09 — OUT Record in tree (do not implement here)
+
+`DSP-OUT-20260908-01` code-complete. `#ops-cinematic-record` enabled. SCN still owns play/seek/hide-race. Human Pass is Electron Record, not this chat.
+
+## 2026-09-09 — operator notes (worker in flight — docs only)
+
+While a Phase 21 worker was still running. **No `src/` / JSON edits from this chat.**
+
+Cinematic (`DSP-SCN-20260909-01`):
+
+1. Aerial still pixelated — Play SSE lower (globe ≤8, ENU 2–4). Bing ion 2 only. Save tile list again after.
+2. Path: **Canada → UK** (west), then **Russia → Turkey → İstanbul** (east). Label **Russia**, never Moscow. Pin İstanbul.
+3. Better map pins.
+4. After Bosphorus zoom: **2–3 s hold on 3rd bridge** (Yavuz).
+5. Camera **never teleports** — ENU shot boundaries must share poses (Maiden’s / peninsula / Galata / Çırağan).
+6. Çırağan look-at **41.04342388464562, 29.01532600006871**. Stay 60 s.
+
+Studio (`DSP-SCN-20260909-02`): boot race **empty**, ops view **free cam**, World authoring **closed**, terrain **aerial**.
+
+NDI boxes off: `HO-SCN-OUT-20260909-01` (OUT `NDI_CHANNEL_WANTED_DEFAULTS`).
+
+## 2026-09-09 — tile quality + sequence tile list
+
+Operator: mushy Aerial, grey dither, dump button unclear.
+
+- Globe play/warm `errorTarget` **16** (was 48–64). İstanbul ENU **6**.
+- Cinematic remounts skip `TilesFadePlugin` (stipple veil) and `UnloadTilesPlugin` (evicting fine tiles). Play stays **unlocked** so LOD can refine.
+- Warm merges sidecar cameras + sequence keyframes; longer timeout.
+- Ops **Save tile list** writes `tileWarm.contentUrls` onto `intro-bosphorus.json` (stripped ion URLs, no binaries). Far PCs prefetch from that list + ion token. Bytes stay in PLT cache.
+
+No MP4.
+
+## 2026-09-08 — DSP-SCN-20260908-07 code-complete
+
+Tile warm from git manifest `public/cinematics/warm/intro-bosphorus.json` (ion 1 / Aerial 2 / OSM 96188, camera regions, empty `contentUrls`). Bytes via PLT `.cache/cinematic-tiles` (Vite GET+POST) or Electron IPC userData (`--file`). SPA does **not** import `getCinematicTileCacheDir`. Globe countries `errorTarget` 48–64, no OSM. İstanbul ENU 16 + OSM. Project start (origin + token, opaque-safe) prefetches; Play waits (`tiles: warming N/M`); lock-tiles while cinematic active (restore operator lock on Off). Ops **Dump warm URLs** downloads collected content URLs for a later commit. Did not retouch `intro-bosphorus.json`. No MP4.
+
+## 2026-09-08 — DSP-SCN-20260908-06 code-complete
+
+Country pins (canvas sprites, GEO ECEF). Many globe shots, shared boundary poses. Holds: USA 4500 km, Canada 6800 km, UK 1400 km, Turkey 1500 km. Turkey → İstanbul fly then cloud. ENU 32–60 untouched. Human Pass: Play 60 s; scrub 7.9 vs 8.1 — move, not jump. Pins hide on ENU/Off.
+
+## 2026-09-08 — Human Pass look (not Record)
+
+Operator: mostly good. Need (1) country **pins**, (2) **no teleports** — transits, country-scale zoom not cities, (3) Turkey country then **fly** to İstanbul, (4) **P0 tile warm** — manifest in git, bytes local not git.
+
+Workers: `DSP-SCN-20260908-06` **now**. `DSP-PLT-20260908-01` now. `DSP-SCN-20260908-07` after PLT helper. OUT still queued.
+
+## 2026-09-08 — Sultan Ahmed SketchUp purple → stone
+
+Material `153,0,255` on Sultan Ahmed *Yanlar* (minaret bands, no map). Recolored to wall stone in `sultan-ahmed.glb` and at load (`recolorSketchupPurple`). Meshes kept.
+
+## 2026-09-08 — DSP-SCN-20260908-02 code-complete
+
+`intro-bosphorus` in catalogue. Play 60 s, no throw. Globe 0–32, ENU after cloud. Moscow = 0–8 pin only. Rumeli not in JSON. Cloud = 0.5 s JSON steps, not player lerp. Human Pass: `docs/ops/cinematic-heroes-smoke.md` §C (alts, Maiden’s, strait speed). Not MP4.
+
+## 2026-09-08 — DSP-SCN-20260908-05 Rumeli mesh code-accept
+
+Operator dropped Desktop `hero models/hisar2.skp`. OpenSKP textures=True → `public/models/landmarks/rumeli-hisari.glb` (6 images). Catalogue `kind: 'gltf'`. Floor strip also matches `Google_Earth_Snapshot`. Proxy box gone. **Human Pass pending.**
+
+## 2026-09-08 — hero scale + floor strip; Rumeli mesh blocked
+
+Operator notes: Kız Kulesi too small; 2D floors under most heroes; Rumeli is a box.
+
+- **Scale:** Hero buildings panel **scale** (uniform, default 1) on `RaceProject.landmarks.byId.scale`. Same auto-save as XYZ.
+- **Floors:** runtime `stripLandmarkFloors` — SketchUp `Google_Earth_Terrain` + Sketchfab `ground` / `sea`. Does not rewrite glbs. Roof `tile_plane*` kept.
+- **Rumeli:** no `.skp`/`.glb` in Desktop `hero models` or `public/models/landmarks/`. Issued **`DSP-SCN-20260908-05-rumeli-mesh`**. Proxy stays until the operator drops a file.
+
+## 2026-09-08 — hero offsets baked as catalogue defaults
+
+Operator lock from race **`empty`**. `DEFAULT_LANDMARK_OFFSETS` in `src/scene/landmarks/defaultOffsets.ts`. Pack `landmarks.byId` still overrides. Rumeli + Hagia Sophia stay GPS (no authored row). Not a geoid.
+
+## 2026-09-08 — Operator: need the 60 s sequence, not `_empty`
+
+`_empty` stays the 2 s fixture. **Start `DSP-SCN-20260908-02`** in a **new worker chat** (not the hero-pack chat). Catalogue `intro-bosphorus`. Cloud ease at Marmara, not a full-shot white plate.
+
+## 2026-09-08 — Human smoke `_empty`: white at ~1 s
+
+Operator: 2 s clip, **all-white** around the middle. That is shot 2 (`enu`, t=1–2) with **`cloud01: 1`** — full-screen pale quad (`#e8eef4`), not a renderer crash. First second should still show globe motion. Off should restore race cam. DSP-02 eases cloud only at the Marmara seam (not a 1 s white plate). Fixture retune (pulse / 0.2) only if we need to **see** ENU during Human Pass.
+
+## 2026-09-08 — DSP-SCN-20260908-01 code-complete
+
+Player + 30 Hz + hide-race + globe/ENU remount + cloud + ops. Fixture `_empty` only. GEO converters as-is. Record stub. Human Pass: `docs/ops/cinematic-heroes-smoke.md` §A. DSP-02 unblocked. OUT hooks: `playCinematic` / `pauseCinematic` / `seekCinematic` / `getCinematicTransport` / `renderer.domElement` / `CINEMATIC_FPS`.
+
+## 2026-09-08 — Phase 21 is the other SCN chat. **This chat = Phase 20 heroes.**
+
+## Issued 2026-09-08 — `DSP-SCN-20260908-03` (hero glTF pack)
+
+Operator converted SKP + Sketchfab zips on Desktop `hero models/gltf-out`. Mount into `public/models/landmarks/`. Maiden’s = HQ `maidens-tower.glb` (CC-BY). Galata = small SKP, **not** 419 MB photogrammetry. Rumeli stays proxy. Raise `MAX_LANDMARKS`. GPS starting points in the DSP. `altMsl = 0` → bury/float is GEO.
+
+Worker **code-accept 2026-09-08**. Pack mounted (13 ids). Maiden’s gitignored 98 MB. SKP mm→m. Credits on 3D DOM. Tests 20/20. **Human Pass pending** — street-scale smoke in this chat.
+
+## Issued 2026-09-08 — `DSP-SCN-20260908-04` (Hero buildings panel)
+
+Left rail **Hero buildings**: Focus + ENU XYZ / yaw-pitch-roll. Soft `RaceProject.landmarks.byId`. Auto-save only Electron/API (no Chrome download spam). Re-export SKP glbs with OpenSKP `textures=True` (current glbs have 0 images except Maiden’s). Rumeli stays proxy.
+
+Worker **code-accept 2026-09-08**. SKP glbs now have images (Galata 15, Hagia Sophia 31, …). Tests 101. **Human Pass pending.**
+
+## 2026-09-08 — Phase 21 cinematic (BW lock)
+
+Silent 1080p30 MP4. Globe + ENU, cloud seam, Aerial, no race chrome, no credits. Rumeli Hisarı not in `intro-bosphorus`. Three bridges = human meshes later.
+
+Workers: `DSP-SCN-20260908-01` **code-complete**. `02` JSON unblocked. Record is OUT. Brief: `docs/agentic/briefs/phase21/SCN_PHASE21.md`.
+
+GEO camera: `geodeticToEcefMeters` + `ecefLookAt`; ENU `enuKeyframeToScene`. Degenerate look = nadir.
+
+## 2026-09-07 — Phase 20 `DSP-SCN-20260907-02` **code-accept**
+
+## Worker 2026-09-07 — `DSP-SCN-20260907-02` (hero proxies)
+
+- Three **named procedural proxies**: Maiden’s Tower (terracotta), Rumeli Hisarı (stone-green), Galata Tower (cream). No honest CC glTF this slice. Drop `.glb` + `kind: 'gltf'` later.
+- Placement: **`gpsToEnuAmsl` only**. Occupancy `{x,z,radiusM}` 45 / 170 / 45 m → buildings `setOccupancyHoles`. Heroes off / AR → `[]`.
+- **`altMsl = 0` (unknown)** for all three. Worker did not live-smoke 3D. If they bury/float vs World Terrain → **HO-SCN-GEO**, do not invent HAE here.
+- Ops **heroes** `#ops-heroes-enabled` default **on** (`bw.heroes.enabled`). Landmarks tests **13/13**. Full suite **1288 pass**, 1 fail `library.test.ts` pre-existing. SCN **code-accept 2026-09-07**. **Human Pass pending.**
+
+## Operator Pass 2026-09-07 — 05 (road + aerial both stay)
+
+Operator: keep **map road** and **map aerial**; pick a default later. Overlay lock stands: World Terrain **1** + Bing Road **4** (default) / Aerial **2** (compare). Grey Rec.709 stays dead. Issued worker **02** (heroes).
+
+## Worker 2026-09-07 — `DSP-SCN-20260907-05` (Bing Road overlay)
+
+- Default drape: Bing Maps Road ion **4** on World Terrain **1**. Ops **map** `road`|`aerial` (`#ops-terrain-overlay`). Aerial **2** is compare only.
+- Overlay change remounts **terrain only** (`dispose` + `ensureTerrain`). OSM Buildings stay. Watermask / nudge / lock-tiles / AR gate unchanged.
+- Rec.709 `uTerrainGrey` **removed**. Session `bw.terrain.overlay` default **road**; leftover `bw.terrain.imageryLook` ignored.
+- ion **4** 401 / not IMAGERY → `console.warn` + status + fall back to aerial **2** (no throw).
+- Terrain tests **36** + HUD layout **3**. Buildings **21** still no Bing overlay. SCN **code-accept 2026-09-07**. **Human Pass 2026-09-07** (keep both overlays). DSP-02 unblocked.
+
+## Operator Fail 2026-09-07 — 04 (wrong look)
+
+Operator: not a black-and-white satellite filter. Want **Cesium default map** (street/cartographic, like Google Maps) **+ heights**. 04 Rec.709 `uTerrainGrey` on Bing Aerial **2** is the wrong product. Issued `DSP-SCN-20260907-05-road-overlay`: overlay **Bing Maps Road ion 4**; aerial **2** remains a compare; remove the grey shader as the look. Do **not** use Google 2D / Photorealistic.
+
+## Worker 2026-09-07 — `DSP-SCN-20260907-04` (grey Bing)
+
+- Bing overlay **2** kept. Grey = Rec.709 luma in the watermask `onBeforeCompile` chain (`uTerrainGrey`, lift ×1.12+0.06). Toggle writes the uniform; no ion remount.
+- Ops **aerial** `grey`|`color` (`#ops-terrain-aerial`), session `bw.terrain.imageryLook`, default **grey**. AR / chroma still gate terrain off.
+- Terrain tests **35** + HUD layout **3**. SCN **code-accept 2026-09-07**. **Human Fail 2026-09-07** (wanted road map + heights). Follow-up **05**. DSP-02 still queued.
+
+## Operator Pass 2026-09-07 — OSM boxes (03)
+
+Local **3D**, realistic, terrain on, lock tiles **off**, buildings on: white OSM massing on Bing-draped hills + Gerstner. That is **03 Human Pass**. Operator then asked to try **grey satellite** so hills match the boxes — issued `DSP-SCN-20260907-04-grey-aerial` (desaturate Bing ion **2**, live `color`|`grey`, default grey). Do **not** drop the overlay.
+
+## Operator 2026-09-07 — terrain on, no map (lock tiles)
+
+- **Cause:** Environment **lock tiles** on (`sessionStorage` `bw.terrain.tilesLocked=1`). Tick skips `tiles.update()` while locked. Uncheck **lock tiles**. Stay on local **3D** (AR + alpha is a black plate).
+
+Design: `docs/architecture/3d-environment-buildings.md` · Brief: `docs/agentic/briefs/phase20/SCN_PHASE20.md` · In: `HO-BW-SCN-20260907-01`
+
+## Handoff 2026-09-07 (BW → SCN)
+
+Received `HO-BW-SCN-20260907-01`: Phase 20 city layer only. SCN issues workers; no `src/` in this chat. After Human Pass send the operator to BW — not SRT, not commercial video.
+
+## Phase 20 locks (SCN 2026-09-07)
+
+- **Engine:** second `TilesRenderer` in Three.js (`3d-tiles-renderer`). Same ion token as World Terrain. **Not** CesiumJS / MapLibre / Mapbox GL.
+- **20.1a data:** Cesium ion **OSM Buildings asset 96188**. Type is **3D Tiles batched models**, not quantized-mesh. Do **not** register `QuantizedMeshPlugin` or Bing drape on this tileset.
+- **Gate:** same opaque-clear as terrain (`setEnvironmentOpaqueClearSafe`). **Never** on AR/chroma.
+- **Ops:** Environment **buildings** checkbox. **Default ON** (session). Still needs ion token + opaque-safe. Independent of the terrain on/off select (operator can smoke massing with terrain off).
+- **Lock-tiles:** reuse the existing terrain lock checkbox — freeze **both** tilesets. No second lock control in 01.
+- **Nudge:** buildings group follows the **same** `terrainNudgeM` as World Terrain (one slider).
+- **Credits:** merge OSM/ODbL + ion into the existing DOM overlay. Local **3D** (+ ops overlay). **Never** burned into the AR WebGL plate.
+- **Occupancy:** 01 exposes `setOccupancyHoles({x,z,radiusM}[])` in ENU metres (empty default). 02 fills it. Do not z-fight heroes.
+- **20.1b:** first slice is **three named proxies** (Maiden’s Tower, Rumeli Hisarı, Galata). Real CC/paid glTF later. Place with existing `gpsToEnuAmsl`. `altMsl = 0`. If they float/bury → **HO-SCN-GEO**, do not guess geoid.
+- **Map overlay:** Ops **map** `road` \| `aerial`. Default **aerial** (Bing Aerial ion **2** on World Terrain **1**). Road **4** is compare. Grey Rec.709 is gone.
+- **Parked:** IBB, DIY survey, Google Photorealistic, facade-shader polish until 01+02 smoke.
+
+## Phase 20 domain roadmap (SCN)
+
+| Wave | Item | DSP | Status |
+| --- | --- | --- | --- |
+| **20.1a+c** | OSM Buildings tileset + ops checkbox + credits | `active/DSP-SCN-20260907-01-osm-buildings.md` | **Human Fail 2026-09-07** — no volumes (fixed by 03) |
+| **20.1a** | Fail follow-up: volumes must draw | `active/DSP-SCN-20260907-03-osm-buildings-visible.md` | **Human Pass 2026-09-07** |
+| **20 look** | Grey Bing aerial to match OSM | `active/DSP-SCN-20260907-04-grey-aerial.md` | **Human Fail 2026-09-07** — B&W filter, not road map |
+| **20 look** | Bing Maps Road overlay + heights | `active/DSP-SCN-20260907-05-road-overlay.md` | **Human Pass 2026-09-07** — keep road + aerial |
+| **20.1b** | Hero glTF + OSM clip | `active/DSP-SCN-20260907-02-hero-gltf.md` | **Code-accept** — proxies |
+| **20.1b** | Operator SKP/glTF pack | `active/DSP-SCN-20260908-03-hero-gltf-pack.md` | **Code-accept 2026-09-08** — Human Pass pending |
+| **20.1b** | Hero buildings panel + offsets + SKP textures | `active/DSP-SCN-20260908-04-hero-buildings-panel.md` | **Code-accept 2026-09-08** — Human Pass pending |
+
+## Worker 2026-09-07 — `DSP-SCN-20260907-03` (OSM volumes must draw)
+
+- DSP-01 Fail was an empty **3DTILES** path, not the checkbox. Same ion token as terrain: endpoint **200** `type: 3DTILES`; root **ADD** + **REGION** + b3dm.
+- Buildings renderer: `GLTFExtensionsPlugin({ rtc: true, autoDispose: false })`; `loadSiblings = false`; `errorTarget = 16`. Still no quantized-mesh / Bing. Occupancy **skip** shader/hide when holes `[]`.
+- Status: `Buildings: on · tiles N` / `ion load failed`. Logs: `[buildings] load-root`, first `visibleTiles` + `worldY`, periodic `visibleTiles 0`. Buried/ECEF Y → warn, do not guess geoid.
+- Buildings tests **21/21**. Pre-existing `library.test.ts` + OUT `tsc` unchanged.
+- SCN **code-accept 2026-09-07**. **Human Pass 2026-09-07** (white OSM boxes on Bing hills). Grey-aerial follow-up **04**; DSP-02 queued behind 04.
+
+## Operator Fail 2026-09-07 — 01 (no boxes)
+
+- Local **3D**, Environment **realistic**, **buildings** checked. Shot: Gerstner + Senexus ribbon + Bing-draped hills. **Zero extruded OSM volumes.** Terrain is working; the second tileset is not.
+- Likely: 3DTILES path missing `GLTFExtensionsPlugin`; OSM globe **ADD** + `loadSiblings`; occupancy `onBeforeCompile` even when holes `[]` breaking fade shaders. Not a checkbox miss. Not GEO yet.
+- Issued `DSP-SCN-20260907-03`. Do **not** start heroes.
+
+## Worker 2026-09-07 — `DSP-SCN-20260907-01` (OSM Buildings)
+
+- Second `TilesRenderer` `cesiumOsmBuildings`; ion **96188**. Plugins: `CesiumIonAuthPlugin` (accept `3DTILES`, warn on `TERRAIN`), fade 250 ms, unload **256 MiB**, `UpdateOnChange`, `ReorientationPlugin` (`amslToHae` + 180°). **No** quantized-mesh, Bing, watermask.
+- Default **ON** (`bw.buildings.enabled`; missing/`'1'` → on). Hidden if no token or opaque-unsafe (`shouldShowTerrain`). Independent of terrain on/off. Shared nudge + lock-tiles. Token Apply remounts buildings; empty → off, no throw. 401 → status + `console.warn`.
+- Credits merge into 3D DOM overlay; ODbL fallback **© OpenStreetMap contributors**. Never AR plate.
+- `setOccupancyHoles({x,z,radiusM}[])` ENU; default `[]`; fragment discard + hide meshes fully inside a disk. On `SceneHandle` for 02. Does not clip terrain/ocean.
+- Buildings tests **14/14**. Full suite **1258 pass**, 1 fail `library.test.ts` (seeded logos vs test allow-list) — **pre-existing**. `tsc` red on OUT `videoDecodePipeline.ts` — **pre-existing, not this DSP**.
+- SCN **code-accept 2026-09-07**. **Human Fail 2026-09-07** (no boxes). Follow-up **03**.
+
+## After each Phase 20 worker
+
+Human: **test now** (clicks in the DSP). Good: 3D city **massing** (boxes), not a flat photo coast; AR plate still clean; lock-tiles still works; ops not bricked. **03 Pass** → new worker chat with 02. Heroes wrong height or boxes buried under hills → GEO (`GEO_PHASE20.md`). **03+02 Human Pass** → **BW** (`BOOTSTRAP_BW.md`). Do not issue SRT/OUT egress or commercial video from SCN.
+
+---
+
+Phase 19 design: `docs/architecture/phase19-senexus-qol.md` · Brief: `docs/agentic/briefs/phase19/SCN_PHASE19.md`
 
 ## Handoff 2026-09-02
 
@@ -48,9 +277,9 @@ Parked: OUT idle · CAL 19.5 done · PLT 19.16 **done** · GEO 19.18 · NDI fps.
 | **B3** | 19.2b names / rounding / course scale | `done/DSP-SCN-20260905-02` | **Human Pass 2026-09-05** |
 | **B3** | 19.17 instant project switch | `done/DSP-SCN-20260905-03` | **Human Pass 2026-09-05** |
 
-## After each worker (script)
+## After each worker (Phase 19 archive)
 
-Human: **19.17 Pass.** Open **BW** (`BOOTSTRAP_BW.md` + `HO-SCN-BW-20260905-01`). SCN Phase 19 parked unless they reopen look-dev. GEO 19.18 still Q5.
+Human: Phase 19 parked (19.2b + 19.17 Pass). GEO 19.18 still Q5. Do not reopen sea/2D look-dev unless the operator asks.
 
 ## Operator 2026-09-05 — 05-03 Pass
 

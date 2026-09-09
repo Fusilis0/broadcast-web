@@ -72,6 +72,7 @@ Manifest (picker): `public/races/index.json` → `{ "ids": ["demo-istanbul", ...
 | `replayUrl` | no | TEL replay fixture |
 | `output` | no | Defaults: `outputMode`, `whepUrl`, `chromaKey`, timecode fields. Soft SRT: `srtUrlTemplate` (`{srtId}` placeholders), `srtByPovId` (telemetry povId → SRT camera id). **Never commit a filled relay token** — session holds it; Save redacts the last `streamid` segment |
 | `calibration` | no | Soft CAL map — see below. Omit when empty; old packs without it still parse |
+| `landmarks` | no | Soft hero authoring offsets — see below. Omit when empty; old packs without it still parse |
 
 \* Present `features` (including `[]`) is complete — same rule as `fleet.boats`. Fixture URLs / `featuresUrl` apply only when `features` is omitted. An empty pack may keep leftover `courseUrl` / `sponsorsUrl` / `flagsUrl` on disk; Load must not merge them. Old packs without a `features` key still load from those URLs.
 
@@ -100,6 +101,33 @@ Per-POV runtime offsets (same knobs as the calib panel / `offsetsStore`). Soft f
 | offsets | Prefer store names: `yawDeg`, `pitchDeg`, `rollDeg`, `fovHDeg`, `altMeters`, `syncTrimMs`. Soft aliases also accepted on parse: `yaw`, `pitch`, `roll`, `fov`, `alt`, `syncTrim`, `trimMs`. Unknown keys ignored. Omitted `syncTrimMs` → `0` (old packs). **Sign:** `t_ntp = toNtp(pts) + syncTrimMs`; positive = AR leads video (sample later NTP) |
 
 Load (`applyRaceProjectToConfig` / `?race=` / HUD Load) hydrates `offsetsStore` before pose apply. Save / Save as embeds a snapshot for current `povIds`.
+
+### `landmarks` (SCN — soft)
+
+Per-catalogue-id authoring offsets for hero glTF (ENU metres + Euler degrees). Soft field: missing/`null`/junk → ignored; empty `byId` → omit on save. **Not** a geoid or AMSL guess — GPS placement stays `gpsToEnuAmsl`. Occupancy disks follow offset XZ (not rotation). Chrome slider auto-save writes only when Electron races folder or the projects API can persist; it never downloads `project.json`.
+
+```json
+"landmarks": {
+  "byId": {
+    "maidens-tower": {
+      "offsetM": { "x": 2.5, "y": 0, "z": -1 },
+      "yawDeg": 15,
+      "pitchDeg": 0,
+      "rollDeg": 0,
+      "scale": 1
+    }
+  }
+}
+```
+
+| Nested field | Notes |
+| --- | --- |
+| `byId` | Map landmark catalogue id → pose. Unknown ids ignored at parse |
+| `offsetM` | Scene ENU metres: x east, y up, z −north |
+| `yawDeg` / `pitchDeg` / `rollDeg` | Degrees on the mesh group; omitted knobs default 0 |
+| `scale` | Uniform mesh scale; omit → 1; parse ignores ≤ 0 |
+
+Load applies offsets onto the landmark mount; Save embeds current non-zero poses. Missing `landmarks` (or a missing id) uses catalogue `DEFAULT_LANDMARK_OFFSETS` — not GPS zero. A pack row still overrides that default.
 
 ### `WorldFeature` (SCN)
 

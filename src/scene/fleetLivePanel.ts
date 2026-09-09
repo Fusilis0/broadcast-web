@@ -17,6 +17,7 @@ import { resolveSrtUrlForId } from '../output/srtStreamCatalog.ts'
 import { DEFAULT_LIVE_WS_BASE, stripLiveWsId } from '../telemetry/liveWsUrl.ts'
 import type { LiveStatusSnapshot } from '../telemetry/liveSource.ts'
 import type { OpsViewMode } from './freeCam.ts'
+import { DEFAULT_OPS_VIEW_MODE } from './freeCam.ts'
 import {
   DEFAULT_BOAT_VISIBILITY_MODE,
   normalizeBoatVisibilityMode,
@@ -542,7 +543,7 @@ export function startFleetLivePanel(
   boatSec.appendChild(boatAddRow)
 
   // —— Ops preview helpers (Free/Follow live in Ops sidebar section — 11.1) ——
-  let opsViewMode: OpsViewMode = options.opsViewMode ?? 'follow'
+  let opsViewMode: OpsViewMode = options.opsViewMode ?? DEFAULT_OPS_VIEW_MODE
   const viewSec = document.createElement('section')
   viewSec.className = 'fleet-live__section'
   viewSec.appendChild(sectionTitle('Ops preview'))

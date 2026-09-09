@@ -1,3 +1,11 @@
+@font-face {
+  font-family: 'Allumi Std Extended';
+  src: url('/fonts/AllumiStdExtendedBold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 *,
 *::before,
 *::after {
@@ -779,6 +787,110 @@ body.output-transparent,
   white-space: pre-wrap;
 }
 
+.ops-sidebar .heroes-panel {
+  padding: 6px 8px 10px;
+}
+
+.heroes-panel__hint {
+  color: #8a949e;
+  font-size: 11px;
+  margin-bottom: 8px;
+  line-height: 1.35;
+}
+
+.heroes-panel__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.heroes-panel__row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 0;
+  border-bottom: 1px solid #1e2630;
+}
+
+.heroes-panel__top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.heroes-panel__name {
+  color: #e0e6ec;
+  font-size: 12px;
+  flex: 1;
+}
+
+.heroes-panel__chip {
+  font-size: 10px;
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+}
+
+.heroes-panel__chip--textured {
+  color: #8ecf9a;
+}
+
+.heroes-panel__chip--no-image {
+  color: #d4b06a;
+}
+
+.heroes-panel__chip--proxy {
+  color: #8a949e;
+}
+
+.heroes-panel__btn {
+  appearance: none;
+  border: 1px solid #3a4553;
+  background: #1e2630;
+  color: #d7dee6;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.heroes-panel__btn:hover {
+  border-color: #5a6a7a;
+}
+
+.heroes-panel__btn--primary {
+  border-color: #4a7ab0;
+  color: #c8e0ff;
+}
+
+.heroes-panel__fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.heroes-panel__field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: #8a949e;
+  font-size: 10px;
+}
+
+.heroes-panel__input {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 11px;
+  background: #1e2630;
+  color: #d7dee6;
+  border: 1px solid #3a4553;
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+
 /* NDI controller tab (OUT) — sidebar section body */
 .ndi-ctrl {
   display: flex;
@@ -1450,8 +1562,9 @@ body.output-transparent,
   width: 220px;
 }
 
-.ops-hud__input--wind {
-  width: 52px;
+.ops-hud__input--cinematic-scrub {
+  width: 140px;
+  accent-color: #8aa0b8;
 }
 
 .ops-hud__btn {

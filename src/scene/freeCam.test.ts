@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 import {
   cameraGroundBasis,
   createFreeCam,
+  DEFAULT_OPS_VIEW_MODE,
   formatOpsViewStatus,
   isOpsViewMode,
   isTypingTarget,
@@ -19,6 +20,7 @@ describe('ops view mode helpers', () => {
     expect(isOpsViewMode('free')).toBe(true)
     expect(isOpsViewMode('orbit')).toBe(false)
     expect(isOpsViewMode('')).toBe(false)
+    expect(DEFAULT_OPS_VIEW_MODE).toBe('free')
   })
 
   it('formats compact HUD status', () => {

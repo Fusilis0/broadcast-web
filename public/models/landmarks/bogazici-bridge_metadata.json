@@ -1,0 +1,529 @@
+{
+  "format_version": "1.0",
+  "source_file": "bogazici-bridge",
+  "model_source": "sketchup",
+  "sketchup_version": "{21.0.0}",
+  "total_definitions": 10,
+  "total_meshes": 7,
+  "total_layers": 3,
+  "layers": [
+    {
+      "name": "Layer0",
+      "color": {
+        "r": 255,
+        "g": 84,
+        "b": 84
+      }
+    },
+    {
+      "name": "Google Earth Terrain",
+      "color": {
+        "r": 0,
+        "g": 153,
+        "b": 135
+      }
+    },
+    {
+      "name": "Google Earth Snapshot",
+      "color": {
+        "r": 119,
+        "g": 119,
+        "b": 153
+      }
+    }
+  ],
+  "materials": [
+    {
+      "name": "jean blue",
+      "color": {
+        "r": 36,
+        "g": 47,
+        "b": 66
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<Beige>1",
+      "color": {
+        "r": 211,
+        "g": 189,
+        "b": 144
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<GrassGreen>",
+      "color": {
+        "r": 62,
+        "g": 91,
+        "b": 5
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<Olive>",
+      "color": {
+        "r": 128,
+        "g": 128,
+        "b": 0
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<Chipboard>",
+      "color": {
+        "r": 169,
+        "g": 153,
+        "b": 113
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 1
+    },
+    {
+      "name": "<Gold>1",
+      "color": {
+        "r": 176,
+        "g": 158,
+        "b": 25
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 1
+    },
+    {
+      "name": "<Dark Brown>",
+      "color": {
+        "r": 78,
+        "g": 63,
+        "b": 43
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 1
+    },
+    {
+      "name": "<Dark Brown>1",
+      "color": {
+        "r": 52,
+        "g": 43,
+        "b": 19
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 1
+    },
+    {
+      "name": "<Dark Olive>",
+      "color": {
+        "r": 98,
+        "g": 100,
+        "b": 68
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 1
+    },
+    {
+      "name": "<YellowGreen>",
+      "color": {
+        "r": 154,
+        "g": 205,
+        "b": 50
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<Charcoal>",
+      "color": {
+        "r": 35,
+        "g": 35,
+        "b": 35
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<Black>",
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 0
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<DarkGoldenrod>",
+      "color": {
+        "r": 184,
+        "g": 134,
+        "b": 11
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<WhiteSmoke>",
+      "color": {
+        "r": 245,
+        "g": 245,
+        "b": 245
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Google Earth Snapshot1",
+      "color": {
+        "r": 67,
+        "g": 67,
+        "b": 67
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0,
+      "texture": {
+        "filename": "C:\\DOCUME~1\\EF2351~1\\LOCALS~1\\Temp\\GEI29.jpg",
+        "x_scale": 1.0,
+        "y_scale": 1.0
+      }
+    },
+    {
+      "name": "<LightCyan>",
+      "color": {
+        "r": 224,
+        "g": 255,
+        "b": 255
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<MintCream>",
+      "color": {
+        "r": 245,
+        "g": 255,
+        "b": 250
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<Azure>",
+      "color": {
+        "r": 240,
+        "g": 255,
+        "b": 255
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<AliceBlue>",
+      "color": {
+        "r": 240,
+        "g": 248,
+        "b": 255
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<LightBlue>",
+      "color": {
+        "r": 173,
+        "g": 216,
+        "b": 230
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<SteelBlue>",
+      "color": {
+        "r": 70,
+        "g": 130,
+        "b": 180
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<PaleTurquoise>",
+      "color": {
+        "r": 175,
+        "g": 238,
+        "b": 238
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<Gainsboro>",
+      "color": {
+        "r": 220,
+        "g": 220,
+        "b": 220
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<DarkGray>",
+      "color": {
+        "r": 81,
+        "g": 81,
+        "b": 81
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<LightGray>",
+      "color": {
+        "r": 169,
+        "g": 169,
+        "b": 169
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<Silver>",
+      "color": {
+        "r": 192,
+        "g": 192,
+        "b": 192
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<SaddleBrown>",
+      "color": {
+        "r": 139,
+        "g": 69,
+        "b": 19
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<FireBrick>",
+      "color": {
+        "r": 178,
+        "g": 34,
+        "b": 34
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "<DarkGray>1",
+      "color": {
+        "r": 51,
+        "g": 81,
+        "b": 61
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Layer_Layer0",
+      "color": {
+        "r": 255,
+        "g": 84,
+        "b": 84
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Layer_Google Earth Terrain",
+      "color": {
+        "r": 0,
+        "g": 153,
+        "b": 135
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    },
+    {
+      "name": "Layer_Google Earth Snapshot",
+      "color": {
+        "r": 119,
+        "g": 119,
+        "b": 153
+      },
+      "transparency": 1.0,
+      "colorized": false,
+      "colorize_type": 0
+    }
+  ],
+  "mesh_index": {
+    "mesh_0_ROOT__Component_27210_Layer0_192_192_192_ds": {
+      "name": "",
+      "definition_name": "Component#5",
+      "layer": "Layer0",
+      "position_mm": [
+        -1644238.68,
+        -917625.67,
+        -16330.37
+      ],
+      "properties": {},
+      "path": "ROOT / Component_27210"
+    },
+    "mesh_1_ROOT__Component_27210_Layer0_192_192_192_ss": {
+      "name": "",
+      "definition_name": "Component#5",
+      "layer": "Layer0",
+      "position_mm": [
+        -1644238.68,
+        -917625.67,
+        -16330.37
+      ],
+      "properties": {},
+      "path": "ROOT / Component_27210"
+    },
+    "mesh_2_ROOT__Component_27210_Layer0_81_81_81_ss": {
+      "name": "",
+      "definition_name": "Component#5",
+      "layer": "Layer0",
+      "position_mm": [
+        -1644238.68,
+        -917625.67,
+        -16330.37
+      ],
+      "properties": {},
+      "path": "ROOT / Component_27210"
+    },
+    "mesh_3_ROOT__Google_Earth_Terrain_Location Terrain_67_67_67_ss": {
+      "name": "Google Earth Terrain",
+      "definition_name": "Group#2",
+      "layer": "Location Terrain",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Google Earth Terrain"
+    },
+    "mesh_4_ROOT__Google_Earth_Terrain_Location Terrain_220_220_220_ss": {
+      "name": "Google Earth Terrain",
+      "definition_name": "Group#2",
+      "layer": "Location Terrain",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Google Earth Terrain"
+    },
+    "mesh_5_ROOT__Google_Earth_Snapshot_Location Snapshot_67_67_67_ss": {
+      "name": "Google Earth Snapshot",
+      "definition_name": "Group#3",
+      "layer": "Location Snapshot",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Google Earth Snapshot"
+    },
+    "mesh_6_ROOT__Google_Earth_Snapshot_Location Snapshot_136_136_136_ss": {
+      "name": "Google Earth Snapshot",
+      "definition_name": "Group#3",
+      "layer": "Location Snapshot",
+      "position_mm": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "properties": {},
+      "path": "ROOT / Google Earth Snapshot"
+    }
+  },
+  "scene_hierarchy": {
+    "name": "ROOT",
+    "definition_name": "ROOT_MODEL",
+    "layer": "Layer0",
+    "position_mm": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "properties": {},
+    "children": [
+      {
+        "name": "",
+        "definition_name": "Component#5",
+        "layer": "Layer0",
+        "position_mm": [
+          -1644238.68,
+          -917625.67,
+          -16330.37
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "Google Earth Terrain",
+        "definition_name": "Group#2",
+        "layer": "Location Terrain",
+        "position_mm": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "properties": {},
+        "children": []
+      },
+      {
+        "name": "Google Earth Snapshot",
+        "definition_name": "Group#3",
+        "layer": "Location Snapshot",
+        "position_mm": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "properties": {},
+        "children": []
+      }
+    ]
+  }
+}

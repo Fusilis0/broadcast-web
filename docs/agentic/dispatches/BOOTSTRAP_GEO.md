@@ -20,7 +20,7 @@ You are **GEO — Geodesy & World Frame Orchestrator**.
 - Update `GEO_MEMO.md`.
 
 ## Immediate planning goal
-After PLT scaffold: DSP to port EGM96 + GeoOrigin + GeoUtils with unit tests; copy `EGM96_1deg.bin` from Unity StreamingAssets into `public/`.
+**Phase 21** — GEO-01 **code-accept**. Idle unless SCN hands off origin-switch / hero altitude. No tileset look. No MP4.
 
 ## Declare
 `Role: GEO — Geodesy & World Frame Orchestrator`

@@ -5,6 +5,9 @@ import { TEMP_HFOV_DEG, horizontalToVerticalFovDeg } from './droneCamera.ts'
 /** On-screen ops preview: follow active POV lens, or free orbit/pan/zoom. */
 export type OpsViewMode = 'follow' | 'free'
 
+/** Cold-start Race ops view. */
+export const DEFAULT_OPS_VIEW_MODE: OpsViewMode = 'free'
+
 export function isOpsViewMode(value: string): value is OpsViewMode {
   return value === 'follow' || value === 'free'
 }

@@ -40,3 +40,13 @@ export {
   parseConfigOriginFields,
   type ConfigOrigin,
 } from './applyConfigOrigin.ts'
+
+export {
+  ECEF_LOOK_AT_EPSILON_M,
+  geodeticToEcefMeters,
+  ellipsoidUpEcef,
+  ecefLookAt,
+  enuKeyframeToScene,
+  type EcefMeters,
+  type EcefLookAt,
+} from './cinematicFrame.ts'

@@ -9,6 +9,7 @@ import type {
   RaceProject,
   RaceProjectCalibration,
   RaceProjectFleetBoat,
+  RaceProjectLandmarks,
   RaceProjectOrigin,
   RaceProjectOutputDefaults,
   WorldFeature,
@@ -44,6 +45,8 @@ export type BuildRaceProjectInput = {
   output?: RaceProjectOutputDefaults
   /** Soft per-POV calib (CAL); omit when empty. */
   calibration?: RaceProjectCalibration
+  /** Soft hero offsets (SCN); omit empty byId. */
+  landmarks?: RaceProjectLandmarks
   revision?: number
   /** ISO-8601; default now. */
   updatedAt?: string
@@ -131,6 +134,19 @@ export function buildRaceProject(input: BuildRaceProjectInput): RaceProject {
       byPovId[id] = { ...offs }
     }
     raw.calibration = { byPovId }
+  }
+  if (input.landmarks?.byId && Object.keys(input.landmarks.byId).length > 0) {
+    const byId: Record<string, unknown> = {}
+    for (const [id, pose] of Object.entries(input.landmarks.byId)) {
+      const row: Record<string, unknown> = {}
+      if (pose.offsetM) row.offsetM = { ...pose.offsetM }
+      if (pose.yawDeg !== undefined) row.yawDeg = pose.yawDeg
+      if (pose.pitchDeg !== undefined) row.pitchDeg = pose.pitchDeg
+      if (pose.rollDeg !== undefined) row.rollDeg = pose.rollDeg
+      if (pose.scale !== undefined) row.scale = pose.scale
+      byId[id] = row
+    }
+    raw.landmarks = { byId }
   }
 
   return parseRaceProject(raw)

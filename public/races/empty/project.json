@@ -23,7 +23,7 @@
   "povIds": [
     "1"
   ],
-  "updatedAt": "2026-09-02T11:48:35.056Z",
+  "updatedAt": "2026-09-08T22:00:10.731Z",
   "takeoffAltitudeMSL": 0,
   "features": [],
   "courseUrl": "/fixtures/course/demo-istanbul.json",
@@ -48,6 +48,107 @@
         "fovHDeg": 66.8832,
         "altMeters": 2,
         "syncTrimMs": 0
+      }
+    }
+  },
+  "landmarks": {
+    "byId": {
+      "maidens-tower": {
+        "offsetM": {
+          "x": -1.2,
+          "y": -2.9,
+          "z": 3
+        },
+        "yawDeg": 4,
+        "scale": 10.7
+      },
+      "galata-tower": {
+        "offsetM": {
+          "x": 4.1,
+          "y": 51.4,
+          "z": -6.4
+        }
+      },
+      "rumeli-hisari": {
+        "offsetM": {
+          "x": -60.9,
+          "y": 30,
+          "z": -5.4
+        }
+      },
+      "hagia-sophia": {
+        "offsetM": {
+          "x": -38.7,
+          "y": 45,
+          "z": 28.3
+        }
+      },
+      "sultan-ahmed": {
+        "offsetM": {
+          "x": -10.5,
+          "y": 39.2,
+          "z": 1.7
+        }
+      },
+      "topkapi": {
+        "offsetM": {
+          "x": 60,
+          "y": 61.3,
+          "z": -141.7
+        }
+      },
+      "suleymaniye": {
+        "offsetM": {
+          "x": -9.5,
+          "y": 58.9,
+          "z": 33.1
+        }
+      },
+      "aya-irini": {
+        "offsetM": {
+          "x": -25.7,
+          "y": 45.6,
+          "z": 73.9
+        },
+        "yawDeg": -0.5
+      },
+      "dolmabahce": {
+        "offsetM": {
+          "x": 40.2,
+          "y": 9.2,
+          "z": -79.3
+        },
+        "yawDeg": 0.5
+      },
+      "ciragan": {
+        "offsetM": {
+          "x": -136.4,
+          "y": 11.8,
+          "z": 3.5
+        },
+        "yawDeg": 0.5
+      },
+      "bogazici-bridge": {
+        "offsetM": {
+          "x": 7.2,
+          "y": -5.1,
+          "z": -37.6
+        },
+        "yawDeg": 0.35
+      },
+      "fsm-bridge": {
+        "offsetM": {
+          "x": 90,
+          "y": -20,
+          "z": 0
+        }
+      },
+      "yavuz-selim-bridge": {
+        "offsetM": {
+          "x": -600,
+          "y": 0,
+          "z": -160
+        }
       }
     }
   }

@@ -31,6 +31,8 @@ const ndiSender = require('./ndiSender.cjs')
 const racesFs = require('./racesFs.cjs')
 const configFs = require('./configFs.cjs')
 const srtReader = require('./srtReader.cjs')
+const cinematicTileCache = require('./cinematicTileCache.cjs')
+const cinematicRecord = require('./cinematicRecord.cjs')
 
 const DEV_URL = 'http://127.0.0.1:5173'
 const PREVIEW_URL = 'http://127.0.0.1:4173'
@@ -274,6 +276,67 @@ function getRacesDir() {
 
 function getRacesKind() {
   return racesFs.resolveRacesKind(resolveLoadTarget().kind)
+}
+
+function isTileCacheFileName(name) {
+  return typeof name === 'string' && /^[0-9a-f]{64}$/.test(name)
+}
+
+function getTileCacheDir() {
+  return cinematicTileCache.getCinematicTileCacheDir({
+    userDataPath: app.getPath('userData'),
+  })
+}
+
+/** Packaged `--file` userData cache. Vite `desktop:dev` uses GET/POST instead. */
+function registerCinematicTilesIpc() {
+  const packaged = resolveLoadTarget().kind === 'file'
+  ipcMain.handle('cinematicTiles:packaged', () => packaged)
+  ipcMain.handle('cinematicTiles:has', async (_evt, name) => {
+    if (!isTileCacheFileName(name)) return false
+    const filePath = path.join(getTileCacheDir(), name)
+    try {
+      return fs.existsSync(filePath) && fs.statSync(filePath).isFile()
+    } catch {
+      return false
+    }
+  })
+  ipcMain.handle('cinematicTiles:read', async (_evt, name) => {
+    if (!isTileCacheFileName(name)) return null
+    const filePath = path.join(getTileCacheDir(), name)
+    try {
+      if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) return null
+      const buf = fs.readFileSync(filePath)
+      return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)
+    } catch {
+      return null
+    }
+  })
+  ipcMain.handle('cinematicTiles:write', async (_evt, payload) => {
+    const name = payload && payload.name
+    if (!isTileCacheFileName(name)) return { ok: false, error: 'bad name' }
+    const bytes = payload && payload.bytes
+    if (!(bytes instanceof ArrayBuffer) && !ArrayBuffer.isView(bytes)) {
+      return { ok: false, error: 'bad bytes' }
+    }
+    const dir = getTileCacheDir()
+    const filePath = path.join(dir, name)
+    try {
+      fs.mkdirSync(dir, { recursive: true })
+      if (fs.existsSync(filePath)) return { ok: true, skipped: true }
+      const buf = Buffer.from(bytes)
+      if (buf.byteLength > 32 * 1024 * 1024) {
+        return { ok: false, error: 'too large' }
+      }
+      fs.writeFileSync(filePath, buf)
+      return { ok: true }
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      }
+    }
+  })
 }
 
 /** Local RaceProject saves — additive; do not refactor NDI here. */
@@ -567,12 +630,20 @@ app.whenReady().then(async () => {
   registerRacesIpc()
   registerConfigIpc()
   registerSrtIpc()
+  registerCinematicTilesIpc()
+  cinematicRecord.registerCinematicRecordIpc(
+    () => mainWindow && !mainWindow.isDestroyed() ? mainWindow : null,
+  )
   console.info(
     `[desktop] races dir (${getRacesKind()}): ${getRacesDir()}`,
   )
   console.info(
     `[desktop] config.json (${getConfigKind()}): ${getConfigPath()}`,
   )
+  const tileCacheDir = cinematicTileCache.getCinematicTileCacheDir({
+    userDataPath: app.getPath('userData'),
+  })
+  console.info(`[desktop] cinematic tile cache: ${tileCacheDir}`)
   console.info(
     `[desktop] GPU preference: ${useIntegratedGpu ? 'integrated (opt-out)' : 'high-performance (discrete preferred)'}`,
   )

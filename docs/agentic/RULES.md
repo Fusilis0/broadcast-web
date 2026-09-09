@@ -67,10 +67,10 @@ Unity sibling `../broadcast` is **reference only** until assets/contracts are co
 | --- | --- |
 | 1 | **Chroma** (green clear) → vMix window/screen capture — first web-on-air path |
 | 2 | **WebRTC underlay** (MediaMTX WHEP) for preview + future CV |
-| 3 | **SRT/WebRTC egress** for remote viewing into vMix |
-| 4 | **NDI out of AR camera view** — **optimum** studio path (evaluate third-party NDI, native helper, or **Electron + our NDI sender**) |
+| 3 | **SRT egress ×3** (AR/3D/2D) — Phase **22**; LAN + later WAN relay ([`../architecture/srt-egress.md`](../architecture/srt-egress.md)) |
+| 4 | **NDI** — parked on air after Phase 22 (code kept). 30×3 **closed**. |
 
-No **in-browser** NDI without a native bridge. Electron is allowed as a **studio shell** for owned NDI (Phase 7); default product remains the web SPA for preview/chroma/Hetzner.
+No **in-browser** NDI without a native bridge. Electron is the studio shell. Phase 17 SRT is **ingest** (caller), not egress.
 
 ## 11. Safety
 

@@ -82,6 +82,25 @@ contextBridge.exposeInMainWorld('broadcastStudio', {
       ipcRenderer.invoke('config:setCesiumIonToken', token),
   },
   /**
+   * Packaged `--file` ion tile cache (userData). Vite `desktop:dev` uses
+   * GET/POST `/cinematic-tiles/<sha256>` instead.
+   */
+  cinematicTiles: {
+    packaged: () => ipcRenderer.invoke('cinematicTiles:packaged'),
+    has: (name) => ipcRenderer.invoke('cinematicTiles:has', name),
+    read: (name) => ipcRenderer.invoke('cinematicTiles:read', name),
+    write: (payload) => ipcRenderer.invoke('cinematicTiles:write', payload),
+  },
+  /**
+   * Silent cinematic MP4 (Phase 21). Renderer captures; main saves.
+   * Absent in Chrome — Record status is "desktop only".
+   */
+  cinematicRecord: {
+    choosePath: (opts) =>
+      ipcRenderer.invoke('cinematicRecord:choosePath', opts ?? {}),
+    write: (payload) => ipcRenderer.invoke('cinematicRecord:write', payload),
+  },
+  /**
    * SRT ingest (Phase 17.1). Main is a dumb MPEG-TS byte pipe — no demux.
    * Absent in Chrome; callers use getSrtBridge() and no-op when null.
    */
