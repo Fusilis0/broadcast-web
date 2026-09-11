@@ -1,6 +1,6 @@
 /**
- * Studio preload — exposes NDI IPC, SRT ingest, races/config, and the
- * main-process frame clock to the SPA.
+ * Studio preload — exposes NDI IPC, SRT ingest, SRT publish, races/config,
+ * and the main-process frame clock to the SPA.
  *
  * NDI API is multi-channel (`ar` | `3d` | `2d`). Omitting `channel` defaults
  * to `'ar'` (today's air plate) for back-compat.
@@ -147,6 +147,66 @@ contextBridge.exposeInMainWorld('broadcastStudio', {
       ipcRenderer.on('srt:status', handler)
       return () => {
         ipcRenderer.removeListener('srt:status', handler)
+      }
+    },
+  },
+  /**
+   * SRT program out (Phase 22). Independent of ingest `srt:open`.
+   * One ffmpeg child per AR / 3D / 2D; gdigrab → SRT caller.
+   */
+  srtOut: {
+    /**
+     * @param {{ channel: string, url?: string }} opts
+     */
+    start: (opts) => ipcRenderer.invoke('srtOut:start', opts ?? {}),
+    /**
+     * @param {string | { channel?: string } | undefined} channelOrOpts
+     */
+    stop: (channelOrOpts) => ipcRenderer.invoke('srtOut:stop', channelOrOpts),
+    getStatus: () => ipcRenderer.invoke('srtOut:status'),
+    /**
+     * @param {(status: object) => void} cb
+     * @returns {() => void} unsubscribe
+     */
+    onStatus: (cb) => {
+      const handler = (_evt, payload) => {
+        try {
+          cb(payload)
+        } catch {
+          /* ignore renderer status errors */
+        }
+      }
+      ipcRenderer.on('srtOut:status', handler)
+      return () => {
+        ipcRenderer.removeListener('srtOut:status', handler)
+      }
+    },
+    sendPreviewView: (view) => ipcRenderer.send('srtOut:previewView', view),
+    onPreviewView: (cb) => {
+      const handler = (_evt, payload) => {
+        try {
+          cb(payload)
+        } catch {
+          /* ignore */
+        }
+      }
+      ipcRenderer.on('srtOut:previewView', handler)
+      return () => {
+        ipcRenderer.removeListener('srtOut:previewView', handler)
+      }
+    },
+    sendWorldLook: (look) => ipcRenderer.send('srtOut:worldLook', look),
+    onWorldLook: (cb) => {
+      const handler = (_evt, payload) => {
+        try {
+          cb(payload)
+        } catch {
+          /* ignore */
+        }
+      }
+      ipcRenderer.on('srtOut:worldLook', handler)
+      return () => {
+        ipcRenderer.removeListener('srtOut:worldLook', handler)
       }
     },
   },

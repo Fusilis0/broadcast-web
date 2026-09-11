@@ -23,9 +23,8 @@ You are **BW — Broadcast-Web Master Orchestrator**.
 
 ## First job in a fresh BW session
 1. Confirm current phase from roadmap + `BW_MEMO.md`.
-2. If Phase 21 cinematic is **locked but not recorded** → GEO-01 first, then SCN-01/02, then OUT MP4 (`docs/agentic/briefs/phase21/`).
-3. If Phase 20 city layer is **not** Human Pass **and** 21 is not the ask → SCN Phase 20 (`BOOTSTRAP_SCN.md` + old `HO-BW-SCN-20260907-01`).
-4. If Phase 21 MP4 is accepted → **Phase 22** SRT three-channel; NDI parked; wait for VPS details.
+2. If Phase **22** local SRT is open → worker `DSP-SRT-20260909-01-local-srt-out` (not BW `src/`). VPS only after OBS 30×3 Pass.
+3. If Phase 21 cinematic Record is still needed → OUT Record Human Pass in parallel (does not block 22).
 
 ## Declare
 Start your first reply with: `Role: BW — Broadcast-Web Master Orchestrator`

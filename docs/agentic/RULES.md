@@ -61,14 +61,14 @@ Unity sibling `../broadcast` is **reference only** until assets/contracts are co
 2. This repo is local until `fusilis/broadcast-web` (private) is created. Do not assume GitHub remote exists.
 3. Console repo: **discussion only** for now — no clone/pull unless BW opens a later phase.
 
-## 10. Output stack decision (locked by BW — updated 2026-07-29)
+## 10. Output stack decision (locked by BW — updated 2026-09-09)
 
 | Priority | Path |
 | --- | --- |
-| 1 | **Chroma** (green clear) → vMix window/screen capture — first web-on-air path |
-| 2 | **WebRTC underlay** (MediaMTX WHEP) for preview + future CV |
-| 3 | **SRT egress ×3** (AR/3D/2D) — Phase **22**; LAN + later WAN relay ([`../architecture/srt-egress.md`](../architecture/srt-egress.md)) |
-| 4 | **NDI** — parked on air after Phase 22 (code kept). 30×3 **closed**. |
+| 1 | **SRT egress ×3** (AR/3D/2D) — Phase **22 open**; local OBS 30×3 first, VPS later ([`../architecture/srt-egress.md`](../architecture/srt-egress.md)) |
+| 2 | **Chroma** (green clear) → vMix window/screen capture — fallback |
+| 3 | **WebRTC underlay** (MediaMTX WHEP) for preview + future CV |
+| 4 | **NDI** — hidden on air (code kept). 30×3 **closed**. |
 
 No **in-browser** NDI without a native bridge. Electron is the studio shell. Phase 17 SRT is **ingest** (caller), not egress.
 

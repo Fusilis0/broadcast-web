@@ -57,7 +57,9 @@ import {
 import {
   createFreeCam,
   DEFAULT_OPS_VIEW_MODE,
+  isFreeCamView,
   type FreeCamHandle,
+  type FreeCamView,
   type OpsViewMode,
 } from './freeCam.ts'
 import {
@@ -289,6 +291,10 @@ export type SceneHandle = {
   getPreviewCamera: () => THREE.PerspectiveCamera
   /** Ops preview mode: `follow` = active POV; `free` = orbit/pan/zoom. */
   getOpsViewMode: () => OpsViewMode
+  /** Free-cam eye + orbit target (SRT 3D plate mirrors ops). */
+  getFreeCamView: () => FreeCamView | null
+  /** Apply a free-cam view. Forces ops view to `free`. */
+  applyFreeCamView: (view: FreeCamView) => void
   /**
    * Switch ops preview between free cam and follow-active-POV.
    * Free cam does not mutate `activePovId`.
@@ -1811,6 +1817,12 @@ export function startScene(options: SceneOptions): SceneHandle {
     getPreviewCamera: () => previewCamera(),
     getOpsViewMode: () => opsViewMode,
     setOpsViewMode,
+    getFreeCamView: () => (freeCam ? freeCam.getView() : null),
+    applyFreeCamView(view: FreeCamView): void {
+      if (!isFreeCamView(view) || !freeCam) return
+      setOpsViewMode('free')
+      freeCam.setView(view)
+    },
     frameFleet,
     frameEnuPoint,
     getBoatEnuPosition(id): { x: number; y: number; z: number } | null {

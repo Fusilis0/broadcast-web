@@ -1,7 +1,7 @@
 # Phases Roadmap — broadcast-web
 
 **Owner:** BW  
-**Updated:** 2026-09-08  
+**Updated:** 2026-09-09  
 **Design:** [`../architecture/race-projects-and-world-authoring.md`](../architecture/race-projects-and-world-authoring.md) · air: [`../ops/air-runbook.md`](../ops/air-runbook.md) · **Phase 19:** [`../architecture/phase19-senexus-qol.md`](../architecture/phase19-senexus-qol.md) · **20–22:** [`../architecture/3d-environment-buildings.md`](../architecture/3d-environment-buildings.md) · [`../architecture/commercial-video.md`](../architecture/commercial-video.md) · [`../architecture/srt-egress.md`](../architecture/srt-egress.md)
 
 ---
@@ -12,19 +12,17 @@
 | --- | --- |
 | **First version venue** | **Local studio** — Electron + Vite + VPS telemetry (`ws://…`). No cloud host required for v1. |
 | **Hetzner / public SPA / WSS TLS** | **Deferred** — months later, optional; may never ship if local+LAN is enough. Checklist kept as archive: [`../ops/human-hetzner-wss-checklist.md`](../ops/human-hetzner-wss-checklist.md). |
-| **Preferred air** | Until Phase 22: Electron NDI still in product (30×3 **closed**). **After Phase 22 execute:** SRT AR/3D/2D; NDI code kept, not used on air. |
-| **Frame budgets** | **PRF** — ops preview ~60 rAF. Never `STUDIO_TICK_FPS = 60`. NDI 30×3 **closed**. SRT 30×3 **not promised**. [`../architecture/performance-budgets.md`](../architecture/performance-budgets.md) |
+| **Preferred air** | **Phase 22 open.** SRT AR/3D/2D; NDI hidden, code kept. Local OBS 30×3 first; VPS later. |
+| **Frame budgets** | **PRF** — ops preview ~60 rAF. Never `STUDIO_TICK_FPS = 60`. NDI 30×3 **closed**. **SRT local Pass = 30×3 in OBS.** [`../architecture/performance-budgets.md`](../architecture/performance-budgets.md) |
 | **SRT ingest** | **SRT** — Electron caller, catalog cams 1–27, HEVC decode / ffmpeg fallback. [`BOOTSTRAP_SRT.md`](../agentic/dispatches/BOOTSTRAP_SRT.md) |
 | **App egress (SRT)** | **Phase 22** — three callers (AR, 3D, 2D). NDI parked. VPS later. [`../architecture/srt-egress.md`](../architecture/srt-egress.md) |
 | **v1 focus** | **Visual parity + ops QoL** (assets, maps, tags, editor), then LAN project features, then Unity cutover. |
 
 ### Current pointer
 
-**Open now: Phase 21 — GEO then SCN then OUT.** Cinematic MP4. Brief: [`../agentic/briefs/phase21/README.md`](../agentic/briefs/phase21/README.md). Phase 20 hero smoke can finish in a **separate** SCN chat.
+**Open now: Phase 22 — local SRT AR+3D+2D.** Hide NDI. OBS on this PC. Pass = **30/30/30** visible. VPS **after** that Pass. Briefs: [`../agentic/briefs/phase22/README.md`](../agentic/briefs/phase22/README.md). First worker: `DSP-SRT-20260909-01-local-srt-out`.
 
-**Then Phase 22** three-channel SRT out; NDI parked; VPS details then.
-
-Do **not** skip to SRT. Do **not** start the commercial video in the SCN chat.
+Phase 21 cinematic is **code-complete**; Record Human Pass can finish in parallel and does not block this local SRT slice.
 
 **10.1** Unity parallel-air **closed 2026-09-05** (operator: retire Unity; broadcast-web is primary). **10.2** console emit still waiting.  
 **Done:** Phase 11 core (**V1-D**) + follow-up authoring workspace / calib+output into sidebar +
@@ -451,31 +449,33 @@ Silent **1080p30 MP4**. vMix plays it; app waits. Globe + ENU, cloud seam. Aeria
 | 21.3b | Prefetch + lock-tiles | SCN | `DSP-SCN-20260908-07` **code-complete** |
 | 21.4 | Silent MP4 | OUT | `DSP-OUT-20260908-01` **code-complete** |
 
-**Exit:** Operator accepts the MP4 **and** can swap JSON for a later video. Then Phase 22.
+**Exit:** Operator accepts the MP4 **and** can swap JSON for a later video. Phase 22 local SRT is **open in parallel** (does not wait on Record Pass).
 
 ---
 
-### Phase 22 — SRT AR + 3D + 2D out; NDI parked *(after 21)*
+### Phase 22 — SRT AR + 3D + 2D out; NDI parked *(OPEN — local first)*
 
-**Design:** [`../architecture/srt-egress.md`](../architecture/srt-egress.md)
+**Design:** [`../architecture/srt-egress.md`](../architecture/srt-egress.md)  
+**Briefs:** [`../agentic/briefs/phase22/README.md`](../agentic/briefs/phase22/README.md)
 
-Three SRT **caller** publishes at once; per-channel stop. ffmpeg children + GPU encode; **not** NDI UYVY IPC. NDI **code kept**, **not used on air**. VPS/relay host **TBD at execute**. LAN race 40–80 ms; WAN 200–1000 ms when a relay exists.
+Three SRT **caller** publishes at once; per-channel stop. ffmpeg children + GPU encode; **not** NDI UYVY IPC. NDI **code kept**, UI **hidden**. **Local OBS 30×3 is the first Pass.** VPS/relay **after** that Pass.
 
 | # | Work | Owner | Notes |
 | --- | --- | --- | --- |
-| 22.1 | Three program surfaces + ffmpeg SRT | SRT + OUT + PLT | AR, 3D, 2D |
-| 22.2 | Park NDI on air | OUT | Defaults off; panel legacy |
-| 22.3 | Relay URLs | SRT + PLT | Wait for operator VPS details |
+| 22.1 | Three program surfaces + ffmpeg SRT to `127.0.0.1` | SRT + OUT + PLT | `DSP-SRT-20260909-01` **code-complete** — Human Pass = OBS 30×3 |
+| 22.2 | Hide NDI Send UI | OUT (in 22.1 DSP) | Defaults already off; do not delete pumps |
+| 22.3 | Relay URLs | SRT + PLT | **Wait** — after local 30×3 Pass, operator gives VPS |
 
-**Exit:** vMix (LAN) can take three SRT inputs; each channel can be stopped; preview not bricked; NDI not required for air.
+**Local exit (now):** OBS shows AR/3D/2D at **~30 fps each**, all three on, NDI off, preview usable.  
+**Later exit:** vMix/LAN or VPS relay; each channel can be stopped; NDI not required for air.
 
 ---
 
-## Air / output priority (updated 2026-09-07)
+## Air / output priority (updated 2026-09-09)
 
-Until Phase 22 execute: NDI still in the binary (30×3 closed). After 22: **SRT AR/3D/2D is air.**
+Phase 22 execute: **SRT AR/3D/2D is air** (local OBS first). NDI stays in the binary, UI hidden.
 
-1. **Electron SRT program out ×3** — Phase **22** (LAN + later WAN relay)
+1. **Electron SRT program out ×3** — Phase **22** (local OBS now; LAN / VPS later)
 2. **Electron + composited AR over drone SRT** — Phase 17 **ingest**
 3. **Chroma + window capture** — fallback
 4. **WHEP underlay** — preview / CV only
@@ -520,6 +520,6 @@ Do not re-open unless a regression. Details live in `docs/agentic/dispatches/don
 | AR SRT underlay + NTP match | **17** *(engineering done)* |
 | Studio air-readiness (NDI colour/fps/fleet) | **18** *(waves 1–3 in code; 30×3 **closed**)* |
 | Senexus QoL (authoring, NDI stripes, library) | **19** *(notes Pass; 19.18 → **20.1**)* |
-| OSM city + hero landmarks | **20** *(open now — SCN)* |
-| Commercial video | **21** *(after 20, via BW)* |
-| SRT AR+3D+2D out; NDI parked | **22** *(after 21; VPS later)* |
+| OSM city + hero landmarks | **20** *(code-complete)* |
+| Commercial video | **21** *(code-complete; Record Pass optional parallel)* |
+| SRT AR+3D+2D out; NDI hidden | **22** *(OPEN — local OBS 30×3 first; VPS later)* |

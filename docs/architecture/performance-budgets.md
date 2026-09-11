@@ -11,9 +11,10 @@ This is the source of truth for **how often** things run. Visual quality lives i
 | Path | Target | Clock | Notes |
 | --- | --- | --- | --- |
 | Ops WebGL **preview** | ~**60 fps** when the window is visible | `requestAnimationFrame` | Phase 15.1. Hidden window may fall back to `studio:tick`. Preview is **not** 60 because `STUDIO_TICK_FPS` is 60. |
-| NDI **AR** (air plate) | ~**30 fps** | `studio:tick` (60 Hz) | Always on. Phase-accumulate gate (~32 nominal). Independent of 3D on the PBO path. PBO pack; `sendFrame` deferred off the tick. Do not patch `renderer.render`. |
-| NDI **3D** | ~**30 fps** | `studio:tick` (60 Hz) | Always on. Same independent clock as AR. Sync `readPixels` fallback still refuses a second blocking FBO in the stagger window. |
-| NDI **2D** (stream map) | **on @ 30** | `studio:tick` (deferred) | Canvas CPU grab, **off the FBO tick** (worker + transferable; sync `getImageData` fallback). Gate and send do not wait on AR/3D. Default **on**. NDI tab toggle may stop **only** this sender. |
+| NDI **AR** (air plate) | **parked** | `studio:tick` (60 Hz) | Code kept. Not the air path. Do not climb 30×3. |
+| NDI **3D** | **parked** | `studio:tick` (60 Hz) | Code kept. Not the air path. |
+| NDI **2D** (stream map) | **parked** | — | NDI 30×3 **closed**. Do not climb. Phase 22 air is SRT. |
+| SRT **AR / 3D / 2D** | **30 / 30 / 30** (local Pass) | ffmpeg children | DXGI/GDI grab → `h264_amf` → SRT caller. **Not** UYVY/grandi. OBS on `127.0.0.1` is the first proof. |
 | `desktop/main.cjs` `STUDIO_TICK_FPS` | **60** | main process | NDI capture clock. Preview stays rAF. Do not change this constant. |
 
 On the PBO path both NDI FBO renders may share a tick. Async PBO **readback** may still complete on a skipped (rate-capped) tick. Check PBO slot capacity **before** the 1080p render. 2D is not an FBO and does not occupy a stagger slot. Sync-readback fallback keeps one blocking FBO per window.

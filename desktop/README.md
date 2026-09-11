@@ -178,10 +178,11 @@ npm run desktop:file
 
 | File | Role |
 | --- | --- |
-| `main.cjs` | BrowserWindow + NDI IPC (per-channel) + `races:*` + `config:setCesiumIonToken` + `srt:*` + cinematic MP4 save IPC |
-| `preload.cjs` | `window.broadcastStudio` bridge (`ndi` + `races` + `config` + `srt` + `cinematicRecord`) |
+| `main.cjs` | BrowserWindow + NDI IPC (per-channel) + `races:*` + `config:setCesiumIonToken` + `srt:*` ingest + `srtOut:*` publish + cinematic MP4 save IPC |
+| `preload.cjs` | `window.broadcastStudio` bridge (`ndi` + `races` + `config` + `srt` + `srtOut` + `cinematicRecord`) |
 | `ndiSender.cjs` | Multi-sender `grandi` Map (`ar`/`3d`/`2d` → BGRA) |
-| `srtReader.cjs` | Per-POV SRT caller → raw MPEG-TS over IPC (ffmpeg `-c copy` child) |
+| `srtPublisher.cjs` | Per-channel SRT **publish** ffmpeg (`gdigrab` title → `h264_amf` → SRT caller). Not ingest. |
+| `srtReader.cjs` | Per-POV SRT **ingest** caller → raw MPEG-TS over IPC (ffmpeg `-c copy` child) |
 | `srtHelpers.cjs` | URL validation, ffmpeg argv (PTS-safe), status normalisation |
 | `racesFs.cjs` | Local RaceProject folder write/list/read |
 | `configFs.cjs` | Patch `cesiumIonToken` in `public/config.json` (dev) or userData (`--file`) |
@@ -330,6 +331,30 @@ URL scheme assumed: `srt://<host>:<port>` with optional `?streamid=&latency=&pas
 ```bash
 $env:BROADCAST_FFMPEG="C:\ffmpeg\bin\ffmpeg.exe"; npm run desktop:dev
 ```
+
+## SRT program out (Phase 22)
+
+Local **publish** (not ingest). Three chrome-free 1920×1080 windows titled
+`broadcast-web-srt-ar` / `-3d` / `-2d`. One ffmpeg child per enabled channel:
+`gdigrab` by title → `h264_amf` (then NVENC, then `libx264` last resort) → SRT
+**caller** on `127.0.0.1:9201–9203`. Audio off. Enabling SRT does **not** start NDI.
+
+Reuse `resolveFfmpegPath()` (same gyan full build as ingest). Do not spawn
+`srtReader` sessions for publish.
+
+Ops runbook: [`../docs/ops/srt-local-obs.md`](../docs/ops/srt-local-obs.md).
+Start **OBS listeners first**, then check **SRT AR / SRT 3D / SRT 2D**.
+
+### Preload API (`window.broadcastStudio.srtOut`)
+
+| Method | Notes |
+| --- | --- |
+| `start({ channel, url? })` | `ar` \| `3d` \| `2d`. Default local caller URLs. |
+| `stop(channelOrOpts?)` | One channel or `'all'` |
+| `getStatus()` | `{ ar, 3d, 2d }` → `idle` \| `connecting` \| `live` \| `error` + encoder name |
+| `onStatus(cb)` | Push on state / encoder fps. Returns unsubscribe. |
+
+Independent of ingest `window.broadcastStudio.srt`. Same `BROADCAST_FFMPEG` override as ingest.
 
 ## Non-goals (this slice)
 

@@ -1,17 +1,36 @@
 # SRT egress — three-channel program out (AR / 3D / 2D)
 
-**Status:** Design locked 2026-09-07. **Not implemented until Phase 22** (after Phase 20 buildings + Phase 21 commercial video). VPS/relay host: **wait** — operator will give details at execute time.
+**Status:** Design locked 2026-09-07. **Phase 22 open 2026-09-09.** First Pass is **local loopback** (same PC, OBS listeners). VPS/relay: **later** — operator will give host/ports after local 30×3 Pass.
 **Owner:** **SRT** (ffmpeg + SRT URLs/latency) + **OUT** (plates, per-channel enable, NDI park) + **PLT** (ffmpeg packaging) + **PRF** (three encodes vs preview).
 **Ingest unchanged:** Phase 17 drone SRT **caller** / catalog stays. This doc is **publish** only.
-**Related:** Phase 20 buildings [`3d-environment-buildings.md`](./3d-environment-buildings.md) · Phase 21 [`commercial-video.md`](./commercial-video.md) (stub).
+**Related:** Phase 20 buildings [`3d-environment-buildings.md`](./3d-environment-buildings.md) · Phase 21 [`commercial-video.md`](./commercial-video.md).
 
 ---
 
-## 1. Operator locks (2026-09-07)
+## 1. Operator locks
 
-1. **Three SRT channels at once** — AR, 3D, and 2D, same idea as today’s NDI triad. Per-channel **stop/start** remains (like NDI Send checkboxes).
-2. **WAN relay** — existing VPS or a new one; **do not pick a host in this phase**. Design the caller URL + latency presets; wire the host when BW opens Phase 22.
-3. **NDI is not air after SRT execution starts.** Keep the NDI code in-repo (do not delete pumps/grandi). Product default: **SRT only**. Goal: **more fps** by dropping uncompressed UYVY + `grandi` IPC. No NDI 30×3 climb.
+### 2026-09-09 — local first, then VPS
+
+1. **Hide / retire NDI on air.** Keep pumps/`grandi` in-repo. Hide (or legacy-fold) the NDI Send UI. Do not send NDI during this work.
+2. **Implement SRT out** for AR, 3D, and 2D. Per-channel start/stop.
+3. **First Pass = this PC.** Operator listens in **OBS** on `127.0.0.1`. No VPS, no second machine, no WAN.
+4. **Pass:** three SRT streams visible in OBS, **30 / 30 / 30 fps**, picture correct (AR plate / 3D / 2D map). Then we configure the VPS and the full relay. Not before.
+
+Local default callers (ffmpeg `latency` is microseconds; 60 ms → `60000`):
+
+| Channel | Studio (caller) | OBS (listener) |
+| --- | --- | --- |
+| AR | `srt://127.0.0.1:9201?mode=caller&latency=60000` | `srt://0.0.0.0:9201?mode=listener&latency=60000` |
+| 3D | `srt://127.0.0.1:9202?mode=caller&latency=60000` | `srt://0.0.0.0:9202?mode=listener&latency=60000` |
+| 2D | `srt://127.0.0.1:9203?mode=caller&latency=60000` | `srt://0.0.0.0:9203?mode=listener&latency=60000` |
+
+Start **OBS listeners first**, then enable SRT in studio. Ports **9201–9203** so they do not collide with ingest catalog **9000**. OBS Media Source: uncheck Local File, **Input Format = `mpegts`**, latency is **microseconds** (`60000` = 60 ms). `latency=60` in OBS is 60 µs and will sit on connecting forever.
+
+### 2026-09-07 (still true)
+
+1. **Three SRT channels at once** — AR, 3D, and 2D. Per-channel stop/start.
+2. **WAN relay** — do not pick a host in the local slice. Wire when local Pass is done.
+3. **NDI is not air.** Keep the code. Product default: **SRT only**. No NDI 30×3 climb.
 
 ## 2. Why SRT, and why not the NDI pack path
 
@@ -19,7 +38,7 @@ NDI live proof: AR/3D **~20 fps** with 2D off — stall is renderer-thread readb
 
 SRT sends **compressed** MPEG-TS (~6–15 Mbps/channel). That only helps if **encode + SRT run in ffmpeg children**, not if we PBO → UYVY → JS → ffmpeg. **Do not** feed `ndiDeferredSend` / grandi buffers into SRT.
 
-Killing NDI **on air** frees that pack/IPC. The renderer still **draws** AR + 3D + 2D. 2D `getImageData` was ~100 ms — SRT does not magically fix that unless 2D capture also leaves the JS pack path (window/DXGI grab of the 2D surface). PRF measures after NDI is off.
+Killing NDI **on air** frees that pack/IPC. The renderer still **draws** AR + 3D + 2D. 2D `getImageData` was ~100 ms — SRT does not magically fix that unless 2D capture also leaves the JS pack path (window/DXGI grab of the 2D surface).
 
 ## 3. Architecture
 
@@ -30,54 +49,55 @@ Electron renderer                         Electron main
 ┌──────────────────────────┐              ┌─────────────────────────────┐
 │ Ops UI                   │              │ ffmpeg[ar]  h264_amf → SRT  │
 │                          │              │ ffmpeg[3d]  h264_amf → SRT  │
-│ AR  1080 surface ────────┼── DXGI/GDI ─▶│ ffmpeg[2d]  h264_amf → SRT  │
-│ 3D  1080 surface ────────┤              └──────────────┬──────────────┘
-│ 2D  1080 surface ────────┘                             │
-│   (chrome-free program                                 │ caller
-│    windows or titled                                   ▼
-│    output HWNDs)                          LAN vMix ×3  or  relay ×3
-└──────────────────────────┘                latency LAN 40–80 ms
-                                            WAN 200–1000 ms (when host exists)
+│ AR  1080 plate  ──────────┼── capturePage │ ffmpeg[2d]  h264_amf → SRT  │
+│ 3D  1080 plate  ──────────┤   BGRA pipe   └──────────────┬──────────────┘
+│ 2D  1080 plate  ──────────┘                             │
+│   (chrome-free windows;                                 │ caller
+│    compositor, not screen)                              ▼
+└──────────────────────────┘                Local: OBS ×3 on 127.0.0.1
+                                         Later: LAN vMix or VPS relay
 ```
 
-- **We publish as SRT caller** (dial a listener). Studio `mode=listener` is not the WAN test path (NAT).
+- **We publish as SRT caller** (dial a listener). OBS/vMix/`ffplay` listen. Studio `mode=listener` is not the path (NAT + this local test).
 - **GPU encode:** `h264_amf` on RX 6750 XT; NVENC on NVIDIA boxes; `libx264` fallback only.
-- **Audio:** silent v1 (gfx only) unless Phase 22 says otherwise.
-- **Alpha:** SRT is **opaque**. AR channel is composited plate (`arBackground: video`) or opaque AR-over-clear as today when video is off — not UYVA alpha for vMix key. Same lock as AR NDI UYVY (no vMix key of broadcast-web).
-- **Ops:** three toggles **SRT AR / SRT 3D / SRT 2D**. NDI toggles stay in code, **hidden or labeled legacy**, default **off**. Do not send NDI when SRT work is the air path.
+- **Audio:** silent v1 (gfx only).
+- **Alpha:** SRT is **opaque**. AR is the composited plate, not UYVA for a vMix key.
+- **Ops:** three toggles **SRT AR / SRT 3D / SRT 2D**. NDI toggles **hidden / legacy**, default **off**. Do not send NDI while SRT is the air path.
+- **Program windows:** 1920×1080, chrome-free, titled (`broadcast-web-srt-ar` / `-3d` / `-2d`). Capture is Chromium **`capturePage`** of that window (the plate’s own WebGL/DOM), piped as BGRA into ffmpeg. **Not DXGI screen copy** (that shows whatever is on top of the rectangle). Do not OS-minimize them. Park off-screen is the default — they do not need to be on top of the studio.
 
-## 4. LAN (race) vs network (test)
+## 4. Local (now) vs LAN vs VPS (later)
 
-Same three encoders. Destination URLs and `latency` are presets. **Relay hostname is TBD** (operator at Phase 22).
+Same three encoders. Destination URLs and `latency` are presets.
 
-| | Race day LAN | Test on network (later) |
-| --- | --- | --- |
-| Listeners | vMix (or OBS) ×3 on the LAN | Relay listeners ×3; remote vMix calls the relay |
-| We send | `srt://192.168.x.x:PORT_n?mode=caller` | `srt://RELAY:PORT_n?mode=caller` |
-| Latency | 40–80 ms | 200–1000 ms |
-| Bitrate / ch | 8–15 Mbps | 4–8 Mbps if uplink is thin |
-| NAT | none | outbound UDP only |
+| | Local Pass (now) | Race day LAN | VPS / network (later) |
+| --- | --- | --- | --- |
+| Listeners | OBS ×3 on this PC | vMix (or OBS) ×3 on the LAN | Relay listeners ×3 |
+| We send | `srt://127.0.0.1:920n?mode=caller` | `srt://192.168.x.x:PORT_n?mode=caller` | `srt://RELAY:PORT_n?mode=caller` |
+| Latency | 40–80 ms | 40–80 ms | 200–1000 ms |
+| Bitrate / ch | 8–15 Mbps | 8–15 Mbps | 4–8 Mbps if uplink is thin |
+| NAT | loopback | none | outbound UDP only |
 
-Smoke: loopback three ffplay/OBS inputs → LAN second PC → wait for VPS details.
+Local smoke: OBS three Media Sources → confirm **30/30/30** → then VPS.
 
-## 5. NDI park (Phase 22 execute)
+## 5. NDI park (this slice)
 
 | Keep | Stop using |
 | --- | --- |
-| `desktop/ndiSender.cjs`, pumps, tests | Default Send on; air runbook NDI-first |
+| `desktop/ndiSender.cjs`, pumps, tests | NDI Send UI as the air control |
 | Ability to compile/run NDI in a lab | Any requirement to hit NDI 30×3 |
 
-When Phase 22 workers start: NDI Send **defaults off**; SRT is the only documented air path. Do not rip NDI in the first SRT DSP (smaller diffs, rollback). A later DSP may hide the NDI panel.
+NDI Send already defaults **off** (`HO-SCN-OUT-20260909-01`). This slice **hides** that UI. Do not delete pumps. Do not start NDI when an SRT channel is on.
 
-## 6. Out of scope until Phase 22
+## 6. Out of scope (this local slice)
 
 - Picking the VPS / MediaMTX ports
-- Browser WHIP
-- In-browser SRT
-- `STUDIO_TICK_FPS = 60`
-- Google / IBB / DIY city mesh
-- Commercial video (Phase 21)
+- Browser WHIP / in-browser SRT
+- Changing `STUDIO_TICK_FPS`
+- Cinematic Record / MP4
+- Ingest catalog / drone SRT
 
-## 7. Honest fps note
+## 7. FPS Pass (local)
 
-Three simultaneous **1080 encodes** are cheaper on the JS thread than three UYVY IPCs, not free. Preview must stay usable with all three SRT on. If AMF×3 kills the GPU, drop 2D encode first (operator already saw 2D as the NDI weak channel), not AR/3D. Do not promise HUD 30/30/30.
+**Human Pass:** OBS reports ~**30 fps** on **each** of AR, 3D, and 2D, with the right picture, all three on, NDI off. Preview must stay usable.
+
+Three 1080 encodes are cheaper on the JS thread than three UYVY IPCs, not free. If AMF×3 cannot hold 30×3, **stop and report** (which channel, encoder fps, GPU). Do not silently drop 2D. Do not reopen the NDI pack path to “fix” fps.

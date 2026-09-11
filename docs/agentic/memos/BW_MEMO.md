@@ -3,6 +3,30 @@
 **Last updated:** 2026-09-09  
 **Session role:** BW
 
+## 2026-09-09 — DSP-SRT-20260909-01 code-complete (local SRT)
+
+Worker report accepted. gdigrab titled plates; `h264_amf` first; NDI Send folded; callers `127.0.0.1:9201–9203`. Ingest unchanged. **Human Pass still open** — no OBS 30×3 in the worker chat.
+
+**Human next:** OBS listeners first (`docs/ops/srt-local-obs.md`) → `desktop:dev` → SRT AR/3D/2D on → leave plates visible → confirm encoder `h264_amf` and ~30/30/30.
+
+Watch: three extra Cesium plates (GPU). AR plate does **not** auto-open drone ingest (underlay stays on ops window). `libx264` in Output = Fail for this Pass. Do not turn NDI back on.
+
+VPS stays closed until this Pass.
+
+## 2026-09-09 — Phase 22 OPEN (local SRT 30×3)
+
+Operator: hide/retire NDI outs; implement SRT outs; **first local** (OBS on this PC); VPS after 30×3 works.
+
+**Pass:** three SRT streams visible in OBS, **30/30/30**, picture correct. Then VPS.
+
+Issued:
+- `docs/architecture/srt-egress.md` (local URLs 9201–9203)
+- Briefs `docs/agentic/briefs/phase22/`
+- `HO-BW-SRT-20260909-01` / `HO-BW-OUT-20260909-01` / `HO-BW-PLT-20260909-01`
+- **Worker:** `DSP-SRT-20260909-01-local-srt-out`
+
+Do **not** implement `src/` in BW. 22.3 VPS waits.
+
 ## 2026-09-09 — DSP-SCN-20260909-02 code-complete (studio boot)
 
 Cold start: race **empty**, Free cam, World authoring closed, aerial overlay, NDI Send off. `?race=` / `?editor=1` still win. Leftover session keys in the same tab still apply until changed.

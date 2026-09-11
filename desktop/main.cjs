@@ -24,6 +24,7 @@ const {
   Tray,
   Menu,
   nativeImage,
+  screen,
 } = require('electron')
 const path = require('node:path')
 const fs = require('node:fs')
@@ -31,6 +32,8 @@ const ndiSender = require('./ndiSender.cjs')
 const racesFs = require('./racesFs.cjs')
 const configFs = require('./configFs.cjs')
 const srtReader = require('./srtReader.cjs')
+const srtPublisherMod = require('./srtPublisher.cjs')
+const srtPlateCapture = require('./srtPlateCapture.cjs')
 const cinematicTileCache = require('./cinematicTileCache.cjs')
 const cinematicRecord = require('./cinematicRecord.cjs')
 
@@ -82,6 +85,8 @@ let ndiPerfTimer = null
 let tray = null
 /** @type {BrowserWindow | null} */
 let mainWindow = null
+/** @type {Map<string, BrowserWindow>} */
+const srtPlateWindows = new Map()
 /** @type {{ x: number, y: number, width: number, height: number } | null} */
 let preParkBounds = null
 let parked = false
@@ -418,6 +423,206 @@ function registerSrtIpc() {
   ipcMain.handle('srt:status', () => srtReader.getStatusAll())
 }
 
+function srtPlateTitle(channel) {
+  return srtPublisherMod.SRT_OUT_TITLES[channel]
+}
+
+function buildSrtPlateUrl(channel) {
+  const live =
+    mainWindow && !mainWindow.isDestroyed()
+      ? mainWindow.webContents.getURL()
+      : ''
+  if (live) {
+    try {
+      const u = new URL(live)
+      u.searchParams.set('srtPlate', channel)
+      return u.href
+    } catch {
+      /* fall through */
+    }
+  }
+  const target = resolveLoadTarget()
+  if (target.kind === 'file') {
+    const u = new URL(`file:///${target.value.replace(/\\/g, '/')}`)
+    u.searchParams.set('srtPlate', channel)
+    return u.href
+  }
+  try {
+    const u = new URL(target.value)
+    u.searchParams.set('srtPlate', channel)
+    return u.href
+  } catch {
+    const join = target.value.includes('?') ? '&' : '?'
+    return `${target.value}${join}srtPlate=${channel}`
+  }
+}
+
+function applyPlatePixelZoom(win) {
+  if (!win || win.isDestroyed()) return
+  const scale = Number(screen.getPrimaryDisplay().scaleFactor) || 1
+  const zoom = 1 / Math.max(scale, 0.5)
+  try {
+    win.webContents.setZoomFactor(zoom)
+  } catch {
+    /* ignore */
+  }
+}
+
+function layoutSrtPlateWindow(win) {
+  if (!win || win.isDestroyed()) return
+  if (win.isMinimized()) win.restore()
+  win.setSkipTaskbar(true)
+  try {
+    win.setContentSize(STUDIO_WIDTH, STUDIO_HEIGHT)
+  } catch {
+    /* some platforms reject while loading */
+  }
+  applyPlatePixelZoom(win)
+  try {
+    win.webContents.setFrameRate(srtPublisherMod.SRT_OUT_FPS)
+  } catch {
+    /* ignore */
+  }
+  win.webContents.setBackgroundThrottling(false)
+}
+
+function platePipeGrab(channel, win) {
+  return {
+    kind: 'pipe',
+    width: STUDIO_WIDTH,
+    height: STUDIO_HEIGHT,
+    attach(stdin) {
+      layoutSrtPlateWindow(win, channel)
+      return srtPlateCapture.attachSrtPlateBitmapInput(win, stdin, {
+        width: STUDIO_WIDTH,
+        height: STUDIO_HEIGHT,
+        fps: srtPublisherMod.SRT_OUT_FPS,
+      })
+    },
+  }
+}
+
+/**
+ * Chrome-free 1920×1080 plate. Offscreen compositor so Cesium/WebGL keep
+ * painting without sitting on top of the studio. Capture is Chromium's
+ * buffer (paint / frame subscription), not DXGI of a screen rectangle.
+ *
+ * @param {'ar' | '3d' | '2d'} channel
+ * @returns {Promise<object>}
+ */
+function ensureSrtPlateWindow(channel) {
+  const existing = srtPlateWindows.get(channel)
+  if (existing && !existing.isDestroyed()) {
+    existing.setTitle(srtPlateTitle(channel))
+    layoutSrtPlateWindow(existing, channel)
+    return Promise.resolve(platePipeGrab(channel, existing))
+  }
+
+  const title = srtPlateTitle(channel)
+  const win = new BrowserWindow({
+    width: STUDIO_WIDTH,
+    height: STUDIO_HEIGHT,
+    useContentSize: true,
+    frame: false,
+    autoHideMenuBar: true,
+    hasShadow: false,
+    minimizable: false,
+    skipTaskbar: true,
+    title,
+    backgroundColor: '#000000',
+    backgroundThrottling: false,
+    paintWhenInitiallyHidden: true,
+    show: false,
+    webPreferences: {
+      offscreen: true,
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      backgroundThrottling: false,
+    },
+  })
+  srtPlateWindows.set(channel, win)
+  win.setMenuBarVisibility(false)
+  win.webContents.setBackgroundThrottling(false)
+  win.setTitle(title)
+  layoutSrtPlateWindow(win, channel)
+  win.on('page-title-updated', (e) => {
+    e.preventDefault()
+    if (!win.isDestroyed()) win.setTitle(title)
+  })
+  win.on('closed', () => {
+    if (srtPlateWindows.get(channel) === win) srtPlateWindows.delete(channel)
+    srtPublisher.stop(channel, { keepWindow: true })
+  })
+
+  const href = buildSrtPlateUrl(channel)
+  void win.loadURL(href).catch((err) => {
+    console.error(
+      `[desktop] SRT plate ${channel} failed to load ${href}: ${err.message}`,
+    )
+  })
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      if (!win.isDestroyed()) {
+        win.setTitle(title)
+        layoutSrtPlateWindow(win, channel)
+      }
+      resolve(platePipeGrab(channel, win))
+    }, 700)
+  })
+}
+
+function closeSrtPlateWindow(channel) {
+  const win = srtPlateWindows.get(channel)
+  if (!win) return
+  srtPlateWindows.delete(channel)
+  if (!win.isDestroyed()) {
+    win.removeAllListeners('closed')
+    win.close()
+  }
+}
+
+const srtPublisher = srtPublisherMod.createSrtPublisher({
+  resolveFfmpegPath: () => srtReader.resolveFfmpegPath(),
+  ensureWindow: (channel) => ensureSrtPlateWindow(channel),
+  closeWindow: (channel) => closeSrtPlateWindow(channel),
+  onStatus: (status) => {
+    if (status.state === 'connecting' || status.state === 'live') {
+      startPowerBlocker()
+    }
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (win.isDestroyed()) continue
+      win.webContents.send('srtOut:status', status)
+    }
+  },
+})
+
+/** SRT program out — ffmpeg publish children. Independent of ingest `srt:open`. */
+function registerSrtOutIpc() {
+  ipcMain.handle('srtOut:start', (_evt, opts) => {
+    return srtPublisher.start(opts)
+  })
+  ipcMain.handle('srtOut:stop', (_evt, arg) => {
+    return srtPublisher.stop(arg)
+  })
+  ipcMain.handle('srtOut:status', () => srtPublisher.getStatusAll())
+  ipcMain.on('srtOut:previewView', (evt, view) => {
+    const plate = srtPlateWindows.get('3d')
+    if (!plate || plate.isDestroyed()) return
+    if (evt.sender.id === plate.webContents.id) return
+    plate.webContents.send('srtOut:previewView', view)
+  })
+  ipcMain.on('srtOut:worldLook', (evt, look) => {
+    for (const channel of ['ar', '3d']) {
+      const plate = srtPlateWindows.get(channel)
+      if (!plate || plate.isDestroyed()) continue
+      if (evt.sender.id === plate.webContents.id) continue
+      plate.webContents.send('srtOut:worldLook', look)
+    }
+  })
+}
+
 /**
  * OS minimize freezes WebGL/GPU on Windows even when JS still ticks.
  * Park off-screen instead: window stays "shown", NDI keeps ~30 fps.
@@ -525,8 +730,8 @@ function createWindow() {
   })
 
   win.on('close', (e) => {
-    // Close button parks too (keeps NDI); Quit from tray exits.
-    if (!quitting && ndiEnabled) {
+    // Close button parks too (keeps NDI / SRT); Quit from tray exits.
+    if (!quitting && (ndiEnabled || srtPublisher.isAnyLive())) {
       e.preventDefault()
       parkWindow(win)
     }
@@ -630,6 +835,7 @@ app.whenReady().then(async () => {
   registerRacesIpc()
   registerConfigIpc()
   registerSrtIpc()
+  registerSrtOutIpc()
   registerCinematicTilesIpc()
   cinematicRecord.registerCinematicRecordIpc(
     () => mainWindow && !mainWindow.isDestroyed() ? mainWindow : null,
@@ -670,6 +876,9 @@ app.whenReady().then(async () => {
   }
   startStudioClock()
   createWindow()
+  console.info(
+    '[desktop] SRT program out: local callers 127.0.0.1:9201–9203 (gdigrab titles broadcast-web-srt-ar/3d/2d). OBS listeners first. NDI Send is not started by SRT.',
+  )
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
     else if (mainWindow && !mainWindow.isDestroyed()) unparkWindow(mainWindow)
@@ -680,6 +889,7 @@ app.on('before-quit', () => {
   quitting = true
   stopStudioClock()
   stopPowerBlocker()
+  srtPublisher.shutdown()
   srtReader.shutdown()
   ndiSender.shutdown()
   if (tray) {
@@ -692,6 +902,7 @@ app.on('window-all-closed', () => {
   if (quitting || !ndiEnabled) {
     stopStudioClock()
     stopPowerBlocker()
+    srtPublisher.shutdown()
     srtReader.shutdown()
     ndiSender.shutdown()
     if (process.platform !== 'darwin') app.quit()

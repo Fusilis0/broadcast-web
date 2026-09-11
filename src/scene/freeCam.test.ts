@@ -8,6 +8,7 @@ import {
   createFreeCam,
   DEFAULT_OPS_VIEW_MODE,
   formatOpsViewStatus,
+  isFreeCamView,
   isOpsViewMode,
   isTypingTarget,
   wasdGroundDelta,
@@ -89,6 +90,24 @@ describe('free cam WASD', () => {
     const pos1 = handle.camera.position.clone()
     handle.update(1)
     expect(handle.camera.position.distanceTo(pos1)).toBe(0)
+    handle.dispose()
+    host.remove()
+  })
+
+  it('getView / setView round-trip eye and target', () => {
+    const host = document.createElement('div')
+    document.body.append(host)
+    const handle = createFreeCam(host)
+    handle.setView({ px: 10, py: 20, pz: -30, tx: 1, ty: 2, tz: 3 })
+    const v = handle.getView()
+    expect(v.px).toBeCloseTo(10)
+    expect(v.py).toBeCloseTo(20)
+    expect(v.pz).toBeCloseTo(-30)
+    expect(v.tx).toBeCloseTo(1)
+    expect(v.ty).toBeCloseTo(2)
+    expect(v.tz).toBeCloseTo(3)
+    expect(isFreeCamView(v)).toBe(true)
+    expect(isFreeCamView({ px: 1 })).toBe(false)
     handle.dispose()
     host.remove()
   })

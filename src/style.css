@@ -1071,6 +1071,79 @@ body.output-transparent,
   border-color: #4a5868;
 }
 
+.ndi-ctrl-legacy {
+  border-top: 1px solid #2a323c;
+  padding-top: 8px;
+  margin-top: 4px;
+}
+
+.ndi-ctrl-legacy__summary {
+  cursor: pointer;
+  color: #6a7888;
+  font-size: 11px;
+}
+
+.srt-out-ctrl {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: #a8b0b8;
+  padding-bottom: 8px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid #2a323c;
+}
+
+.srt-out-ctrl__url {
+  width: 100%;
+  box-sizing: border-box;
+  font: 10px/1.3 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: #1e2630;
+  color: #d7dee6;
+  border: 1px solid #3a4553;
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+
+.srt-out-ctrl__fallback {
+  color: #c9a227;
+}
+
+/*
+ * Chrome-free SRT program plate (`?srtPlate=`). Chromium capturePage of this
+ * window (not a screen crop). Keep the 2D map host visible for the 2D plate;
+ * hide ops chrome.
+ */
+html.srt-plate .ops-sidebar,
+html.srt-plate .ops-sidebar__expand-tab,
+html.srt-plate .local-channel-switcher-strip {
+  display: none !important;
+}
+
+html.srt-plate .ops-overlay > :not(.local-2d-map-host) {
+  display: none !important;
+}
+
+html.srt-plate,
+html.srt-plate body,
+html.srt-plate #app,
+html.srt-plate #app.studio-shell {
+  background: #000;
+  overflow: hidden;
+}
+
+html.srt-plate.srt-plate-2d .local-2d-map-host,
+html.srt-plate.local-focus-2d.srt-plate .local-2d-map-host {
+  left: 0 !important;
+  top: 0 !important;
+  width: 1920px !important;
+  height: 1080px !important;
+  transform: none !important;
+  aspect-ratio: auto;
+  pointer-events: none;
+  z-index: 1;
+}
+
 /* Sync-debug overlay (OUT-07) — DOM-only, never on the AR / NDI plate */
 .sync-debug {
   display: flex;

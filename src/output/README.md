@@ -153,7 +153,7 @@ Browser **MediaMTX WHEP** video under the Three canvas in **preview** only. Soft
 | `NdiDelayBuffer` / `clampNdiDelayMs` / `normalizeOutputDelayMs` | Per-channel RAM delay ring (0–30000 ms); **bypass + no allocation at 0** |
 | `estimateNdiDelayBufferBytes` | `width×height×4×ceil(delayMs/1000×fps)` — 1920×1080 @ 30 fps × 30 s ≈ **~7.5 GB/channel** |
 | `startLocalChannelSwitcher` / `resolveLocalFocusPresentation` | Local 2D/3D/AR window focus (Phase 13.5) — never stops NDI |
-| `startNdiControllerPanel({ …, getDelayMs?, onDelayMsChange? })` | Ops sidebar **NDI** tab — per-channel status + delay inputs + live **Send** fps (1 s successful-send counter; **0 fps** when live but silent, not em-dash); hand toggles pause/resume AR/3D/2D independently (session-only; default all **off**) |
+| `startNdiControllerPanel({ …, getDelayMs?, onDelayMsChange? })` | Ops sidebar **Output** — Phase 22: NDI Send is **legacy-folded (closed)**. Per-channel status + delay + live **Send** fps still exist under **Legacy NDI (hidden)**; default all **off**. SRT out is the air path. |
 | `loadNdiChannelWanted` / `saveNdiChannelWanted` | Session-only AR/3D/2D wanted flags (`sessionStorage`); never race/`project.json` |
 | `resolveNdiAirIndicator` | Pure `unavailable` \| `stopped` \| `starting` \| `live` \| `error` (AR / 3D pumps) |
 | `resolveNdiChannelIndicator` | Per-channel indicator including `idle` (2d uses stream-map pump when provided) |
@@ -182,6 +182,22 @@ Plain browser: `getSrtBridge()` is `null`.
 Do not route this path through WHEP/WebRTC — that restamps clocks and drops
 muxer PTS (`ar-video-underlay-ntp-sync.md` §3.1). Native dep + argv:
 [`desktop/README.md`](../../desktop/README.md) § SRT ingest.
+
+## SRT program out (Phase 22)
+
+Electron main grabs three chrome-free **1920×1080** HWNDs (`broadcast-web-srt-ar` /
+`-3d` / `-2d`) with ffmpeg **gdigrab** and publishes SRT **callers** to
+`127.0.0.1:9201–9203`. Encode in the ffmpeg child (`h264_amf` first). **Not**
+NDI UYVY / grandi / `getImageData`. Enabling SRT does **not** start NDI.
+
+| Symbol | Role |
+| --- | --- |
+| `getSrtOutBridge()` | `window.broadcastStudio.srtOut` when preload injected; else `null` |
+| `parseSrtPlateQuery(search)` | `?srtPlate=ar\|3d\|2d` → chrome-free program surface |
+| `startSrtPublisherPanel` | Ops **Output**: independent **SRT AR / SRT 3D / SRT 2D** toggles + encoder / fps / error |
+| `SRT_OUT_DEFAULT_URLS` | Local callers (`latency=60000` µs) |
+
+Runbook: [`docs/ops/srt-local-obs.md`](../../docs/ops/srt-local-obs.md). Ingest `getSrtBridge()` / `srt:open` is unchanged.
 
 ### Per-POV SRT config + sync debug (Phase 17.2)
 
@@ -311,7 +327,7 @@ SCN Phase **8.1** ships a CSS overlay stream map (`createStreamMap2d`). Phase **
 
 - NTP / `stream_anchor` status TMP line
 - Decoder / CV reader (use `getVideoElement()` when ready)
-- App WebRTC/SRT **egress** (Phase 5.4 eval: defer; use vMix/OBS program out for remote) — [`docs/ops/egress-webrtc-srt-evaluation.md`](../../docs/ops/egress-webrtc-srt-evaluation.md)
+- App WebRTC egress (use OBS/vMix program out for remote). **Local SRT program out** is Phase 22 (`docs/ops/srt-local-obs.md`).
 - Native NDI helper (path B — only if A blocked)
 - GPU zero-copy NDI
 - Compressed / reduced-fps delay buffer (only if high-delay OOM forces it)

@@ -222,7 +222,8 @@ const CHANNEL_LABELS: Record<NdiChannelId, string> = {
 
 /**
  * Ops sidebar **NDI** section: per-channel status (ar / 3d / 2d) + stream-map
- * 2D NDI enable toggle (Phase 13.4).
+ * 2D NDI enable toggle (Phase 13.4). Phase 22: folded under **Legacy NDI**
+ * (closed by default). SRT out is the air path.
  *
  * **Invariant:** this panel is DOM-only. It never participates in
  * `renderer.render` / WebGL framebuffer readback / NDI IPC — collapsing it
@@ -239,6 +240,16 @@ export function startNdiControllerPanel(
   const root = document.createElement('div')
   root.className = 'ndi-ctrl'
   root.setAttribute('data-ops', 'ndi-controller')
+
+  const details = document.createElement('details')
+  details.className = 'ndi-ctrl-legacy'
+  details.setAttribute('data-ops', 'ndi-legacy')
+  details.open = false
+  const summary = document.createElement('summary')
+  summary.className = 'ndi-ctrl-legacy__summary'
+  summary.setAttribute('data-ops', 'ndi-legacy-summary')
+  summary.textContent = 'Legacy NDI (hidden)'
+  details.appendChild(summary)
 
   const blocks = new Map<NdiChannelId, ChannelBlock>()
   const delayState = normalizeOutputDelayMs(options.initialDelayMs)
@@ -274,24 +285,24 @@ export function startNdiControllerPanel(
       },
     )
     blocks.set(id, block)
-    root.appendChild(block.el)
+    details.appendChild(block.el)
   }
 
   const povRow = row('Active POV')
-  root.appendChild(povRow.el)
+  details.appendChild(povRow.el)
 
   const lockNote = document.createElement('p')
   lockNote.className = 'ndi-ctrl__hint'
   lockNote.textContent =
-    'Air lock: AR + 3D NDI always frame the active POV (not free cam). Independent hand toggles (AR / 3D / 2D) pause or resume each sender for this session only — not saved to project.json. Default all on. Capture rates: AR and 3D ~30 fps on independent clocks (60 Hz studio tick). 2D stream-map NDI is a separate sender @ ~30 fps. Per-channel delay (0–30000 ms) holds frames in RAM — default 0 allocates nothing; >3000 ms warns high memory. Shrinking delay drops buffered frames.'
-  root.appendChild(lockNote)
+    'Air lock: AR + 3D NDI always frame the active POV (not free cam). Independent hand toggles (AR / 3D / 2D) pause or resume each sender for this session only — not saved to project.json. Default all on. Capture rates: AR and 3D ~30 fps on independent clocks (60 Hz studio tick). 2D stream-map NDI is a separate sender @ ~30 fps. Per-channel delay (0–30000 ms) holds frames in RAM — default 0 allocates nothing; >3000 ms warns high memory. Shrinking delay drops buffered frames. Phase 22: NDI Send is folded here (off); SRT out is the air path.'
+  details.appendChild(lockNote)
 
 
   const fallbackEl = document.createElement('p')
   fallbackEl.className = 'ndi-ctrl__fallback'
   fallbackEl.setAttribute('data-ops', 'ndi-sync-fallback')
   fallbackEl.hidden = true
-  root.appendChild(fallbackEl)
+  details.appendChild(fallbackEl)
 
   const perfBlock = document.createElement('div')
   perfBlock.className = 'ndi-ctrl__perf'
@@ -326,7 +337,8 @@ export function startNdiControllerPanel(
   dumpHint.textContent =
     'Measurement only. window.__perfDump() returns the same text. Histogram is ticks between captures (healthy = cluster on 2).'
   perfBlock.append(perfTitle, perfPre, dumpBtn, dumpHint)
-  root.appendChild(perfBlock)
+  details.appendChild(perfBlock)
+  root.appendChild(details)
 
   // Apply session wanted flags so main can sync before pumps exist.
   if (togglesLive) {

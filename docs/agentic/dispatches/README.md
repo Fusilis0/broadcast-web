@@ -13,7 +13,7 @@
 | [`BOOTSTRAP_CON.md`](./BOOTSTRAP_CON.md) | Console Bridge |
 | [`BOOTSTRAP_CAL.md`](./BOOTSTRAP_CAL.md) | Calibration & Vision |
 | [`BOOTSTRAP_PRF.md`](./BOOTSTRAP_PRF.md) | Performance — frame budgets, dual clock, measurement |
-| [`BOOTSTRAP_SRT.md`](./BOOTSTRAP_SRT.md) | SRT ingest — caller, catalog, decode, HEVC fallback |
+| [`BOOTSTRAP_SRT.md`](./BOOTSTRAP_SRT.md) | SRT ingest + Phase 22 program out |
 
 ## Active / done worker dispatches
 
@@ -23,6 +23,16 @@ Orchestrators save concrete `DSP-*.md` files into:
 - `done/` — completed (optional archive)
 
 Templates: see `../DISPATCH_PROTOCOL.md`.
+
+### Active 2026-09-09 (Phase 22 local SRT)
+
+Design: [`../../architecture/srt-egress.md`](../../architecture/srt-egress.md). Briefs: [`../briefs/phase22/README.md`](../briefs/phase22/README.md).
+
+| DSP | Owner | Status |
+| --- | --- | --- |
+| [`active/DSP-SRT-20260909-01-local-srt-out.md`](./active/DSP-SRT-20260909-01-local-srt-out.md) | SRT+OUT | **Code-complete 2026-09-09** — Human Pass = OBS 30×3 |
+
+VPS is **not** this DSP. Do **not** use NDI pack/IPC.
 
 ### Active 2026-09-08 (Phase 21 cinematic MP4)
 

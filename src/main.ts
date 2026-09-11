@@ -77,9 +77,15 @@ import {
   startDualFrameClock,
   startLocalChannelSwitcher,
   startNdiControllerPanel,
+  startSrtPublisherPanel,
+  getSrtOutBridge,
+  parseSrtPlateQuery,
+  isSrtWorldLook,
+  type SrtWorldLook,
   loadNdiChannelWanted,
   saveNdiChannelWanted,
   type NdiChannelWanted,
+  type SrtPublisherPanelHandle,
   startNdi3dChannelPump,
   startNdiFramePump,
   startOutputModeControl,
@@ -153,6 +159,7 @@ import {
   startMapFeatureEditor,
   startScene,
   startStubHud,
+  isFreeCamView,
   LANDMARKS_AUTOSAVE_MS,
   mergeLandmarkOffsetLayers,
   offsetsFromProject,
@@ -200,6 +207,17 @@ if (!app) {
   throw new Error('#app root missing')
 }
 
+/** Chrome-free 1080 program surface for gdigrab (`?srtPlate=ar|3d|2d`). */
+const srtPlateChannel = parseSrtPlateQuery(window.location.search)
+if (srtPlateChannel) {
+  document.documentElement.classList.add(
+    'srt-plate',
+    `srt-plate-${srtPlateChannel}`,
+  )
+  document.body.classList.add('srt-plate', `srt-plate-${srtPlateChannel}`)
+  app.classList.add('srt-plate', `srt-plate-${srtPlateChannel}`)
+}
+
 let calib: OffsetSlidersHandle | null = null
 
 let scene: SceneHandle | null = null
@@ -208,7 +226,7 @@ let outputControl: OutputModeControlHandle | null = null
 let arBackgroundControl: ArBackgroundControlHandle | null = null
 let localChannelSwitcher: LocalChannelSwitcherHandle | null = null
 /** Local window focus — independent of NDI pumps and of AR `outputMode`. */
-let localChannelFocus: LocalChannelFocus = 'ar'
+let localChannelFocus: LocalChannelFocus = srtPlateChannel ?? 'ar'
 /** Remembered AR clear mode while local focus is 3D/2D. */
 let arOutputMode: OutputMode = 'preview'
 /** AR plate vs in-WebGL video background (L1). Default alpha = today's plate. */
@@ -235,6 +253,9 @@ let ndiDelayMs: OutputDelayMsConfig = normalizeOutputDelayMs(undefined)
 /** 3D opaque channel (OUT-02) — do not change pump internals here. */
 let ndi3dPump: NdiFramePumpHandle | null = null
 let ndiController: NdiControllerPanelHandle | null = null
+let srtOutPanel: SrtPublisherPanelHandle | null = null
+/** True after the first studio look packet (plates then follow ops HUD). */
+let srtWorldLookApplied = false
 let syncDebugPanel: SyncDebugPanelHandle | null = null
 let flowPanel: FlowPanelHandle | null = null
 let mapEditor: MapFeatureEditorHandle | null = null
@@ -557,6 +578,73 @@ function applyLocalChannelFocus(focus: LocalChannelFocus): void {
   }
 
   syncTerrainAttribution()
+}
+
+/** SRT plates: AR = drone/follow, 3D = ops free cam, 2D = map.
+ * Program out is opaque — ops `output: transparent` is NDI/keying, not SRT. */
+function applySrtPlateCameraLock(): void {
+  if (!scene || !srtPlateChannel) return
+  if (srtPlateChannel === '3d') {
+    scene.setOpsViewMode('free')
+    hud.setOpsViewMode('free')
+    fleetPanel?.setOpsViewMode('free')
+  } else if (srtPlateChannel === 'ar') {
+    scene.setOpsViewMode('follow')
+    hud.setOpsViewMode('follow')
+    fleetPanel?.setOpsViewMode('follow')
+  }
+}
+
+function applySrtPlatePresentation(): void {
+  if (!scene || !srtPlateChannel) return
+  applySrtPlateCameraLock()
+  applyLocalChannelFocus(srtPlateChannel)
+  if (srtPlateChannel === '2d') return
+  scene.setEnvironmentOpaqueClearSafe(true)
+  if (srtPlateChannel === 'ar') {
+    applyOutputMode(scene.renderer, 'preview', {
+      chromaKey: chromaKey || undefined,
+    })
+  }
+  // Plates boot with DEFAULT_TERRAIN_ENABLED=false and env=simple. Heroes
+  // default on — that is why OBS showed glTF but no sea/Cesium. Until the
+  // studio look packet arrives, match ops 3D (realistic + terrain).
+  if (!srtWorldLookApplied) {
+    scene.setEnvironmentMode('realistic')
+    scene.setTerrainEnabled(true)
+  }
+}
+
+function readSrtWorldLook(): SrtWorldLook | null {
+  if (!scene) return null
+  return {
+    environmentMode: scene.getEnvironmentMode(),
+    seaQuality: scene.getSeaQuality(),
+    terrainEnabled: scene.getTerrainEnabled(),
+    buildingsEnabled: scene.getBuildingsEnabled(),
+    heroesEnabled: scene.getHeroesEnabled(),
+    terrainOverlay: scene.getTerrainOverlay(),
+    terrainTilesLocked: scene.getTerrainTilesLocked(),
+    terrainAltitudeNudgeM: scene.getTerrainAltitudeNudgeM(),
+    terrainWaterDiscardYM: scene.getTerrainWaterDiscardYM(),
+    seaHeightYM: scene.getSeaHeightYM(),
+  }
+}
+
+function applySrtWorldLook(look: SrtWorldLook): void {
+  if (!scene || !srtPlateChannel || srtPlateChannel === '2d') return
+  srtWorldLookApplied = true
+  scene.setEnvironmentMode(look.environmentMode)
+  scene.setSeaQuality(look.seaQuality)
+  scene.setTerrainEnabled(look.terrainEnabled)
+  scene.setBuildingsEnabled(look.buildingsEnabled)
+  scene.setHeroesEnabled(look.heroesEnabled)
+  scene.setTerrainOverlay(look.terrainOverlay)
+  scene.setTerrainTilesLocked(look.terrainTilesLocked)
+  scene.setTerrainAltitudeNudgeM(look.terrainAltitudeNudgeM)
+  scene.setTerrainWaterDiscardYM(look.terrainWaterDiscardYM)
+  scene.setSeaHeightYM(look.seaHeightYM)
+  applySrtPlatePresentation()
 }
 
 function clearLiveStatusSub(): void {
@@ -1817,6 +1905,7 @@ async function applyLoadedRaceProject(project: RaceProject): Promise<void> {
       })
   }
   startCinematicTileWarm()
+  applySrtPlatePresentation()
 }
 
 async function switchRace(id: string): Promise<void> {
@@ -2563,6 +2652,12 @@ void (async () => {
           onTick()
           hud.setPreviewFps(previewClock!.getPreviewFps())
           hud.setHitchCounts(previewClock!.getHitchCounts())
+          if (!srtPlateChannel) {
+            const view = scene?.getFreeCamView()
+            if (view) getSrtOutBridge()?.sendPreviewView?.(view)
+            const look = readSrtWorldLook()
+            if (look) getSrtOutBridge()?.sendWorldLook?.(look)
+          }
         }),
     },
     onActivePovChange: (id) => {
@@ -2589,8 +2684,22 @@ void (async () => {
   applyOutputMode(scene.renderer, outputMode, {
     chromaKey: chromaKey || undefined,
   })
+  applySrtPlatePresentation()
+  if (srtPlateChannel === '3d' || srtPlateChannel === 'ar') {
+    getSrtOutBridge()?.onWorldLook?.((look) => {
+      if (isSrtWorldLook(look)) applySrtWorldLook(look)
+    })
+  }
+  if (srtPlateChannel === '3d') {
+    getSrtOutBridge()?.onPreviewView?.((view) => {
+      if (isFreeCamView(view)) scene?.applyFreeCamView(view)
+    })
+  }
   // Realistic sea/sky only when clear is opaque-safe (preview today).
-  scene.setEnvironmentOpaqueClearSafe(outputMode === 'preview')
+  // SRT plates force opaque above; do not inherit ops `transparent`.
+  if (!srtPlateChannel) {
+    scene.setEnvironmentOpaqueClearSafe(outputMode === 'preview')
+  }
   restoreLandmarkOffsetsAtBoot()
   scene.setTerrainAltitudeNudgeM(hud.getTerrainAltitudeNudgeM())
   scene.setTerrainTilesLocked(hud.getTerrainTilesLocked())
@@ -2636,6 +2745,7 @@ void (async () => {
     onChange: (mode) => {
       arBackgroundMode = mode
       applyLocalChannelFocus(localChannelFocus)
+      applySrtPlatePresentation()
       publishSrtSituation()
     },
   })
@@ -2648,9 +2758,29 @@ void (async () => {
       if (!scene) return
       // Re-apply through local focus so 3D opaque screen stays opaque.
       applyLocalChannelFocus(localChannelFocus)
+      applySrtPlatePresentation()
       whepUnderlay?.setMode(mode)
     },
   })
+  if (!srtPlateChannel) {
+    srtOutPanel = startSrtPublisherPanel({
+      container: ndiSectionEl,
+      mountAt: 'start',
+      onWantedChange: (channel, enabled) => {
+        if (enabled) {
+          ndiChannelWanted = saveNdiChannelWanted(
+            { [channel]: false },
+            undefined,
+            ndiChannelWanted,
+          )
+          if (channel === 'ar') ndiPump?.setEnabled(false)
+          else if (channel === '3d') ndi3dPump?.setEnabled(false)
+          else streamMapNdiPump?.setEnabled(false)
+          ndiController?.refresh()
+        }
+      },
+    })
+  }
 
   {
     const strip = document.createElement('div')
@@ -2664,9 +2794,11 @@ void (async () => {
       onChange: (focus) => {
         // Presentation only — never ndi.stop / pump disable.
         applyLocalChannelFocus(focus)
+        applySrtPlatePresentation()
       },
     })
     applyLocalChannelFocus(localChannelFocus)
+    applySrtPlatePresentation()
   }
 
   // Video still under the WebGL canvas on `app`; WHEP status attaches to the
@@ -2755,6 +2887,8 @@ void (async () => {
   // AR pump first, then 3D, then 2D (DSP-OUT-20260828-04: one FBO per tick).
   // Air lock: AR/3D FBO-capture active POV on studio:tick. Preview rAF does not
   // drive NDI. 2D default on @ 30; toggle stops only 2D.
+  // Phase 22: SRT plate windows do not start NDI (gdigrab of this HWND instead).
+  if (!srtPlateChannel) {
   ndiPump = startNdiFramePump({
     renderer: scene.renderer,
     scene: scene.scene,
@@ -2814,6 +2948,7 @@ void (async () => {
     fps: 30,
     delayMs: ndiDelayMs['2d'] + NDI_PBO_DEPTH_MATCH_DELAY_MS,
   })
+  }
 
   hud.setBootMessage(
     raceProject ? `project: ${raceProject.id} · EGM96…` : 'boot: EGM96…',
@@ -3487,11 +3622,14 @@ void (async () => {
       srtSituationTimer = null
     }
     const srtBridge = getSrtBridge()
-    if (srtBridge) void srtBridge.close('all')
+    if (srtBridge && !srtPlateChannel) void srtBridge.close('all')
+    if (!srtPlateChannel) void getSrtOutBridge()?.stop('all')
     ingest?.stop()
     stopOpenMeteoWind()
     ndiController?.dispose()
     ndiController = null
+    srtOutPanel?.dispose()
+    srtOutPanel = null
     syncDebugPanel?.dispose()
     syncDebugPanel = null
     flowPanel?.dispose()

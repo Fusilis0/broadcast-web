@@ -1,7 +1,11 @@
 # PLT_MEMO
 
 **Last updated:** 2026-09-09  
-**Status:** Cinematic tile dir shipped; **SCN-07 warm in tree**. Idle.
+**Status:** Cinematic tile dir shipped. Phase 22 FYI: same ffmpeg binary for SRT **publish**. No PLT DSP unless AMF/libsrt is missing.
+
+## 2026-09-09 — HO-BW-PLT-20260909-01 (Phase 22 ffmpeg)
+
+Publish uses existing gyan full `ffmpeg.exe`. `h264_amf` expected on RX 6750 XT. No second tree. No VPS.
 
 ## 2026-09-08 — DSP-PLT-20260908-01 code-complete
 

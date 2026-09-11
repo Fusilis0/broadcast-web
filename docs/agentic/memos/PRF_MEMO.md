@@ -1,14 +1,19 @@
 # PRF_MEMO
 
-**Last updated:** 2026-09-02  
-**Status:** Measuring idle vs mouse — DSP-PRF-20260902-01 issued; no OUT handoff until A/B/C
+**Last updated:** 2026-09-09  
+**Status:** NDI 30×3 closed. Phase 22 local SRT Pass = **30/30/30 in OBS**. No PRF DSP until the SRT worker reports encoder fps. Never `STUDIO_TICK_FPS = 60` as a fix.
+
+## 2026-09-09 — Phase 22 local SRT (FYI)
+
+Air path is ffmpeg children, not NDI pack. Measure after `DSP-SRT-20260909-01` smokes. Preview must stay usable with three SRT on.
 
 ## Role
 Performance Orchestrator (`PRF`). Budgets + measurement. Does not own look (SCN) or egress (OUT). Caps: `docs/architecture/performance-budgets.md` (ignore stale BOOTSTRAP_PRF 3D~10 / tick 30).
 
 ## Locked caps (BW Studio 30 + 60 Hz tick)
 - Ops **preview** ~60 rAF when visible. Floor ≥30.
-- NDI AR/3D/2D **30/30/30** always-on. Send is not 60.
+- NDI AR/3D/2D **parked** (30×3 closed).
+- SRT AR/3D/2D **30/30/30** local OBS Pass (Phase 22).
 - `STUDIO_TICK_FPS = 60` already (NDI capture clock). Do not change it as a fix.
 - No fake mouse / rAF keep-alive.
 

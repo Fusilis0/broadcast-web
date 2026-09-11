@@ -93,8 +93,10 @@ export {
   createFreeCam,
   DEFAULT_OPS_VIEW_MODE,
   formatOpsViewStatus,
+  isFreeCamView,
   isOpsViewMode,
   type FreeCamHandle,
+  type FreeCamView,
 } from './freeCam.ts'
 export {
   boatIdAllowSet,

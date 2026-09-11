@@ -17,10 +17,34 @@ export function formatOpsViewStatus(mode: OpsViewMode): string {
   return `view=${mode}`
 }
 
+export type FreeCamView = {
+  px: number
+  py: number
+  pz: number
+  tx: number
+  ty: number
+  tz: number
+}
+
+export function isFreeCamView(raw: unknown): raw is FreeCamView {
+  if (!raw || typeof raw !== 'object') return false
+  const o = raw as Record<string, unknown>
+  return (
+    Number.isFinite(Number(o.px)) &&
+    Number.isFinite(Number(o.py)) &&
+    Number.isFinite(Number(o.pz)) &&
+    Number.isFinite(Number(o.tx)) &&
+    Number.isFinite(Number(o.ty)) &&
+    Number.isFinite(Number(o.tz))
+  )
+}
+
 export type FreeCamHandle = {
   camera: THREE.PerspectiveCamera
   setEnabled: (enabled: boolean) => void
   setAspect: (aspect: number) => void
+  getView: () => FreeCamView
+  setView: (view: FreeCamView) => void
   /**
    * Orbit around a world point (ENU meters). Used to find boats that sit
    * kilometers from the geo origin when the race anchor is elsewhere.
@@ -185,6 +209,22 @@ export function createFreeCam(
       camera.aspect = Math.max(nextAspect, 1e-6)
       camera.fov = horizontalToVerticalFovDeg(hFovDeg, camera.aspect)
       camera.updateProjectionMatrix()
+    },
+    getView(): FreeCamView {
+      return {
+        px: camera.position.x,
+        py: camera.position.y,
+        pz: camera.position.z,
+        tx: controls.target.x,
+        ty: controls.target.y,
+        tz: controls.target.z,
+      }
+    },
+    setView(view: FreeCamView): void {
+      camera.position.set(view.px, view.py, view.pz)
+      controls.target.set(view.tx, view.ty, view.tz)
+      camera.lookAt(controls.target)
+      controls.update()
     },
     frameTarget(center, radiusM = 80): void {
       const r = Math.max(radiusM, 40)

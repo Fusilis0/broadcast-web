@@ -1,7 +1,15 @@
 # OUT_MEMO
 
 **Last updated:** 2026-09-09  
-**Status:** NDI 30×3 **closed**. Phase **21** MP4 **code-complete**. Human Pass = Electron Record. `HO-SCN-OUT-20260909-01` **done** (Send default off).
+**Status:** Phase **22** local SRT **open**. NDI UI hide + plates shipped in `DSP-SRT-20260909-01` (NDI pumps kept, defaults off).
+
+## 2026-09-09 — DSP-SRT-20260909-01 plates + NDI hide
+
+Worker (SRT-owned DSP, OUT files listed): chrome-free `?srtPlate=` 1080 windows; SRT AR/3D/2D toggles in Output; NDI Send in closed **Legacy NDI** fold. Enabling SRT forces that channel's NDI pump off. Pumps/`ndiSender` kept. Runbook `docs/ops/srt-local-obs.md`.
+
+## 2026-09-09 — Phase 22 (HO-BW-OUT-20260909-01)
+
+Operator: hide NDI; SRT AR/3D/2D; local OBS 30×3 first; VPS later. Design `srt-egress.md`. Worker is SRT-owned and lists OUT files. No second hide-NDI DSP.
 
 ## 2026-09-09 — HO-SCN-OUT-20260909-01 done (NDI Send off)
 
@@ -169,4 +177,4 @@ HUD lock (2026-09-06 idea-port, three-on): Send **17 / 17 / 3**, preview **~10**
 - Do not compress before NDI `sendFrame` (SDK already compresses on the wire).
 
 ## Next
-NDI 30×3 closed. Phase **22** SRT AR+3D+2D (`docs/architecture/srt-egress.md`). Do not start until BW opens 22 after commercial video. Park NDI on air; keep code.
+Phase **22** local SRT is **open**. Worker `DSP-SRT-20260909-01` (OUT files listed). Do not implement in OUT chat. VPS after OBS 30×3 Pass. NDI pumps kept, UI hidden.

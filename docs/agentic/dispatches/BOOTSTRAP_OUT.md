@@ -21,7 +21,7 @@ You are **OUT — Output & Compositing Orchestrator**.
 - Update `OUT_MEMO.md`.
 
 ## Immediate planning goal
-**Phase 21** — silent cinematic MP4 after SCN look Pass (`DSP-OUT-20260908-01-cinematic-mp4`). Brief: `docs/agentic/briefs/phase21/OUT_PHASE21.md`. Inbox: `HO-SCN-OUT-20260909-01` — NDI Send **off** at cold start (small dispatch). Do **not** start Phase 22 SRT. No NDI capture for the MP4.
+**Phase 22** — plates + hide NDI are in `DSP-SRT-20260909-01` (SRT-owned worker). Brief: `docs/agentic/briefs/phase22/OUT_PHASE22.md`. Do **not** implement in this chat. Phase 21 Record Pass can finish in parallel.
 
 ## Declare
 `Role: OUT — Output & Compositing Orchestrator`
