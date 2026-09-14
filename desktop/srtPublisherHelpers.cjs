@@ -3,7 +3,11 @@
  * Ingest argv stays in srtHelpers.cjs (bitstream copy MPEG-TS pipe). Do not mix.
  */
 
-const { validateSrtUrl, mergeSrtUrlOptions } = require('./srtHelpers.cjs')
+const {
+  validateSrtUrl,
+  mergeSrtUrlOptions,
+  serializeSrtHref,
+} = require('./srtHelpers.cjs')
 
 const SRT_OUT_CHANNEL_IDS = /** @type {const} */ (['ar', '3d', '2d'])
 
@@ -132,6 +136,9 @@ function pickPublishEncoder(encoderListText) {
 }
 
 /**
+ * Operator URL field → ffmpeg SRT destination. Any host (loopback, LAN, VPS).
+ * Studio is always caller. `0.0.0.0` is a listen bind, not a dial target.
+ *
  * @param {string} url
  * @returns {{ ok: true, href: string } | { ok: false, error: string }}
  */
@@ -139,7 +146,23 @@ function resolvePublishUrl(url) {
   const checked = validateSrtUrl(url)
   if (!checked.ok) return checked
   try {
-    return { ok: true, href: mergeSrtUrlOptions(checked.href, {}) }
+    const parsed = new URL(checked.href)
+    const host = String(parsed.hostname || '').replace(/^\[|\]$/g, '').toLowerCase()
+    if (host === '0.0.0.0' || host === '::' || host === '') {
+      return {
+        ok: false,
+        error:
+          'Caller destination cannot be 0.0.0.0. Paste the listener PC or VPS IP. Studio always dials (mode=caller).',
+      }
+    }
+    parsed.searchParams.set('mode', 'caller')
+    if (!parsed.searchParams.has('latency')) {
+      parsed.searchParams.set('latency', '60000')
+    }
+    const href = mergeSrtUrlOptions(serializeSrtHref(parsed), {})
+    const forced = new URL(href)
+    forced.searchParams.set('mode', 'caller')
+    return { ok: true, href: serializeSrtHref(forced) }
   } catch (err) {
     return {
       ok: false,

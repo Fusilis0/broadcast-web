@@ -36,6 +36,7 @@ const CHANNEL_LABELS: Record<SrtOutChannelId, string> = {
 }
 
 const DEFAULT_POLL_MS = 500
+const URL_STORAGE_KEY = 'bw.srt.out.urls'
 
 function idleStatus(channel: SrtOutChannelId): SrtOutStatus {
   return {
@@ -73,7 +74,7 @@ export function startSrtPublisherPanel(
   const hint = document.createElement('p')
   hint.className = 'ndi-ctrl__hint'
   hint.textContent =
-    'OBS first: Media Source, uncheck Local File, Input Format mpegts, srt://0.0.0.0:920n?mode=listener&latency=60000. Then check a box. NDI stays off.'
+    'URL is the destination this PC dials (caller). Local OBS: 127.0.0.1. LAN/VPS: that machine’s IP. Receiver listens: srt://0.0.0.0:920n?mode=listener&latency=60000, Input Format mpegts. Then check the box. NDI stays off.'
   root.appendChild(hint)
 
   const bridge = getSrtOutBridge()
@@ -85,13 +86,18 @@ export function startSrtPublisherPanel(
     '2d': idleStatus('2d'),
   }
 
+  const storedUrls = loadStoredUrls()
+
   for (const id of SRT_OUT_CHANNEL_IDS) {
     const block = channelBlock(id, {
       enabled: false,
       togglesLive: bridge != null,
-      url: SRT_OUT_DEFAULT_URLS[id],
+      url: storedUrls[id] || SRT_OUT_DEFAULT_URLS[id],
       onEnabledChange: (on) => {
         void handleToggle(id, on, block)
+      },
+      onUrlCommit: () => {
+        void commitUrl(id, block)
       },
     })
     blocks.set(id, block)
@@ -131,18 +137,37 @@ export function startSrtPublisherPanel(
     const ipc = getSrtOutBridge()
     if (!ipc) return
     if (enabled) {
-      const url = block.urlInput.value.trim() || SRT_OUT_DEFAULT_URLS[channel]
-      const result = await ipc.start({ channel, url })
-      if (!result.ok) {
-        statusMap[channel] = {
-          ...statusMap[channel],
-          state: 'error',
-          lastError: result.error,
-        }
-        paint(channel)
-      }
+      await startWithFieldUrl(channel, block)
     } else {
       await ipc.stop({ channel })
+    }
+  }
+
+  async function commitUrl(
+    channel: SrtOutChannelId,
+    block: ChannelBlock,
+  ): Promise<void> {
+    persistUrl(channel, block.urlInput.value)
+    if (!block.enableToggle.checked) return
+    await startWithFieldUrl(channel, block)
+  }
+
+  async function startWithFieldUrl(
+    channel: SrtOutChannelId,
+    block: ChannelBlock,
+  ): Promise<void> {
+    const ipc = getSrtOutBridge()
+    if (!ipc) return
+    const url = block.urlInput.value.trim() || SRT_OUT_DEFAULT_URLS[channel]
+    persistUrl(channel, url)
+    const result = await ipc.start({ channel, url })
+    if (!result.ok) {
+      statusMap[channel] = {
+        ...statusMap[channel],
+        state: 'error',
+        lastError: result.error,
+      }
+      paint(channel)
     }
   }
 
@@ -214,6 +239,35 @@ type ChannelBlock = {
   note: HTMLElement
 }
 
+function loadStoredUrls(): Partial<Record<SrtOutChannelId, string>> {
+  try {
+    const raw = sessionStorage.getItem(URL_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as unknown
+    if (!parsed || typeof parsed !== 'object') return {}
+    const out: Partial<Record<SrtOutChannelId, string>> = {}
+    for (const id of SRT_OUT_CHANNEL_IDS) {
+      const value = (parsed as Record<string, unknown>)[id]
+      if (typeof value === 'string' && value.trim()) out[id] = value.trim()
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+function persistUrl(channel: SrtOutChannelId, raw: string): void {
+  const url = raw.trim()
+  try {
+    const next = { ...loadStoredUrls() }
+    if (url) next[channel] = url
+    else delete next[channel]
+    sessionStorage.setItem(URL_STORAGE_KEY, JSON.stringify(next))
+  } catch {
+    /* private mode / quota */
+  }
+}
+
 function channelBlock(
   id: SrtOutChannelId,
   opts: {
@@ -221,6 +275,7 @@ function channelBlock(
     togglesLive: boolean
     url: string
     onEnabledChange: (on: boolean) => void
+    onUrlCommit: () => void
   },
 ): ChannelBlock {
   const el = document.createElement('div')
@@ -272,7 +327,20 @@ function channelBlock(
   urlInput.value = opts.url
   urlInput.setAttribute('data-ops', `srt-out-url-${id}`)
   urlInput.spellcheck = false
-  urlInput.title = 'SRT caller URL (local 127.0.0.1 defaults)'
+  urlInput.autocomplete = 'off'
+  urlInput.readOnly = false
+  urlInput.placeholder = SRT_OUT_DEFAULT_URLS[id]
+  urlInput.title =
+    'SRT caller destination. Local OBS: 127.0.0.1. LAN or VPS: paste that host. Studio always dials.'
+  urlInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      opts.onUrlCommit()
+    }
+  })
+  urlInput.addEventListener('change', () => {
+    opts.onUrlCommit()
+  })
   urlRow.append(urlLab, urlInput)
   el.appendChild(urlRow)
 

@@ -1,6 +1,6 @@
 # 3D environment — buildings and Istanbul look
 
-**Status:** Locked 2026-09-07. OSM Buildings tileset **landed** (`DSP-SCN-20260907-01`). Heroes still DSP-02. **Roadmap Phase 20** (open now, SCN). Then BW Phase 21 commercial video. Then Phase 22 SRT. IBB parked. DIY Bosphorus survey **closed**.
+**Status:** Locked 2026-09-07. OSM Buildings + heroes on air. Phase 22 SRT open. **IBB mail 2026-09-12** — no-reply plan §3.2. DIY Bosphorus survey **closed**. Google Photorealistic **off air**.
 **Owner:** SCN (mount / look) + GEO (ENU placement) + PLT (token / hosting). BW gates.
 **Does not replace:** [`geospatial-terrain-cesium.md`](./geospatial-terrain-cesium.md) — that contract stays.
 **Engine lock (unchanged):** consume **3D Tiles** in Three.js via `3d-tiles-renderer`. Do **not** run CesiumJS, MapLibre, or Mapbox GL as a second WebGL globe.
@@ -29,6 +29,24 @@ From a Bosphorus drone, **B** is the skyline. Close-up Sultanahmet is **D** or l
 **Now (free, on-air):** Cesium World Terrain + **Cesium OSM Buildings** + **hero historic glTF**. OSM Buildings **is** the 3D buildings layer — not a third Cesium product besides OSM.
 
 **Later:** IBB mesh if a partnership/licence appears. **Closed:** own drone photogrammetry of the Bosphorus. **Never on air:** Google Photorealistic 3D Tiles.
+
+### 3.2 IBB mail sent (2026-09-12) — if they do not reply
+
+Mail to **cografibilgi@ibb.gov.tr** (Senesux, Bosphorus Cup 19 Eylül TRT, ask for 3B API / enterprise terms). **19 Eylül 2026 does not wait on that mail.** Race-day 3D is the **free stack already in the app**: World Terrain + Bing + OSM Buildings + hero glTF + Gerstner sea.
+
+If IBB is silent or says no (operator **will pay**):
+
+| Priority | Plan | When |
+| --- | --- | --- |
+| **0** | Stay on OSM + heroes + sea | **19 Eylül air** |
+| **1** | Follow-up: same mailbox + CBS phone (`+90 212 455 00 00` on their API site). Ask for the **published GIS tariff** desk (block mesh / LOD2 CityGML), not the 2B Şehir Haritası key. | 1–2 weeks |
+| **2** | **Buy** one IBB 3B **block** that covers both Boğaz shores (~35 km² land; §4.4). City-wide mesh only if they refuse a clip. Convert to 3D Tiles; hole the water for Gerstner. | After a quote — not this race |
+| **3** | Pay for **more / better hero glTF** (named palaces, yalı, remaining bridges) georeferenced through GEO | Anytime; helps 19 Eylül without IBB |
+| **4** | Commission a **licensed mapping firm** (SHGM permit, not our drone) for a shore corridor | Post-race only; weeks; duplicates IBB |
+
+**Still reject:** scrape `3bistanbul.ibb.gov.tr`; Google Photorealistic on air (paying does not waive logo / no-reshare — §4.5); DIY Boğaz photogrammetry; a second WebGL engine (MapTiler/Mapbox 3D).
+
+Paying does **not** unlock Google for TRT. Paying **does** unlock IBB’s published tariff if sales will sell a block without an “API.” If they never sell to a private studio, **2+3** is the scale-up, **0** is race day.
 
 ### 3.1 What else fits as “free”?
 
@@ -74,7 +92,7 @@ IBB mesh blocks average **~60 km²** → one block is on the order of **~21,000 
 | Own drone photogrammetry of the race shore | Can match in a corridor we own | One-time shoot + 3D Tiles | Yes if we own it |
 | CGTrader / Sketchfab city packs | Rarely georeferenced IBB quality | Cheap files | Often not broadcast |
 
-No other vendor streams İstanbul at 3B quality for less. Park IBB mesh until budget; do not scrape the viewer.
+No other vendor streams İstanbul at 3B quality for less. **Budget is open** (operator 2026-09-13); the gate is **licence + time**, not TRY. Do not scrape the viewer. If IBB will not sell: §3.2.
 
 ### 4.3 Hero glTF landmarks
 
@@ -149,6 +167,6 @@ Paying Google **does not** buy a broadcast/video waiver. Public list price (USD,
 | --- | --- | --- |
 | 1 | Commercial ion account healthy? (Q5) | Fix ion before OSM Buildings |
 | 2 | Accept OSM massing + heroes, or insist on photogrammetry? | OSM + heroes |
-| 3 | Call IBB for a Bosphorus clip quote? | After live OSM+hero look |
+| 3 | Call IBB for a Bosphorus clip quote? | **Mail sent 2026-09-12.** No-reply plan §3.2. 19 Eylül = OSM+heroes. |
 | 4 | Who pays / owns hero mesh licences? | Operator |
 | 5 | Permanent 3D-channel Cesium + OSM credit OK? | Yes (same as today’s 3D credits) |

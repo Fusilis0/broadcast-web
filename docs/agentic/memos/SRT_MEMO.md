@@ -1,7 +1,21 @@
 # SRT_MEMO
 
-**Last updated:** 2026-09-09  
-**Status:** Phase **22 open**. Local OBS 30×3 first (`DSP-SRT-20260909-01` worker shipped). Human Pass still open. VPS later. Ingest locks unchanged.
+**Last updated:** 2026-09-14  
+**Status:** Phase **22 open**. Local OBS 30×3 first (`DSP-SRT-20260909-01` worker shipped). Human Pass **A/B/C** in [`docs/ops/srt-human-pass.md`](../../ops/srt-human-pass.md). VPS later. Ingest locks unchanged.
+
+## 2026-09-14 — SRT URL field is the destination
+
+Ops URL under each SRT box is an editable caller destination. Paste `127.0.0.1` (local OBS), a LAN IP, or a VPS host. Studio always `mode=caller`. `0.0.0.0` rejected. Enter/blur while live restarts that channel on the new URL. Human tests **A–D:** [`docs/agentic/briefs/phase22/SRT_HUMAN_PASS.md`](../briefs/phase22/SRT_HUMAN_PASS.md). No ingest catalog change.
+
+## 2026-09-13 — Human Pass A/B/C (no code)
+
+Operator: wait for IBB mail; until then SRT. Far-device = no test now.
+
+- **A** — this PC OBS 30×3 (`srt-local-obs.md`)
+- **B** — OBS 3D must show **sea + terrain** like studio free cam (heroes-only = Fail)
+- **C** — LAN second PC: caller URL = receiver IPv4; UDP 9201–9203; one listener. Local OBS goes dark. No relay until C Pass and we need two receivers.
+
+Do not implement. Do not open 22.3.
 
 ## 2026-09-10 — 3D SRT missing sea/terrain (heroes only)
 

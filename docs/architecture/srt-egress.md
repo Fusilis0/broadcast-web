@@ -77,7 +77,13 @@ Same three encoders. Destination URLs and `latency` are presets.
 | Bitrate / ch | 8–15 Mbps | 8–15 Mbps | 4–8 Mbps if uplink is thin |
 | NAT | loopback | none | outbound UDP only |
 
-Local smoke: OBS three Media Sources → confirm **30/30/30** → then VPS.
+**Human Pass (operator, studio PC):** [`../ops/srt-human-pass.md`](../ops/srt-human-pass.md)
+
+1. **A** — OBS on this PC, **30/30/30**, right picture.
+2. **B** — OBS **3D** has Gerstner **sea** + **terrain** (not heroes-only). Same free cam as studio.
+3. **C** — one other LAN PC: studio caller URLs use that PC’s IPv4; OBS there listens `0.0.0.0:920n`. One caller = one listener (local OBS goes dark). Relay only if we need two receivers.
+
+VPS **after A**. Do not pick a relay host before C is even attempted.
 
 ## 5. NDI park (this slice)
 

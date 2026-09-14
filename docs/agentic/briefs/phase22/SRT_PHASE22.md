@@ -16,7 +16,7 @@ Plate look (SCN). NDI pack. VPS host (operator, after local Pass). Preview clock
 
 ## Now
 
-Issue / accept [`DSP-SRT-20260909-01-local-srt-out.md`](../../dispatches/active/DSP-SRT-20260909-01-local-srt-out.md). Worker implements. Human Pass = OBS 30×3.
+Issue / accept [`DSP-SRT-20260909-01-local-srt-out.md`](../../dispatches/active/DSP-SRT-20260909-01-local-srt-out.md). Worker implements. Human Pass = [`SRT_HUMAN_PASS.md`](./SRT_HUMAN_PASS.md) tests **A–D**.
 
 ## After local Pass
 

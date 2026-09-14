@@ -1,7 +1,11 @@
 # GEO_MEMO
 
-**Last updated:** 2026-09-08  
+**Last updated:** 2026-09-13  
 **Status:** `DSP-GEO-20260908-01` **code-accept**. SCN-01 may import cinematic ECEF. No tileset look.
+
+## 2026-09-13 — IBB mail waiting; 19 Eylül without them
+
+Operator mailed IBB CBS for 3B API / enterprise. **No GEO worker.** If no reply: stay OSM + heroes on air; pay for IBB **tariff block** if sales will sell; else paid hero glTF; SHGM mapping firm only after the race. Google Photorealistic still reject on air. DIY Boğaz survey still **closed**. Details: `3d-environment-buildings.md` §3.2.
 
 ## 2026-09-08 — DSP-GEO-20260908-01 code done
 
@@ -59,4 +63,4 @@ GEO work if this locks: ENU placement of heroes (`amslToHae`), occupancy clips v
 - Thin inverse for Phase 4.2 editor
 
 ## Next
-SCN mounts OSM Buildings when BW issues a dispatch. GEO places hero glTF. IBB parked. DIY closed.
+SCN mounts OSM Buildings when BW issues a dispatch. GEO places hero glTF. IBB mail waiting (§3.2). DIY closed.

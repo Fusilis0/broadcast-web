@@ -1,7 +1,11 @@
 # OUT_MEMO
 
-**Last updated:** 2026-09-09  
+**Last updated:** 2026-09-13  
 **Status:** Phase **22** local SRT **open**. NDI UI hide + plates shipped in `DSP-SRT-20260909-01` (NDI pumps kept, defaults off).
+
+## 2026-09-13 — Human Pass B (OBS 3D look)
+
+Operator eye-check when on studio PC: SRT 3D must match studio (Gerstner + terrain + overlay), not heroes-only. Task **B** in `docs/ops/srt-human-pass.md`. No OUT worker unless that Fails after `srtOut:worldLook`.
 
 ## 2026-09-09 — DSP-SRT-20260909-01 plates + NDI hide
 

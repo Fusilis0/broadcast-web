@@ -41,6 +41,9 @@ const cjs = require('../../desktop/srtPublisher.cjs') as {
     }
   }) => string[]
   parseFfmpegFps: (chunk: string) => number | null
+  resolvePublishUrl: (
+    url: string,
+  ) => { ok: true; href: string } | { ok: false; error: string }
   fitSrtPlateInWorkArea: (
     work: { x: number; y: number; width: number; height: number },
     index?: number,
@@ -209,6 +212,34 @@ describe('buildSrtPublishArgv', () => {
     )
     expect(cjs.pickPublishEncoder(' V....D libx264')).toBe('libx264')
     expect(cjs.pickPublishEncoder('')).toBeNull()
+  })
+
+  it('dials any host from the URL field; forces caller; rejects 0.0.0.0', () => {
+    const lan = cjs.resolvePublishUrl(
+      'srt://192.168.1.50:9202?mode=listener&latency=60000',
+    )
+    expect(lan.ok).toBe(true)
+    if (lan.ok) {
+      expect(lan.href).toContain('192.168.1.50')
+      expect(lan.href).toContain(':9202')
+      expect(lan.href).toMatch(/mode=caller/)
+      expect(lan.href).not.toMatch(/mode=listener/)
+    }
+    const vps = cjs.resolvePublishUrl('srt://srt.example.net:9000')
+    expect(vps.ok).toBe(true)
+    if (vps.ok) {
+      expect(vps.href).toContain('srt.example.net')
+      expect(vps.href).toMatch(/mode=caller/)
+      expect(vps.href).toMatch(/latency=60000/)
+    }
+    const loop = cjs.resolvePublishUrl(SRT_OUT_DEFAULT_URLS['3d'])
+    expect(loop.ok).toBe(true)
+    if (loop.ok) expect(loop.href).toContain('127.0.0.1:9202')
+    const bind = cjs.resolvePublishUrl(
+      'srt://0.0.0.0:9201?mode=listener&latency=60000',
+    )
+    expect(bind.ok).toBe(false)
+    if (!bind.ok) expect(bind.error).toMatch(/0\.0\.0\.0/)
   })
 
   it('parses encoder fps from ffmpeg stderr and -progress', () => {
@@ -502,6 +533,58 @@ describe('SRT out panel / NDI hide', () => {
     ).toBeTruthy()
     expect(panel.root.textContent).toMatch(/SRT AR/)
     panel.dispose()
+  })
+
+  it('URL row is an editable text field and start() uses the typed destination', async () => {
+    const started: Array<{ channel: string; url?: string }> = []
+    const idle = (channel: 'ar' | '3d' | '2d') => ({
+      channel,
+      state: 'idle' as const,
+      encoder: null,
+      encoderFps: null,
+      url: SRT_OUT_DEFAULT_URLS[channel],
+      lastError: null,
+      fallbackNote: null,
+    })
+    const srtOut: SrtOutBridge = {
+      start: async (opts) => {
+        started.push(opts)
+        return { ok: true, channel: opts.channel }
+      },
+      stop: async () => ({ ok: true }),
+      getStatus: async () => ({
+        ar: idle('ar'),
+        '3d': idle('3d'),
+        '2d': idle('2d'),
+      }),
+      onStatus: () => () => {},
+    }
+    const g = window as unknown as { broadcastStudio?: unknown }
+    g.broadcastStudio = { isStudio: true, srtOut }
+    const container = document.createElement('div')
+    const panel = startSrtPublisherPanel({ container, pollMs: 60_000 })
+    const urlInput = container.querySelector(
+      '[data-ops="srt-out-url-3d"]',
+    ) as HTMLInputElement
+    expect(urlInput).toBeInstanceOf(HTMLInputElement)
+    expect(urlInput.type).toBe('text')
+    expect(urlInput.readOnly).toBe(false)
+    urlInput.value = 'srt://10.0.0.8:9202?mode=caller&latency=60000'
+    const toggle = container.querySelector(
+      '[data-ops="srt-out-toggle-3d"]',
+    ) as HTMLInputElement
+    toggle.checked = true
+    toggle.dispatchEvent(new Event('change'))
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(started).toEqual([
+      {
+        channel: '3d',
+        url: 'srt://10.0.0.8:9202?mode=caller&latency=60000',
+      },
+    ])
+    panel.dispose()
+    delete g.broadcastStudio
   })
 
   it('does not show the NDI Send panel by default (legacy fold closed)', () => {

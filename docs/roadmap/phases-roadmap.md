@@ -1,7 +1,7 @@
 # Phases Roadmap — broadcast-web
 
 **Owner:** BW  
-**Updated:** 2026-09-09  
+**Updated:** 2026-09-13  
 **Design:** [`../architecture/race-projects-and-world-authoring.md`](../architecture/race-projects-and-world-authoring.md) · air: [`../ops/air-runbook.md`](../ops/air-runbook.md) · **Phase 19:** [`../architecture/phase19-senexus-qol.md`](../architecture/phase19-senexus-qol.md) · **20–22:** [`../architecture/3d-environment-buildings.md`](../architecture/3d-environment-buildings.md) · [`../architecture/commercial-video.md`](../architecture/commercial-video.md) · [`../architecture/srt-egress.md`](../architecture/srt-egress.md)
 
 ---
@@ -419,7 +419,7 @@ parallel. Engineering accepted 2026-08-17.
 **Brief:** [`../agentic/briefs/phase20/SCN_PHASE20.md`](../agentic/briefs/phase20/SCN_PHASE20.md)  
 **Handoff:** [`../agentic/handoffs/HO-BW-SCN-20260907-01.md`](../agentic/handoffs/HO-BW-SCN-20260907-01.md)
 
-Keep Cesium World Terrain. Add Cesium **OSM Buildings** (ion 96188) as the 3D city tileset. Add **hero historic glTF** (CC first). Clip OSM under heroes. Never on AR plate. IBB parked. DIY survey closed. Google Photorealistic off air.
+Keep Cesium World Terrain. Add Cesium **OSM Buildings** (ion 96188) as the 3D city tileset. Add **hero historic glTF** (CC first). Clip OSM under heroes. Never on AR plate. IBB mail waiting (`3d-environment-buildings.md` §3.2). DIY survey closed. Google Photorealistic off air.
 
 | # | Work | Owner | Notes |
 | --- | --- | --- | --- |
@@ -462,12 +462,13 @@ Three SRT **caller** publishes at once; per-channel stop. ffmpeg children + GPU 
 
 | # | Work | Owner | Notes |
 | --- | --- | --- | --- |
-| 22.1 | Three program surfaces + ffmpeg SRT to `127.0.0.1` | SRT + OUT + PLT | `DSP-SRT-20260909-01` **code-complete** — Human Pass = OBS 30×3 |
+| 22.1 | Three program surfaces + ffmpeg SRT to `127.0.0.1` | SRT + OUT + PLT | `DSP-SRT-20260909-01` **code-complete**. Human: [`../ops/srt-human-pass.md`](../ops/srt-human-pass.md) **A** 30×3, **B** OBS 3D sea+terrain |
 | 22.2 | Hide NDI Send UI | OUT (in 22.1 DSP) | Defaults already off; do not delete pumps |
+| 22.1b | LAN: one other PC listens | Human | Task **C** in `srt-human-pass.md`. Studio caller → receiver IPv4. After A. No code until Fail. |
 | 22.3 | Relay URLs | SRT + PLT | **Wait** — after local 30×3 Pass, operator gives VPS |
 
-**Local exit (now):** OBS shows AR/3D/2D at **~30 fps each**, all three on, NDI off, preview usable.  
-**Later exit:** vMix/LAN or VPS relay; each channel can be stopped; NDI not required for air.
+**Local exit (now):** Human **A** + **B** (`srt-human-pass.md`).  
+**LAN exit:** Human **C** (one receiver). Fan-out / VPS only after that.
 
 ---
 

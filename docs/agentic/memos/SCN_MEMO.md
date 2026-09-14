@@ -1,7 +1,11 @@
 # SCN_MEMO
 
-**Last updated:** 2026-09-09  
+**Last updated:** 2026-09-13  
 **Status:** Intro Human Pass 2 in tree (hover cameras, tile lock, pins). Record still OUT.
+
+## 2026-09-13 — SRT Human Pass B (no SCN worker)
+
+Operator will eye-check OBS **3D** for sea + terrain vs studio free cam (`docs/ops/srt-human-pass.md` **B**). Plate look is OUT/SRT `srtOut:worldLook`. Do not start an SCN buildings worker from this note.
 
 ## 2026-09-09 — intro Human Pass 2 (camera + tiles + pins)
 

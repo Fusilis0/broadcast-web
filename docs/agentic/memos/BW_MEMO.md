@@ -1,7 +1,19 @@
 # BW_MEMO — Broadcast-Web Master Orchestrator
 
-**Last updated:** 2026-09-09  
+**Last updated:** 2026-09-13  
 **Session role:** BW
+
+## 2026-09-13 — Human Pass tasks + IBB no-reply
+
+Operator far-device: cannot SRT-test now. Saved operator list [`docs/ops/srt-human-pass.md`](../../ops/srt-human-pass.md):
+
+- **A** local OBS 30×3
+- **B** OBS 3D sea + terrain (not heroes-only)
+- **C** LAN: one other PC listener (studio caller → that IPv4)
+
+No worker until Fail. VPS still after A.
+
+**IBB:** mail to `cografibilgi@ibb.gov.tr` waiting. **19 Eylül does not depend on a reply.** Air = OSM Buildings + heroes + Gerstner. If silent/no: follow-up + buy published GIS **block** if they will sell; else more paid heroes; mapping-firm corridor only post-race. Google Photorealistic still **off air** (pay ≠ broadcast waiver). Lock: `3d-environment-buildings.md` §3.2.
 
 ## 2026-09-09 — DSP-SRT-20260909-01 code-complete (local SRT)
 

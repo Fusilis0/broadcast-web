@@ -71,8 +71,10 @@ Reuse ingest `resolveFfmpegPath()`. Do **not** spawn ingest readers for publish.
 
 - [x] NDI Send UI not in the way (hidden/legacy). NDI does not start with SRT.
 - [x] Electron: three independent SRT toggles. Off = that ffmpeg dead.
-- [ ] OBS (three Media Sources, listener on 9201–9203) shows AR / 3D / 2D picture. **Human Pass**
-- [ ] With all three on, OBS fps is ~**30 / 30 / 30**. Preview still usable. **Human Pass**
+- [ ] OBS (three Media Sources, listener on 9201–9203) shows AR / 3D / 2D picture. **Human Pass A** — [`docs/ops/srt-human-pass.md`](../../../ops/srt-human-pass.md)
+- [ ] With all three on, OBS fps is ~**30 / 30 / 30**. Preview still usable. **Human Pass A**
+- [ ] OBS **3D** has sea + terrain matching studio free cam (not heroes-only). **Human Pass B**
+- [ ] LAN: one other PC receives SRT (studio caller → that IPv4). **Human Pass C** — after A; no worker until Fail
 - [x] No UYVY/grandi on the SRT path.
 - [ ] `npm test` + `npm run build` green. *(pre-existing red: `library.test.ts`, `tsc` in `videoDecodePipeline.ts` / `createScene.ts` / `isolateTilesCaches.ts`. New SRT tests 11/11.)*
 - [x] `docs/ops/srt-local-obs.md` exists.

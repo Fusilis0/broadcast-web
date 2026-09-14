@@ -2,6 +2,8 @@
 
 Three silent **1080p30** SRT callers from the Electron studio to **OBS on this PC**. No VPS. NDI Send stays hidden / off.
 
+**Operator Human Pass list (A local 30×3, B OBS 3D terrain+sea, C LAN second PC):** [`srt-human-pass.md`](./srt-human-pass.md).
+
 Studio is always **caller** (it dials). OBS must be **listener** (it waits). Two callers = both sit on `connecting` forever. That is what you are seeing.
 
 Design: [`../architecture/srt-egress.md`](../architecture/srt-egress.md).
@@ -32,7 +34,7 @@ Do this **before** checking any SRT box in studio. One source per channel.
 5. Click **OK**. The preview can stay black — that is idle listener, waiting for the studio caller.
 6. Repeat for **SRT 3D** (port **9202**) and **SRT 2D** (port **9203**). Put all three in the same scene so you can see them.
 
-`0.0.0.0` means “listen on this PC, any interface.” Studio still dials `127.0.0.1`. Do **not** use VLC Source (VLC cannot listen).
+`0.0.0.0` means “listen on this PC, any interface.” In studio, paste the **destination** in the URL field under each SRT box (editable). Local: keep `127.0.0.1`. LAN/VPS: that host’s IP, still `mode=caller`. Do **not** paste `0.0.0.0` into studio. Do **not** use VLC Source (VLC cannot listen).
 
 If you already created sources with the old URL (`latency=60` or no `mpegts`), **delete them and add new ones**. OBS can hold a dead SRT port until restart.
 
@@ -52,7 +54,7 @@ Unchecking a box kills **that** ffmpeg child only.
 | Channel | Picture |
 | --- | --- |
 | AR | Composited air plate (active POV). Opaque — not an alpha key. |
-| 3D | Ops **free camera** (studio orbit), no ops HUD. Not the drone/follow POV. |
+| 3D | Ops **free camera** (studio orbit), no ops HUD. **Sea + terrain + overlay** must match studio 3D — not heroes-only. Not the drone/follow POV. Human task **B** in [`srt-human-pass.md`](./srt-human-pass.md). |
 | 2D | Stream map, 1920×1080. |
 
 ## 4. How to read fps
