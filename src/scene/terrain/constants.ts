@@ -7,8 +7,8 @@
  * is the only tileset surface.
  */
 
-/** Ops default — terrain stays off until the operator turns it on. */
-export const DEFAULT_TERRAIN_ENABLED = false
+/** Ops default — World Terrain on (needs ion token). AR SRT plate still forces off. */
+export const DEFAULT_TERRAIN_ENABLED = true
 
 /** Cesium ion Asset Depot: Cesium World Terrain. */
 export const CESIUM_ION_WORLD_TERRAIN_ASSET_ID = 1
@@ -41,6 +41,13 @@ export const CINEMATIC_TERRAIN_VRAM_BYTES_TARGET = 768 * 1024 * 1024
 
 /** Wait after a tile is hidden before freeing GPU data (ms). */
 export const TERRAIN_UNLOAD_DELAY_MS = 1000
+
+/**
+ * QuantizedMeshPlugin `useRecommendedSettings` pins `errorTarget = 2` (very
+ * fine). The SRT 3D plate is a second WebGL/ion client; at 2 it never fills
+ * the frustum (OSM + sea still show). Coarser SSE so land actually appears.
+ */
+export const SRT_PLATE_TERRAIN_ERROR_TARGET = 8
 
 /**
  * `ReorientationPlugin` places the origin with **X west, Z north**.

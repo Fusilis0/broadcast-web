@@ -169,8 +169,14 @@ describe('shouldDrawVideoBackground', () => {
     previewIsAirCamera: true,
   }
 
-  it('draws on ops preview when video + AR focus + following POV', () => {
+  it('draws on ops preview when video + AR focus (free cam included)', () => {
     expect(shouldDrawVideoBackground(videoFollowAr)).toBe(true)
+    expect(
+      shouldDrawVideoBackground({
+        ...videoFollowAr,
+        previewIsAirCamera: false,
+      }),
+    ).toBe(true)
   })
 
   it('alpha mode never draws (shipped air path)', () => {
@@ -191,13 +197,13 @@ describe('shouldDrawVideoBackground', () => {
     ).toBe(false)
   })
 
-  it('suppresses ops free cam on screen; FBO (NDI) still draws', () => {
+  it('still draws on screen in free cam; FBO (NDI) always draws when not 3D-opaque', () => {
     expect(
       shouldDrawVideoBackground({
         ...videoFollowAr,
         previewIsAirCamera: false,
       }),
-    ).toBe(false)
+    ).toBe(true)
     expect(
       shouldDrawVideoBackground({
         ...videoFollowAr,

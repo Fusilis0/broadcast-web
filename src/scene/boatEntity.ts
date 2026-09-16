@@ -81,7 +81,40 @@ export type BoatEntityHandle = {
    */
   tickWake: (dtSeconds: number) => void
   getWakeLengthM: () => number
+  /**
+   * AND SRT channel preset onto authoring mode. Preset cannot force a hull
+   * that `hidden` already turned off.
+   */
+  setChannelLayers: (layers: {
+    boatModel: boolean
+    boatTag: boolean
+    headingArrow: boolean
+  }) => void
   dispose: () => void
+}
+
+/** Unlit heading tick on the pose root (independent of hull). */
+export function createBoatHeadingArrow(): THREE.Group {
+  const g = new THREE.Group()
+  g.name = 'headingArrow'
+  const mat = new THREE.MeshBasicMaterial({
+    color: 0xffc14a,
+    depthTest: true,
+    depthWrite: false,
+  })
+  const shaftGeom = new THREE.CylinderGeometry(0.12, 0.12, 3.2, 6)
+  const shaft = new THREE.Mesh(shaftGeom, mat)
+  shaft.name = 'headingArrowShaft'
+  shaft.rotation.x = Math.PI / 2
+  shaft.position.z = 2.2
+  const headGeom = new THREE.ConeGeometry(0.45, 1.2, 8)
+  const head = new THREE.Mesh(headGeom, mat)
+  head.name = 'headingArrowHead'
+  head.rotation.x = Math.PI / 2
+  head.position.z = 4.4
+  g.add(shaft, head)
+  g.position.y = 0.6
+  return g
 }
 
 /**
@@ -122,12 +155,18 @@ export function createBoatEntity(
   let hullColor = options.color
   let visibilityMode = normalizeBoatVisibilityMode(options.visibilityMode)
   let hullScale = normalizeBoatHullScale(options.heightM)
+  let channelLayers = {
+    boatModel: true,
+    boatTag: true,
+    headingArrow: true,
+  }
 
   const root = new THREE.Group()
   root.name = `boat-${id}`
 
   let visual: THREE.Object3D = createProceduralBoatVisual()
   const ghostRing = createGhostBoatRing(hullColor)
+  const headingArrow = createBoatHeadingArrow()
 
   function applyVisualTransform(): void {
     applyBoatVisualOffset(visual)
@@ -139,6 +178,7 @@ export function createBoatEntity(
   applyBoatHullTint(visual, hullColor)
   root.add(visual)
   root.add(ghostRing)
+  root.add(headingArrow)
 
   const wake = createBoatWake()
   root.add(wake.root)
@@ -160,6 +200,16 @@ export function createBoatEntity(
       ghostRing,
       tagRoot: tag.root,
     })
+    if (!channelLayers.boatModel) {
+      visual.visible = false
+      ghostRing.visible = false
+    }
+    if (!channelLayers.boatTag) {
+      tag.root.visible = false
+    }
+    headingArrow.visible = channelLayers.headingArrow
+    wake.root.visible =
+      channelLayers.boatModel && visibilityMode !== 'hidden'
   }
 
   applyVisibility()
@@ -180,8 +230,9 @@ export function createBoatEntity(
       applyVisualTransform()
       applyBoatHullTint(visual, hullColor)
       root.add(visual)
-      // Keep ring + wake + tag as later children for stable draw order
+      // Keep ring + arrow + wake + tag as later children for stable draw order
       root.add(ghostRing)
+      root.add(headingArrow)
       root.add(wake.root)
       root.add(tag.root)
       applyVisibility()
@@ -241,10 +292,20 @@ export function createBoatEntity(
       }
       prevX = x
       prevZ = z
-      wake.sync({ speedMs, mode: visibilityMode, dtSeconds: dt })
+      const wakeMode =
+        channelLayers.boatModel ? visibilityMode : 'hidden'
+      wake.sync({ speedMs, mode: wakeMode, dtSeconds: dt })
     },
     getWakeLengthM(): number {
       return wake.getLengthM()
+    },
+    setChannelLayers(layers): void {
+      channelLayers = {
+        boatModel: layers.boatModel === true,
+        boatTag: layers.boatTag === true,
+        headingArrow: layers.headingArrow === true,
+      }
+      applyVisibility()
     },
     dispose(): void {
       cancelled = true

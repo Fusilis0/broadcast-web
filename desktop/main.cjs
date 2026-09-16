@@ -87,6 +87,11 @@ let tray = null
 let mainWindow = null
 /** @type {Map<string, BrowserWindow>} */
 const srtPlateWindows = new Map()
+srtReader.setIngestFanout(() => {
+  const ar = srtPlateWindows.get('ar')
+  if (!ar || ar.isDestroyed()) return []
+  return [ar.webContents]
+})
 /** @type {{ x: number, y: number, width: number, height: number } | null} */
 let preParkBounds = null
 let parked = false
@@ -459,10 +464,16 @@ function buildSrtPlateUrl(channel) {
 
 function applyPlatePixelZoom(win) {
   if (!win || win.isDestroyed()) return
-  const scale = Number(screen.getPrimaryDisplay().scaleFactor) || 1
-  const zoom = 1 / Math.max(scale, 0.5)
+  // Zoom 1 + capture scale. Device emulation drew 1080 inside a HiDPI
+  // backing store; scaling that whole buffer made OBS AR a small picture
+  // in a large striped box.
   try {
-    win.webContents.setZoomFactor(zoom)
+    win.webContents.setZoomFactor(1)
+  } catch {
+    /* ignore */
+  }
+  try {
+    win.webContents.setZoomLevel(0)
   } catch {
     /* ignore */
   }
@@ -472,6 +483,8 @@ function layoutSrtPlateWindow(win) {
   if (!win || win.isDestroyed()) return
   if (win.isMinimized()) win.restore()
   win.setSkipTaskbar(true)
+  // Content size only. setBounds(1920×1080) shrinks the drawing area when
+  // Windows DPI adds chrome to the outer frame.
   try {
     win.setContentSize(STUDIO_WIDTH, STUDIO_HEIGHT)
   } catch {
@@ -497,6 +510,7 @@ function platePipeGrab(channel, win) {
         width: STUDIO_WIDTH,
         height: STUDIO_HEIGHT,
         fps: srtPublisherMod.SRT_OUT_FPS,
+        channel,
       })
     },
   }
@@ -535,6 +549,7 @@ function ensureSrtPlateWindow(channel) {
     show: false,
     webPreferences: {
       offscreen: true,
+      zoomFactor: 1,
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
@@ -607,19 +622,37 @@ function registerSrtOutIpc() {
     return srtPublisher.stop(arg)
   })
   ipcMain.handle('srtOut:status', () => srtPublisher.getStatusAll())
-  ipcMain.on('srtOut:previewView', (evt, view) => {
+  ipcMain.on('srtOut:programView', (evt, view) => {
     const plate = srtPlateWindows.get('3d')
     if (!plate || plate.isDestroyed()) return
     if (evt.sender.id === plate.webContents.id) return
-    plate.webContents.send('srtOut:previewView', view)
+    plate.webContents.send('srtOut:programView', view)
+  })
+  ipcMain.on('srtOut:map2dView', (evt, view) => {
+    const plate = srtPlateWindows.get('2d')
+    if (!plate || plate.isDestroyed()) return
+    if (evt.sender.id === plate.webContents.id) return
+    plate.webContents.send('srtOut:map2dView', view)
   })
   ipcMain.on('srtOut:worldLook', (evt, look) => {
-    for (const channel of ['ar', '3d']) {
-      const plate = srtPlateWindows.get(channel)
-      if (!plate || plate.isDestroyed()) continue
-      if (evt.sender.id === plate.webContents.id) continue
-      plate.webContents.send('srtOut:worldLook', look)
-    }
+    const plate = srtPlateWindows.get('3d')
+    if (!plate || plate.isDestroyed()) return
+    if (evt.sender.id === plate.webContents.id) return
+    plate.webContents.send('srtOut:worldLook', look)
+  })
+  ipcMain.on('srtOut:layerPreset', (evt, packet) => {
+    const channel = packet && packet.channel
+    if (channel !== 'ar' && channel !== '3d') return
+    const plate = srtPlateWindows.get(packet.channel)
+    if (!plate || plate.isDestroyed()) return
+    if (evt.sender.id === plate.webContents.id) return
+    plate.webContents.send('srtOut:layerPreset', packet)
+  })
+  ipcMain.on('srtOut:arPov', (evt, povId) => {
+    const plate = srtPlateWindows.get('ar')
+    if (!plate || plate.isDestroyed()) return
+    if (evt.sender.id === plate.webContents.id) return
+    plate.webContents.send('srtOut:arPov', povId)
   })
 }
 
@@ -792,6 +825,41 @@ function stopPowerBlocker() {
   powerBlockerId = null
 }
 
+/**
+ * PRF measurement: BW_SRT_MEASURE=1 auto-starts AR+3D+2D and logs encoder fps.
+ * Does not change STUDIO_TICK_FPS. NDI stays off unless the operator enables it.
+ */
+function maybeStartSrtMeasure() {
+  const on = ['1', 'true', 'yes'].includes(
+    (process.env.BW_SRT_MEASURE || '').trim().toLowerCase(),
+  )
+  if (!on && !hasFlag('--srt-measure')) return
+  console.info(
+    '[desktop] SRT measure: starting AR+3D+2D in 8s (NDI not started by this flag)',
+  )
+  setTimeout(() => {
+    for (const channel of srtPublisherMod.SRT_OUT_CHANNEL_IDS) {
+      void srtPublisher.start({ channel }).then((result) => {
+        console.info(`[desktop] SRT measure start ${channel}:`, result)
+      })
+    }
+  }, 8000)
+  setInterval(() => {
+    const all = srtPublisher.getStatusAll()
+    const row = {}
+    for (const id of srtPublisherMod.SRT_OUT_CHANNEL_IDS) {
+      const st = all[id]
+      row[id] = {
+        state: st.state,
+        encoder: st.encoder,
+        encoderFps: st.encoderFps,
+        err: st.lastError,
+      }
+    }
+    console.info('[srt-enc]', JSON.stringify(row))
+  }, 1000)
+}
+
 /** Main-process render clock + force compositor wake. */
 function startStudioClock() {
   if (studioTickTimer !== null) return
@@ -799,10 +867,23 @@ function startStudioClock() {
   studioTickTimer = setInterval(() => {
     for (const win of BrowserWindow.getAllWindows()) {
       if (win.isDestroyed()) continue
-      try {
-        win.webContents.invalidate()
-      } catch {
-        /* ignore */
+      let isPlate = false
+      for (const plate of srtPlateWindows.values()) {
+        if (plate === win) {
+          isPlate = true
+          break
+        }
+      }
+      // Plates paint at SRT_OUT_FPS. 60 Hz invalidate forces extra 1080
+      // compositor copies and stalls the BGRA pipe. Still send studio:tick
+      // so hidden-window rAF fallback keeps rendering. Do not change
+      // STUDIO_TICK_FPS.
+      if (!isPlate) {
+        try {
+          win.webContents.invalidate()
+        } catch {
+          /* ignore */
+        }
       }
       win.webContents.setBackgroundThrottling(false)
       win.webContents.send('studio:tick')
@@ -879,6 +960,7 @@ app.whenReady().then(async () => {
   console.info(
     '[desktop] SRT program out: local callers 127.0.0.1:9201–9203 (gdigrab titles broadcast-web-srt-ar/3d/2d). OBS listeners first. NDI Send is not started by SRT.',
   )
+  maybeStartSrtMeasure()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
     else if (mainWindow && !mainWindow.isDestroyed()) unparkWindow(mainWindow)

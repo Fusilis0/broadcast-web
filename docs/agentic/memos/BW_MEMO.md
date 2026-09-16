@@ -1,7 +1,31 @@
 # BW_MEMO — Broadcast-Web Master Orchestrator
 
-**Last updated:** 2026-09-13  
+**Last updated:** 2026-09-15  
 **Session role:** BW
+
+## 2026-09-15 — 22.4 workers accepted; Human Pass E–I + A
+
+All six reports match the tree: OUT-01 scale-not-crop; SCN-01 AR isolation + GPS freeze; SCN-02 independent presets; SCN-03 `srtOut:programView` + Control 3D program; SCN-04 map2d program cam; PRF-01 stdin watermark / paint-only / 30 write. `STUDIO_TICK_FPS` still 60. `srtOut:previewView` gone.
+
+**Known leftover (not a Fail):** AR bar Follow/Free still disabled stubs — freeze/follow is automatic.
+
+**Operator next:** [`docs/agentic/briefs/phase22/SRT_HUMAN_PASS.md`](../briefs/phase22/SRT_HUMAN_PASS.md). Order **E → F → G → H → I → A**. No new worker until Fail. VPS still after **A**.
+
+## 2026-09-15 — 22.4 program cameras (3D look Pass)
+
+Operator: OBS **3D OK**. Fail: AR 2K, AR terrain, cameras wander, 2D boats/zoom, **16 fps×3**.
+
+Lock: `docs/architecture/srt-program-cameras.md`. Answers 1–10.
+
+Workers (new chats):
+1. `DSP-OUT-20260915-01` AR 1080 — parallel
+2. `DSP-SCN-20260915-01` AR look + freeze
+3. `DSP-SCN-20260915-02` visibility + bottom bar
+4. `DSP-SCN-20260915-03` 3D program rig + takeover
+5. `DSP-SCN-20260915-04` 2D program cam
+6. `DSP-PRF-20260915-01` 30×3 after 01 — **never `STUDIO_TICK_FPS`**
+
+Handoffs `HO-BW-SCN/OUT/PRF/SRT-20260915-01`. No `src/` in BW.
 
 ## 2026-09-13 — Human Pass tasks + IBB no-reply
 

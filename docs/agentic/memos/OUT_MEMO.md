@@ -1,7 +1,23 @@
 # OUT_MEMO
 
-**Last updated:** 2026-09-13  
-**Status:** Phase **22** local SRT **open**. NDI UI hide + plates shipped in `DSP-SRT-20260909-01` (NDI pumps kept, defaults off).
+**Last updated:** 2026-09-15  
+**Status:** Phase **22**. AR 1080 **code-complete** (scale, not crop). Human **E**.
+
+## 2026-09-15 — SRT I/O = no OBS listener
+
+`Connection to srt://127.0.0.1:920n … I/O error` is ffmpeg caller with nobody listening. Stay **connecting**, rewrite the error, retry every 2 s. Start OBS Media Source first (`mpegts`, `latency=60000`).
+
+## 2026-09-15 — SRT check-box `write EOF` crash
+
+Enabling any SRT box crashed Electron main (`WriteWrap.onWriteComplete` / write EOF). After the 30×3 stdin watermark, `write()` can complete after ffmpeg closed the pipe; no `error` listener → uncaught. Swallow EPIPE/EOF; detach capture on ffmpeg exit. Human Pass can continue.
+
+## 2026-09-15 — DSP-OUT-20260915-01 accepted
+
+HiDPI `toBitmap` scaled to 1920×1080; never Electron crop. Plate window/CSS/zoom locked 1080. 3D already used the scale path. Human **E** in `SRT_HUMAN_PASS.md`. No `STUDIO_TICK_FPS` change.
+
+## 2026-09-15 — HO-BW-OUT-20260915-01
+
+Worker `DSP-OUT-20260915-01-srt-ar-1080`. Scale HiDPI, do not crop. Parallel SCN-01. No `STUDIO_TICK_FPS`.
 
 ## 2026-09-13 — Human Pass B (OBS 3D look)
 

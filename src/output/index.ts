@@ -647,6 +647,7 @@ export {
   isSrtOutChannelId,
   isSrtWorldLook,
   parseSrtPlateQuery,
+  srtPlateAcceptsWorldLook,
   SRT_OUT_CHANNEL_IDS,
   SRT_OUT_DEFAULT_URLS,
   SRT_OUT_TITLES,

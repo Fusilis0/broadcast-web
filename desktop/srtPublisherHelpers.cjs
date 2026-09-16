@@ -171,6 +171,39 @@ function resolvePublishUrl(url) {
   }
 }
 
+function isSrtPublishListenerMissing(text) {
+  const s = typeof text === 'string' ? text : ''
+  return /Connection to srt|I\/O error|Connection refused|No SRT listener/i.test(
+    s,
+  )
+}
+
+/**
+ * ffmpeg libsrt I/O on loopback almost always means OBS (or vMix) is not
+ * listening yet. Keep this operator-facing — not the raw libsrt line.
+ *
+ * @param {unknown} raw
+ * @param {string} [url]
+ * @returns {string}
+ */
+function formatSrtPublishListenerError(raw, url) {
+  const text = raw instanceof Error ? raw.message : String(raw || '')
+  if (/^No SRT listener/i.test(text.trim())) return text.trim().slice(0, 300)
+  if (!isSrtPublishListenerMissing(text)) {
+    return text.slice(0, 300)
+  }
+  let hostPort = 'this SRT URL'
+  try {
+    if (typeof url === 'string' && url.trim()) {
+      const parsed = new URL(url.trim())
+      hostPort = `${parsed.hostname}:${parsed.port || '9000'}`
+    }
+  } catch {
+    /* keep generic */
+  }
+  return `No SRT listener on ${hostPort}. Start OBS first (Media Source, mpegts, latency=60000), then leave this box checked — retrying.`
+}
+
 function srtOutRawFrameBytes(width = SRT_OUT_WIDTH, height = SRT_OUT_HEIGHT) {
   const w = Math.max(1, Math.round(Number(width) || SRT_OUT_WIDTH))
   const h = Math.max(1, Math.round(Number(height) || SRT_OUT_HEIGHT))
@@ -230,6 +263,10 @@ function buildSrtPublishArgv(opts) {
         'warning',
         '-stats_period',
         '1',
+        '-fflags',
+        'nobuffer',
+        '-thread_queue_size',
+        '64',
         '-f',
         'rawvideo',
         '-pix_fmt',
@@ -270,6 +307,10 @@ function buildSrtPublishArgv(opts) {
     'yuv420p',
     '-fps_mode',
     'cfr',
+    '-aspect',
+    '16:9',
+    '-vf',
+    'setsar=1',
   ]
 
   /** @type {string[]} */
@@ -295,7 +336,7 @@ function buildSrtPublishArgv(opts) {
       '-bf',
       '0',
       '-async_depth',
-      '1',
+      '4',
     ]
   } else if (encoder === 'h264_nvenc') {
     encode = [
@@ -363,6 +404,36 @@ function parseFfmpegFps(chunk) {
   if (!hit) return null
   const n = Number(hit[1])
   return Number.isFinite(n) && n >= 0 ? n : null
+}
+
+/**
+ * `frame=` from ffmpeg `-progress`. Session `fps=` includes startup and
+ * lags the live 1 s rate.
+ *
+ * @param {string} chunk
+ * @returns {number | null}
+ */
+function parseFfmpegFrame(chunk) {
+  if (typeof chunk !== 'string' || !chunk) return null
+  const hit = chunk.match(/\bframe=\s*(\d+)/)
+  if (!hit) return null
+  const n = Number(hit[1])
+  return Number.isInteger(n) && n >= 0 ? n : null
+}
+
+/**
+ * @param {number | null} prevFrame
+ * @param {number | null} prevAtMs
+ * @param {number} frame
+ * @param {number} nowMs
+ * @returns {number | null}
+ */
+function instantFpsFromFrames(prevFrame, prevAtMs, frame, nowMs) {
+  if (prevFrame == null || prevAtMs == null) return null
+  const dt = (nowMs - prevAtMs) / 1000
+  const d = frame - prevFrame
+  if (!(dt >= 0.4) || d < 0) return null
+  return d / dt
 }
 
 /**
@@ -442,10 +513,14 @@ module.exports = {
   resolvePublishUrl,
   buildSrtPublishArgv,
   parseFfmpegFps,
+  parseFfmpegFrame,
+  instantFpsFromFrames,
   idleSrtOutStatus,
   normalizeSrtOutStatus,
   fitSrtPlateInWorkArea,
   pickSrtPlateDisplay,
   srtOutRawFrameBytes,
   isPipeGrab,
+  isSrtPublishListenerMissing,
+  formatSrtPublishListenerError,
 }

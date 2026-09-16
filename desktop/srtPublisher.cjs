@@ -23,11 +23,15 @@ const {
   resolvePublishUrl,
   buildSrtPublishArgv,
   parseFfmpegFps,
+  parseFfmpegFrame,
+  instantFpsFromFrames,
   idleSrtOutStatus,
   normalizeSrtOutStatus,
   fitSrtPlateInWorkArea,
   pickSrtPlateDisplay,
   isPipeGrab,
+  formatSrtPublishListenerError,
+  isSrtPublishListenerMissing,
 } = require('./srtPublisherHelpers.cjs')
 
 const LIBX264_NOTE =
@@ -239,6 +243,32 @@ function createSrtPublisher(deps = {}) {
     session.childPid = child.pid || null
     session.stderrTail = ''
     session.detachInput = null
+    if (child.stdin && typeof child.stdin.on === 'function') {
+      child.stdin.on('error', (err) => {
+        const cur = sessions.get(channel)
+        if (!cur || cur.generation !== generation) return
+        if (typeof cur.detachInput === 'function') {
+          try {
+            cur.detachInput()
+          } catch {
+            /* ignore */
+          }
+          cur.detachInput = null
+        }
+        const msg = err instanceof Error ? err.message : String(err)
+        const code = err && typeof err === 'object' ? err.code : ''
+        if (
+          code === 'EPIPE' ||
+          code === 'EOF' ||
+          /write EOF|EPIPE|broken pipe/i.test(msg)
+        ) {
+          return
+        }
+        if (!cur.closing && cur.state !== 'error') {
+          emit(channel, { state: 'error', lastError: msg.slice(0, 300) })
+        }
+      })
+    }
     if (usePipe && typeof grab.attach === 'function' && child.stdin) {
       try {
         session.detachInput = grab.attach(child.stdin)
@@ -266,7 +296,15 @@ function createSrtPublisher(deps = {}) {
     const applyFps = (text) => {
       const cur = sessions.get(channel)
       if (!cur || cur.generation !== generation) return
-      const fps = parseFfmpegFps(text)
+      const now = Date.now()
+      const frame = parseFfmpegFrame(text)
+      let fps = null
+      if (frame != null) {
+        fps = instantFpsFromFrames(cur.prevFrame, cur.prevFrameAt, frame, now)
+        cur.prevFrame = frame
+        cur.prevFrameAt = now
+      }
+      if (fps == null) fps = parseFfmpegFps(text)
       if (fps == null) return
       cur.encoderFps = fps
       if (cur.state === 'connecting') {
@@ -281,8 +319,14 @@ function createSrtPublisher(deps = {}) {
       const text = buf.toString('utf8')
       cur.stderrTail = `${cur.stderrTail}${text}`.slice(-4000)
       applyFps(text)
+      if (isSrtPublishListenerMissing(text)) {
+        emit(channel, {
+          lastError: formatSrtPublishListenerError(text, cur.url),
+        })
+        return
+      }
       if (
-        /Could not find window|Failed to capture|Unknown encoder|Error initializing|Connection to srt|Input\/output error|No such file|not recognized as an encoder|No such filter|ddagrab|timed out|Connection refused|Invalid argument/i.test(
+        /Could not find window|Failed to capture|Unknown encoder|Error initializing|No such file|not recognized as an encoder|No such filter|ddagrab|timed out|Invalid argument/i.test(
           text,
         )
       ) {
@@ -298,11 +342,36 @@ function createSrtPublisher(deps = {}) {
       if (!cur || cur.generation !== generation) return
       cur.child = null
       cur.childPid = null
+      if (typeof cur.detachInput === 'function') {
+        try {
+          cur.detachInput()
+        } catch {
+          /* ignore */
+        }
+        cur.detachInput = null
+      }
       if (cur.closing) return
       const detail =
         cur.lastError ||
         (cur.stderrTail.trim().split(/\r?\n/).filter(Boolean).pop() ||
           `ffmpeg exited (${code ?? signal ?? 'unknown'})`)
+      const listenerMiss = isSrtPublishListenerMissing(String(detail))
+      if (listenerMiss) {
+        emit(channel, {
+          state: 'connecting',
+          lastError: formatSrtPublishListenerError(detail, cur.url),
+          encoderFps: null,
+        })
+        if (cur.retryTimer) clearTimeout(cur.retryTimer)
+        cur.retryTimer = setTimeout(() => {
+          const next = sessions.get(channel)
+          if (!next || next.generation !== generation || next.closing) return
+          next.retryTimer = null
+          void spawnChannel(channel, next.url, next.generation)
+        }, 2000)
+        cur.retryTimer.unref?.()
+        return
+      }
       emit(channel, {
         state: 'error',
         lastError: String(detail).slice(0, 300),
@@ -440,9 +509,13 @@ module.exports = {
   resolvePublishUrl,
   buildSrtPublishArgv,
   parseFfmpegFps,
+  parseFfmpegFrame,
+  instantFpsFromFrames,
   idleSrtOutStatus,
   normalizeSrtOutStatus,
   fitSrtPlateInWorkArea,
   pickSrtPlateDisplay,
   isPipeGrab,
+  formatSrtPublishListenerError,
+  isSrtPublishListenerMissing,
 }

@@ -203,6 +203,51 @@ describe('map2d view transform (pan/zoom)', () => {
   })
 })
 
+describe('map2d stream program view', () => {
+  it('setView zoom changes stream bounds; autoFit stays off', () => {
+    const stream = createMap2d({
+      variant: 'stream',
+      widthPx: 1920,
+      heightPx: 1080,
+      visible: false,
+    })
+    try {
+      expect(stream.getView().autoFit).toBe(false)
+      stream.updatePose({
+        id: '21',
+        kind: 'boat',
+        position: { x: 40, y: 0, z: -10 },
+        rotation: { yawDeg: 0, pitchDeg: 0, rollDeg: 0 },
+        fovHDeg: 60,
+        ts: 1,
+      })
+      // Planned-looking pose must not auto-fit the stream (program cam owns zoom).
+      expect(stream.getView().autoFit).toBe(false)
+      stream.setView({
+        centerE: 10,
+        centerN: -4,
+        halfExtentN: 20,
+        autoFit: true,
+      })
+      expect(stream.getView().autoFit).toBe(false)
+      expect(stream.getView().centerE).toBeCloseTo(10)
+      expect(stream.getView().centerN).toBeCloseTo(-4)
+      const tight = viewToMapBounds(stream.getView(), 1920, 1080)
+      stream.setView({
+        centerE: 10,
+        centerN: -4,
+        halfExtentN: 80,
+        autoFit: false,
+      })
+      const wide = viewToMapBounds(stream.getView(), 1920, 1080)
+      expect(wide.maxE - wide.minE).toBeGreaterThan(tight.maxE - tight.minE)
+      expect(stream.getPoseIds()).toEqual(['21'])
+    } finally {
+      stream.dispose()
+    }
+  })
+})
+
 describe('map2dBasemap tile math', () => {
   it('builds OSM tile URLs', () => {
     expect(osmTileUrl({ z: 12, x: 2345, y: 1500 })).toBe(

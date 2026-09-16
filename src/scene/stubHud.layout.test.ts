@@ -37,6 +37,14 @@ describe('stubHud two-rail hosts', () => {
     })
 
     expect(environment.querySelector('#ops-environment-mode')).toBeTruthy()
+    expect(
+      (environment.querySelector('#ops-environment-mode') as HTMLSelectElement)
+        .value,
+    ).toBe('realistic')
+    expect(
+      (environment.querySelector('#ops-terrain-mode') as HTMLSelectElement)
+        .value,
+    ).toBe('on')
     expect(environment.querySelector('#ops-terrain-nudge')).toBeTruthy()
     expect(environment.querySelector('#ops-terrain-overlay')).toBeTruthy()
     expect(environment.querySelector('#ops-terrain-aerial')).toBeNull()

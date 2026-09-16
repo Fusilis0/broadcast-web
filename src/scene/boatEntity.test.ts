@@ -103,6 +103,56 @@ describe('boat tag plate', () => {
   })
 })
 
+describe('SRT channel layers', () => {
+  it('ANDs AR tags-only onto authoring (no hull, heading off)', () => {
+    const boat = createBoatEntity({ id: '21', tryGltf: false })
+    boat.applyPose({
+      id: '21',
+      kind: 'boat',
+      position: { x: 0, y: 0, z: 0 },
+      rotation: { yawDeg: 0, pitchDeg: 0, rollDeg: 0 },
+      fovHDeg: 66.8832,
+      ts: 0,
+    })
+    const arrow = boat.root.getObjectByName('headingArrow')
+    expect(arrow).toBeTruthy()
+    expect(arrow!.visible).toBe(true)
+
+    boat.setChannelLayers({
+      boatModel: false,
+      boatTag: true,
+      headingArrow: false,
+    })
+    const hull = boat.root.getObjectByName('hull') as THREE.Mesh
+    expect(hull.parent?.visible).toBe(false)
+    expect(boat.root.getObjectByName('boatTag')!.visible).toBe(true)
+    expect(arrow!.visible).toBe(false)
+
+    boat.setVisibilityMode('solid')
+    expect(hull.parent?.visible).toBe(false)
+
+    boat.setChannelLayers({
+      boatModel: true,
+      boatTag: false,
+      headingArrow: true,
+    })
+    expect(hull.parent?.visible).toBe(true)
+    expect(boat.root.getObjectByName('boatTag')!.visible).toBe(false)
+    expect(arrow!.visible).toBe(true)
+
+    boat.setVisibilityMode('hidden')
+    boat.setChannelLayers({
+      boatModel: true,
+      boatTag: true,
+      headingArrow: true,
+    })
+    expect(hull.parent?.visible).toBe(false)
+    expect(boat.root.getObjectByName('boatTag')!.visible).toBe(true)
+
+    boat.dispose()
+  })
+})
+
 describe('boatTagWorldHeight', () => {
   it('grows world height with distance (partial screen-size compensation)', () => {
     const near = boatTagWorldHeight(80, 1080, 40)

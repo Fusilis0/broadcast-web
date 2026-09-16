@@ -16,7 +16,7 @@ export type VideoBackgroundDrawInput = {
   isScreenPass: boolean
   /** Local window focus (`2d` / `3d` / `ar`). Screen-only; NDI ignores this. */
   localFocus: unknown
-  /** Preview camera is the active POV (not ops free cam). Screen-only. */
+  /** Unused for the screen gate (kept so callers do not churn). */
   previewIsAirCamera: boolean
 }
 
@@ -144,7 +144,9 @@ export function shouldDrawVideoBackground(
   if (!input.hasTexture) return false
   if (input.opaque3dPass) return false
   if (input.isScreenPass) {
-    return input.localFocus === 'ar' && input.previewIsAirCamera === true
+    // Local AR window must show the ingest even in free cam. Default ops
+    // view is free; hiding the underlay there made Connect SRT look dead.
+    return input.localFocus === 'ar'
   }
   return true
 }

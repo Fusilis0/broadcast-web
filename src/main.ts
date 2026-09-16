@@ -81,6 +81,7 @@ import {
   getSrtOutBridge,
   parseSrtPlateQuery,
   isSrtWorldLook,
+  srtPlateAcceptsWorldLook,
   type SrtWorldLook,
   loadNdiChannelWanted,
   saveNdiChannelWanted,
@@ -158,8 +159,14 @@ import {
   startFlowPanel,
   startMapFeatureEditor,
   startScene,
+  startSrtProgramBar,
   startStubHud,
   isFreeCamView,
+  isMap2dProgramView,
+  createMap2dProgramCam,
+  AR_PLATE_WORLD_LAYERS,
+  createSrtChannelPresetStore,
+  isSrtLayerPresetPacket,
   LANDMARKS_AUTOSAVE_MS,
   mergeLandmarkOffsetLayers,
   offsetsFromProject,
@@ -184,6 +191,7 @@ import {
   type HeroesPanelHandle,
   type MapFeatureEditorHandle,
   type SceneHandle,
+  type SrtProgramBarHandle,
   type WorldAuthoringWorkspaceHandle,
   type WorldMapAuthoringLauncherHandle,
   type WorldFeature,
@@ -225,8 +233,13 @@ let ingest: IngestHandle | null = null
 let outputControl: OutputModeControlHandle | null = null
 let arBackgroundControl: ArBackgroundControlHandle | null = null
 let localChannelSwitcher: LocalChannelSwitcherHandle | null = null
+let srtProgramBar: SrtProgramBarHandle | null = null
+const map2dProgramCam = createMap2dProgramCam()
+let map2dViewFromStudio = false
 /** Local window focus — independent of NDI pumps and of AR `outputMode`. */
 let localChannelFocus: LocalChannelFocus = srtPlateChannel ?? 'ar'
+/** Independent AR / 3D layer presets. Local switch only shows that copy. */
+const srtLayerPresets = createSrtChannelPresetStore()
 /** Remembered AR clear mode while local focus is 3D/2D. */
 let arOutputMode: OutputMode = 'preview'
 /** AR plate vs in-WebGL video background (L1). Default alpha = today's plate. */
@@ -371,6 +384,26 @@ function syncMapHiddenPoseIds(): void {
   }
   hud.getMap().setHiddenPoseIds(hidden)
   hud.getStreamMap().setHiddenPoseIds(hidden)
+  map2dProgramCam.setHiddenIds(hidden)
+}
+
+/** Studio local 2D = SRT 2D program cam. Empty GPS set freezes last/course. */
+function applyMap2dProgramView(publish = true): void {
+  map2dProgramCam.setFallbackTarget(hud.getStreamMap().getLayoutCentroid())
+  const view = map2dProgramCam.resolveView(Date.now())
+  const cur = hud.getStreamMap().getView()
+  if (
+    cur.centerE !== view.centerE ||
+    cur.centerN !== view.centerN ||
+    cur.halfExtentN !== view.halfExtentN ||
+    cur.autoFit !== false
+  ) {
+    hud.getStreamMap().setView(view)
+  }
+  if (publish && !srtPlateChannel) {
+    getSrtOutBridge()?.sendMap2dView?.(view)
+  }
+  srtProgramBar?.sync()
 }
 
 /** Apply Fleet / pack visibility modes onto live boat entities. */
@@ -578,9 +611,25 @@ function applyLocalChannelFocus(focus: LocalChannelFocus): void {
   }
 
   syncTerrainAttribution()
+  applyLocalChannelLayers()
+  srtProgramBar?.setFocus(localChannelFocus)
 }
 
-/** SRT plates: AR = drone/follow, 3D = ops free cam, 2D = map.
+/** Draw the preset for this window: plate channel, or local AR/3D focus. */
+function applyLocalChannelLayers(): void {
+  if (!scene) return
+  if (srtPlateChannel === '2d') return
+  const channel =
+    srtPlateChannel === 'ar' || srtPlateChannel === '3d'
+      ? srtPlateChannel
+      : localChannelFocus === 'ar' || localChannelFocus === '3d'
+        ? localChannelFocus
+        : null
+  if (!channel) return
+  scene.setChannelLayerPreset(srtLayerPresets.get(channel))
+}
+
+/** SRT plates: AR = frozen Follow until GPS, 3D = program rig, 2D = program map.
  * Program out is opaque — ops `output: transparent` is NDI/keying, not SRT. */
 function applySrtPlateCameraLock(): void {
   if (!scene || !srtPlateChannel) return
@@ -595,24 +644,42 @@ function applySrtPlateCameraLock(): void {
   }
 }
 
+function applyArPlateWorldLayersOff(): void {
+  if (!scene) return
+  scene.setEnvironmentMode(AR_PLATE_WORLD_LAYERS.environmentMode)
+  scene.setTerrainEnabled(AR_PLATE_WORLD_LAYERS.terrainEnabled)
+  scene.setBuildingsEnabled(AR_PLATE_WORLD_LAYERS.buildingsEnabled)
+  scene.setHeroesEnabled(AR_PLATE_WORLD_LAYERS.heroesEnabled)
+}
+
 function applySrtPlatePresentation(): void {
   if (!scene || !srtPlateChannel) return
+  if (srtPlateChannel === 'ar') arBackgroundMode = 'video'
   applySrtPlateCameraLock()
   applyLocalChannelFocus(srtPlateChannel)
   if (srtPlateChannel === '2d') return
-  scene.setEnvironmentOpaqueClearSafe(true)
   if (srtPlateChannel === 'ar') {
     applyOutputMode(scene.renderer, 'preview', {
       chromaKey: chromaKey || undefined,
     })
+    applyArPlateWorldLayersOff()
+    scene.setEnvironmentOpaqueClearSafe(
+      resolveOpaqueClearSafeForVideo({
+        arBackground: 'video',
+        localFocus: 'ar',
+        opaqueClearSafe: true,
+      }),
+    )
+    return
   }
-  // Plates boot with DEFAULT_TERRAIN_ENABLED=false and env=simple. Heroes
-  // default on — that is why OBS showed glTF but no sea/Cesium. Until the
-  // studio look packet arrives, match ops 3D (realistic + terrain).
+  scene.setEnvironmentOpaqueClearSafe(true)
+  // 3D plates boot with studio defaults (realistic + terrain). Until
+  // the studio look packet arrives, match ops 3D.
   if (!srtWorldLookApplied) {
     scene.setEnvironmentMode('realistic')
     scene.setTerrainEnabled(true)
   }
+  scene.setTerrainTilesLocked(false)
 }
 
 function readSrtWorldLook(): SrtWorldLook | null {
@@ -631,8 +698,22 @@ function readSrtWorldLook(): SrtWorldLook | null {
   }
 }
 
+function publishSrtLayerPresets(): void {
+  if (srtPlateChannel) return
+  const bridge = getSrtOutBridge()
+  if (!bridge?.sendLayerPreset) return
+  bridge.sendLayerPreset({
+    channel: 'ar',
+    preset: srtLayerPresets.get('ar'),
+  })
+  bridge.sendLayerPreset({
+    channel: '3d',
+    preset: srtLayerPresets.get('3d'),
+  })
+}
+
 function applySrtWorldLook(look: SrtWorldLook): void {
-  if (!scene || !srtPlateChannel || srtPlateChannel === '2d') return
+  if (!scene || !srtPlateAcceptsWorldLook(srtPlateChannel)) return
   srtWorldLookApplied = true
   scene.setEnvironmentMode(look.environmentMode)
   scene.setSeaQuality(look.seaQuality)
@@ -640,10 +721,12 @@ function applySrtWorldLook(look: SrtWorldLook): void {
   scene.setBuildingsEnabled(look.buildingsEnabled)
   scene.setHeroesEnabled(look.heroesEnabled)
   scene.setTerrainOverlay(look.terrainOverlay)
-  scene.setTerrainTilesLocked(look.terrainTilesLocked)
   scene.setTerrainAltitudeNudgeM(look.terrainAltitudeNudgeM)
   scene.setTerrainWaterDiscardYM(look.terrainWaterDiscardYM)
   scene.setSeaHeightYM(look.seaHeightYM)
+  // Studio "lock tiles" freezes *that* WebGL LRU. The 3D plate is a new
+  // Cesium context — copying the lock left OBS with sea + OSM and no DEM.
+  scene.setTerrainTilesLocked(false)
   applySrtPlatePresentation()
 }
 
@@ -681,6 +764,7 @@ function syncFleetMapPosesToAllowList(): void {
   const allow = [...boatIds, ...povIds]
   hud.getMap().retainPoseIds(allow)
   hud.getStreamMap().retainPoseIds(allow)
+  map2dProgramCam.retainBoatIds(boatIds)
   const boats = fleetPanel?.getState().boats ?? []
   const plannedPovs = fleetPanel?.getState().plannedPovs ?? []
   seedPlannedFleetOnMap(hud.getMap(), boats, plannedPovs)
@@ -1014,6 +1098,15 @@ function restoreSrtUnderlayPlaceholder(): void {
   if (videoBackgroundTestPattern) {
     videoBackground?.setTexture(videoBackgroundTestPattern)
   }
+}
+
+/** Connect SRT is ingest — put it on the studio AR window (not 3D sea). */
+function showSrtIngestOnStudioAr(): void {
+  if (srtPlateChannel) return
+  arBackgroundMode = 'video'
+  arBackgroundControl?.setMode('video')
+  localChannelSwitcher?.setFocus('ar')
+  applyLocalChannelFocus('ar')
 }
 
 function pushSrtPanelStatus(): void {
@@ -1904,7 +1997,6 @@ async function applyLoadedRaceProject(project: RaceProject): Promise<void> {
         console.warn('[projects] URL world load after lists failed', err)
       })
   }
-  startCinematicTileWarm()
   applySrtPlatePresentation()
 }
 
@@ -2280,6 +2372,9 @@ const hud = startStubHud({
     calib?.setDeviceId(id)
     fleetPanel?.setState({ activePovId: id })
   },
+  onLiveBoatPose: (id, east, north) => {
+    map2dProgramCam.noteBoatPose(id, east, north)
+  },
   onOpsViewChange: (mode) => {
     scene?.setOpsViewMode(mode)
     fleetPanel?.setOpsViewMode(mode)
@@ -2370,13 +2465,6 @@ const hud = startStubHud({
   },
 })
 
-function startCinematicTileWarm(): void {
-  if (!scene) return
-  void scene.warmCinematicTiles().catch((err) => {
-    console.warn('[cinematics] warm start failed', err)
-  })
-}
-
 /**
  * OUT Record: silent 1080p30 MP4 from the studio canvas. SCN owns play;
  * this only encodes. Disk/permission failures stay on the ops status line.
@@ -2446,7 +2534,6 @@ async function persistAndApplyIonToken(token: string): Promise<void> {
   writeSessionCesiumIonToken(trimmed)
   if (bootConfig) bootConfig.cesiumIonToken = trimmed
   scene?.setCesiumIonToken(trimmed)
-  startCinematicTileWarm()
   const status = scene?.getTerrainStatusMessage() ?? ''
   const setter = getStudioBridge()?.config?.setCesiumIonToken
   if (typeof setter !== 'function') {
@@ -2617,6 +2704,7 @@ void (async () => {
   const outputMode = normalizeOutputMode(config.outputMode)
   arOutputMode = outputMode
   arBackgroundMode = normalizeArBackground(config.arBackground)
+  if (srtPlateChannel === 'ar') arBackgroundMode = 'video'
   const clear = resolveClearAppearance(outputMode, {
     chromaKey: chromaKey || undefined,
   })
@@ -2635,6 +2723,9 @@ void (async () => {
     subscribeStudioTick: studioBridge
       ? (onTick) => studioBridge.onStudioTick(onTick)
       : () => () => {},
+    // Offscreen plates are document.hidden; studio:tick@60 would render
+    // WebGL 60×3 and fight AMF. rAF follows setFrameRate(30).
+    isHidden: srtPlateChannel ? () => false : undefined,
   })
   scene = startScene({
     container: app,
@@ -2644,8 +2735,17 @@ void (async () => {
     cesiumIonToken,
     cesiumIonAssetId: config.cesiumIonAssetId,
     terrainOverlay: hud.getTerrainOverlay(),
-    buildingsEnabled: hud.getBuildingsEnabled(),
-    heroesEnabled: hud.getHeroesEnabled(),
+    buildingsEnabled:
+      srtPlateChannel === 'ar' ? false : hud.getBuildingsEnabled(),
+    heroesEnabled: srtPlateChannel === 'ar' ? false : hud.getHeroesEnabled(),
+    followRequiresActiveGps: srtPlateChannel === 'ar',
+    programOutputOnly: srtPlateChannel === '3d',
+    channelLayerPreset:
+      srtPlateChannel === 'ar' || srtPlateChannel === '3d'
+        ? srtLayerPresets.get(srtPlateChannel)
+        : localChannelFocus === '3d'
+          ? srtLayerPresets.get('3d')
+          : srtLayerPresets.get('ar'),
     frameClock: {
       subscribe: (onTick) =>
         previewClock!.subscribePreview(() => {
@@ -2653,10 +2753,16 @@ void (async () => {
           hud.setPreviewFps(previewClock!.getPreviewFps())
           hud.setHitchCounts(previewClock!.getHitchCounts())
           if (!srtPlateChannel) {
-            const view = scene?.getFreeCamView()
-            if (view) getSrtOutBridge()?.sendPreviewView?.(view)
+            const view = scene?.getProgramCamView()
+            if (view) getSrtOutBridge()?.sendProgramView?.(view)
+            applyMap2dProgramView()
             const look = readSrtWorldLook()
             if (look) getSrtOutBridge()?.sendWorldLook?.(look)
+            publishSrtLayerPresets()
+            const pov = scene?.getActivePovId()
+            if (pov) getSrtOutBridge()?.sendArPov?.(pov)
+          } else if (srtPlateChannel === '2d' && !map2dViewFromStudio) {
+            applyMap2dProgramView(false)
           }
         }),
     },
@@ -2664,7 +2770,7 @@ void (async () => {
       videoStreamManager?.setActivePov(id)
       posePipeline?.tick(0)
     },
-    ...(studioBridge
+    ...(studioBridge || srtPlateChannel
       ? {
           outputSize: {
             width: STUDIO_OUTPUT_WIDTH,
@@ -2685,14 +2791,27 @@ void (async () => {
     chromaKey: chromaKey || undefined,
   })
   applySrtPlatePresentation()
-  if (srtPlateChannel === '3d' || srtPlateChannel === 'ar') {
+  if (srtPlateChannel === '3d') {
     getSrtOutBridge()?.onWorldLook?.((look) => {
       if (isSrtWorldLook(look)) applySrtWorldLook(look)
     })
+    getSrtOutBridge()?.onProgramView?.((view) => {
+      if (isFreeCamView(view)) scene?.applyProgramCamView(view)
+    })
   }
-  if (srtPlateChannel === '3d') {
-    getSrtOutBridge()?.onPreviewView?.((view) => {
-      if (isFreeCamView(view)) scene?.applyFreeCamView(view)
+  if (srtPlateChannel === '2d') {
+    getSrtOutBridge()?.onMap2dView?.((view) => {
+      if (!isMap2dProgramView(view)) return
+      map2dViewFromStudio = true
+      hud.getStreamMap().setView(view)
+    })
+  }
+  if (srtPlateChannel === 'ar' || srtPlateChannel === '3d') {
+    getSrtOutBridge()?.onLayerPreset?.((packet) => {
+      if (!isSrtLayerPresetPacket(packet)) return
+      if (packet.channel !== srtPlateChannel) return
+      srtLayerPresets.set(packet.channel, packet.preset)
+      scene?.setChannelLayerPreset(packet.preset)
     })
   }
   // Realistic sea/sky only when clear is opaque-safe (preview today).
@@ -2702,10 +2821,15 @@ void (async () => {
   }
   restoreLandmarkOffsetsAtBoot()
   scene.setTerrainAltitudeNudgeM(hud.getTerrainAltitudeNudgeM())
-  scene.setTerrainTilesLocked(hud.getTerrainTilesLocked())
+  if (srtPlateChannel === '3d') {
+    scene.setTerrainTilesLocked(false)
+  } else if (!srtPlateChannel) {
+    scene.setTerrainTilesLocked(hud.getTerrainTilesLocked())
+  }
   scene.setTerrainOverlay(hud.getTerrainOverlay())
   scene.setTerrainWaterDiscardYM(hud.getTerrainWaterDiscardYM())
   scene.setSeaHeightYM(hud.getSeaHeightYM())
+  if (srtPlateChannel === 'ar') applyArPlateWorldLayersOff()
   scene.setTerrainCreditsListener(() => {
     hud.setTerrainStatus(scene?.getTerrainStatusMessage() ?? '')
     syncTerrainAttribution()
@@ -2721,12 +2845,12 @@ void (async () => {
   hud.setTerrainStatus(scene.getTerrainStatusMessage())
   hud.setCesiumIonToken(cesiumIonToken)
   const envFromQuery = parseEnvironmentModeQuery(window.location.search)
-  if (envFromQuery) {
+  if (envFromQuery && srtPlateChannel !== 'ar') {
     scene.setEnvironmentMode(envFromQuery)
     hud.setEnvironmentMode(envFromQuery)
   }
   const seaFromQuery = parseSeaQualityQuery(window.location.search)
-  if (seaFromQuery) {
+  if (seaFromQuery && srtPlateChannel !== 'ar') {
     scene.setSeaQuality(seaFromQuery)
     hud.setSeaQuality(seaFromQuery)
   }
@@ -2797,8 +2921,61 @@ void (async () => {
         applySrtPlatePresentation()
       },
     })
+    if (!srtPlateChannel) {
+      srtProgramBar = startSrtProgramBar({
+        container: strip.parentElement ?? strip,
+        getFocus: () => localChannelFocus,
+        getPreset: (channel) => srtLayerPresets.get(channel),
+        onPresetChange: (channel, key, value) => {
+          srtLayerPresets.set(channel, { [key]: value })
+          if (localChannelFocus === channel) {
+            scene?.setChannelLayerPreset(srtLayerPresets.get(channel))
+          }
+          getSrtOutBridge()?.sendLayerPreset?.({
+            channel,
+            preset: srtLayerPresets.get(channel),
+          })
+          srtProgramBar?.sync()
+        },
+        getControl3dProgram: () => scene?.getControl3dProgram() === true,
+        onControl3dProgram: (on) => {
+          scene?.setControl3dProgram(on)
+          srtProgramBar?.sync()
+        },
+        onFrameBoats: () => {
+          scene?.frameProgramBoats()
+        },
+        getMap2dProgram: () => map2dProgramCam.getState(),
+        getFollowBoats: () =>
+          map2dProgramCam.listLiveBoats(Date.now()).map((b) => ({
+            id: b.id,
+            label: b.id,
+          })),
+        onFollowCentroid: () => {
+          map2dProgramCam.setFollowCentroid()
+          applyMap2dProgramView()
+        },
+        onFollowBoat: (id) => {
+          map2dProgramCam.setFollowBoat(id)
+          applyMap2dProgramView()
+        },
+        onMap2dOffsetEast: (m) => {
+          map2dProgramCam.setOffsetEastM(m)
+          applyMap2dProgramView()
+        },
+        onMap2dOffsetNorth: (m) => {
+          map2dProgramCam.setOffsetNorthM(m)
+          applyMap2dProgramView()
+        },
+        onMap2dMetresAcross: (m) => {
+          map2dProgramCam.setMetresAcross(m)
+          applyMap2dProgramView()
+        },
+      })
+    }
     applyLocalChannelFocus(localChannelFocus)
     applySrtPlatePresentation()
+    publishSrtLayerPresets()
   }
 
   // Video still under the WebGL canvas on `app`; WHEP status attaches to the
@@ -2869,6 +3046,13 @@ void (async () => {
       },
     })
     videoStreamManager.setActivePov(sceneHandle.getActivePovId())
+    if (srtPlateChannel === 'ar') {
+      getSrtOutBridge()?.onArPov?.((povId) => {
+        if (typeof povId !== 'string' || povId.trim() === '') return
+        scene?.setActivePovId(povId)
+        videoStreamManager?.setActivePov(povId)
+      })
+    }
   }
 
   if (config.timecodeEnabled && scene) {
@@ -2957,7 +3141,6 @@ void (async () => {
   applyConfigOrigin(config.origin)
   hud.setOrigin(config.origin)
   startOpenMeteoWind({ origin: config.origin })
-  startCinematicTileWarm()
 
   // Shared GPS→ENU layout: one list for 2D map + editor.
   const world = await loadWorldForProject(raceProject)
@@ -3405,6 +3588,7 @@ void (async () => {
         fleetPanel?.setStatus(
           `SRT · ${opened}/${streams.length} caller(s) · cap ${SRT_WARM_POV_CAP}`,
         )
+        if (opened > 0) showSrtIngestOnStudioAr()
         const all = await bridge.getStatus()
         if (!srtReopenAllowed(srtHold, gen)) return
         srtStatusByPov.clear()
@@ -3659,6 +3843,9 @@ void (async () => {
     outputControl?.stop()
     outputControl = null
     localChannelSwitcher?.stop()
+    localChannelSwitcher = null
+    srtProgramBar?.stop()
+    srtProgramBar = null
     localChannelSwitcher = null
     mapEditor?.dispose()
     mapEditor = null

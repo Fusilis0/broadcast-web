@@ -18,6 +18,10 @@ Plate look (SCN). NDI pack. VPS host (operator, after local Pass). Preview clock
 
 Issue / accept [`DSP-SRT-20260909-01-local-srt-out.md`](../../dispatches/active/DSP-SRT-20260909-01-local-srt-out.md). Worker implements. Human Pass = [`SRT_HUMAN_PASS.md`](./SRT_HUMAN_PASS.md) tests **A–D**.
 
+## After 22.4b (AR without Cesium)
+
+**PRF** owns 30×3 (`DSP-PRF-20260915-01`). SRT reports encoder fps only. **Do not** change `STUDIO_TICK_FPS`. 22.3 VPS still waits.
+
 ## After local Pass
 
 Return the operator to **BW**. Do **not** invent MediaMTX ports. 22.3 waits for VPS details.

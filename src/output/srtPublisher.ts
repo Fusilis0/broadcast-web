@@ -54,13 +54,22 @@ export type SrtOutBridge = {
   stop: (opts?: SrtOutStopRequest) => Promise<{ ok: boolean; error?: string }>
   getStatus: () => Promise<Record<SrtOutChannelId, SrtOutStatus>>
   onStatus: (cb: (status: SrtOutStatus) => void) => () => void
-  sendPreviewView?: (view: unknown) => void
-  onPreviewView?: (cb: (view: unknown) => void) => () => void
+  /** 3D program-rig pose only — ops free-cam `previewView` is retired. */
+  sendProgramView?: (view: unknown) => void
+  onProgramView?: (cb: (view: unknown) => void) => () => void
+  /** 2D program-cam viewport (studio local 2D = OBS 2D). */
+  sendMap2dView?: (view: unknown) => void
+  onMap2dView?: (cb: (view: unknown) => void) => () => void
   sendWorldLook?: (look: SrtWorldLook) => void
   onWorldLook?: (cb: (look: unknown) => void) => () => void
+  sendLayerPreset?: (packet: unknown) => void
+  onLayerPreset?: (cb: (packet: unknown) => void) => () => void
+  /** Active POV so the AR plate decodes the same ingest as studio. */
+  sendArPov?: (povId: string) => void
+  onArPov?: (cb: (povId: unknown) => void) => () => void
 }
 
-/** Studio 3D look mirrored onto SRT AR/3D plates (terrain default is off). */
+/** Studio 3D look mirrored onto the SRT **3D** plate only (not AR). */
 export type SrtWorldLook = {
   environmentMode: 'simple' | 'realistic'
   seaQuality: 'high' | 'low'
@@ -93,6 +102,13 @@ export function isSrtWorldLook(raw: unknown): raw is SrtWorldLook {
 
 export function isSrtOutChannelId(raw: unknown): raw is SrtOutChannelId {
   return raw === 'ar' || raw === '3d' || raw === '2d'
+}
+
+/** 3D plate only — AR must not copy terrain / sea / buildings / heroes. */
+export function srtPlateAcceptsWorldLook(
+  channel: SrtOutChannelId | null | undefined,
+): boolean {
+  return channel === '3d'
 }
 
 /** `?srtPlate=ar|3d|2d` → chrome-free program surface (gdigrab HWND). */

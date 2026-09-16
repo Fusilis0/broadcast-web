@@ -66,7 +66,7 @@ Ops **Save tile list** downloads the **sequence JSON** with `tileWarm.contentUrl
 
 ## Ops
 
-Right-rail **Cinematics**: sequence select (default Off = race view), Play, Pause, scrub, time. **Record** (OUT) writes a silent 1080p30 MP4 in Electron. **Save tile list** writes `tileWarm.contentUrls` onto the sequence JSON for other computers. Status `tiles: warming N/M` while the prefetch runs; Play waits.
+Right-rail **Cinematics**: sequence select (default Off = race view), Play, Pause, scrub, time. **Record** (OUT) writes a silent 1080p30 MP4 in Electron. **Save tile list** writes `tileWarm.contentUrls` onto the sequence JSON for other computers. Disk cache is tile **bytes**; Play still has to decode and upload them to the GPU. Studio boot does **not** globe-tour / warm — that hitch is Play-only. Status `tiles: warming N/M` while Play prefetch runs.
 
 ## OUT Record hook
 

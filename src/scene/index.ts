@@ -8,6 +8,36 @@ export {
   type EnvironmentMode,
 } from './createScene.ts'
 export {
+  AR_FOLLOW_STALE_MS,
+  AR_PLATE_WORLD_LAYERS,
+  hasActiveArFollowTelemetry,
+  noteArFollowGps,
+  shouldApplyArFollowPose,
+} from './arProgramFollow.ts'
+export {
+  applyBuoyChannelLayers,
+  cloneSrtChannelPreset,
+  createSrtChannelPresetStore,
+  defaultSrtChannelPreset,
+  isSrtLayerPresetPacket,
+  isSrtVisibilityChannel,
+  resolveLayerVisible,
+  SRT_CHANNEL_LAYER_KEYS,
+  SRT_CHANNEL_LAYER_LABELS,
+  SRT_CHANNEL_PRESET_DEFAULTS,
+  type SrtChannelLayerKey,
+  type SrtChannelLayerPreset,
+  type SrtChannelPresetStore,
+  type SrtLayerPresetPacket,
+  type SrtVisibilityChannel,
+} from './srtChannelVisibility.ts'
+export {
+  startSrtProgramBar,
+  type SrtProgramBarHandle,
+  type SrtProgramBarOptions,
+  type SrtProgramBarFollowBoat,
+} from './srtProgramBar.ts'
+export {
   STATIC_HULL_GRID_SPACING_M,
   STATIC_HULL_LIVE_HOLD_MS,
   canApplyStaticHull,
@@ -44,6 +74,7 @@ export {
   TERRAIN_SESSION_NUDGE_KEY,
   TERRAIN_SESSION_OVERLAY_KEY,
   TERRAIN_VRAM_BYTES_TARGET,
+  SRT_PLATE_TERRAIN_ERROR_TARGET,
   createTerrainAttributionOverlay,
   CESIUM_ION_TOKEN_MAX_LEN,
   parseCesiumIonAssetId,
@@ -95,9 +126,29 @@ export {
   formatOpsViewStatus,
   isFreeCamView,
   isOpsViewMode,
+  OPS_CAM_DAMPING_FACTOR,
   type FreeCamHandle,
+  type FreeCamOptions,
   type FreeCamView,
 } from './freeCam.ts'
+export {
+  isTelemetryBoatLive,
+  PROGRAM_CAM_DAMPING_FACTOR,
+  PROGRAM_FRAME_BOATS_STALE_MS,
+  PROGRAM_WASD_TAU_SEC,
+  programCamShouldMirrorOps,
+  studioShowsProgramRig,
+} from './programCam.ts'
+export {
+  createMap2dProgramCam,
+  DEFAULT_MAP2D_METRES_ACROSS,
+  MAP2D_PROGRAM_STALE_MS,
+  isMap2dProgramView,
+  layoutCentroidEastNorth,
+  type Map2dProgramCamHandle,
+  type Map2dProgramCamState,
+  type Map2dProgramView,
+} from './map2dProgramCam.ts'
 export {
   boatIdAllowSet,
   formatBoatEnuStatus,
@@ -116,6 +167,7 @@ export {
 } from './povSwitcher.ts'
 export {
   createBoatEntity,
+  createBoatHeadingArrow,
   DEFAULT_BOAT_ID,
   normalizeBoatHullScale,
   type BoatEntityHandle,

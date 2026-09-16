@@ -1,11 +1,21 @@
 import * as THREE from 'three'
 import { poseBus, type EnuPosition, type PoseEvent } from '../pose/index.ts'
+import {
+  telemetryBus as defaultTelemetryBus,
+  type TelemetryBus,
+} from '../telemetry/index.ts'
 import { gpsToEnuAmsl } from '../geodesy/index.ts'
 import {
   createBoatEntity,
   normalizeBoatHullScale,
   type BoatEntityHandle,
 } from './boatEntity.ts'
+import {
+  applyBuoyChannelLayers,
+  cloneSrtChannelPreset,
+  defaultSrtChannelPreset,
+  type SrtChannelLayerPreset,
+} from './srtChannelVisibility.ts'
 import {
   DEFAULT_BOAT_VISIBILITY_MODE,
   normalizeBoatVisibilityMode,
@@ -63,6 +73,18 @@ import {
   type OpsViewMode,
 } from './freeCam.ts'
 import {
+  isTelemetryBoatLive,
+  PROGRAM_CAM_DAMPING_FACTOR,
+  PROGRAM_WASD_TAU_SEC,
+  programCamShouldMirrorOps,
+  studioShowsProgramRig,
+} from './programCam.ts'
+import {
+  hasActiveArFollowTelemetry,
+  noteArFollowGps,
+  shouldApplyArFollowPose,
+} from './arProgramFollow.ts'
+import {
   boatIdAllowSet,
   isAllowedBoatId,
   orphanBoatIds,
@@ -112,6 +134,7 @@ import {
   DEFAULT_TERRAIN_OVERLAY,
   DEFAULT_TERRAIN_WATER_DISCARD_Y,
   CINEMATIC_TERRAIN_VRAM_BYTES_TARGET,
+  SRT_PLATE_TERRAIN_ERROR_TARGET,
   TERRAIN_STATUS_NO_TOKEN,
   TERRAIN_STATUS_OFF,
   TERRAIN_STATUS_ON,
@@ -261,6 +284,25 @@ export type SceneOptions = {
    * HUD session `bw.heroes.enabled` is applied by the caller at boot.
    */
   heroesEnabled?: boolean
+  /**
+   * AR SRT program: Follow stays frozen until the active POV has recent
+   * usable GPS. Planned-only boats never unlock. Default off (ops / 3D).
+   */
+  followRequiresActiveGps?: boolean
+  /** Test clock for AR follow GPS freshness. Default `Date.now`. */
+  followGpsNowMs?: () => number
+  /** Telemetry bus for AR GPS lock. Default shared `telemetryBus`. */
+  telemetryBus?: TelemetryBus
+  /**
+   * Initial SRT channel layer preset. Default 3D (all on). AR plates pass
+   * tags-only so the first frame is not 3D hulls.
+   */
+  channelLayerPreset?: SrtChannelLayerPreset
+  /**
+   * 3D SRT plate: always draw the program rig; ignore ops WASD/orbit.
+   * Studio leaves this off.
+   */
+  programOutputOnly?: boolean
 }
 
 export type FleetAllowLists = {
@@ -287,14 +329,30 @@ export type SceneHandle = {
    * Ops free cam must not replace this; preview may use a different camera.
    */
   getActivePovCamera: () => THREE.PerspectiveCamera
-  /** Camera drawn to the on-screen preview (free orbit or active POV). */
+  /** Camera drawn to the on-screen preview (ops, program takeover, or POV). */
   getPreviewCamera: () => THREE.PerspectiveCamera
   /** Ops preview mode: `follow` = active POV; `free` = orbit/pan/zoom. */
   getOpsViewMode: () => OpsViewMode
-  /** Free-cam eye + orbit target (SRT 3D plate mirrors ops). */
+  /** Ops free-cam eye + orbit target. Does not move the 3D SRT program rig. */
   getFreeCamView: () => FreeCamView | null
-  /** Apply a free-cam view. Forces ops view to `free`. */
+  /** Apply an ops free-cam view. Forces ops view to `free`. */
   applyFreeCamView: (view: FreeCamView) => void
+  /** 3D SRT program-rig eye + target. Last pose holds when nobody is driving. */
+  getProgramCamView: () => FreeCamView | null
+  /** Apply a program-rig view. Does not move the ops cam. */
+  applyProgramCamView: (view: FreeCamView) => void
+  /** Bottom-bar Control 3D program latch. */
+  getControl3dProgram: () => boolean
+  /**
+   * Off: WASD/orbit is ops. On: WASD/orbit drives the damped program rig and
+   * studio 3D shows that view.
+   */
+  setControl3dProgram: (on: boolean) => void
+  /**
+   * Snap the program rig around boats with recent live telemetry.
+   * Returns how many boats were framed (0 = none — pose unchanged).
+   */
+  frameProgramBoats: () => number
   /**
    * Switch ops preview between free cam and follow-active-POV.
    * Free cam does not mutate `activePovId`.
@@ -421,6 +479,12 @@ export type SceneHandle = {
    * Independent of Alt MSL (pose ENU y). Applies even after live telem.
    */
   setBoatHeightM: (id: string, heightM?: number) => void
+  /**
+   * Apply one SRT channel layer preset to this scene (boats / buoys / boards).
+   * Authoring visible3d / mesh / tag still AND. Caller holds AR vs 3D copies.
+   */
+  setChannelLayerPreset: (preset: SrtChannelLayerPreset) => void
+  getChannelLayerPreset: () => SrtChannelLayerPreset
   /** Start / pause / reset / restart the loaded countdown (no-op if none). */
   controlCountdown: (
     action: 'start' | 'pause' | 'reset' | 'restart',
@@ -587,6 +651,20 @@ export function startScene(options: SceneOptions): SceneHandle {
   let povAllow = povIdAllowSet(povIds)
   let activePovId = resolveInitialPovId(povIds, options.droneId)
   const lastPoseByPovId = new Map<string, PoseEvent>()
+  const followRequiresActiveGps = options.followRequiresActiveGps === true
+  const followGpsNowMs = options.followGpsNowMs ?? (() => Date.now())
+  const followGpsBus = options.telemetryBus ?? defaultTelemetryBus
+  const lastFollowGpsAtMs = new Map<string, number>()
+  const unsubFollowGps = followRequiresActiveGps
+    ? followGpsBus.on('drone', (data) => {
+        noteArFollowGps(lastFollowGpsAtMs, {
+          povId: data.id,
+          lat: data.pos.lat,
+          lon: data.pos.lon,
+          receivedAtMs: followGpsNowMs(),
+        })
+      })
+    : null
   const clearColor = options.clearColor ?? 0x1a1a1a
 
   const scene = new THREE.Scene()
@@ -611,7 +689,12 @@ export function startScene(options: SceneOptions): SceneHandle {
 
   const drone = createDroneCamera(1, TEMP_HFOV_DEG)
   let freeCam: FreeCamHandle | null = null
+  let programCam: FreeCamHandle | null = null
   let opsViewMode: OpsViewMode = DEFAULT_OPS_VIEW_MODE
+  const programOutputOnly = options.programOutputOnly === true
+  let control3dProgram = false
+  /** First Control 3D program / Frame boats — stop mirroring ops into program. */
+  let programDriven = false
   let stopped = false
   const boats = new Map<string, BoatEntityHandle>()
   /** Wall-clock ms of last live boat poseBus packet (hold last live after stale). */
@@ -629,6 +712,10 @@ export function startScene(options: SceneOptions): SceneHandle {
   let positionMarkersData: PositionMarkersData | null = null
   let billboardChains: BillboardChainHandle | null = null
   let worldBuoys: WorldBuoysHandle | null = null
+  /** Currently drawn channel preset (AR vs 3D copies live in main). */
+  let channelLayerPreset: SrtChannelLayerPreset = cloneSrtChannelPreset(
+    options.channelLayerPreset ?? defaultSrtChannelPreset('3d'),
+  )
   let courseAppearance: CourseAppearance = { ...DEFAULT_COURSE_APPEARANCE }
   let flagsMeta: FlagsRemountMeta = {}
   let remountGen = 0
@@ -839,8 +926,40 @@ export function startScene(options: SceneOptions): SceneHandle {
     syncTerrainWaterHide()
   }
 
+  function followGpsIsLive(povId: string): boolean {
+    if (!followRequiresActiveGps) return true
+    return hasActiveArFollowTelemetry(
+      lastFollowGpsAtMs.get(povId),
+      followGpsNowMs(),
+    )
+  }
+
+  function cinematicLocksRigs(): boolean {
+    return !followRequiresActiveGps && cinematicPlayer.isActive()
+  }
+
+  function syncRigInput(): void {
+    if (stopped) return
+    const locked = cinematicLocksRigs()
+    const driveProgram =
+      !locked && !programOutputOnly && control3dProgram
+    const driveOps =
+      !locked && !programOutputOnly && !control3dProgram && opsViewMode === 'free'
+    freeCam?.setEnabled(driveOps)
+    programCam?.setEnabled(driveProgram)
+  }
+
   function previewCamera(): THREE.PerspectiveCamera {
-    if (cinematicPlayer.isActive()) return cinematicCamera
+    // AR program: never idle-orbit / cinematic leftover — Follow or frozen origin.
+    if (cinematicLocksRigs()) {
+      return cinematicCamera
+    }
+    if (
+      studioShowsProgramRig({ control3dProgram, programOutputOnly }) &&
+      programCam
+    ) {
+      return programCam.camera
+    }
     return opsViewMode === 'free' && freeCam
       ? freeCam.camera
       : drone.camera
@@ -849,7 +968,14 @@ export function startScene(options: SceneOptions): SceneHandle {
   function setOpsViewMode(mode: OpsViewMode): void {
     if (stopped) return
     opsViewMode = mode
-    freeCam?.setEnabled(mode === 'free' && !cinematicPlayer.isActive())
+    syncRigInput()
+  }
+
+  function setControl3dProgram(on: boolean): void {
+    if (stopped) return
+    control3dProgram = on === true
+    if (control3dProgram) programDriven = true
+    syncRigInput()
   }
 
   function frameEnuPoint(
@@ -878,6 +1004,29 @@ export function startScene(options: SceneOptions): SceneHandle {
     const radius = Math.max(size.length() * 0.5, 60)
     frameEnuPoint({ x: center.x, y: center.y, z: center.z }, radius)
     return boats.size
+  }
+
+  function frameProgramBoats(): number {
+    if (stopped || !programCam) return 0
+    const nowMs = Date.now()
+    const box = new THREE.Box3()
+    let n = 0
+    for (const [id, boat] of boats) {
+      if (boat.getVisibilityMode() === 'hidden') continue
+      if (!isTelemetryBoatLive(lastLiveBoatAt.get(id), nowMs)) continue
+      box.expandByObject(boat.root)
+      n += 1
+    }
+    if (n === 0 || box.isEmpty()) return 0
+    programDriven = true
+    const center = box.getCenter(new THREE.Vector3())
+    const size = box.getSize(new THREE.Vector3())
+    const radius = Math.max(size.length() * 0.5, 60)
+    programCam.frameTarget(
+      new THREE.Vector3(center.x, center.y, center.z),
+      radius,
+    )
+    return n
   }
 
   function captureFlagsMeta(data: CountdownFlagsData): void {
@@ -926,8 +1075,15 @@ export function startScene(options: SceneOptions): SceneHandle {
     lockedOut ? 1 : Math.min(window.devicePixelRatio, 2),
   )
   options.container.appendChild(renderer.domElement)
-  freeCam = createFreeCam(renderer.domElement, 1, TEMP_HFOV_DEG)
-  setOpsViewMode(opsViewMode)
+  freeCam = createFreeCam(renderer.domElement, 1, TEMP_HFOV_DEG, {
+    name: 'opsFreeCam',
+  })
+  programCam = createFreeCam(renderer.domElement, 1, TEMP_HFOV_DEG, {
+    name: 'programCam',
+    dampingFactor: PROGRAM_CAM_DAMPING_FACTOR,
+    wasdTauSec: PROGRAM_WASD_TAU_SEC,
+  })
+  syncRigInput()
   cloudOverlay = createCloudOverlay()
 
   // Log + gate preview while GL is dead. preventDefault is required for restore;
@@ -1052,14 +1208,22 @@ export function startScene(options: SceneOptions): SceneHandle {
     if (stopped) return null
     if (terrain) return terrain
     if (terrainToken === '') return null
+    const plate = programOutputOnly
     terrain = createTerrain({
       renderer,
       token: terrainToken,
       assetId: terrainAssetId,
       imageryAssetId: terrainImageryAssetId,
       reorient: terrainReorient,
-      fadeTiles: cinematicTerrainFrame === null && !cinematicPlayer.isActive(),
-      unloadTiles: cinematicTerrainFrame === null && !cinematicPlayer.isActive(),
+      fadeTiles:
+        !plate &&
+        cinematicTerrainFrame === null &&
+        !cinematicPlayer.isActive(),
+      unloadTiles:
+        !plate &&
+        cinematicTerrainFrame === null &&
+        !cinematicPlayer.isActive(),
+      errorTarget: plate ? SRT_PLATE_TERRAIN_ERROR_TARGET : undefined,
       vramBytesTarget:
         cinematicTerrainFrame !== null || cinematicPlayer.isActive()
           ? CINEMATIC_TERRAIN_VRAM_BYTES_TARGET
@@ -1083,6 +1247,7 @@ export function startScene(options: SceneOptions): SceneHandle {
     terrain.setTilesLocked(terrainTilesLocked)
     terrain.setEnabled(terrainEnabled)
     terrain.setOpaqueClearSafe(environmentOpaqueClearSafe)
+    if (plate) terrain.setErrorTarget(SRT_PLATE_TERRAIN_ERROR_TARGET)
     syncTerrainWaterHide()
     return terrain
   }
@@ -1186,6 +1351,7 @@ export function startScene(options: SceneOptions): SceneHandle {
       const aspect = width / height
       drone.setAspect(aspect)
       freeCam?.setAspect(aspect)
+      programCam?.setAspect(aspect)
       cinematicCamera.aspect = aspect
       cinematicCamera.fov = horizontalToVerticalFovDeg(TEMP_HFOV_DEG, aspect)
       cinematicCamera.updateProjectionMatrix()
@@ -1208,6 +1374,7 @@ export function startScene(options: SceneOptions): SceneHandle {
     const aspect = width / height
     drone.setAspect(aspect)
     freeCam?.setAspect(aspect)
+    programCam?.setAspect(aspect)
     cinematicCamera.aspect = aspect
     cinematicCamera.fov = horizontalToVerticalFovDeg(TEMP_HFOV_DEG, aspect)
     cinematicCamera.updateProjectionMatrix()
@@ -1235,6 +1402,7 @@ export function startScene(options: SceneOptions): SceneHandle {
     })
     boats.set(id, boat)
     scene.add(boat.root)
+    applyBoatChannelLayers(boat)
     if (!raceChromeVisible(cinematicPlayer.isActive())) {
       boat.root.visible = false
     }
@@ -1244,6 +1412,14 @@ export function startScene(options: SceneOptions): SceneHandle {
   function onPose(pose: PoseEvent): void {
     if (pose.kind === 'drone') {
       if (!isAllowedPovId(pose.id, povAllow)) return
+      if (
+        !shouldApplyArFollowPose({
+          followRequiresActiveGps,
+          gpsLive: followGpsIsLive(pose.id),
+        })
+      ) {
+        return
+      }
       lastPoseByPovId.set(pose.id, pose)
       if (pose.id === activePovId) {
         drone.applyPose(pose)
@@ -1302,12 +1478,31 @@ export function startScene(options: SceneOptions): SceneHandle {
     })
   }
 
+  function parkArFollowAtOrigin(povId: string): void {
+    drone.applyPose({
+      id: povId,
+      kind: 'drone',
+      position: { x: 0, y: 0, z: 0 },
+      rotation: { yawDeg: 0, pitchDeg: 0, rollDeg: 0 },
+      fovHDeg: TEMP_HFOV_DEG,
+      ts: 0,
+    })
+  }
+
+  function applyCachedOrFrozenFollow(povId: string): void {
+    const cached = lastPoseByPovId.get(povId)
+    if (cached) {
+      drone.applyPose(cached)
+      return
+    }
+    if (followRequiresActiveGps) parkArFollowAtOrigin(povId)
+  }
+
   function setActivePovId(id: string): boolean {
     if (!isAllowedPovId(id, povAllow)) return false
     if (id === activePovId) return true
     activePovId = id
-    const cached = lastPoseByPovId.get(id)
-    if (cached) drone.applyPose(cached)
+    applyCachedOrFrozenFollow(id)
     options.onActivePovChange?.(id)
     return true
   }
@@ -1330,12 +1525,14 @@ export function startScene(options: SceneOptions): SceneHandle {
     for (const id of orphanPovCacheIds(lastPoseByPovId.keys(), povAllow)) {
       lastPoseByPovId.delete(id)
     }
+    for (const id of orphanPovCacheIds(lastFollowGpsAtMs.keys(), povAllow)) {
+      lastFollowGpsAtMs.delete(id)
+    }
 
     const nextActive = clampActivePovId(activePovId, povIds)
     if (nextActive !== activePovId) {
       activePovId = nextActive
-      const cached = lastPoseByPovId.get(activePovId)
-      if (cached) drone.applyPose(cached)
+      applyCachedOrFrozenFollow(activePovId)
       options.onActivePovChange?.(activePovId)
     }
     return activePovId
@@ -1358,23 +1555,42 @@ export function startScene(options: SceneOptions): SceneHandle {
     }
   }
 
+  function applyBoatChannelLayers(boat: BoatEntityHandle): void {
+    boat.setChannelLayers({
+      boatModel: channelLayerPreset.boatModel,
+      boatTag: channelLayerPreset.boatTag,
+      headingArrow: channelLayerPreset.boatHeadingArrow,
+    })
+  }
+
+  function applyChannelLayersNow(): void {
+    const preset = channelLayerPreset
+    const chrome = raceChromeVisible(cinematicPlayer.isActive())
+    for (const boat of boats.values()) {
+      applyBoatChannelLayers(boat)
+    }
+    if (course) applyBuoyChannelLayers(course.root, preset)
+    if (worldBuoys) applyBuoyChannelLayers(worldBuoys.root, preset)
+    if (sponsors) sponsors.root.visible = chrome && preset.sponsors
+    if (billboardChains) billboardChains.root.visible = chrome && preset.billboards
+    if (lineSigns) lineSigns.root.visible = chrome && preset.startFinish
+  }
+
   function applyRaceChromeVisible(): void {
     const vis = raceChromeVisible(cinematicPlayer.isActive())
     for (const boat of boats.values()) {
       boat.root.visible = vis
     }
     if (course) course.root.visible = vis
-    if (sponsors) sponsors.root.visible = vis
     if (countdownFlags) countdownFlags.root.visible = vis
-    if (lineSigns) lineSigns.root.visible = vis
     if (worldBuoys) worldBuoys.root.visible = vis
-    if (billboardChains) billboardChains.root.visible = vis
     if (positionMarkers) positionMarkers.root.visible = vis
     if (!vis) {
       calibrationOverlay.setEnabled(false)
     } else if (lookSnapshot) {
       calibrationOverlay.setEnabled(lookSnapshot.calibrationEnabled)
     }
+    applyChannelLayersNow()
   }
 
   function applyCinematicLook(sample: CinematicSample): void {
@@ -1455,7 +1671,7 @@ export function startScene(options: SceneOptions): SceneHandle {
     buildings?.setErrorTarget(BUILDINGS_ERROR_TARGET)
     syncLandmarks()
     applyRaceChromeVisible()
-    freeCam?.setEnabled(opsViewMode === 'free')
+    syncRigInput()
     emitWarmStatus({ ...WARM_STATUS_IDLE })
   }
 
@@ -1696,7 +1912,7 @@ export function startScene(options: SceneOptions): SceneHandle {
     cinematicPlayer.play()
     const sample = cinematicPlayer.sync()
     if (sample) applyCinematicLook(sample)
-    freeCam?.setEnabled(false)
+    syncRigInput()
     emitCinematicTransport()
   }
 
@@ -1712,10 +1928,10 @@ export function startScene(options: SceneOptions): SceneHandle {
     if (stopped || webglContextLost) return
     try {
       const dt = Math.min(clock.getDelta(), 0.1)
-      if (cinematicPlayer.isActive()) {
+      if (cinematicLocksRigs()) {
         const sample = cinematicPlayer.sync()
         if (sample) applyCinematicLook(sample)
-        freeCam?.setEnabled(false)
+        syncRigInput()
         if (cinematicCoverUntilTilesReady) {
           cloudOverlay?.setOpacity(1)
           const coverMs = performance.now() - cinematicCoverStartedAt
@@ -1725,10 +1941,25 @@ export function startScene(options: SceneOptions): SceneHandle {
             cinematicPlayer.play()
           }
         }
-      } else if (opsViewMode === 'free') {
+      } else if (control3dProgram && !programOutputOnly) {
+        programCam?.update(dt)
+      } else if (!programOutputOnly && opsViewMode === 'free') {
         freeCam?.update(dt)
       }
+      if (
+        programCamShouldMirrorOps({
+          programOutputOnly,
+          control3dProgram,
+          programDriven,
+        })
+      ) {
+        const ops = freeCam?.getView()
+        if (ops) programCam?.setView(ops)
+      }
       const cam = previewCamera()
+      if (programOutputOnly) {
+        cam.updateMatrixWorld()
+      }
       countdownFlags?.tickClock(dt)
       // Foam wakes share this tick (preview rAF / studio when hidden). Do not
       // raise STUDIO_TICK_FPS or add a second clock.
@@ -1823,6 +2054,14 @@ export function startScene(options: SceneOptions): SceneHandle {
       setOpsViewMode('free')
       freeCam.setView(view)
     },
+    getProgramCamView: () => (programCam ? programCam.getView() : null),
+    applyProgramCamView(view: FreeCamView): void {
+      if (!isFreeCamView(view) || !programCam) return
+      programCam.setView(view)
+    },
+    getControl3dProgram: () => control3dProgram,
+    setControl3dProgram,
+    frameProgramBoats,
     frameFleet,
     frameEnuPoint,
     getBoatEnuPosition(id): { x: number; y: number; z: number } | null {
@@ -1867,6 +2106,7 @@ export function startScene(options: SceneOptions): SceneHandle {
       course = handle
       if (handle) courseAppearance = { ...handle.appearance }
       applyWaterCueForEnvironment()
+      applyChannelLayersNow()
       return handle
     },
     async loadSponsorsFromUrl(url?: string): Promise<SponsorsHandle | null> {
@@ -1880,6 +2120,7 @@ export function startScene(options: SceneOptions): SceneHandle {
       }
       sponsors = handle
       mergeOceanSuppressSponsors(handle?.worldFeatures ?? [])
+      applyChannelLayersNow()
       return handle
     },
     async loadCountdownFlagsFromUrl(
@@ -2147,6 +2388,14 @@ export function startScene(options: SceneOptions): SceneHandle {
       }
       boats.get(trimmed)?.setHullScale(scale)
     },
+    setChannelLayerPreset(preset): void {
+      if (stopped) return
+      channelLayerPreset = cloneSrtChannelPreset(preset)
+      applyChannelLayersNow()
+    },
+    getChannelLayerPreset(): SrtChannelLayerPreset {
+      return cloneSrtChannelPreset(channelLayerPreset)
+    },
     controlCountdown(action): void {
       if (!countdownFlags) return
       if (action === 'start') countdownFlags.start()
@@ -2348,7 +2597,7 @@ export function startScene(options: SceneOptions): SceneHandle {
       const sample = cinematicPlayer.sync()
       if (sample) applyCinematicLook(sample)
       if (!cinematicLockHeld) beginCinematicTileLock()
-      freeCam?.setEnabled(false)
+      syncRigInput()
       emitCinematicTransport()
     },
     stopCinematic(): void {
@@ -2422,6 +2671,8 @@ export function startScene(options: SceneOptions): SceneHandle {
         false,
       )
       unsubPose()
+      unsubFollowGps?.()
+      lastFollowGpsAtMs.clear()
       cinematicPlayer.stop()
       cinematicPins.dispose()
       scene.remove(cinematicPins.root)
@@ -2439,6 +2690,9 @@ export function startScene(options: SceneOptions): SceneHandle {
       cloudOverlay = null
       freeCam?.dispose()
       freeCam = null
+      programCam?.dispose()
+      programCam = null
+      control3dProgram = false
       opsViewMode = DEFAULT_OPS_VIEW_MODE
       calibrationOverlay.dispose()
       if (realisticEnvMounted && realisticEnv) {

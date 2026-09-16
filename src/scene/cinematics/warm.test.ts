@@ -49,6 +49,23 @@ afterEach(() => {
   resetCinematicTileFetchCacheForTests()
 })
 
+describe('studio boot does not globe-tour tiles', () => {
+  it('Play still warms; main.ts does not auto-warm on project load', () => {
+    const main = readFileSync(
+      resolve(__dirname, '../../main.ts'),
+      'utf8',
+    )
+    expect(main).not.toMatch(/startCinematicTileWarm/)
+    expect(main).not.toMatch(/warmCinematicTiles\(\)/)
+    const scene = readFileSync(
+      resolve(__dirname, '../createScene.ts'),
+      'utf8',
+    )
+    expect(scene).toMatch(/playCinematicAfterWarm/)
+    expect(scene).toMatch(/warmCinematicTiles\(/)
+  })
+})
+
 describe('parseWarmManifest', () => {
   it('accepts the shipped intro-bosphorus warm file (regions, no binaries)', () => {
     const raw = JSON.parse(readFileSync(MANIFEST_PATH, 'utf8')) as unknown

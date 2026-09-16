@@ -1,8 +1,8 @@
 # Phases Roadmap — broadcast-web
 
 **Owner:** BW  
-**Updated:** 2026-09-13  
-**Design:** [`../architecture/race-projects-and-world-authoring.md`](../architecture/race-projects-and-world-authoring.md) · air: [`../ops/air-runbook.md`](../ops/air-runbook.md) · **Phase 19:** [`../architecture/phase19-senexus-qol.md`](../architecture/phase19-senexus-qol.md) · **20–22:** [`../architecture/3d-environment-buildings.md`](../architecture/3d-environment-buildings.md) · [`../architecture/commercial-video.md`](../architecture/commercial-video.md) · [`../architecture/srt-egress.md`](../architecture/srt-egress.md)
+**Updated:** 2026-09-15  
+**Design:** [`../architecture/race-projects-and-world-authoring.md`](../architecture/race-projects-and-world-authoring.md) · air: [`../ops/air-runbook.md`](../ops/air-runbook.md) · **Phase 19:** [`../architecture/phase19-senexus-qol.md`](../architecture/phase19-senexus-qol.md) · **20–22:** [`../architecture/3d-environment-buildings.md`](../architecture/3d-environment-buildings.md) · [`../architecture/commercial-video.md`](../architecture/commercial-video.md) · [`../architecture/srt-egress.md`](../architecture/srt-egress.md) · [`../architecture/srt-program-cameras.md`](../architecture/srt-program-cameras.md)
 
 ---
 
@@ -15,12 +15,12 @@
 | **Preferred air** | **Phase 22 open.** SRT AR/3D/2D; NDI hidden, code kept. Local OBS 30×3 first; VPS later. |
 | **Frame budgets** | **PRF** — ops preview ~60 rAF. Never `STUDIO_TICK_FPS = 60`. NDI 30×3 **closed**. **SRT local Pass = 30×3 in OBS.** [`../architecture/performance-budgets.md`](../architecture/performance-budgets.md) |
 | **SRT ingest** | **SRT** — Electron caller, catalog cams 1–27, HEVC decode / ffmpeg fallback. [`BOOTSTRAP_SRT.md`](../agentic/dispatches/BOOTSTRAP_SRT.md) |
-| **App egress (SRT)** | **Phase 22** — three callers (AR, 3D, 2D). NDI parked. VPS later. [`../architecture/srt-egress.md`](../architecture/srt-egress.md) |
+| **App egress (SRT)** | **Phase 22** — three callers. 22.4 program cams. VPS later. [`../architecture/srt-egress.md`](../architecture/srt-egress.md) · [`../architecture/srt-program-cameras.md`](../architecture/srt-program-cameras.md) |
 | **v1 focus** | **Visual parity + ops QoL** (assets, maps, tags, editor), then LAN project features, then Unity cutover. |
 
 ### Current pointer
 
-**Open now: Phase 22 — local SRT AR+3D+2D.** Hide NDI. OBS on this PC. Pass = **30/30/30** visible. VPS **after** that Pass. Briefs: [`../agentic/briefs/phase22/README.md`](../agentic/briefs/phase22/README.md). First worker: `DSP-SRT-20260909-01-local-srt-out`.
+**Open now: Phase 22.4 Human Pass** (workers code-complete). Eye-check **E–I + A** in [`../agentic/briefs/phase22/SRT_HUMAN_PASS.md`](../agentic/briefs/phase22/SRT_HUMAN_PASS.md). VPS **after** fps Pass.
 
 Phase 21 cinematic is **code-complete**; Record Human Pass can finish in parallel and does not block this local SRT slice.
 
@@ -455,20 +455,26 @@ Silent **1080p30 MP4**. vMix plays it; app waits. Globe + ENU, cloud seam. Aeria
 
 ### Phase 22 — SRT AR + 3D + 2D out; NDI parked *(OPEN — local first)*
 
-**Design:** [`../architecture/srt-egress.md`](../architecture/srt-egress.md)  
+**Design:** [`../architecture/srt-egress.md`](../architecture/srt-egress.md) · [`../architecture/srt-program-cameras.md`](../architecture/srt-program-cameras.md)  
 **Briefs:** [`../agentic/briefs/phase22/README.md`](../agentic/briefs/phase22/README.md)
 
-Three SRT **caller** publishes at once; per-channel stop. ffmpeg children + GPU encode; **not** NDI UYVY IPC. NDI **code kept**, UI **hidden**. **Local OBS 30×3 is the first Pass.** VPS/relay **after** that Pass.
+Three SRT **caller** publishes at once; per-channel stop. ffmpeg children + GPU encode; **not** NDI UYVY IPC. NDI **code kept**, UI **hidden**. **OBS 3D picture Pass 2026-09-15.** 22.4 workers **code-complete**; Human Pass **E–I + A** open. VPS/relay **after** fps Pass.
 
 | # | Work | Owner | Notes |
 | --- | --- | --- | --- |
-| 22.1 | Three program surfaces + ffmpeg SRT to `127.0.0.1` | SRT + OUT + PLT | `DSP-SRT-20260909-01` **code-complete**. Human: [`../ops/srt-human-pass.md`](../ops/srt-human-pass.md) **A** 30×3, **B** OBS 3D sea+terrain |
+| 22.1 | Three program surfaces + ffmpeg SRT to `127.0.0.1` | SRT + OUT + PLT | `DSP-SRT-20260909-01` **code-complete**. Human **A** still fps; **B** 3D look **Pass 2026-09-15** |
 | 22.2 | Hide NDI Send UI | OUT (in 22.1 DSP) | Defaults already off; do not delete pumps |
-| 22.1b | LAN: one other PC listens | Human | Task **C** in `srt-human-pass.md`. Studio caller → receiver IPv4. After A. No code until Fail. |
-| 22.3 | Relay URLs | SRT + PLT | **Wait** — after local 30×3 Pass, operator gives VPS |
+| 22.1b | LAN: one other PC listens | Human | Task **C** in `srt-human-pass.md` |
+| 22.4a | AR plate **1920×1080** (no 2K crop) | OUT | `DSP-OUT-20260915-01` **code-complete** — Human **E** |
+| 22.4b | AR look: no terrain/sea/heroes; freeze until telemetry | SCN | `DSP-SCN-20260915-01` **code-complete** — Human **F** |
+| 22.4c | Per-channel visibility + bottom bar layers | SCN | `DSP-SCN-20260915-02` **code-complete** — Human **G** |
+| 22.4d | 3D **program rig** + Control 3D program | SCN | `DSP-SCN-20260915-03` **code-complete** — Human **H** |
+| 22.4e | 2D program cam (centroid / boat / offsets) | SCN | `DSP-SCN-20260915-04` **code-complete** — Human **I** |
+| 22.4f | OBS **~30/30/30** (16×3 Fail) | PRF | `DSP-PRF-20260915-01` **code-complete** — Human **A**. **Do not** change `STUDIO_TICK_FPS` |
+| 22.3 | Relay URLs | SRT + PLT | **Wait** — after 30×3 Pass, operator gives VPS |
 
-**Local exit (now):** Human **A** + **B** (`srt-human-pass.md`).  
-**LAN exit:** Human **C** (one receiver). Fan-out / VPS only after that.
+**Local exit:** Human **A** fps + AR/2D picture per `srt-program-cameras.md`. **3D look already Pass.**  
+**LAN exit:** Human **C**. Fan-out / VPS only after fps Pass.
 
 ---
 

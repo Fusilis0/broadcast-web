@@ -23,6 +23,8 @@ import {
 import {
   createDefaultMapView,
   fitMapViewToBounds,
+  MAX_HALF_EXTENT_N,
+  MIN_HALF_EXTENT_N,
   panMapView,
   viewToMapBounds,
   wheelZoomFactor,
@@ -30,6 +32,11 @@ import {
   type MapBounds,
   type MapViewState,
 } from './map2dView.ts'
+import {
+  DEFAULT_MAP2D_METRES_ACROSS,
+  layoutCentroidEastNorth,
+  metresAcrossToHalfExtentN,
+} from './map2dProgramCam.ts'
 import {
   drawMapBoatIcon,
   drawMapDroneIcon,
@@ -361,6 +368,14 @@ export type Map2dHandle = {
   setGeoBridge: (bridge: BasemapGeoBridge | null) => void
   /** Reset pan/zoom to fit current fleet + features. */
   resetView: () => void
+  /** Current viewport (ENU). Stream is the 2D program cam, not auto-fit. */
+  getView: () => MapViewState
+  /**
+   * Apply a viewport. Stream forces `autoFit: false` (program cam / plate IPC).
+   */
+  setView: (next: MapViewState) => void
+  /** ENU centroid of layout features (course fallback when no GPS boats). */
+  getLayoutCentroid: () => { east: number; north: number } | null
   /**
    * Center the viewport on an ENU point (ops Focus). Disables auto-fit.
    * `halfExtentN` defaults to a medium close-up (~80 m half-height).
@@ -509,7 +524,14 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
   let selectedIds = new Set<string>()
   let hiddenPoseIds = new Set<string>()
   let lastBounds: MapBounds = boundsFromPoints([], [], [])
-  let view: MapViewState = createDefaultMapView()
+  let view: MapViewState = isStream
+    ? {
+        centerE: 0,
+        centerN: 0,
+        halfExtentN: metresAcrossToHalfExtentN(DEFAULT_MAP2D_METRES_ACROSS),
+        autoFit: false,
+      }
+    : createDefaultMapView()
   let interactive = false
   let snapGuide: MapEnuPoint | null = null
   let draftSegment: MapDraftSegment | null = null
@@ -584,6 +606,22 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
       centerN: north,
       halfExtentN: half,
       autoFit: false,
+    }
+    redraw()
+  }
+
+  function setView(next: MapViewState): void {
+    const half = Number.isFinite(next.halfExtentN)
+      ? Math.min(
+          MAX_HALF_EXTENT_N,
+          Math.max(MIN_HALF_EXTENT_N, next.halfExtentN),
+        )
+      : view.halfExtentN
+    view = {
+      centerE: Number.isFinite(next.centerE) ? next.centerE : view.centerE,
+      centerN: Number.isFinite(next.centerN) ? next.centerN : view.centerN,
+      halfExtentN: half,
+      autoFit: isStream ? false : next.autoFit === true,
     }
     redraw()
   }
@@ -892,7 +930,8 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
         return
       }
     }
-    // Pan with drag always (ops + stream); editor clicks still fire on click.
+    // Ops map pans. Stream 2D is the program cam (offsets/zoom on the bar).
+    if (isStream) return
     panPointerId = ev.pointerId
     panLast = canvasLocal(ev)
     panMoved = false
@@ -914,6 +953,7 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
   }
 
   function onWheel(ev: WheelEvent): void {
+    if (isStream) return
     ev.preventDefault()
     const { east, north } = enuFromEvent(ev)
     // Ensure lastBounds matches current view before zooming.
@@ -1293,6 +1333,13 @@ export function createMap2d(options: Map2dOptions = {}): Map2dHandle {
       redraw()
     },
     resetView,
+    getView(): MapViewState {
+      return { ...view }
+    },
+    setView,
+    getLayoutCentroid() {
+      return layoutCentroidEastNorth(layoutFeatures)
+    },
     focusEnu,
     setHiddenPoseIds(ids): void {
       hiddenPoseIds =

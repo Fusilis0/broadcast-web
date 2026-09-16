@@ -18,7 +18,8 @@ describe('normalizeEnvironmentMode', () => {
     expect(normalizeEnvironmentMode('realistic')).toBe('realistic')
   })
 
-  it('defaults invalid values to simple', () => {
+  it('defaults missing to realistic; garbage stays simple', () => {
+    expect(DEFAULT_ENVIRONMENT_MODE).toBe('realistic')
     expect(normalizeEnvironmentMode(undefined)).toBe(DEFAULT_ENVIRONMENT_MODE)
     expect(normalizeEnvironmentMode('nope')).toBe('simple')
     expect(normalizeEnvironmentMode(1)).toBe('simple')

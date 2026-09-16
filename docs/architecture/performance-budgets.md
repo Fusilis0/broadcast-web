@@ -14,7 +14,7 @@ This is the source of truth for **how often** things run. Visual quality lives i
 | NDI **AR** (air plate) | **parked** | `studio:tick` (60 Hz) | Code kept. Not the air path. Do not climb 30×3. |
 | NDI **3D** | **parked** | `studio:tick` (60 Hz) | Code kept. Not the air path. |
 | NDI **2D** (stream map) | **parked** | — | NDI 30×3 **closed**. Do not climb. Phase 22 air is SRT. |
-| SRT **AR / 3D / 2D** | **30 / 30 / 30** (local Pass) | ffmpeg children | DXGI/GDI grab → `h264_amf` → SRT caller. **Not** UYVY/grandi. OBS on `127.0.0.1` is the first proof. |
+| SRT **AR / 3D / 2D** | **30 / 30 / 30** (local Pass) | ffmpeg children | Plate `paint` → BGRA pipe (`h264_amf`) → SRT caller. **Not** UYVY/grandi. OBS on `127.0.0.1` is the first proof. Do not 60 Hz `invalidate()` plates; do not dual `paint`+`beginFrameSubscription`. Pipe highWaterMark must hold ≥2×1080 BGRA frames (16 KB default NAKs every write). |
 | `desktop/main.cjs` `STUDIO_TICK_FPS` | **60** | main process | NDI capture clock. Preview stays rAF. Do not change this constant. |
 
 On the PBO path both NDI FBO renders may share a tick. Async PBO **readback** may still complete on a skipped (rate-capped) tick. Check PBO slot capacity **before** the 1080p render. 2D is not an FBO and does not occupy a stagger slot. Sync-readback fallback keeps one blocking FBO per window.

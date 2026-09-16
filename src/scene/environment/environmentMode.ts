@@ -3,8 +3,8 @@
  *
  * | Mode | Behaviour |
  * | --- | --- |
- * | `simple` | Clear color + localized `waterCue` pad only (AR-safe default) |
- * | `realistic` | Gerstner ocean + `Sky` (+ fog) when opaque clear allows it |
+ * | `simple` | Clear color + localized `waterCue` pad only (AR-safe; SRT AR plate) |
+ * | `realistic` | Gerstner ocean + `Sky` (+ fog) when opaque clear allows it (studio default) |
  *
  * Realistic meshes must **never** draw under `transparent` / `chroma` clears —
  * they would paint opaque sea/sky into the AR alpha plate.
@@ -14,7 +14,7 @@ export type EnvironmentMode = 'simple' | 'realistic'
 /** Clipmap / shore-foam LOD for the Gerstner sea (Phase 15.2). */
 export type SeaQuality = 'high' | 'low'
 
-export const DEFAULT_ENVIRONMENT_MODE: EnvironmentMode = 'simple'
+export const DEFAULT_ENVIRONMENT_MODE: EnvironmentMode = 'realistic'
 
 /**
  * Default **high**: inner 32 segs + 7 rings (rim 6144 m, past fogFar 5200) +
@@ -48,9 +48,10 @@ export function isEnvironmentMode(v: unknown): v is EnvironmentMode {
   return typeof v === 'string' && (MODES as readonly string[]).includes(v)
 }
 
-/** Soft parse — invalid / missing → `simple`. */
+/** Soft parse — missing → studio default (`realistic`). Garbage → `simple`. */
 export function normalizeEnvironmentMode(v: unknown): EnvironmentMode {
-  return isEnvironmentMode(v) ? v : DEFAULT_ENVIRONMENT_MODE
+  if (v === undefined || v === null || v === '') return DEFAULT_ENVIRONMENT_MODE
+  return isEnvironmentMode(v) ? v : 'simple'
 }
 
 export function isSeaQuality(v: unknown): v is SeaQuality {

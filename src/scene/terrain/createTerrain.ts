@@ -94,6 +94,11 @@ export type CreateTerrainOptions = {
    */
   vramBytesTarget?: number
   /**
+   * Pin `TilesRenderer.errorTarget` after QuantizedMeshPlugin registers
+   * (`useRecommendedSettings` otherwise overwrites it to 2).
+   */
+  errorTarget?: number
+  /**
    * Road overlay (ion 4) failed — parent may remount with Aerial 2.
    * Not called for World Terrain root 401s.
    */
@@ -273,6 +278,15 @@ export function createTerrain(options: CreateTerrainOptions): TerrainHandle {
   let statusExtra = ''
   const registeredCameras = new Set<THREE.Camera>()
   let reorient: ReorientationPlugin | null = null
+  let pinnedErrorTarget =
+    Number.isFinite(options.errorTarget) && (options.errorTarget as number) > 0
+      ? Number(options.errorTarget)
+      : null
+
+  function applyPinnedErrorTarget(): void {
+    if (pinnedErrorTarget == null) return
+    tiles.errorTarget = pinnedErrorTarget
+  }
 
   function applyNudge(): void {
     root.position.set(0, finiteNudge(nudgeM), 0)
@@ -386,6 +400,7 @@ export function createTerrain(options: CreateTerrainOptions): TerrainHandle {
               smoothSkirtNormals: true,
             }),
           )
+          applyPinnedErrorTarget()
         },
       }),
     )
@@ -511,6 +526,7 @@ export function createTerrain(options: CreateTerrainOptions): TerrainHandle {
     setErrorTarget(value: number): void {
       if (disposed) return
       const next = Number.isFinite(value) && value > 0 ? value : 16
+      if (pinnedErrorTarget != null) pinnedErrorTarget = next
       tiles.errorTarget = next
     },
     getErrorTarget: () => tiles.errorTarget ?? 16,
@@ -531,6 +547,7 @@ export function createTerrain(options: CreateTerrainOptions): TerrainHandle {
         registeredCameras,
       )
 
+      applyPinnedErrorTarget()
       if (!tilesLocked) {
         tiles.update()
       }

@@ -11,6 +11,7 @@ import {
   isFreeCamView,
   isOpsViewMode,
   isTypingTarget,
+  OPS_CAM_DAMPING_FACTOR,
   wasdGroundDelta,
   wasdSpeedMps,
 } from './freeCam.ts'
@@ -73,6 +74,20 @@ describe('free cam WASD', () => {
     const { forward: f } = cameraGroundBasis(cam)
     expect(f.y).toBeCloseTo(0)
     expect(f.length()).toBeCloseTo(1)
+  })
+
+  it('exports ops damping and accepts program options', () => {
+    expect(OPS_CAM_DAMPING_FACTOR).toBe(0.08)
+    const host = document.createElement('div')
+    document.body.append(host)
+    const handle = createFreeCam(host, 1, 73, {
+      name: 'programCam',
+      dampingFactor: 0.035,
+      wasdTauSec: 0.25,
+    })
+    expect(handle.camera.name).toBe('programCam')
+    handle.dispose()
+    host.remove()
   })
 
   it('translates camera and pivot together while enabled', () => {

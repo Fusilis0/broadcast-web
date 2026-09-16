@@ -11,6 +11,7 @@ import {
   getSrtOutBridge,
   isSrtWorldLook,
   parseSrtPlateQuery,
+  srtPlateAcceptsWorldLook,
   SRT_OUT_DEFAULT_URLS,
   SRT_OUT_TITLES,
   type SrtOutBridge,
@@ -41,6 +42,13 @@ const cjs = require('../../desktop/srtPublisher.cjs') as {
     }
   }) => string[]
   parseFfmpegFps: (chunk: string) => number | null
+  parseFfmpegFrame: (chunk: string) => number | null
+  instantFpsFromFrames: (
+    prevFrame: number | null,
+    prevAtMs: number | null,
+    frame: number,
+    nowMs: number,
+  ) => number | null
   resolvePublishUrl: (
     url: string,
   ) => { ok: true; href: string } | { ok: false; error: string }
@@ -81,22 +89,46 @@ describe('nativeImageToSrtBgra', () => {
     ) => Buffer | null
     inferBgraSize: (
       buf: Buffer,
-      reported?: { width: number; height: number },
+      reported?: { width: number; height: number; scaleFactor?: number } | null,
     ) => { width: number; height: number } | null
   }
 
-  it('resizes and clips to 1920×1080 BGRA', () => {
+  function fillBgra(
+    src: Buffer,
+    srcW: number,
+    srcH: number,
+    fn: (x: number, y: number) => [number, number, number, number],
+  ): void {
+    for (let y = 0; y < srcH; y++) {
+      for (let x = 0; x < srcW; x++) {
+        const i = (y * srcW + x) * 4
+        const px = fn(x, y)
+        src[i] = px[0]
+        src[i + 1] = px[1]
+        src[i + 2] = px[2]
+        src[i + 3] = px[3]
+      }
+    }
+  }
+
+  it('scales a small bitmap to 1920×1080 BGRA (does not NativeImage.resize)', () => {
+    let resized = false
     const out = capture.nativeImageToSrtBgra({
       isEmpty: () => false,
       getSize: () => ({ width: 16, height: 9 }),
-      resize: () => ({
-        getSize: () => ({ width: 1920, height: 1080 }),
-        toBitmap: () => Buffer.alloc(1920 * 1080 * 4, 3),
-      }),
+      resize: () => {
+        resized = true
+        return {
+          getSize: () => ({ width: 1920, height: 1080 }),
+          toBitmap: () => Buffer.alloc(1920 * 1080 * 4, 3),
+        }
+      },
       toBitmap: () => Buffer.alloc(16 * 9 * 4, 7),
     })
+    expect(resized).toBe(false)
     expect(out).toBeInstanceOf(Buffer)
     expect(out?.length).toBe(1920 * 1080 * 4)
+    expect(out?.[0]).toBe(7)
   })
 
   it('scales a HiDPI 2K bitmap instead of cropping the top 1080p', () => {
@@ -113,9 +145,93 @@ describe('nativeImageToSrtBgra', () => {
     expect(out?.equals(src.subarray(0, 1920 * 1080 * 4))).toBe(false)
   })
 
+  it('scales a HiDPI AR 2880×1620 bitmap to 1080 (not a 2K crop)', () => {
+    const srcW = 2880
+    const srcH = 1620
+    const src = Buffer.alloc(srcW * srcH * 4)
+    fillBgra(src, srcW, srcH, (x, y) =>
+      x >= 1920 || y >= 1080 ? [99, 88, 77, 255] : [1, 2, 3, 255],
+    )
+    let resized = false
+    const out = capture.nativeImageToSrtBgra({
+      isEmpty: () => false,
+      getSize: () => ({ width: 1920, height: 1080 }),
+      getScaleFactor: () => 1.5,
+      resize: () => {
+        resized = true
+        return {
+          getSize: () => ({ width: 1920, height: 1080 }),
+          toBitmap: () => src.subarray(0, 1920 * 1080 * 4),
+        }
+      },
+      toBitmap: () => src,
+    })
+    expect(resized).toBe(false)
+    expect(out?.length).toBe(1920 * 1080 * 4)
+    expect(out?.equals(src.subarray(0, 1920 * 1080 * 4))).toBe(false)
+    const outBr = ((1080 - 1) * 1920 + (1920 - 1)) * 4
+    expect([out![outBr], out![outBr + 1], out![outBr + 2]]).toEqual([99, 88, 77])
+    expect([out![0], out![1], out![2]]).toEqual([1, 2, 3])
+  })
+
+  it('scales when getSize already reports 2K (resize would crop AR)', () => {
+    const srcW = 2880
+    const srcH = 1620
+    const src = Buffer.alloc(srcW * srcH * 4)
+    fillBgra(src, srcW, srcH, (x, y) =>
+      x >= 1920 || y >= 1080 ? [40, 50, 60, 255] : [9, 8, 7, 255],
+    )
+    let resized = false
+    const out = capture.nativeImageToSrtBgra({
+      isEmpty: () => false,
+      getSize: () => ({ width: 2880, height: 1620 }),
+      resize: () => {
+        resized = true
+        return {
+          getSize: () => ({ width: 1920, height: 1080 }),
+          toBitmap: () => src.subarray(0, 1920 * 1080 * 4),
+        }
+      },
+      toBitmap: () => src,
+    })
+    expect(resized).toBe(false)
+    expect(out?.length).toBe(1920 * 1080 * 4)
+    const outBr = ((1080 - 1) * 1920 + (1920 - 1)) * 4
+    expect([out![outBr], out![outBr + 1], out![outBr + 2]]).toEqual([40, 50, 60])
+  })
+
+  it('scales a 2560×1440 AR bitmap to 1920×1080, not a crop', () => {
+    const srcW = 2560
+    const srcH = 1440
+    const src = Buffer.alloc(srcW * srcH * 4)
+    fillBgra(src, srcW, srcH, (x, y) =>
+      x >= 1920 || y >= 1080 ? [11, 22, 33, 255] : [4, 5, 6, 255],
+    )
+    const out = capture.nativeImageToSrtBgra({
+      isEmpty: () => false,
+      getSize: () => ({ width: 1920, height: 1080 }),
+      toBitmap: () => src,
+    })
+    expect(out?.length).toBe(1920 * 1080 * 4)
+    expect(out?.equals(src.subarray(0, 1920 * 1080 * 4))).toBe(false)
+    const outBr = ((1080 - 1) * 1920 + (1920 - 1)) * 4
+    expect([out![outBr], out![outBr + 1], out![outBr + 2]]).toEqual([11, 22, 33])
+  })
+
   it('infers physical pixels when getSize is DIP and bitmap is 1.5×', () => {
     const buf = Buffer.alloc(2880 * 1620 * 4)
     expect(capture.inferBgraSize(buf, { width: 1920, height: 1080 })).toEqual({
+      width: 2880,
+      height: 1620,
+    })
+    expect(
+      capture.inferBgraSize(buf, {
+        width: 1920,
+        height: 1080,
+        scaleFactor: 1.5,
+      }),
+    ).toEqual({ width: 2880, height: 1620 })
+    expect(capture.inferBgraSize(buf, null)).toEqual({
       width: 2880,
       height: 1620,
     })
@@ -123,6 +239,181 @@ describe('nativeImageToSrtBgra', () => {
 
   it('returns null for empty images', () => {
     expect(capture.nativeImageToSrtBgra({ isEmpty: () => true })).toBeNull()
+  })
+})
+
+describe('raiseSrtStdinHighWaterMark', () => {
+  it('raises a 16 KB pipe so one 1080 BGRA frame does not always NAK', () => {
+    const capture = require('../../desktop/srtPlateCapture.cjs') as {
+      raiseSrtStdinHighWaterMark: (
+        stdin: { _writableState: { highWaterMark: number } },
+        bytes?: number,
+      ) => number
+    }
+    const stdin = { _writableState: { highWaterMark: 16 * 1024 } }
+    const got = capture.raiseSrtStdinHighWaterMark(stdin)
+    expect(got).toBeGreaterThanOrEqual(1920 * 1080 * 4 * 2)
+    expect(stdin._writableState.highWaterMark).toBe(got)
+  })
+})
+
+describe('ffmpeg stdin pipe close', () => {
+  it('treats write EOF / EPIPE as a closed pipe, not a throw', () => {
+    const capture = require('../../desktop/srtPlateCapture.cjs') as {
+      isSrtStdinPipeClosedError: (err: unknown) => boolean
+      swallowSrtStdinPipeErrors: (
+        stdin: EventEmitter,
+        onClosed?: () => void,
+      ) => () => void
+    }
+    expect(
+      capture.isSrtStdinPipeClosedError(
+        Object.assign(new Error('write EOF'), { code: 'EOF' }),
+      ),
+    ).toBe(true)
+    expect(
+      capture.isSrtStdinPipeClosedError(
+        Object.assign(new Error('This socket has been ended by the other party'), {
+          code: 'EPIPE',
+        }),
+      ),
+    ).toBe(true)
+    expect(capture.isSrtStdinPipeClosedError(new Error('AMF encoder failed'))).toBe(
+      false,
+    )
+
+    let closed = 0
+    const stdin = new EventEmitter()
+    const stop = capture.swallowSrtStdinPipeErrors(stdin, () => {
+      closed += 1
+    })
+    expect(() => {
+      stdin.emit('error', Object.assign(new Error('write EOF'), { code: 'EOF' }))
+    }).not.toThrow()
+    expect(closed).toBe(1)
+    stop()
+  })
+
+  it('detaches plate capture when ffmpeg stdin errors (no main-process crash)', async () => {
+    let detached = false
+    let stdin: EventEmitter & {
+      write: () => boolean
+      end: () => void
+    }
+    const spawn = (
+      cmd: string,
+    ): EventEmitter & {
+      pid: number
+      killed: boolean
+      kill: () => void
+      stderr: EventEmitter
+      stdout: EventEmitter
+      stdin: EventEmitter & { write: () => boolean; end: () => void }
+      unref?: () => void
+    } => {
+      const child = new EventEmitter() as EventEmitter & {
+        pid: number
+        killed: boolean
+        kill: () => void
+        stderr: EventEmitter
+        stdout: EventEmitter
+        stdin: EventEmitter & { write: () => boolean; end: () => void }
+        unref?: () => void
+      }
+      child.pid = cmd === 'taskkill' ? 1 : 7000
+      child.killed = false
+      child.stderr = new EventEmitter()
+      child.stdout = new EventEmitter()
+      child.stdin = new EventEmitter() as EventEmitter & {
+        write: () => boolean
+        end: () => void
+      }
+      child.stdin.write = () => true
+      child.stdin.end = () => {}
+      stdin = child.stdin
+      child.kill = () => {
+        child.killed = true
+      }
+      child.unref = () => {}
+      return child
+    }
+    const pub = cjs.createSrtPublisher({
+      spawn,
+      resolveFfmpegPath: () => 'ffmpeg',
+      listEncoders: () => ' V....D h264_amf ',
+      ensureWindow: async () => ({
+        kind: 'pipe',
+        attach() {
+          return () => {
+            detached = true
+          }
+        },
+      }),
+      closeWindow: () => {},
+    })
+    await pub.start({ channel: 'ar' })
+    expect(() => {
+      stdin.emit('error', Object.assign(new Error('write EOF'), { code: 'EOF' }))
+    }).not.toThrow()
+    expect(detached).toBe(true)
+    pub.shutdown()
+  })
+})
+
+describe('SRT AR plate 1920×1080', () => {
+  it('pins plate CSS to 1920×1080', () => {
+    const css = readFileSync(join(repoRoot, 'src/style.css'), 'utf8')
+    expect(css).toContain('html.srt-plate')
+    expect(css).toContain('width: 1920px')
+    expect(css).toContain('height: 1080px')
+    expect(css).toContain('html.srt-plate #app > canvas')
+    expect(css).toContain('width: 1920px !important')
+    expect(css).toContain('position: absolute')
+    expect(css).toContain('left: 0')
+  })
+
+  it('clones ingest TS into the AR plate (one caller)', () => {
+    const reader = readFileSync(join(repoRoot, 'desktop/srtReader.cjs'), 'utf8')
+    expect(reader).toMatch(/setIngestFanout/)
+    expect(reader).toMatch(/Buffer\.from\(payload\.chunk\)/)
+  })
+
+  it('locks SRT plate WebGL to 1920×1080 even without NDI studioBridge', () => {
+    const src = readFileSync(join(repoRoot, 'src/main.ts'), 'utf8')
+    expect(src).toMatch(/studioBridge \|\| srtPlateChannel/)
+    expect(src).toMatch(/outputSize:\s*\{/)
+    expect(src).toMatch(/isHidden:\s*srtPlateChannel \? \(\) => false/)
+  })
+
+  it('does not change STUDIO_TICK_FPS', () => {
+    const src = readFileSync(join(repoRoot, 'desktop/main.cjs'), 'utf8')
+    expect(src).toMatch(/STUDIO_TICK_FPS\s*=\s*60/)
+    expect(src).not.toMatch(/STUDIO_TICK_FPS\s*=\s*30/)
+    expect(src).toMatch(/setZoomFactor\(1\)/)
+    expect(src).toMatch(/setIngestFanout/)
+    expect(src).not.toMatch(/enableDeviceEmulation/)
+    expect(src).toMatch(/setContentSize\(STUDIO_WIDTH, STUDIO_HEIGHT\)/)
+  })
+
+  it('does not 60 Hz invalidate SRT plate windows', () => {
+    const src = readFileSync(join(repoRoot, 'desktop/main.cjs'), 'utf8')
+    expect(src).toMatch(/isPlate/)
+    expect(src).toMatch(/if \(!isPlate\)/)
+    expect(src).toMatch(/win\.webContents\.invalidate\(\)/)
+  })
+
+  it('never NativeImage.resize or subarray-crops oversized BGRA', () => {
+    const src = readFileSync(join(repoRoot, 'desktop/srtPlateCapture.cjs'), 'utf8')
+    expect(src).not.toMatch(/image\.resize\s*\(/)
+    expect(src).not.toMatch(/work\.resize/)
+    expect(src).not.toMatch(/buf\.subarray\s*\(/)
+  })
+
+  it('uses paint first; frame subscription only if paint is silent', () => {
+    const src = readFileSync(join(repoRoot, 'desktop/srtPlateCapture.cjs'), 'utf8')
+    expect(src).toMatch(/if \(stopped \|\| paints > 0\) return/)
+    expect(src).toMatch(/raiseSrtStdinHighWaterMark/)
+    expect(src).toMatch(/beginFrameSubscription/)
   })
 })
 
@@ -156,6 +447,48 @@ describe('isSrtWorldLook', () => {
     expect(isSrtWorldLook({ ...look, terrainEnabled: false })).toBe(true)
     expect(isSrtWorldLook({ ...look, environmentMode: 'orbit' })).toBe(false)
     expect(isSrtWorldLook({ terrainEnabled: true })).toBe(false)
+  })
+})
+
+describe('srtPlateAcceptsWorldLook', () => {
+  it('is 3D-only so AR does not copy studio terrain/sea/heroes', () => {
+    expect(srtPlateAcceptsWorldLook('3d')).toBe(true)
+    expect(srtPlateAcceptsWorldLook('ar')).toBe(false)
+    expect(srtPlateAcceptsWorldLook('2d')).toBe(false)
+    expect(srtPlateAcceptsWorldLook(null)).toBe(false)
+  })
+
+  it('desktop IPC forwards 2D program view to the 2D plate only', () => {
+    const src = readFileSync(join(repoRoot, 'desktop/main.cjs'), 'utf8')
+    const block = src.slice(
+      src.indexOf("ipcMain.on('srtOut:map2dView'"),
+      src.indexOf("ipcMain.on('srtOut:worldLook'"),
+    )
+    expect(block).toMatch(/srtPlateWindows\.get\('2d'\)/)
+    expect(block).not.toContain("'3d'")
+    expect(block).not.toContain("'ar'")
+  })
+
+  it('desktop IPC forwards world look to the 3D plate only', () => {
+    const src = readFileSync(join(repoRoot, 'desktop/main.cjs'), 'utf8')
+    const block = src.slice(
+      src.indexOf("ipcMain.on('srtOut:worldLook'"),
+      src.indexOf("ipcMain.on('srtOut:layerPreset'"),
+    )
+    expect(block).toMatch(/srtPlateWindows\.get\('3d'\)/)
+    expect(block).not.toContain("'ar'")
+  })
+
+  it('desktop IPC forwards layer presets to the matching plate only', () => {
+    const src = readFileSync(join(repoRoot, 'desktop/main.cjs'), 'utf8')
+    const block = src.slice(
+      src.indexOf("ipcMain.on('srtOut:layerPreset'"),
+      src.indexOf('function parkWindow'),
+    )
+    expect(block).toMatch(/srtPlateWindows\.get\(packet\.channel\)/)
+    expect(block).toMatch(/channel !== 'ar' && channel !== '3d'/)
+    expect(block).toMatch(/srtOut:arPov/)
+    expect(block).toMatch(/srtPlateWindows\.get\('ar'\)/)
   })
 })
 
@@ -197,6 +530,11 @@ describe('buildSrtPublishArgv', () => {
     expect(argv).toContain('rawvideo')
     expect(argv).toContain('bgra')
     expect(argv).toContain('pipe:0')
+    expect(argv).toContain('-thread_queue_size')
+    expect(argv).toContain('-aspect')
+    expect(argv).toContain('16:9')
+    expect(argv).toContain('-vf')
+    expect(argv).toContain('setsar=1')
     expect(argv).not.toContain('-nostdin')
     expect(joined).not.toMatch(/ddagrab/)
     expect(joined).not.toMatch(/gdigrab/)
@@ -241,7 +579,102 @@ describe('buildSrtPublishArgv', () => {
     expect(bind.ok).toBe(false)
     if (!bind.ok) expect(bind.error).toMatch(/0\.0\.0\.0/)
   })
+})
 
+describe('SRT publish missing listener', () => {
+  const helpers = require('../../desktop/srtPublisherHelpers.cjs') as {
+    formatSrtPublishListenerError: (raw: unknown, url?: string) => string
+    isSrtPublishListenerMissing: (text: unknown) => boolean
+  }
+
+  it('rewrites libsrt I/O into an OBS-first hint', () => {
+    const raw =
+      '[srt @ 000002a2cdf6d200] Connection to srt://127.0.0.1:9201?mode=caller&latency=60000&timeout=5000000 failed: I/O error'
+    const msg = helpers.formatSrtPublishListenerError(
+      raw,
+      'srt://127.0.0.1:9201?mode=caller&latency=60000',
+    )
+    expect(msg).toMatch(/No SRT listener on 127\.0\.0\.1:9201/)
+    expect(msg).toMatch(/mpegts/)
+    expect(helpers.isSrtPublishListenerMissing(raw)).toBe(true)
+    expect(helpers.isSrtPublishListenerMissing(msg)).toBe(true)
+  })
+
+  it('retries ffmpeg instead of staying in error when the listener is down', async () => {
+    let spawnCount = 0
+    const spawn = (
+      cmd: string,
+    ): EventEmitter & {
+      pid: number
+      killed: boolean
+      kill: () => void
+      stderr: EventEmitter
+      stdout: EventEmitter
+      stdin: EventEmitter & { write: () => boolean; end: () => void }
+      unref?: () => void
+    } => {
+      const child = new EventEmitter() as EventEmitter & {
+        pid: number
+        killed: boolean
+        kill: () => void
+        stderr: EventEmitter
+        stdout: EventEmitter
+        stdin: EventEmitter & { write: () => boolean; end: () => void }
+        unref?: () => void
+      }
+      child.pid = cmd === 'taskkill' ? 1 : 8000 + spawnCount
+      child.killed = false
+      child.stderr = new EventEmitter()
+      child.stdout = new EventEmitter()
+      child.stdin = new EventEmitter() as EventEmitter & {
+        write: () => boolean
+        end: () => void
+      }
+      child.stdin.write = () => true
+      child.stdin.end = () => {}
+      child.kill = () => {
+        child.killed = true
+      }
+      child.unref = () => {}
+      if (cmd !== 'taskkill') {
+        spawnCount += 1
+        queueMicrotask(() => {
+          child.stderr.emit(
+            'data',
+            Buffer.from(
+              '[srt] Connection to srt://127.0.0.1:9202 failed: I/O error\n',
+            ),
+          )
+          child.emit('exit', 1, null)
+        })
+      }
+      return child
+    }
+    const pub = cjs.createSrtPublisher({
+      spawn,
+      resolveFfmpegPath: () => 'ffmpeg',
+      listEncoders: () => ' V....D h264_amf ',
+      ensureWindow: async () => ({
+        kind: 'pipe',
+        attach() {
+          return () => {}
+        },
+      }),
+      closeWindow: () => {},
+    })
+    await pub.start({ channel: '3d' })
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(pub.getStatusAll()['3d'].state).toBe('connecting')
+    expect(pub.getStatusAll()['3d'].lastError).toMatch(/No SRT listener/)
+    expect(spawnCount).toBe(1)
+    await new Promise((r) => setTimeout(r, 2100))
+    expect(spawnCount).toBeGreaterThanOrEqual(2)
+    pub.shutdown()
+  })
+})
+
+describe('ffmpeg publish helpers', () => {
   it('parses encoder fps from ffmpeg stderr and -progress', () => {
     expect(
       cjs.parseFfmpegFps(
@@ -250,6 +683,14 @@ describe('buildSrtPublishArgv', () => {
     ).toBe(30)
     expect(cjs.parseFfmpegFps('fps=30.00\nprogress=continue')).toBe(30)
     expect(cjs.parseFfmpegFps('not stats')).toBeNull()
+  })
+
+  it('prefers 1 s frame-delta fps over session-average fps=', () => {
+    expect(cjs.parseFfmpegFrame('frame=120\nfps=12.00\nprogress=continue')).toBe(
+      120,
+    )
+    expect(cjs.instantFpsFromFrames(90, 0, 120, 1000)).toBe(30)
+    expect(cjs.instantFpsFromFrames(null, null, 30, 1000)).toBeNull()
   })
 
   it('emits -progress pipe:1 so ops can show encoder fps', () => {
@@ -635,7 +1076,12 @@ describe('publish modules stay off the NDI pack path (source)', () => {
     expect(pub).toMatch(/createSrtPublisher/)
     expect(pub).not.toMatch(/srtReader\.open/)
     expect(capture).toMatch(/capturePage/)
+    expect(capture).toMatch(/swallowSrtStdinPipeErrors/)
+    expect(capture).toMatch(/write EOF/)
     expect(capture).not.toMatch(/ddagrab/)
+    expect(pub).toMatch(/write EOF/)
+    expect(pub).toMatch(/formatSrtPublishListenerError/)
+    expect(pub).toMatch(/retryTimer/)
   })
 
   it('exports SRT out from output index', () => {
@@ -644,5 +1090,6 @@ describe('publish modules stay off the NDI pack path (source)', () => {
     expect(idx).toMatch(/getSrtOutBridge/)
     expect(idx).toMatch(/parseSrtPlateQuery/)
     expect(idx).toMatch(/isSrtWorldLook/)
+    expect(idx).toMatch(/srtPlateAcceptsWorldLook/)
   })
 })

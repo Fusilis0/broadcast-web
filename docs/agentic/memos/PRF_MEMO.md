@@ -1,7 +1,15 @@
 # PRF_MEMO
 
-**Last updated:** 2026-09-09  
-**Status:** NDI 30×3 closed. Phase 22 local SRT Pass = **30/30/30 in OBS**. No PRF DSP until the SRT worker reports encoder fps. Never `STUDIO_TICK_FPS = 60` as a fix.
+**Last updated:** 2026-09-15  
+**Status:** NDI 30×3 closed. SRT **16×3 Fail gone** (worker measure: plate write 30×3). Human **A** still operator. **Never change `STUDIO_TICK_FPS`.**
+
+## 2026-09-15 — DSP-PRF-20260915-01 accepted
+
+Wall was stdin `highWaterMark` 16 KB vs 8.3 MB/frame + dual paint + 60 Hz plate `invalidate()`, not Cesium / tick. Instantaneous write **30/30/30**, `h264_amf`, GPU RX 6750 XT. ffmpeg `fps=` ~29 is session average. Human **A**: OBS canvas ~30 with AR+3D+2D on.
+
+## 2026-09-15 — HO-BW-PRF-20260915-01
+
+Wait `DSP-SCN-20260915-01` (AR without Cesium). Then `DSP-PRF-20260915-01-srt-30x3`. `STUDIO_TICK_FPS` is the 60 Hz studio clock, not OBS 30. Raising it is forbidden.
 
 ## 2026-09-09 — Phase 22 local SRT (FYI)
 

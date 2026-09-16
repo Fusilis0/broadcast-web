@@ -1126,7 +1126,8 @@ body.output-transparent,
  */
 html.srt-plate .ops-sidebar,
 html.srt-plate .ops-sidebar__expand-tab,
-html.srt-plate .local-channel-switcher-strip {
+html.srt-plate .local-channel-switcher-strip,
+html.srt-plate .srt-program-bar {
   display: none !important;
 }
 
@@ -1140,6 +1141,33 @@ html.srt-plate #app,
 html.srt-plate #app.studio-shell {
   background: #000;
   overflow: hidden;
+  width: 1920px;
+  height: 1080px;
+  max-width: 1920px;
+  max-height: 1080px;
+  margin: 0;
+  padding: 0;
+}
+
+html.srt-plate #app.studio-shell {
+  display: block;
+  position: relative;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+html.srt-plate #app > canvas,
+html.srt-plate #app.studio-shell > canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  margin: 0;
+  width: 1920px !important;
+  height: 1080px !important;
+  max-width: none;
+  max-height: none;
+  object-fit: fill;
+  flex-shrink: 0;
 }
 
 html.srt-plate.srt-plate-2d .local-2d-map-host,
@@ -1986,6 +2014,140 @@ body.local-focus-2d .local-2d-map-host .stream-map-boat-scale {
 }
 
 .local-channel-switcher__hint {
+  color: #6a7888;
+  font-size: 11px;
+}
+
+/*
+ * SRT program bottom bar (SCN 22.4c) — not a side rail.
+ * Layer toggles follow local AR/3D; plates keep their own preset.
+ */
+.srt-program-bar {
+  pointer-events: auto;
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  max-width: calc(100vw - 24px);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 8px 12px;
+  background: rgba(10, 14, 20, 0.92);
+  border: 1px solid #3a4a5a;
+  border-radius: 8px;
+  color: #c0c8d0;
+  font: 12px/1.3 ui-sans-serif, system-ui, Segoe UI, sans-serif;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.ops-sidebar-root .srt-program-bar {
+  left: calc(
+    50% + (var(--ops-sidebar-inset-left, 0px) - var(--ops-sidebar-inset-right, 0px)) /
+      2
+  );
+  max-width: calc(
+    100vw - var(--ops-sidebar-inset-left, 0px) - var(--ops-sidebar-inset-right, 0px) -
+      24px
+  );
+}
+
+.srt-program-bar__pane {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.srt-program-bar__pane[hidden] {
+  display: none !important;
+}
+
+.srt-program-bar__cam,
+.srt-program-bar__layers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.srt-program-bar__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #d8dee6;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.srt-program-bar__toggle input {
+  margin: 0;
+  accent-color: #7ab0d8;
+}
+
+.srt-program-bar__stub {
+  min-height: 28px;
+  padding: 4px 10px;
+  border: 1px solid #4a5a6a;
+  border-radius: 6px;
+  background: #1c2430;
+  color: #8a949e;
+  font: 600 12px/1 ui-sans-serif, system-ui, Segoe UI, sans-serif;
+  cursor: not-allowed;
+}
+
+.srt-program-bar__action {
+  min-height: 28px;
+  padding: 4px 10px;
+  border: 1px solid #4a5a6a;
+  border-radius: 6px;
+  background: #1c2430;
+  color: #c0c8d0;
+  font: 600 12px/1 ui-sans-serif, system-ui, Segoe UI, sans-serif;
+  cursor: pointer;
+}
+
+.srt-program-bar__action:hover {
+  border-color: #7ab0d8;
+  color: #e8eef4;
+}
+
+.srt-program-bar__action.is-on,
+.srt-program-bar__action[aria-pressed='true'] {
+  border-color: #7ab0d8;
+  color: #e8eef4;
+  background: #243044;
+}
+
+.srt-program-bar__boats {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.srt-program-bar__num {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #c0c8d0;
+  white-space: nowrap;
+}
+
+.srt-program-bar__num input {
+  width: 4.5rem;
+  min-height: 28px;
+  padding: 2px 6px;
+  border: 1px solid #4a5a6a;
+  border-radius: 6px;
+  background: #121820;
+  color: #e8eef4;
+  font: 12px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.srt-program-bar__hint {
   color: #6a7888;
   font-size: 11px;
 }

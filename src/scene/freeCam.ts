@@ -55,6 +55,21 @@ export type FreeCamHandle = {
   dispose: () => void
 }
 
+/** MapControls damping for the ops rig. Lower = smoother / more inertia. */
+export const OPS_CAM_DAMPING_FACTOR = 0.08
+
+export type FreeCamOptions = {
+  /** Three.js camera.name. Default `opsFreeCam`. */
+  name?: string
+  /** MapControls dampingFactor. Default `OPS_CAM_DAMPING_FACTOR`. */
+  dampingFactor?: number
+  /**
+   * WASD exponential time constant in seconds. `0` (default) applies the
+   * ground step immediately — ops look. Program rig uses a positive tau.
+   */
+  wasdTauSec?: number
+}
+
 const DEFAULT_EYE = new THREE.Vector3(120, 80, -120)
 const TARGET = new THREE.Vector3(0, 0, 0)
 /** Race-scale ENU — boats may be km from origin until ops Apply a local anchor. */
@@ -151,21 +166,27 @@ export function createFreeCam(
   domElement: HTMLElement,
   aspect = 1,
   hFovDeg = TEMP_HFOV_DEG,
+  options: FreeCamOptions = {},
 ): FreeCamHandle {
+  const dampingFactor = options.dampingFactor ?? OPS_CAM_DAMPING_FACTOR
+  const wasdTauSec =
+    Number.isFinite(options.wasdTauSec) && (options.wasdTauSec as number) > 0
+      ? (options.wasdTauSec as number)
+      : 0
   const camera = new THREE.PerspectiveCamera(
     horizontalToVerticalFovDeg(hFovDeg, aspect),
     Math.max(aspect, 1e-6),
     0.5,
     FAR_PLANE_M,
   )
-  camera.name = 'opsFreeCam'
+  camera.name = options.name ?? 'opsFreeCam'
   camera.position.copy(DEFAULT_EYE)
   camera.lookAt(TARGET)
 
   const controls = new MapControls(camera, domElement)
   controls.target.copy(TARGET)
   controls.enableDamping = true
-  controls.dampingFactor = 0.08
+  controls.dampingFactor = dampingFactor
   controls.enablePan = true
   controls.screenSpacePanning = false
   controls.zoomToCursor = true
@@ -176,6 +197,7 @@ export function createFreeCam(
   controls.update()
 
   const held = new Set<string>()
+  const wasdVel = new THREE.Vector3()
 
   function onKeyDown(ev: KeyboardEvent): void {
     if (!controls.enabled) return
@@ -202,7 +224,10 @@ export function createFreeCam(
     camera,
     setEnabled(enabled: boolean): void {
       controls.enabled = enabled
-      if (!enabled) held.clear()
+      if (!enabled) {
+        held.clear()
+        wasdVel.set(0, 0, 0)
+      }
       if (enabled) controls.update()
     },
     setAspect(nextAspect: number): void {
@@ -238,17 +263,26 @@ export function createFreeCam(
     },
     update(dtSec = 1 / 60): void {
       if (!controls.enabled) return
-      if (held.size > 0) {
-        const { forward, right } = cameraGroundBasis(camera)
-        const delta = wasdGroundDelta(
-          held,
-          forward,
-          right,
-          camera.position.y,
-          dtSec,
-        )
-        camera.position.add(delta)
-        controls.target.add(delta)
+      const dt = dtSec > 0 && Number.isFinite(dtSec) ? dtSec : 0
+      const { forward, right } = cameraGroundBasis(camera)
+      const desiredDelta = wasdGroundDelta(
+        held,
+        forward,
+        right,
+        camera.position.y,
+        dt,
+      )
+      if (wasdTauSec <= 0) {
+        camera.position.add(desiredDelta)
+        controls.target.add(desiredDelta)
+        wasdVel.set(0, 0, 0)
+      } else if (dt > 0) {
+        const desiredVel = desiredDelta.multiplyScalar(1 / dt)
+        const alpha = 1 - Math.exp(-dt / wasdTauSec)
+        wasdVel.lerp(desiredVel, alpha)
+        const step = wasdVel.clone().multiplyScalar(dt)
+        camera.position.add(step)
+        controls.target.add(step)
       }
       controls.update()
     },

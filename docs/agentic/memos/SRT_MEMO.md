@@ -1,7 +1,15 @@
 # SRT_MEMO
 
-**Last updated:** 2026-09-14  
-**Status:** Phase **22 open**. Local OBS 30×3 first (`DSP-SRT-20260909-01` worker shipped). Human Pass **A/B/C** in [`docs/ops/srt-human-pass.md`](../../ops/srt-human-pass.md). VPS later. Ingest locks unchanged.
+**Last updated:** 2026-09-15  
+**Status:** Phase **22.4** workers done. Human **E–I + A**. No new SRT URL DSP. `STUDIO_TICK_FPS` frozen.
+
+## 2026-09-15 — 22.4 code-complete (FYI)
+
+PRF owns fps numbers; SRT only encoder line. Worker: `h264_amf` ×3, plate write 30. Operator eye-check **A**. Look tests **E–I** are SCN/OUT. Do not issue a tick-fps worker.
+
+## 2026-09-15 — HO-BW-SRT-20260915-01 FYI
+
+PRF owns 30×3 after AR drops Cesium. SRT only reports encoder fps. Do not issue a tick-fps worker.
 
 ## 2026-09-14 — SRT URL field is the destination
 

@@ -181,8 +181,8 @@ contextBridge.exposeInMainWorld('broadcastStudio', {
         ipcRenderer.removeListener('srtOut:status', handler)
       }
     },
-    sendPreviewView: (view) => ipcRenderer.send('srtOut:previewView', view),
-    onPreviewView: (cb) => {
+    sendProgramView: (view) => ipcRenderer.send('srtOut:programView', view),
+    onProgramView: (cb) => {
       const handler = (_evt, payload) => {
         try {
           cb(payload)
@@ -190,9 +190,23 @@ contextBridge.exposeInMainWorld('broadcastStudio', {
           /* ignore */
         }
       }
-      ipcRenderer.on('srtOut:previewView', handler)
+      ipcRenderer.on('srtOut:programView', handler)
       return () => {
-        ipcRenderer.removeListener('srtOut:previewView', handler)
+        ipcRenderer.removeListener('srtOut:programView', handler)
+      }
+    },
+    sendMap2dView: (view) => ipcRenderer.send('srtOut:map2dView', view),
+    onMap2dView: (cb) => {
+      const handler = (_evt, payload) => {
+        try {
+          cb(payload)
+        } catch {
+          /* ignore */
+        }
+      }
+      ipcRenderer.on('srtOut:map2dView', handler)
+      return () => {
+        ipcRenderer.removeListener('srtOut:map2dView', handler)
       }
     },
     sendWorldLook: (look) => ipcRenderer.send('srtOut:worldLook', look),
@@ -207,6 +221,34 @@ contextBridge.exposeInMainWorld('broadcastStudio', {
       ipcRenderer.on('srtOut:worldLook', handler)
       return () => {
         ipcRenderer.removeListener('srtOut:worldLook', handler)
+      }
+    },
+    sendLayerPreset: (packet) => ipcRenderer.send('srtOut:layerPreset', packet),
+    onLayerPreset: (cb) => {
+      const handler = (_evt, payload) => {
+        try {
+          cb(payload)
+        } catch {
+          /* ignore */
+        }
+      }
+      ipcRenderer.on('srtOut:layerPreset', handler)
+      return () => {
+        ipcRenderer.removeListener('srtOut:layerPreset', handler)
+      }
+    },
+    sendArPov: (povId) => ipcRenderer.send('srtOut:arPov', povId),
+    onArPov: (cb) => {
+      const handler = (_evt, payload) => {
+        try {
+          cb(payload)
+        } catch {
+          /* ignore */
+        }
+      }
+      ipcRenderer.on('srtOut:arPov', handler)
+      return () => {
+        ipcRenderer.removeListener('srtOut:arPov', handler)
       }
     },
   },

@@ -1,7 +1,24 @@
 # SCN_MEMO
 
-**Last updated:** 2026-09-13  
-**Status:** Intro Human Pass 2 in tree (hover cameras, tile lock, pins). Record still OUT.
+**Last updated:** 2026-09-15  
+**Status:** Phase **22.4** SCN 01–04 **code-complete**. Human **F–I**. 3D OBS world Pass; program cam ≠ ops.
+
+## 2026-09-15 — studio defaults + tile warm
+
+Operator: environment **realistic**, terrain **on** at boot. Cinematic tile warm no longer runs on project load (disk cache ≠ GPU). Globe-tour hitch was stealing the tiles camera and dropping preview ~10 fps. Play still warms.
+
+## 2026-09-15 — workers 01–04 accepted
+
+- **01** — `srtOut:worldLook` 3D-only; `AR_PLATE_WORLD_LAYERS`; `followRequiresActiveGps` ≤2 s `hasUsableGps`.
+- **02** — `createSrtChannelPresetStore`; plates get `{channel,preset}`; local switch does not copy.
+- **03** — ops vs program; Control 3D program; damping 0.035 / WASD τ 0.25; `srtOut:programView`.
+- **04** — `MAP2D_PROGRAM_STALE_MS` 2000; centroid / boat / Across 250; `srtOut:map2dView`.
+
+AR Follow/Free on the bar stay stubs. Human: [`SRT_HUMAN_PASS.md`](../briefs/phase22/SRT_HUMAN_PASS.md) **F G H I**. Next DSP only on Fail. Do not implement in SCN orchestrator chat.
+
+## 2026-09-15 — HO-BW-SCN-20260915-01
+
+Design `srt-program-cameras.md`. Start `DSP-SCN-20260915-01` (AR no Cesium + freeze). Then 02 visibility/bar, 03 3D program+takeover, 04 2D follow. Do not implement in SCN orchestrator chat.
 
 ## 2026-09-13 — SRT Human Pass B (no SCN worker)
 

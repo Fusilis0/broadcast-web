@@ -1,6 +1,6 @@
 # SRT egress — three-channel program out (AR / 3D / 2D)
 
-**Status:** Design locked 2026-09-07. **Phase 22 open 2026-09-09.** First Pass is **local loopback** (same PC, OBS listeners). VPS/relay: **later** — operator will give host/ports after local 30×3 Pass.
+**Status:** Design locked 2026-09-07. **Phase 22 open.** Local callers shipped. **2026-09-15:** 3D OBS picture **Pass**. Program cameras + AR/3D look: [`srt-program-cameras.md`](./srt-program-cameras.md). VPS/relay **later**.
 **Owner:** **SRT** (ffmpeg + SRT URLs/latency) + **OUT** (plates, per-channel enable, NDI park) + **PLT** (ffmpeg packaging) + **PRF** (three encodes vs preview).
 **Ingest unchanged:** Phase 17 drone SRT **caller** / catalog stays. This doc is **publish** only.
 **Related:** Phase 20 buildings [`3d-environment-buildings.md`](./3d-environment-buildings.md) · Phase 21 [`commercial-video.md`](./commercial-video.md).
@@ -8,6 +8,12 @@
 ---
 
 ## 1. Operator locks
+
+### 2026-09-15 — 3D Pass; program cams; AR clean
+
+Operator: **OBS 3D OK.** Fail: AR 2K, AR terrain, AR/2D cameras wander without telemetry, 2D no boats / no zoom, **~16 fps×3**.
+
+Lock: [`srt-program-cameras.md`](./srt-program-cameras.md). 3D SRT = **program rig**, not ops free cam. AR = no Cesium/sea/heroes; freeze until telemetry. 2D = top-down follow centroid or one boat (telemetry only). Bottom bar. **Do not change `STUDIO_TICK_FPS`.**
 
 ### 2026-09-09 — local first, then VPS
 
@@ -80,7 +86,7 @@ Same three encoders. Destination URLs and `latency` are presets.
 **Human Pass (operator, studio PC):** [`../ops/srt-human-pass.md`](../ops/srt-human-pass.md)
 
 1. **A** — OBS on this PC, **30/30/30**, right picture.
-2. **B** — OBS **3D** has Gerstner **sea** + **terrain** (not heroes-only). Same free cam as studio.
+2. **B** — OBS **3D** sea + terrain. **Human Pass 2026-09-15.** 3D SRT is now the **program rig**, not ops free cam (`srt-program-cameras.md`).
 3. **C** — one other LAN PC: studio caller URLs use that PC’s IPv4; OBS there listens `0.0.0.0:920n`. One caller = one listener (local OBS goes dark). Relay only if we need two receivers.
 
 VPS **after A**. Do not pick a relay host before C is even attempted.

@@ -14,8 +14,8 @@ ffmpeg argv / SRT URL compose (SRT). Scene content (SCN). VPS.
 
 ## Now
 
-The first worker is **SRT-owned** (`DSP-SRT-20260909-01`) and **lists OUT files**. Do not start a second NDI-hide worker in parallel — it is in that DSP.
+`DSP-OUT-20260915-01` **code-complete** (scale, not crop). Human **E**. Do not start a second 1080 DSP unless E Fails.
 
-## After local Pass
+## After
 
 NDI stays hidden. No NDI 30×3 climb.

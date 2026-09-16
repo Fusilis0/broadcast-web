@@ -167,13 +167,46 @@ function logSrt(povId, message, level = 'info') {
  * @param {unknown} payload
  */
 function sendToOwner(session, channel, payload) {
-  const wc = session.webContents
-  if (!wc || wc.isDestroyed()) return
-  try {
-    wc.send(channel, payload)
-  } catch {
-    /* window gone */
+  const seen = new Set()
+  const send = (wc, data) => {
+    if (!wc || wc.isDestroyed()) return
+    const id = typeof wc.id === 'number' ? wc.id : null
+    if (id != null) {
+      if (seen.has(id)) return
+      seen.add(id)
+    }
+    try {
+      wc.send(channel, data)
+    } catch {
+      /* window gone */
+    }
   }
+  send(session.webContents, payload)
+  for (const extra of ingestFanoutTargets()) {
+    if (
+      channel === 'srt:data' &&
+      payload &&
+      typeof payload === 'object' &&
+      payload.chunk
+    ) {
+      send(extra, {
+        povId: payload.povId,
+        chunk: Buffer.from(payload.chunk),
+      })
+    } else {
+      send(extra, payload)
+    }
+  }
+}
+
+/** AR program plate shares ingest bytes (one caller). Not a second srt:open. */
+let ingestFanoutTargets = () => []
+
+/**
+ * @param {() => import('electron').WebContents[]} fn
+ */
+function setIngestFanout(fn) {
+  ingestFanoutTargets = typeof fn === 'function' ? fn : () => []
 }
 
 /**
@@ -541,4 +574,5 @@ module.exports = {
   getStatusAll,
   shutdown,
   resolveFfmpegPath,
+  setIngestFanout,
 }

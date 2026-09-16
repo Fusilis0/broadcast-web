@@ -141,7 +141,7 @@ export function startArBackgroundControl(
   select.id = 'ops-ar-background'
   select.className = 'output-mode-control__select'
   select.title =
-    'AR background: alpha (transparent plate, default / fallback) | video (fullscreen texture behind the scene, visible in AR NDI). Runtime only; config.json on reload'
+    'AR background: alpha (no ingest picture) | video (SRT ingest behind tags). Connect SRT also switches this to video and local AR.'
   for (const m of SUPPORTED_AR_BACKGROUNDS) {
     const opt = document.createElement('option')
     opt.value = m

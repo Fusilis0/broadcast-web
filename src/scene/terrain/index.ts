@@ -14,6 +14,7 @@ export {
   TERRAIN_UNLOAD_DELAY_MS,
   TERRAIN_VRAM_BYTES_TARGET,
   CINEMATIC_TERRAIN_VRAM_BYTES_TARGET,
+  SRT_PLATE_TERRAIN_ERROR_TARGET,
 } from './constants.ts'
 export {
   creditsToLines,

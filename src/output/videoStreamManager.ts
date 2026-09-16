@@ -371,7 +371,17 @@ export function startVideoStreamManager(
   if (bridge) {
     unsubs.push(
       bridge.onSrtData((payload) => {
-        handle.pushBytes(payload.povId, payload.chunk)
+        const raw = payload?.chunk as unknown
+        const chunk =
+          raw instanceof Uint8Array
+            ? raw
+            : raw instanceof ArrayBuffer
+              ? new Uint8Array(raw)
+              : ArrayBuffer.isView(raw)
+                ? new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength)
+                : null
+        if (!payload?.povId || !chunk || chunk.byteLength < 1) return
+        handle.pushBytes(payload.povId, chunk)
       }),
     )
   }

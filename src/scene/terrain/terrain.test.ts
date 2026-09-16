@@ -15,6 +15,7 @@ import {
   CESIUM_ION_WORLD_TERRAIN_ASSET_ID,
   DEFAULT_TERRAIN_ENABLED,
   REORIENTATION_AZIMUTH_RAD,
+  SRT_PLATE_TERRAIN_ERROR_TARGET,
 } from './constants.ts'
 import {
   createTerrain,
@@ -74,9 +75,9 @@ describe('shouldShowTerrain', () => {
     expect(shouldShowTerrain(false, false)).toBe(false)
   })
 
-  it('defaults off', () => {
-    expect(DEFAULT_TERRAIN_ENABLED).toBe(false)
-    expect(shouldShowTerrain(DEFAULT_TERRAIN_ENABLED, true)).toBe(false)
+  it('defaults on (opaque-safe)', () => {
+    expect(DEFAULT_TERRAIN_ENABLED).toBe(true)
+    expect(shouldShowTerrain(DEFAULT_TERRAIN_ENABLED, true)).toBe(true)
   })
 })
 
@@ -330,6 +331,8 @@ describe('ion asset defaults', () => {
     expect(CESIUM_ION_WORLD_TERRAIN_ASSET_ID).toBe(1)
     expect(CESIUM_ION_BING_ROAD_ASSET_ID).toBe(4)
     expect(CESIUM_ION_BING_AERIAL_ASSET_ID).toBe(2)
+    expect(SRT_PLATE_TERRAIN_ERROR_TARGET).toBe(8)
+    expect(SRT_PLATE_TERRAIN_ERROR_TARGET).toBeGreaterThan(2)
   })
 
   it('createTerrain defaults overlay from DEFAULT_TERRAIN_OVERLAY; grey Rec.709 is gone', () => {
@@ -346,6 +349,8 @@ describe('ion asset defaults', () => {
     expect(src).not.toContain('GoogleCloudAuth')
     expect(src).not.toMatch(/imageryAssetId\s*[:=]\s*0/)
     expect(src).toMatch(/isolateTilesRendererCaches/)
+    expect(src).toMatch(/applyPinnedErrorTarget/)
+    expect(src).toContain('options.errorTarget')
   })
 
   it('createScene remounts terrain on overlay switch without disposing OSM Buildings', () => {
@@ -365,6 +370,8 @@ describe('ion asset defaults', () => {
       /function restoreCinematicLook\(\)[\s\S]{0,1400}disposeBuildingsInstance/,
     )
     expect(src).toContain('BUILDINGS_ERROR_TARGET')
+    expect(src).toContain('SRT_PLATE_TERRAIN_ERROR_TARGET')
+    expect(src).toMatch(/errorTarget:\s*plate \? SRT_PLATE_TERRAIN_ERROR_TARGET/)
     expect(src).toMatch(/terrain\.tick\(tilesCam, tilesCam, renderer\)/)
     expect(src).toContain('parkedGlobeTerrain')
     expect(src).toContain('parkedEnuTerrain')

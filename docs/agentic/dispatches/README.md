@@ -24,6 +24,19 @@ Orchestrators save concrete `DSP-*.md` files into:
 
 Templates: see `../DISPATCH_PROTOCOL.md`.
 
+### Active 2026-09-15 (Phase 22.4 program cameras)
+
+Design: [`../../architecture/srt-program-cameras.md`](../../architecture/srt-program-cameras.md). Briefs: [`../briefs/phase22/README.md`](../briefs/phase22/README.md).
+
+| DSP | Owner | Status |
+| --- | --- | --- |
+| [`active/DSP-OUT-20260915-01-srt-ar-1080.md`](./active/DSP-OUT-20260915-01-srt-ar-1080.md) | OUT | **Code-complete** — Human **E** |
+| [`active/DSP-SCN-20260915-01-srt-ar-look-freeze.md`](./active/DSP-SCN-20260915-01-srt-ar-look-freeze.md) | SCN | **Code-complete** — Human **F** |
+| [`active/DSP-SCN-20260915-02-srt-visibility-presets.md`](./active/DSP-SCN-20260915-02-srt-visibility-presets.md) | SCN | **Code-complete** — Human **G** |
+| [`active/DSP-SCN-20260915-03-srt-3d-program-cam.md`](./active/DSP-SCN-20260915-03-srt-3d-program-cam.md) | SCN | **Code-complete** — Human **H** |
+| [`active/DSP-SCN-20260915-04-srt-2d-program-cam.md`](./active/DSP-SCN-20260915-04-srt-2d-program-cam.md) | SCN | **Code-complete** — Human **I** |
+| [`active/DSP-PRF-20260915-01-srt-30x3.md`](./active/DSP-PRF-20260915-01-srt-30x3.md) | PRF | **Code-complete** — Human **A**. **no `STUDIO_TICK_FPS`** |
+
 ### Active 2026-09-09 (Phase 22 local SRT)
 
 Design: [`../../architecture/srt-egress.md`](../../architecture/srt-egress.md). Briefs: [`../briefs/phase22/README.md`](../briefs/phase22/README.md).

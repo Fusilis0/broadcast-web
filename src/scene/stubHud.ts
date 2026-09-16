@@ -233,6 +233,10 @@ export type StubHudOptions = {
    * Until `setBoatIds` runs, boat poses are still accepted (boot gap).
    */
   boatIds?: readonly string[]
+  /**
+   * Live poseBus boat (not planned seed). 2D program cam centroid / follow.
+   */
+  onLiveBoatPose?: (id: string, east: number, north: number) => void
   /** Invoked when ops picks a POV id in the HUD select. */
   onPovChange?: (povId: string) => void
   /**
@@ -774,7 +778,7 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
   terrainSelect.id = 'ops-terrain-mode'
   terrainSelect.className = 'ops-hud__mode-select'
   terrainSelect.title =
-    'Cesium ion World Terrain. Default off. Opaque/3D only — forced off for transparent/chroma AR. Needs an ion token (Ops field or public/config.json).'
+    'Cesium ion World Terrain. Default on. Opaque/3D only — forced off for transparent/chroma AR. Needs an ion token (Ops field or public/config.json).'
   for (const m of ['off', 'on'] as const) {
     const opt = document.createElement('option')
     opt.value = m
@@ -1328,6 +1332,8 @@ export function startStubHud(options: StubHudOptions): StubHudHandle {
         return
       }
       lastBoatEnuById.set(pose.id, s)
+      const en = eastNorthFromScene(pose.position)
+      options.onLiveBoatPose?.(pose.id, en.east, en.north)
     }
     // Buoy (+ allowed boat/drone): keep ops + stream icons in sync.
     map.updatePose(pose)
