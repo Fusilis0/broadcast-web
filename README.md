@@ -16,6 +16,8 @@ Browser-based Three.js AR overlay for maritime race broadcast. Runs **beside** t
 
 | Doc | Purpose |
 | --- | --- |
+| [`docs/ops/studio/README.md`](./docs/ops/studio/README.md) | **Panel guides** — one short doc per studio section |
+| [`docs/ops/studio-operator-manual.md`](./docs/ops/studio-operator-manual.md) | **Operator catalog** — every studio control, asset hide, Cesium ion, SRT |
 | [`docs/agentic/README.md`](./docs/agentic/README.md) | Agentic operating system overview |
 | [`docs/architecture/system-architecture.md`](./docs/architecture/system-architecture.md) | Full system architecture |
 | [`docs/architecture/race-projects-and-world-authoring.md`](./docs/architecture/race-projects-and-world-authoring.md) | Race projects, map editor, shared 3D/2D, NDI options |
@@ -65,10 +67,12 @@ Mock/replay work on the static host without WebSockets. Live on HTTPS requires `
 
 ## On air
 
-**Preferred studio:** Electron + `outputMode=transparent` + named alpha NDI → vMix/OBS.  
-**Fallback:** Chrome → chroma → OBS/vMix window capture.
+**Preferred studio:** Electron + **SRT program out** (AR/3D/2D callers → OBS). NDI Send stays hidden.  
+**Fallback:** chroma / window capture.
 
-- Air runbook (preferred + cutover + fallback): [`docs/ops/air-runbook.md`](./docs/ops/air-runbook.md)
+- **Every button and field:** [`docs/ops/studio-operator-manual.md`](./docs/ops/studio-operator-manual.md)
+- Local OBS SRT: [`docs/ops/srt-local-obs.md`](./docs/ops/srt-local-obs.md)
+- Air runbook (legacy NDI + cutover notes): [`docs/ops/air-runbook.md`](./docs/ops/air-runbook.md)
 - Desktop shell: [`desktop/README.md`](./desktop/README.md)
 - vMix alpha ingest: [`docs/ops/vmix-ndi-alpha-runbook.md`](./docs/ops/vmix-ndi-alpha-runbook.md)
 - NDI path evaluation (A/B/C): [`docs/ops/ndi-path-evaluation.md`](./docs/ops/ndi-path-evaluation.md)
