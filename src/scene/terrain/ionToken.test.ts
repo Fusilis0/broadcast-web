@@ -7,7 +7,7 @@ import {
 } from './ionToken.ts'
 
 describe('resolveCesiumIonToken', () => {
-  it('prefers config.json over session and env (git-shared studio token)', () => {
+  it('prefers config.json over session and env (local studio token)', () => {
     expect(resolveCesiumIonToken('  from-git  ', 'from-session')).toBe(
       'from-git',
     )

@@ -3,6 +3,7 @@
  */
 import { afterEach, describe, expect, it } from 'vitest'
 import { buildSrtCallerUrl } from '../output/srtCallerUrl.ts'
+import { SRT_CATALOG_TOKEN, SRT_RELAY_HOST } from '../output/srtStreamCatalog.ts'
 import { startFleetLivePanel } from './fleetLivePanel.ts'
 
 describe('fleet live SRT config (L9)', () => {
@@ -27,7 +28,7 @@ describe('fleet live SRT config (L9)', () => {
         boats: [{ id: '21', name: '21', category: '' }],
         activePovId: '5',
         srtUrlTemplate:
-          'srt://49.13.20.49:9000?mode=caller&streamid=read:cam{srtId}:pub{srtId}:tok',
+          'srt://127.0.0.1:9000?mode=caller&streamid=read:cam{srtId}:pub{srtId}:tok',
         srtByPovId: { '5': '30' },
         enabledSrtPovIds: ['5'],
       },
@@ -105,10 +106,10 @@ describe('fleet live SRT config (L9)', () => {
     expect(srtApplies).toHaveLength(1)
     expect(srtApplies[0]?.srtId).toBe('18')
     const parsed = new URL(srtApplies[0]!.url)
-    expect(parsed.hostname).toBe('49.13.20.49')
+    expect(parsed.hostname).toBe(SRT_RELAY_HOST)
     expect(parsed.port).toBe('9000')
     expect(parsed.searchParams.get('streamid')).toBe(
-      'read:cam18:pub18:e8r4m3',
+      `read:cam18:pub18:${SRT_CATALOG_TOKEN}`,
     )
     expect(parsed.searchParams.get('mode')).toBe('caller')
 
@@ -148,8 +149,10 @@ describe('fleet live SRT config (L9)', () => {
     connectSrt?.click()
     expect(srtApplies).toHaveLength(1)
     const parsed = new URL(srtApplies[0]!.url)
-    expect(parsed.hostname).toBe('49.13.20.49')
-    expect(parsed.searchParams.get('streamid')).toBe('read:cam1:pub1:k3q9x7')
+    expect(parsed.hostname).toBe(SRT_RELAY_HOST)
+    expect(parsed.searchParams.get('streamid')).toBe(
+      `read:cam1:pub1:${SRT_CATALOG_TOKEN}`,
+    )
     expect(handle.getState().srtUrlTemplate).toBe('')
     expect(host.querySelector('[data-ops="srt-situation"]')).toBeTruthy()
 

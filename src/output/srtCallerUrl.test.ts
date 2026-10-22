@@ -14,7 +14,7 @@ import {
 } from './srtCallerUrl.ts'
 
 const TEMPLATE =
-  'srt://49.13.20.49:9000?mode=caller&streamid=read:cam{srtId}:pub{srtId}:TOKEN'
+  'srt://127.0.0.1:9000?mode=caller&streamid=read:cam{srtId}:pub{srtId}:TOKEN'
 
 describe('buildSrtCallerUrl', () => {
   it('substitutes {srtId} in both streamid slots; telemetry id is unused', () => {
@@ -31,7 +31,7 @@ describe('buildSrtCallerUrl', () => {
 
   it('treats {id} as an alias for {srtId}', () => {
     const tmpl =
-      'srt://49.13.20.49:9000?mode=caller&streamid=read:cam{id}:pub{id}:x'
+      'srt://127.0.0.1:9000?mode=caller&streamid=read:cam{id}:pub{id}:x'
     const got = buildSrtCallerUrl(tmpl, '7')
     expect(got.ok).toBe(true)
     if (!got.ok) return
@@ -51,7 +51,7 @@ describe('buildSrtCallerUrl', () => {
 
   it('rejects a template with no {srtId} / {id} placeholder', () => {
     const got = buildSrtCallerUrl(
-      'srt://49.13.20.49:9000?mode=caller&streamid=read:cam1:pub1:x',
+      'srt://127.0.0.1:9000?mode=caller&streamid=read:cam1:pub1:x',
       '30',
     )
     expect(got).toEqual({
@@ -76,7 +76,7 @@ describe('buildSrtCallerUrl', () => {
       .toMatchObject({ ok: false })
     expect(
       buildSrtCallerUrl(
-        'srt://49.13.20.49:9000?mode=listener&streamid=cam{srtId}',
+        'srt://127.0.0.1:9000?mode=listener&streamid=cam{srtId}',
         '30',
       ),
     ).toMatchObject({ ok: false, error: expect.stringMatching(/caller/i) })
@@ -105,7 +105,7 @@ describe('buildSrtCallerUrl', () => {
 describe('redactSrtUrl / pack template', () => {
   it('redacts streamid token and passphrase, never the full secret', () => {
     const href =
-      'srt://49.13.20.49:9000?mode=caller&streamid=read:cam30:pub30:super-secret&passphrase=pw'
+      'srt://127.0.0.1:9000?mode=caller&streamid=read:cam30:pub30:super-secret&passphrase=pw'
     const redacted = redactSrtUrl(href)
     expect(redacted).not.toContain('super-secret')
     expect(redacted).not.toContain('pw')
@@ -129,9 +129,9 @@ describe('redactSrtUrl / pack template', () => {
 
   it('redacts last colon-segment of a pathname read:camN:pubN:token', () => {
     const href =
-      'srt://49.13.20.49:9000/read:cam18:pub18:e8r4m3?mode=caller'
+      'srt://127.0.0.1:9000/read:cam18:pub18:secret-token?mode=caller'
     const redacted = redactSrtUrl(href)
-    expect(redacted).not.toContain('e8r4m3')
+    expect(redacted).not.toContain('secret-token')
     expect(decodeURIComponent(new URL(redacted).pathname)).toBe(
       '/read:cam18:pub18:***',
     )
@@ -141,7 +141,7 @@ describe('redactSrtUrl / pack template', () => {
 describe('promotePublishPathToStreamId', () => {
   it('converts /read:camN:… path to query streamid', () => {
     const got = buildSrtCallerUrl(
-      'srt://49.13.20.49:9000/read:cam{srtId}:pub{srtId}:tok',
+      'srt://127.0.0.1:9000/read:cam{srtId}:pub{srtId}:tok',
       '18',
     )
     expect(got.ok).toBe(true)
@@ -152,7 +152,7 @@ describe('promotePublishPathToStreamId', () => {
     expect(parsed.pathname === '/' || parsed.pathname === '').toBe(true)
     expect(
       promotePublishPathToStreamId(
-        'srt://49.13.20.49:9000/read:cam18:pub18:e8r4m3',
+        'srt://127.0.0.1:9000/read:cam18:pub18:secret-token',
       ),
     ).not.toMatch(/\/read:cam18/)
   })
@@ -160,15 +160,15 @@ describe('promotePublishPathToStreamId', () => {
   it('still converts legacy /publish:camN:… path to query streamid', () => {
     expect(
       promotePublishPathToStreamId(
-        'srt://49.13.20.49:9000/publish:cam18:pub18:e8r4m3',
+        'srt://127.0.0.1:9000/publish:cam18:pub18:secret-token',
       ),
     ).not.toMatch(/\/publish:cam18/)
     const parsed = new URL(
       promotePublishPathToStreamId(
-        'srt://49.13.20.49:9000/publish:cam18:pub18:e8r4m3',
+        'srt://127.0.0.1:9000/publish:cam18:pub18:secret-token',
       ),
     )
-    expect(parsed.searchParams.get('streamid')).toBe('publish:cam18:pub18:e8r4m3')
+    expect(parsed.searchParams.get('streamid')).toBe('publish:cam18:pub18:secret-token')
   })
 })
 
@@ -188,7 +188,7 @@ describe('shouldUseSrtCatalog', () => {
     ).toBe(true)
     expect(
       shouldUseSrtCatalog(
-        'srt://49.13.20.49:9000?mode=caller&streamid=read:cam{srtId}:pub{srtId}:tok',
+        'srt://127.0.0.1:9000?mode=caller&streamid=read:cam{srtId}:pub{srtId}:tok',
       ),
     ).toBe(false)
   })
@@ -207,7 +207,7 @@ describe('formatSrtSituation', () => {
           state: 'connecting',
           bitrateKbps: 0,
           lastError: null,
-          redactedUrl: 'srt://49.13.20.49:9000?mode=caller&streamid=read:cam18:pub18:***',
+          redactedUrl: 'srt://127.0.0.1:9000?mode=caller&streamid=read:cam18:pub18:***',
           framesDecoded: 0,
           hasPicture: false,
         },
@@ -216,7 +216,7 @@ describe('formatSrtSituation', () => {
     expect(text).toMatch(/colour bars = placeholder/)
     expect(text).toContain('pov 1 srt=18')
     expect(text).toContain('connecting')
-    expect(text).not.toContain('e8r4m3')
+    expect(text).not.toContain('secret-token')
   })
 
   it('shows codec, demux, and ffmpeg→h264 on a live stall row', () => {
@@ -231,7 +231,7 @@ describe('formatSrtSituation', () => {
           state: 'live',
           bitrateKbps: 3671,
           lastError: 'demux=40 WebCodecs produced 0 frames',
-          redactedUrl: 'srt://49.13.20.49:9000?mode=caller&streamid=read:cam1:pub1:***',
+          redactedUrl: 'srt://127.0.0.1:9000?mode=caller&streamid=read:cam1:pub1:***',
           framesDecoded: 0,
           hasPicture: false,
           codec: 'hevc',

@@ -204,7 +204,7 @@ Runbook: [`docs/ops/srt-local-obs.md`](../../docs/ops/srt-local-obs.md). Ingest 
 | Symbol | Role |
 | --- | --- |
 | `buildSrtCallerUrl(template, srtId)` | Substitute **every** `{srtId}` (and `{id}` alias). Empty id → do not open. Listener rejected. Telemetry `povId` is **not** used. Path `/read:camN:…` (or `/publish:…`) is promoted to query `streamid` |
-| `resolveSrtUrlForId(srtId)` | Hardcoded cam **1–27** catalog → caller at `49.13.20.49:9000` with `streamid=read:camN:pubN:<token>`. Empty template uses this; filled `{srtId}` template is the escape hatch. Unknown id → error |
+| `resolveSrtUrlForId(srtId)` | Hardcoded cam **1–27** catalog → caller at `127.0.0.1:9000` with placeholder `streamid=read:camN:pubN:example`. Empty template uses this; filled `{srtId}` template is the escape hatch (operators put the live host + token here). Unknown id → error |
 | `redactSrtUrl` / `redactSrtTemplateForPack` | Never log the composed `streamid` token **or** a path-style `read:` / `publish:` token; pack save strips it |
 | `resolveOpaqueClearSafeForVideo` | **L8:** `arBackground: video` + AR focus/plate → `opaqueClearSafe = false` (ocean/sky off). 3D NDI still forces env on during its FBO |
 | `startSyncDebugPanel` | Ops **Output** section, **off by default**, DOM-only. Never on the AR plate / NDI |

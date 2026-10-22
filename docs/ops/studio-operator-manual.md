@@ -390,7 +390,7 @@ Status line examples: `Terrain: on · AR-gated · aerial · tiles N`, `Terrain: 
 
 **Resolve order** (first non-empty wins):
 
-1. `public/config.json` → `cesiumIonToken` (Electron **Apply** can write this file; packaged builds use `userData/config.json`)
+1. `public/config.json` → `cesiumIonToken` (leave empty in git; Electron **Apply** can write this locally; packaged builds use `userData/config.json`)
 2. `sessionStorage` `bw.cesiumIonToken` (this session’s paste)
 3. Env `VITE_CESIUM_ION_TOKEN`
 4. Empty → no World Terrain, no OSM Buildings, no Bing drape. Sea/heroes-from-disk can still run. Cinematic warm: `tiles: skipped (no ion token)`.

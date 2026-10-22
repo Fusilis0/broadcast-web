@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { redactSrtUrl } from './srtCallerUrl.ts'
 import {
+  SRT_CATALOG_TOKEN,
   SRT_RELAY_HOST,
   SRT_RELAY_PORT,
   SRT_STREAM_CATALOG,
@@ -8,8 +9,7 @@ import {
   resolveSrtUrlForId,
 } from './srtStreamCatalog.ts'
 
-const ID_18_STREAMID = 'read:cam18:pub18:e8r4m3'
-const ID_18_TOKEN = 'e8r4m3'
+const ID_18_STREAMID = `read:cam18:pub18:${SRT_CATALOG_TOKEN}`
 
 describe('resolveSrtUrlForId', () => {
   it('resolves every catalog id to caller URL on the locked host', () => {
@@ -34,15 +34,15 @@ describe('resolveSrtUrlForId', () => {
     expect(got.ok).toBe(true)
     if (!got.ok) return
     const parsed = new URL(got.href)
-    expect(parsed.hostname).toBe('49.13.20.49')
-    expect(parsed.port).toBe('9000')
+    expect(parsed.hostname).toBe(SRT_RELAY_HOST)
+    expect(parsed.port).toBe(SRT_RELAY_PORT)
     expect(parsed.searchParams.get('streamid')).toBe(ID_18_STREAMID)
     expect(parsed.searchParams.get('mode')).toBe('caller')
     expect(parsed.pathname === '/' || parsed.pathname === '').toBe(true)
     expect(got.href).not.toMatch(/\/read:cam18/)
     expect(got.href).not.toContain('publish:')
     const redacted = redactSrtUrl(got.href)
-    expect(redacted).not.toContain(ID_18_TOKEN)
+    expect(redacted).not.toContain(SRT_CATALOG_TOKEN)
     expect(new URL(redacted).searchParams.get('streamid')).toBe(
       'read:cam18:pub18:***',
     )
@@ -62,9 +62,9 @@ describe('resolveSrtUrlForId', () => {
     expect(one.ok).toBe(true)
     if (!one.ok) return
     expect(new URL(one.href).searchParams.get('streamid')).toBe(
-      'read:cam1:pub1:k3q9x7',
+      `read:cam1:pub1:${SRT_CATALOG_TOKEN}`,
     )
-    expect(one.href).toContain('streamid=read:cam1:pub1:k3q9x7')
+    expect(one.href).toContain(`streamid=read:cam1:pub1:${SRT_CATALOG_TOKEN}`)
     expect(one.href).not.toContain('%3A')
     expect(new URL(one.href).searchParams.get('streamid')).not.toMatch(/cam10/)
   })

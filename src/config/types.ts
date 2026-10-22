@@ -98,10 +98,9 @@ export type AppConfig = {
   projectsApiToken: string
   /**
    * Cesium ion access token for World Terrain (Phase 14.1).
-   * Git-shared on this private studio repo via `public/config.json`.
-   * Enter it in Ops (ion token + Apply) or paste here, then commit.
-   * Empty → terrain stays off. Never log the value. Do not ship a filled
-   * token on a public Hetzner SPA.
+   * Empty in git. Enter it in Ops (ion token + Apply) or local config.
+   * Empty → terrain stays off. Never log the value. Do not commit or
+   * ship a filled token.
    */
   cesiumIonToken: string
   /**

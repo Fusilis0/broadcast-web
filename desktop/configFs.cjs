@@ -1,5 +1,5 @@
 /**
- * Patch git-shared / userData `config.json` from the Electron studio shell.
+ * Patch local / userData `config.json` from the Electron studio shell.
  * Dev / Vite URL → repo `public/config.json` (commit to share the ion token).
  * `--file` → `userData/config.json` (not git; dist is not writable).
  */

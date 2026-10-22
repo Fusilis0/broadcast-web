@@ -1,7 +1,13 @@
 # BW_MEMO — Broadcast-Web Master Orchestrator
 
-**Last updated:** 2026-09-15  
+**Last updated:** 2026-10-22  
 **Session role:** BW
+
+## 2026-10-22 — Public-repo secret strip
+
+Working tree: empty `cesiumIonToken`, empty `DEFAULT_LIVE_WS_BASE`, SRT catalog host `127.0.0.1` + placeholder `example` tokens. RULES §11 ion-commit exception revoked. Operator paste: Ops ion token, Fleet SRT template, Fleet WS bases.
+
+**Git history still has the old JWT / streamids / VPS IPs.** Making the GitHub repo public is not enough — rewrite history (`git filter-repo`) or push a fresh orphan repo. Tokens already rotated.
 
 ## 2026-09-15 — 22.4 workers accepted; Human Pass E–I + A
 
@@ -606,13 +612,13 @@ Missing lat/lon is **not** an excuse to ignore `ts` / anchors. No src/ in BW cha
 
 **L9 smoke 2026-08-26 pm:** dummy Fleet template `srt://host:…` was skipping the catalog (hostname `host`). BW treated that as empty → catalog. Colour bars = compositor placeholder until a decoded frame. SRT situation now lives on Race ops.
 
-**L9 amended 2026-08-26 pm (BW, no dispatch):** catalog `streamid` is `read:camN:pubN:<token>` (was `publish:`). Same host `49.13.20.49:9000`, same tokens. Id 1 → `read:cam1:pub1:k3q9x7`. Id 18 → `read:cam18:pub18:***`.
+**L9 amended 2026-08-26 pm (BW, no dispatch):** catalog `streamid` is `read:camN:pubN:<token>` (was `publish:`). Git host is `127.0.0.1:9000` with placeholder tokens. Id 1 → `read:cam1:pub1:example`. Id 18 → `read:cam18:pub18:***`.
 
-`done/DSP-OUT-20260826-09` — BW verified `npm test` **818 + 23**. Empty template looks up cams 1–27; host `49.13.20.49`. No `91.98.150.21` in `src/`. Soft leftover: Electron connecting logs may still include raw `streamid` (main-process redact is passphrase-only).
+`done/DSP-OUT-20260826-09` — BW verified `npm test` **818 + 23**. Empty template looks up cams 1–27; host `127.0.0.1`. No production VPS IPs in `src/`. Soft leftover: Electron connecting logs may still include raw `streamid` (main-process redact is passphrase-only).
 
 ## Phase 17 follow-up ISSUED 2026-08-26 pm — SRT id catalog
 
-User: each camera has its own SRT URL/token, not one template. UI unchanged (SRT id field). Runtime lookup cams **1–27**. Host lock **`49.13.20.49`** (rewrite `91.98.150.21`). Open caller `streamid=publish:camN:pubN:token` (path form in the paste is not what ffmpeg sends). Tokens may live in this private repo (BW override); never log. No cam 30 in the list.
+User: each camera has its own SRT URL/token, not one template. UI unchanged (SRT id field). Runtime lookup cams **1–27**. Git host lock **`127.0.0.1`**. Open caller `streamid=publish:camN:pubN:token` (path form in the paste is not what ffmpeg sends). Do not commit live tokens. Never log. No cam 30 in the list.
 
 `active/DSP-OUT-20260826-09-srt-id-catalog`
 
@@ -1019,11 +1025,12 @@ Roadmap: new **Phase 13** (13.1–13.8) added, explicitly marked "not scheduled 
 
 ## Ion token git-share (2026-08-17 follow-up)
 
-User asked that the Unity ion token **transfer with git** and be enterable in the
-studio app. BW override of RULES §11: `public/config.json` `cesiumIonToken` **may**
-be committed on this private repo. Ops **ion token + Apply** writes that file in
-`desktop:dev`. Chrome stays session-only until the same field is pasted/committed.
-Do not deploy a filled token to a public Hetzner SPA.
+**Revoked 2026-10-22 (public repo):** do not commit `cesiumIonToken`. Paste in Ops
+(session / local `config.json`). Keep `.env` gitignored. Empty in git.
+
+Historical: user had asked the Unity ion token to transfer with git. That
+override of RULES §11 is closed. Ops **ion token + Apply** still writes local
+config in `desktop:dev`. Chrome stays session-only.
 
 ## Next (human)
 1. Smoke: environment **realistic**, terrain **on** (paste ion token in Ops → Apply →

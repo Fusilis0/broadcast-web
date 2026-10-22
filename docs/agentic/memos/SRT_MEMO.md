@@ -102,7 +102,7 @@ Far-device `fix(srt): unescape HEVC SPS so WebCodecs can copy-decode DJI`.
 SRT Ingest Orchestrator (`SRT`). Caller, catalog, ffmpeg TS, demux/decode, HEVC fallback, Race ops SRT HUD. New workers: `DSP-SRT-*`. Historical SRT code shipped as `DSP-OUT-03`…`09`.
 
 ## Locks
-- Caller, DJI only, catalog 1–27 @ `49.13.20.49:9000`, `read:camN:pubN:<token>`
+- Caller, DJI only, catalog 1–27 @ `127.0.0.1:9000`, `read:camN:pubN:example` (live via Fleet template)
 - Empty / dummy `host` template → catalog
 - No `%3A` in `streamid`; never log tokens
 - HEVC on wire; WebCodecs HEVC after RBSP-unescaped `hev1` (2026-08-29). ffmpeg→H.264 on WebCodecs fail or live `decoded=0` stall (~2.5 s)

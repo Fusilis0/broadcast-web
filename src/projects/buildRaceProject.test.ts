@@ -165,7 +165,7 @@ describe('buildRaceProject', () => {
       povIds: ['5'],
       output: {
         srtUrlTemplate:
-          'srt://49.13.20.49:9000?mode=caller&streamid=read:cam{srtId}:pub{srtId}:',
+          'srt://127.0.0.1:9000?mode=caller&streamid=read:cam{srtId}:pub{srtId}:',
         srtByPovId: { '5': '30' },
       },
       updatedAt: '2026-08-26T12:00:00.000Z',

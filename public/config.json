@@ -29,6 +29,6 @@
   "timecodeCorner": "bottom-right",
   "timecodeSizePx": 96,
   "whepUrl": "",
-  "cesiumIonToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI2YjRmNGQxOC05OWJlLTRmNTgtOGJlYi1lNjBlODkyY2EyMDYiLCJpZCI6Mzk3MzkzLCJpYXQiOjE3NzI1NjEwMTF9.yZQxCc5brkWkSrNcQtRi5amAEasuFy41J_4FGUUrm_Q",
+  "cesiumIonToken": "",
   "cesiumIonAssetId": 1
 }

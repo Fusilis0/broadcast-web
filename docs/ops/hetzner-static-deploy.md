@@ -54,7 +54,7 @@ npm run build
 
 Prefer leaving these empty and setting `public/config.json` on the host (or env at build) when going live. Replay/mock modes do not need WebSockets.
 
-**Cesium ion:** `cesiumIonToken` in `public/config.json` is git-shared for **studio** machines. A public `dist/` upload would expose that token to every browser. Leave it empty on Hetzner, or strip it before rsync.
+**Cesium ion:** leave `cesiumIonToken` empty in git and on any public `dist/` upload. Paste in Ops (session / local config) on studio machines. A public host would expose a filled token to every browser.
 
 ## Upload `dist/`
 

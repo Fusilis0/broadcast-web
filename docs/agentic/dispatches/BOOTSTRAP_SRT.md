@@ -41,7 +41,7 @@ Old Phase 17 SRT workers were filed as `DSP-OUT-20260826-03` … `-09`. That his
 
 ## Locks you defend
 - Electron studio **caller** only. Chrome cannot open SRT.
-- Catalog cams **1–27** @ `49.13.20.49:9000`, query `streamid=read:camN:pubN:<token>`, `mode=caller`. Empty or dummy `srt://host:…` template → catalog. Unknown id → error, no invented URL.
+- Catalog cams **1–27** @ `127.0.0.1:9000`, query `streamid=read:camN:pubN:example`, `mode=caller`. Empty or dummy `srt://host:…` template → catalog. Live relay via Fleet `{srtId}` template. Unknown id → error, no invented URL.
 - Never log raw tokens. `streamid` colons stay unencoded (`%3A` breaks ffmpeg).
 - On-wire codec **HEVC**; H.264 is the working fallback. Store HEVC pack is **not** required. ffmpeg HEVC→H.264 uses `-copyts` (no PTS restamp).
 - Colour bars = compositor placeholder until `decoded` climbs. `live kbps` only means the caller is pulling bytes.

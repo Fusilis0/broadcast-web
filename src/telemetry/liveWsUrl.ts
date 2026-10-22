@@ -7,7 +7,8 @@
  * (`type=drone&id=` is a producer URL and does not deliver telemetry to us.)
  */
 
-export const DEFAULT_LIVE_WS_BASE = 'ws://49.13.20.49:8080/ws'
+/** Empty in git — operators set Fleet Drone/Boat base (or local config). */
+export const DEFAULT_LIVE_WS_BASE = ''
 
 /** Strip subscribe/id/type query params; keep host/path and other params. */
 export function stripLiveWsId(baseUrl: string): string {

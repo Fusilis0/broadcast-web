@@ -20,7 +20,7 @@ Each phone has its own quartz oscillator. Android `System.currentTimeMillis()` c
 
 The producers therefore:
 
-1. Lock each phone to a **shared NTP server** (the VPS at `49.13.20.49`, UDP port 123) using `TimeSync`, and expose a monotonic “NTP now” via `TimeSync.nowNtpMs()`.
+1. Lock each phone to a **shared NTP server** (operator VPS, UDP port 123) using `TimeSync`, and expose a monotonic “NTP now” via `TimeSync.nowNtpMs()`.
 2. Stamp telemetry with that NTP clock (`ts` on DJI pose, `time` on boat GPS).
 3. Emit **stream_anchor** messages that pair a muxed video **PTS** with an NTP capture estimate (`ntp_capture_ms`).
 
@@ -30,7 +30,7 @@ The consumer’s job is: **PTS → NTP via anchors, then NTP → interpolated po
 
 ## 2. The wire contracts
 
-All of these travel as JSON text over WebSocket. The VPS router (`/root/server.js` on `49.13.20.49:8080`) fans out by **query-string channel**, not by JSON `kind`. Publishers connect as `ws://host:8080/ws?type=drone|boat&id=<channel>`. Subscribers connect as `type=client&subscribe=<channel>`.
+All of these travel as JSON text over WebSocket. The VPS router (`server.js` on `host:8080`) fans out by **query-string channel**, not by JSON `kind`. Publishers connect as `ws://host:8080/ws?type=drone|boat&id=<channel>`. Subscribers connect as `type=client&subscribe=<channel>`.
 
 **Router flag (must confirm before treating GoPro as live):** the live router only accepts query `type=drone|boat|client`. GoPro’s `AnchorPublisher.buildAnchorUrl` currently uses `type=anchor`. That query is **rejected** (close 1008) by the live `server.js` unless something else has changed on the VPS or GoPro is pointed at a different URL. DJI pose and DJI anchors share the **same** `type=drone&id=N` socket, so they fan out together. gps_111 often uses `type=drone` in the URL even though the JSON shape is boat GPS; the router’s *log* classifier then labels the body `BOAT` because it has `lat`+`time`+`id`. Fan-out still follows the query `id`.
 

@@ -1,7 +1,7 @@
 /**
- * Cesium ion token: `public/config.json` (git-shared) wins, then session
- * (Ops paste this session), then `VITE_CESIUM_ION_TOKEN`. Never log the value.
- * Empty → terrain stays off (no throw).
+ * Cesium ion token: `public/config.json` (local, never commit the JWT) wins,
+ * then session (Ops paste this session), then `VITE_CESIUM_ION_TOKEN`.
+ * Never log the value. Empty → terrain stays off (no throw).
  */
 
 export const CESIUM_ION_SESSION_KEY = 'bw.cesiumIonToken'

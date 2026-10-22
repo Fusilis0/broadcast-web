@@ -456,7 +456,7 @@ describe('parseRaceProject', () => {
       output: {
         outputMode: 'preview',
         srtUrlTemplate:
-          'srt://49.13.20.49:9000?mode=caller&streamid=read:cam{srtId}:pub{srtId}:',
+          'srt://127.0.0.1:9000?mode=caller&streamid=read:cam{srtId}:pub{srtId}:',
         srtByPovId: { '5': '30', '6': ' 31 ', '': 'x', junk: 2 },
       },
     })

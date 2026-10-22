@@ -6,7 +6,7 @@ SRT Ingest Orchestrator
 ## Owns
 - SRT **caller** ingest: Electron `broadcastStudio.srt`, ffmpeg MPEG-TS pipe, session cap **4**
 - Phase **22** program **egress**: ffmpeg publish children, SRT caller URLs/latency (AR/3D/2D)
-- Catalog + URL compose: cams **1–27**, host **`49.13.20.49:9000`**, `mode=caller`, `streamid=read:camN:pubN:<token>`
+- Catalog + URL compose: cams **1–27**, git host **`127.0.0.1:9000`**, `mode=caller`, placeholder `streamid=read:camN:pubN:example` (live host/token via Fleet template only)
 - Dummy / empty Fleet template → catalog; filled `{srtId}` template is the escape hatch
 - Token hygiene: never log raw `streamid`; serialize colons (no `%3A`); redact last segment
 - In-repo TS **demux** + WebCodecs **decode** + warm manager; HEVC on the wire, H.264 fallback
@@ -31,7 +31,7 @@ Historical workers used `DSP-OUT-20260826-03` … `-09`. **New work is `DSP-SRT-
 OUT (composite + NDI of the finished plate), TEL (PTS→NTP), CAL (trim), PLT (ffmpeg binary), PRF (do not confuse decode stall with fps)
 
 ## Hard locks (defend these)
-1. **Caller only.** No listener. No `91.98.150.21`. No invented ids outside 1–27.
+1. **Caller only.** No listener. No production VPS host in git. No invented ids outside 1–27.
 2. **DJI only.** No GoPro SRT path.
 3. PTS is **never restamped**. Copy path `-c copy` + `-mpegts_copyts 1`. Transcode keeps `-copyts`.
 4. Colour bars = **no decoded frame**, not the drone. `live kbps` ≠ picture.

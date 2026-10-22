@@ -164,17 +164,17 @@ describe('buildFfmpegArgv (main-process, PTS-safe)', () => {
 
   it('serializes streamid colons without percent-encoding', () => {
     const href =
-      'srt://49.13.20.49:9000?mode=caller&streamid=read:cam1:pub1:k3q9x7'
+      'srt://127.0.0.1:9000?mode=caller&streamid=read:cam1:pub1:example'
     const ok = validateSrtUrl(href)
     expect(ok.ok).toBe(true)
     if (!ok.ok) return
-    expect(ok.href).toContain('streamid=read:cam1:pub1:k3q9x7')
+    expect(ok.href).toContain('streamid=read:cam1:pub1:example')
     expect(ok.href).not.toContain('%3A')
     expect(cjs.validateSrtUrl(href).href).not.toContain('%3A')
     expect(
       cjs.redactSrtUrl(href),
     ).toBe(
-      'srt://49.13.20.49:9000?mode=caller&streamid=read:cam1:pub1:***',
+      'srt://127.0.0.1:9000?mode=caller&streamid=read:cam1:pub1:***',
     )
   })
 

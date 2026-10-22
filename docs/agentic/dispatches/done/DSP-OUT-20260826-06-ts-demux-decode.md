@@ -9,7 +9,7 @@
 - **Wave 2 — OUT-03 and OUT-04 accepted 2026-08-26.** Consume `srt:data` and `setTexture`. Do not modify those modules.
 - Parallel-safe with: OUT-07. **main.ts:** you may add one boot/teardown block for the stream manager **below** `startVideoBackground`. OUT-07 owns Fleet UI, URL compose, and the `opaqueClearSafe` video gate — stay out of `fleetLivePanel.ts` and `applyLocalChannelFocus`.
 - **Status: DONE** — worker complete + BW accepted 2026-08-26 (merged tree `npm test` 795+23, `npm run build` green). Live SRT picture **not smoked** (no relay token). HEVC HW probe true on RX 6750 XT in Chromium.
-- Live example (do **not** commit the token): host `49.13.20.49:9000`, `streamid=read:cam{srtId}:pub{srtId}:<session-token>`. OUT-07 builds the URL; you decode whatever bytes arrive.
+- Live example (do **not** commit the token): host `127.0.0.1:9000` or operator relay, `streamid=read:cam{srtId}:pub{srtId}:<session-token>`. OUT-07 builds the URL; you decode whatever bytes arrive.
 
 ## Goal
 
@@ -102,7 +102,7 @@ If you conclude a dependency is genuinely better, stop and report before adding 
 - [ ] Video stall repeats the last frame; NDI keeps sending at its normal cadence.
 - [ ] 4 concurrent streams decode without crosstalk; POV switch swaps texture with **no black frame**.
 - [ ] LRU eviction beyond the cap disposes cleanly (no leaked decoders).
-- [ ] Live smoke against a real SRT source **if one is reachable** (`srt://49.13.20.49:9000` caller; HEVC): recognisable moving picture behind the AR scene, present in the NDI frame. If the relay is down or HEVC is unsupported on this GPU, report that as a blocker with the probe result — do not fake a pass.
+- [ ] Live smoke against a real SRT source **if one is reachable** (`srt://127.0.0.1:9000` or operator relay caller; HEVC): recognisable moving picture behind the AR scene, present in the NDI frame. If the relay is down or HEVC is unsupported on this GPU, report that as a blocker with the probe result — do not fake a pass.
 - [ ] `npm test` + `npm run build` green.
 
 ## Report back

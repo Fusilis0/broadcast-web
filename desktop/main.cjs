@@ -401,7 +401,7 @@ function getConfigKind() {
   return configFs.resolveConfigKind(resolveLoadTarget().kind)
 }
 
-/** Patch git-shared `public/config.json` (dev) or userData copy (--file). */
+/** Patch local `public/config.json` (dev) or userData copy (--file). */
 function registerConfigIpc() {
   ipcMain.handle('config:setCesiumIonToken', async (_evt, token) => {
     try {

@@ -6,8 +6,8 @@ import {
 } from './flowTap.ts'
 
 const SECRET = 'super-secret-relay-token'
-const SRT_QUERY = `srt://49.13.20.49:9000?streamid=read:cam5:pub5:${SECRET}`
-const SRT_PATH = `srt://49.13.20.49:9000/read:cam5:pub5:${SECRET}`
+const SRT_QUERY = `srt://127.0.0.1:9000?streamid=read:cam5:pub5:${SECRET}`
+const SRT_PATH = `srt://127.0.0.1:9000/read:cam5:pub5:${SECRET}`
 
 describe('redactSrtish', () => {
   it('redacts streamid last segment and passphrase', () => {

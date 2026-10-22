@@ -28,7 +28,7 @@ describe('formatFlowJson / receivedAt', () => {
   it('pretty-prints and never emits a streamid token', () => {
     const secret = 'super-secret-token'
     const text = formatFlowJson({
-      redactedUrl: `srt://49.13.20.49:9000?mode=caller&streamid=read:cam30:pub30:${secret}`,
+      redactedUrl: `srt://127.0.0.1:9000?mode=caller&streamid=read:cam30:pub30:${secret}`,
     })
     expect(text).not.toContain(secret)
     expect(text).toMatch(/read:cam30:pub30:\*\*\*/)

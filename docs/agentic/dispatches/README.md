@@ -390,7 +390,7 @@ Drone **SRT video becomes the AR background** (replacing the alpha plate as a *m
 | --- | --- | --- |
 | [`done/DSP-TEL-20260826-08-matched-pose-cutover.md`](./done/DSP-TEL-20260826-08-matched-pose-cutover.md) | TEL+SCN | Matched pull path on `arBackground: video` + healthy LUT; alpha stays push+lerp; LUT = SRT id; `syncTrimMs` applied. Live SRT smoke still human. |
 
-**Phase 17 follow-up — accepted 2026-08-26.** [`done/DSP-OUT-20260826-09-srt-id-catalog.md`](./done/DSP-OUT-20260826-09-srt-id-catalog.md) — empty template → catalog cams 1–27 @ `49.13.20.49:9000`; filled `{srtId}` template still the escape hatch. Suite **818 + 23**.
+**Phase 17 follow-up — accepted 2026-08-26.** [`done/DSP-OUT-20260826-09-srt-id-catalog.md`](./done/DSP-OUT-20260826-09-srt-id-catalog.md) — empty template → catalog cams 1–27 @ `127.0.0.1:9000` (placeholder tokens); filled `{srtId}` template still the escape hatch. Suite **818 + 23**.
 
 **Phase 17 engineering complete.** Open: live SRT + clapper (`syncTrimMs` number), FOV/distortion (C6), mock anchors keyed by `povIds[0]` not SRT id. Electron SRT logs may still print `streamid` tokens (`desktop/srtHelpers.cjs`).
 

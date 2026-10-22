@@ -33,14 +33,14 @@ Telemetry `povId` and the SRT camera id are **not the same number**. Example: dr
 Relay URL shape (token is a secret — **do not commit**):
 
 ```
-srt://49.13.20.49:9000?mode=caller&streamid=read:cam30:pub30:<token>
+srt://127.0.0.1:9000?mode=caller&streamid=read:cam30:pub30:<token>
 ```
 
 Operator enters:
 
 | Field | Example | Where |
 | --- | --- | --- |
-| URL template (shared) | `srt://49.13.20.49:9000?mode=caller&streamid=read:cam{srtId}:pub{srtId}:TOKEN` | One input, next to the existing WS base URLs |
+| URL template (shared) | `srt://127.0.0.1:9000?mode=caller&streamid=read:cam{srtId}:pub{srtId}:TOKEN` | One input, next to the existing WS base URLs |
 | Per-row **telemetry / POV id** | existing Fleet id | already there |
 | Per-row **SRT id** | `30` | **new field next to the POV id** |
 
